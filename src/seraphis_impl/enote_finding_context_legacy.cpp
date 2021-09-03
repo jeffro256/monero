@@ -31,6 +31,7 @@
 
 //local headers
 #include "async/misc_utils.h"
+#include "common/container_helpers.h"
 #include "device/device.hpp"
 #include "seraphis_main/contextual_enote_record_types.h"
 #include "seraphis_main/scan_balance_recovery_utils.h"
@@ -80,16 +81,15 @@ void EnoteFindingContextLegacySimple::view_scan_chunk(const LegacyUnscannedChunk
             }
 
             // Collect key images
-            sp::SpContextualKeyImageSetV1 collected_key_images;
-            if (sp::scanning::try_collect_key_images_from_tx(blk.block_index,
+            if (!tx.legacy_key_images.empty())
+            {
+                sp::scanning::collect_key_images_from_tx(blk.block_index,
                     blk.block_timestamp,
                     tx.transaction_id,
                     tx.legacy_key_images,
                     std::vector<crypto::key_image>()/*sp_key_images*/,
                     sp::SpEnoteSpentStatus::SPENT_ONCHAIN,
-                    collected_key_images))
-            {
-                chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+                    tools::add_element(chunk_data_out.contextual_key_images));
             }
         }
     }
@@ -160,16 +160,15 @@ void EnoteFindingContextLegacyMultithreaded::view_scan_chunk(
             }
 
             // Collect key images
-            sp::SpContextualKeyImageSetV1 collected_key_images;
-            if (sp::scanning::try_collect_key_images_from_tx(blk.block_index,
+            if (!tx.legacy_key_images.empty())
+            {
+                sp::scanning::collect_key_images_from_tx(blk.block_index,
                     blk.block_timestamp,
                     tx.transaction_id,
                     tx.legacy_key_images,
                     std::vector<crypto::key_image>()/*sp_key_images*/,
                     sp::SpEnoteSpentStatus::SPENT_ONCHAIN,
-                    collected_key_images))
-            {
-                chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+                    tools::add_element(chunk_data_out.contextual_key_images));
             }
 
             ++idx;

@@ -79,7 +79,9 @@ void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
 
     // 2. make mock outputs
     std::vector<SpCoinbaseOutputProposalV1> output_proposals{
-            gen_mock_sp_coinbase_output_proposals_v1(out_amounts, params.num_random_memo_elements)
+            gen_mock_sp_coinbase_output_proposals_v1(out_amounts,
+                params.num_primary_view_tag_bits,
+                params.num_random_memo_elements)
         };
 
     // 3. make partial memo
@@ -98,9 +100,12 @@ void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
     make_v1_coinbase_outputs_v1(output_proposals, output_enotes, tx_supplement.output_enote_ephemeral_pubkeys);
 
     // 5. collect full memo
+    tx_supplement.num_primary_view_tag_bits = get_shared_num_primary_view_tag_bits({}, {}, output_proposals, {});
+
+    // 6. collect full memo
     finalize_tx_extra_v1(partial_memo, output_proposals, tx_supplement.tx_extra);
 
-    // 6. finish tx
+    // 7. finish tx
     make_seraphis_tx_coinbase_v1(semantic_rules_version,
         ledger_context_inout.chain_height() + 1,  //next block
         std::move(output_enotes),
@@ -148,7 +153,9 @@ void make_mock_tx<SpTxSquashedV1>(const SpTxParamPackV1 &params,
 
     // 6. make mock outputs
     std::vector<SpOutputProposalV1> output_proposals{
-            gen_mock_sp_output_proposals_v1(out_amounts, params.num_random_memo_elements)
+            gen_mock_sp_output_proposals_v1(out_amounts,
+                params.num_primary_view_tag_bits,
+                params.num_random_memo_elements)
         };
 
     // 7. for 2-out txs, the enote ephemeral pubkey is shared by both outputs

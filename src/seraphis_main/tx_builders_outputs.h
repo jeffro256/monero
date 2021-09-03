@@ -32,6 +32,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/carrot_payment_proposal.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
 #include "seraphis_core/jamtis_support_types.h"
@@ -53,18 +54,25 @@ namespace sp
 
 enum class OutputProposalSetExtraTypeV1
 {
-    // a plain dummy output             (random recipient, random enote ephemeral pubkey, zero amount)
-    NORMAL_DUMMY,
-    // a self-send dummy output         (self recipient,   normal enote ephemeral pubkey, zero amount)
-    NORMAL_SELF_SEND_DUMMY,
-    // a normal change output           (self recipient,   normal enote ephemeral pubkey, non-zero amount)
-    NORMAL_CHANGE,
-    // a special dummy output           (random recipient, shared enote ephemeral pubkey, zero amount)
-    SPECIAL_DUMMY,
-    // a special self-send dummy output (self recipient,   shared enote ephemeral pubkey, zero amount)
-    SPECIAL_SELF_SEND_DUMMY,
-    // a special change output          (self recipient,   shared enote ephemeral pubkey, non-zero amount)
-    SPECIAL_CHANGE
+    // unique enote ephemeral pubkey,     primary view tag flagging,     change type
+    UNIQUE_FLAGGING_CHANGE,
+    // unique enote ephemeral pubkey, NOT primary view tag flagging,     change type
+    UNIQUE_HIDDEN_CHANGE,
+    // shared enote ephemeral pubkey,     primary view tag flagging,     change type
+    SHARED_FLAGGING_CHANGE,
+    // shared enote ephemeral pubkey, NOT primary view tag flagging,     change type
+    SHARED_HIDDEN_CHANGE,
+    // shared enote ephemeral pubkey,     primary view tag flagging, self-spend type
+    SHARED_FLAGGING_SELFSPEND,
+    // shared enote ephemeral pubkey, NOT primary view tag flagging, self-spend type
+    SHARED_HIDDEN_SELFSPEND
+
+    // There's no unique ephemeral pubkey + self-spend enum values since we try to avoid setting the
+    // enote type to 'self-spend' automatically, since this is intended to be a UX flag. The only
+    // time we will automatically add a 'self-spend' enote to an output set is when it is absolutely
+    // required to keep the derivation of the enote components unique, which only occurs when the
+    // enote ephemeral pubkey is shared (i.e. just 1). When the enote ephemeral pubkeys are unique
+    // per enote, the derivation will always be unique.
 };
 
 /**
@@ -72,14 +80,14 @@ enum class OutputProposalSetExtraTypeV1
 * param: selfsend_payment_proposal -
 * param: input_context -
 * param: spend_pubkey -
-* param: k_view_balance -
+* param: s_view_balance -
 * return: true if it's a valid self-send proposal
 */
 void check_jamtis_payment_proposal_selfsend_semantics_v1(
     const jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_payment_proposal,
     const rct::key &input_context,
     const rct::key &spend_pubkey,
-    const crypto::secret_key &k_view_balance);
+    const crypto::secret_key &s_view_balance);
 /**
 * brief: check_v1_coinbase_output_proposal_semantics_v1 - check semantics of a coinbase output proposal
 *   - throws if a check fails
@@ -125,12 +133,38 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
 /**
 * brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
 * param: proposal -
-* param: k_view_balance -
+* param: s_view_balance -
 * param: input_context -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
+    const rct::key &input_context,
+    SpOutputProposalV1 &output_proposal_out);
+/**
+* brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
+* param: proposal -
+* param: num_primary_view_tag_bits -
+* param: input_context -
+* outparam: output_proposal_out -
+*/
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
+    const rct::key &input_context,
+    SpOutputProposalV1 &output_proposal_out);
+/**
+* brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
+* param: proposal -
+* param: num_primary_view_tag_bits -
+* param: k_view -
+* param: primary_address_spend_pubkey -
+* param: input_context -
+* outparam: output_proposal_out -
+*/
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalSelfSendV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**
@@ -159,14 +193,9 @@ void make_v1_outputs_v1(const std::vector<SpOutputProposalV1> &output_proposals,
 * brief: finalize_v1_output_proposal_set_v1 - finalize a set of output proposals by adding 0-1 new proposals
 *        (new proposals are appended)
 *   - NOT FOR COINBASE OUTPUT SETS (coinbase output sets don't need to be finalized)
-*   - add a change output if necessary
-*   - add a dummy output if appropriate
-*   - All output sets will contain at least 1 self-send, either from the original set passed in, or by adding a change
-*     or selfsend dummy here.
-*     - Only very rare txs should have more than two outputs and include a dummy output (i.e. have numerically more outputs
-*       than if this invariant weren't enforced; note that all txs must have at least two outputs). Only txs with at least
-*       two outputs and zero change amount and zero specified self-sends will acquire an additional dummy selfsend output.
-*     - A self-send dummy will only be made if there are no other self-sends; otherwise dummies will be purely random.
+*   - add a flagging/hidden change/self-spend output if necessary
+*   - All output sets will contain exactly 1 flagging self-send, plus any number of hidden self-sends, either from
+*     the original set passed in, or by adding an flagging/hidden change enote here.
 *     - The goal of this function is for all txs made from output sets produced by this function to be identifiable by view
 *       tag checks. That way, a signer scanning for balance recovery only needs key images from txs that are flagged by a
 *       view tag check in order to A) identify all spent enotes, B) identify all of their self-send enotes in txs that use
@@ -174,43 +203,34 @@ void make_v1_outputs_v1(const std::vector<SpOutputProposalV1> &output_proposals,
 *       key images from txs with view tag matches to the local client. Txs with no user-specified selfsends that don't use
 *       this function (or an equivalent) to define the output set WILL cause failures to identify spent enotes in that
 *       workflow.
+*   - All 2-output txs with both being self-sends should have 1 'change' and one 'self-spend' type enotes. This is to
+*     ensure that the derivations for the 2 self-sends with a shared ephemeral pubkey will be unique.
 * param: total_input_amount -
 * param: transaction_fee -
 * param: change_destination -
-* param: dummy_destination -
 * param: jamtis_spend_pubkey -
-* param: k_view_balance -
+* param: s_view_balance -
 * inoutparam: normal_payment_proposals_inout -
 * inoutparam: selfsend_payment_proposals_inout -
 */
 boost::optional<OutputProposalSetExtraTypeV1> try_get_additional_output_type_for_output_set_v1(
     const std::size_t num_outputs,
     const std::vector<jamtis::JamtisSelfSendType> &self_send_output_types,
+    const std::vector<bool> &self_send_output_is_hidden,
     const bool output_ephemeral_pubkeys_are_unique,
     const rct::xmr_amount change_amount);
-void make_additional_output_dummy_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
+void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
     const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
-    jamtis::JamtisPaymentProposalV1 &normal_proposal_out);  //exposed for unit testing
-void make_additional_output_selfsend_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
-    const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const rct::xmr_amount change_amount,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out);  //exposed for unit testing
-void make_additional_output_v1(const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
-    const crypto::secret_key &k_view_balance,
-    const rct::xmr_amount change_amount,
-    const OutputProposalSetExtraTypeV1 additional_output_type,
-    const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
-    std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout);  //exposed for unit testing
 void finalize_v1_output_proposal_set_v1(const boost::multiprecision::uint128_t &total_input_amount,
     const rct::xmr_amount transaction_fee,
     const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals_inout,
     std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout);
 /**

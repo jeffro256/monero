@@ -39,7 +39,7 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/binned_reference_set_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_core/sp_ref_set_index_mapper_flat.h"
@@ -377,7 +377,7 @@ static void check_tx_proposal_semantics_inputs_v1(const std::vector<LegacyInputP
     const std::vector<SpInputProposalV1> &sp_input_proposals,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     std::vector<rct::xmr_amount> &in_amounts_out)
 {
     // 1. there should be at least one input
@@ -396,10 +396,10 @@ static void check_tx_proposal_semantics_inputs_v1(const std::vector<LegacyInputP
 
     // 4. seraphis input proposal semantics should be valid
     rct::key sp_core_spend_pubkey{jamtis_spend_pubkey};
-    reduce_seraphis_spendkey_x(k_view_balance, sp_core_spend_pubkey);
+    reduce_seraphis_spendkey_x(k_generate_image, sp_core_spend_pubkey);
 
     for (const SpInputProposalV1 &sp_input_proposal : sp_input_proposals)
-        check_v1_input_proposal_semantics_v1(sp_input_proposal, sp_core_spend_pubkey, k_view_balance);
+        check_v1_input_proposal_semantics_v1(sp_input_proposal, sp_core_spend_pubkey, k_generate_image);
 
     // 5. collect input amounts
     in_amounts_out.reserve(legacy_input_proposals.size() + sp_input_proposals.size());
@@ -416,7 +416,7 @@ static void check_tx_proposal_semantics_selfsend_outputs_v1(const std::size_t nu
     const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance)
+    const crypto::secret_key &s_view_balance)
 {
     // 1. there must be at least one self-send output
     CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposals.size() > 0,
@@ -439,8 +439,11 @@ static void check_tx_proposal_semantics_selfsend_outputs_v1(const std::size_t nu
         check_jamtis_payment_proposal_selfsend_semantics_v1(selfsend_payment_proposal,
             input_context,
             jamtis_spend_pubkey,
-            k_view_balance);
+            s_view_balance);
     }
+
+    // 4. assert that there is exactly 1 value & unique npbits value amongst the proposals
+    get_shared_num_primary_view_tag_bits({}, selfsend_payment_proposals, {}, {});
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -802,15 +805,18 @@ void check_v1_coinbase_tx_proposal_semantics_v1(const SpCoinbaseTxProposalV1 &tx
 void check_v1_tx_proposal_semantics_v1(const SpTxProposalV1 &tx_proposal,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance)
+    const crypto::secret_key &s_view_balance)
 {
     // 1. check inputs
+    crypto::secret_key k_generate_image;
+    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
+
     std::vector<rct::xmr_amount> in_amounts;
     check_tx_proposal_semantics_inputs_v1(tx_proposal.legacy_input_proposals,
         tx_proposal.sp_input_proposals,
         legacy_spend_pubkey,
         jamtis_spend_pubkey,
-        k_view_balance,
+        k_generate_image,
         in_amounts);
 
     // 2. check self-send payment proposals
@@ -821,11 +827,11 @@ void check_v1_tx_proposal_semantics_v1(const SpTxProposalV1 &tx_proposal,
         tx_proposal.selfsend_payment_proposals,
         input_context,
         jamtis_spend_pubkey,
-        k_view_balance);
+        s_view_balance);
 
     // 3. check output proposals
     std::vector<SpOutputProposalV1> output_proposals;
-    get_output_proposals_v1(tx_proposal, k_view_balance, output_proposals);
+    get_output_proposals_v1(tx_proposal, s_view_balance, output_proposals);
 
     std::vector<rct::xmr_amount> output_amounts;
     check_tx_proposal_semantics_output_proposals_v1(output_proposals, tx_proposal.partial_memo, output_amounts);
@@ -1103,6 +1109,9 @@ void make_v1_partial_tx_v1(std::vector<LegacyInputV1> legacy_inputs,
         output_amount_commitment_blinding_factors,
         tx_supplement.output_enote_ephemeral_pubkeys);
 
+    tx_supplement.num_primary_view_tag_bits = get_shared_num_primary_view_tag_bits({}, {}, {},
+        output_proposals);
+
     // 5. collect full memo
     finalize_tx_extra_v1(partial_memo, output_proposals, tx_supplement.tx_extra);
 
@@ -1202,11 +1211,11 @@ void make_v1_partial_tx_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpPartialTxV1 &partial_tx_out)
 {
     // 1. validate tx proposal
-    check_v1_tx_proposal_semantics_v1(tx_proposal, legacy_spend_pubkey, jamtis_spend_pubkey, k_view_balance);
+    check_v1_tx_proposal_semantics_v1(tx_proposal, legacy_spend_pubkey, jamtis_spend_pubkey, s_view_balance);
 
     // 2. sort the inputs by key image
     std::sort(legacy_inputs.begin(), legacy_inputs.end(), tools::compare_func<LegacyInputV1>(compare_KI));
@@ -1237,7 +1246,7 @@ void make_v1_partial_tx_v1(const SpTxProposalV1 &tx_proposal,
 
     // 5. extract output proposals from tx proposal
     std::vector<SpOutputProposalV1> output_proposals;
-    get_output_proposals_v1(tx_proposal, k_view_balance, output_proposals);
+    get_output_proposals_v1(tx_proposal, s_view_balance, output_proposals);
 
     // 6. construct partial tx
     make_v1_partial_tx_v1(std::move(legacy_inputs),

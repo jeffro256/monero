@@ -273,7 +273,7 @@ namespace config
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
   const constexpr char HASH_KEY_MULTISIG_BINONCE_MERGE_FACTOR[] = "multisig_binonce_merge_factor";
   const constexpr char HASH_KEY_SERAPHIS_X[] = "seraphis_X";
-  const constexpr char HASH_KEY_SERAPHIS_U[] = "seraphis_U";
+  const constexpr char HASH_KEY_SERAPHIS_U[] = "Monero Generator T"; // to match https://github.com/kayabaNerve/fcmp-plus-plus/blob/00242acf9a1402d6361f057e51deecebf73e17b4/coins/monero/generators/src/lib.rs#L39-L44
 
   const constexpr char TRANSCRIPT_PREFIX[] = "monero";
 
@@ -307,32 +307,35 @@ namespace config
   const constexpr char HASH_KEY_BINNED_REF_SET_GENERATOR_SEED[] = "binned_refset_generator_seed";
   const constexpr char HASH_KEY_BINNED_REF_SET_MEMBER[] = "binned_refset_member";
 
-  const constexpr char HASH_KEY_JAMTIS_VIEWBALANCE_KEY[] = "jamtis_view_balance_key";
-  const constexpr char HASH_KEY_JAMTIS_UNLOCKAMOUNTS_KEY[] = "jamtis_unlock_amounts_key";
+  const constexpr char HASH_KEY_JAMTIS_PROVESPEND_KEY[] = "jamtis_prove_spend_key";
+  const constexpr char HASH_KEY_JAMTIS_VIEWBALANCE_SECRET[] = "jamtis_view_balance_secret";
+  const constexpr char HASH_KEY_JAMTIS_GENERATEIMAGE_KEY[] = "jamtis_generate_image_key";
+  const constexpr char HASH_KEY_JAMTIS_UNLOCKRECEIVED_KEY[] = "jamtis_unlock_received_key";
+  const constexpr char HASH_KEY_JAMTIS_IDENTIFYRECEIVED_KEY[] = "jamtis_identify_received_key";
+  const constexpr char HASH_KEY_JAMTIS_FILTERASSIST_KEY[] = "jamtis_filter_assist_key";
   const constexpr char HASH_KEY_JAMTIS_GENERATEADDRESS_SECRET[] = "jamtis_generate_address_secret";
   const constexpr char HASH_KEY_JAMTIS_CIPHERTAG_SECRET[] = "jamtis_cipher_tag_secret";
-  const constexpr char HASH_KEY_JAMTIS_FINDRECEIVED_KEY[] = "jamtis_find_received_key";
   const constexpr char HASH_KEY_JAMTIS_INDEX_EXTENSION_GENERATOR[] = "jamtis_index_extension_generator";
   const constexpr char HASH_KEY_JAMTIS_ADDRESS_PRIVKEY[] = "jamtis_address_privkey";
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_G[] = "jamtis_spendkey_extension_g";
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_X[] = "jamtis_spendkey_extension_x";
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_U[] = "jamtis_spendkey_extension_u";
-  const constexpr char HASH_KEY_JAMTIS_ADDRESS_TAG_HINT[] = "jamtis_address_tag_hint";
   const constexpr char HASH_KEY_JAMTIS_ENCRYPTED_ADDRESS_TAG[] = "jamtis_encrypted_address_tag";
-  const constexpr char HASH_KEY_JAMTIS_VIEW_TAG[] = "jamtis_view_tag";
-  const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_PLAIN[] = "jamtis_sr_secret_plain";
-  const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_DUMMY[] = "jamtis_selfsend_dummy";
-  const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_CHANGE[] = "jamtis_selfsend_change";
-  const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_SELF_SPEND[] = "jamtis_selfsend_self_spend";
+  const constexpr char HASH_KEY_JAMTIS_ENCRYPTED_AMOUNT_MASK[] = "jamtis_encrypted_amount_mask";
+  const constexpr char HASH_KEY_JAMTIS_ENCRYPTED_PAYMENT_ID_MASK[] = "jamtis_encrypted_payment_id_mask";
+  const constexpr char HASH_KEY_JAMTIS_VIEW_TAG_PRIMARY[] = "jamtis_view_tag_primary";
+  const constexpr char HASH_KEY_JAMTIS_VIEW_TAG_SECONDARY[] = "jamtis_view_tag_secondary";
+  const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET[] = "jamtis_sr_secret";
   const constexpr char HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_G[] = "jamtis_sender_extension_g";
   const constexpr char HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_X[] = "jamtis_sender_extension_x";
   const constexpr char HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_U[] = "jamtis_sender_extension_u";
-  const constexpr char HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_PLAIN[] = "jamtis_amount_baked_key_plain";
-  const constexpr char HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_SELFSEND[] = "jamtis_amount_baked_key_selfsend";
   const constexpr char HASH_KEY_JAMTIS_AMOUNT_BLINDING_FACTOR[] = "jamtis_amount_commitment_blinding_factor";
-  const constexpr char HASH_KEY_JAMTIS_ENCODED_AMOUNT_MASK[] = "jamtis_encoded_amount_mask";
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_COINBASE[] = "jamtis_input_context_coinbase";
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_STANDARD[] = "jamtis_input_context_standard";
+
+  const constexpr char HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_G[] = "carrot_change_spend_extension_g";
+  const constexpr char HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_U[] = "carrot_change_spend_extension_u";
+  const constexpr char HASH_KEY_CARROT_ENOTE_EPHEMERAL_PRIVKEY[] = "carrot_enote_ephemeral_privkey";
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};

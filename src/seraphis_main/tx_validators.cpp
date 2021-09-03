@@ -287,6 +287,7 @@ bool validate_sp_semantics_input_images_v1(const std::vector<LegacyEnoteImageV2>
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_sp_semantics_coinbase_layout_v1(const std::vector<SpCoinbaseEnoteV1> &outputs,
     const std::vector<crypto::x25519_pubkey> &enote_ephemeral_pubkeys,
+    const std::uint8_t num_primary_view_tag_bits,
     const TxExtra &tx_extra)
 {
     // output enotes should be sorted by onetime address with byte-wise comparisons (ascending), and unique
@@ -295,6 +296,10 @@ bool validate_sp_semantics_coinbase_layout_v1(const std::vector<SpCoinbaseEnoteV
 
     // enote ephemeral pubkeys should be unique (they don't need to be sorted)
     if (!keys_are_unique(enote_ephemeral_pubkeys))
+        return false;
+
+    // npbits should be less than or equal to the number of bits in a view tag
+    if (num_primary_view_tag_bits > 8 * jamtis::VIEW_TAG_BYTES)
         return false;
 
     // tx extra fields should be in sorted TLV (Type-Length-Value) format
@@ -311,6 +316,7 @@ bool validate_sp_semantics_layout_v1(const std::vector<LegacyRingSignatureV4> &l
     const std::vector<SpEnoteImageV1> &sp_input_images,
     const std::vector<SpEnoteV1> &outputs,
     const std::vector<crypto::x25519_pubkey> &enote_ephemeral_pubkeys,
+    const std::uint8_t num_primary_view_tag_bits,
     const TxExtra &tx_extra)
 {
     using legacy_ring_sig_element_t = 
@@ -350,6 +356,10 @@ bool validate_sp_semantics_layout_v1(const std::vector<LegacyRingSignatureV4> &l
 
     // enote ephemeral pubkeys should be unique (they don't need to be sorted)
     if (!keys_are_unique(enote_ephemeral_pubkeys))
+        return false;
+
+    // npbits should be less than or equal to the number of bits in a view tag
+    if (num_primary_view_tag_bits > 8 * jamtis::VIEW_TAG_BYTES)
         return false;
 
     // tx extra fields should be in sorted TLV (Type-Length-Value) format

@@ -89,8 +89,28 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
     hw::device &hwdev,
     std::list<ContextualBasicRecordVariant> &basic_records_in_tx_out);
 /**
+ * brief: filter_assist_scan_64 - perform filter-assist scanning on a set of enotes in a tx (max 64)
+ *
+ * This function is written to use no allocations to be as fast as possible without the use of
+ * threading. This function could potentially be used directly by light wallet servers to cache the
+ * results of filter-assist scanning for many clients, with the contextual information being added
+ * later when clients actually request scanning information. In reality, the number of outputs per
+ * transaction will be capped to 16 in real-world rulesets, so this function's cap of 64 enotes
+ * should be more than enough.
+ *
+ * param: d_filter_assist - d_fa
+ * param: enote_ephemeral_pubkeys - D_e[] for <enotes>
+ * param: num_primary_view_tag_bits - npbits
+ * param: enotes - read-only view into array of enotes, with a maximum length of 64
+ * return: bit mask for whether the primary view tag matched for each enote (0th index is LSB)
+*/
+std::uint64_t filter_assist_scan_64(const crypto::x25519_secret_key &d_filter_assist,
+    const epee::span<const crypto::x25519_pubkey> enote_ephemeral_pubkeys,
+    const std::uint8_t num_primary_view_tag_bits,
+    const epee::span<const SpEnoteVariant> enotes);
+/**
 * brief: try_find_sp_enotes_in_tx - obtain contextual basic records from a seraphis tx's contents
-* param: xk_find_received -
+* param: d_filter_assist -
 * param: block_index -
 * param: block_timestamp -
 * param: transaction_id -
@@ -101,7 +121,7 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
 * param: origin_status -
 * outparam: basic_records_in_tx_out -
 */
-bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &xk_find_received,
+bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &d_filter_assist,
     const std::uint64_t block_index,
     const std::uint64_t block_timestamp,
     const rct::key &transaction_id,
@@ -112,7 +132,7 @@ bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &xk_find_received,
     const SpEnoteOriginStatus origin_status,
     std::list<ContextualBasicRecordVariant> &basic_records_in_tx_out);
 /**
-* brief: try_collect_key_images_from_tx - if a tx has key images, collect them into a contextual key image set
+* brief: collect_key_images_from_tx - collect tx key images into a contextual key image set
 * param: block_index -
 * param: block_timestamp -
 * param: transaction_id -
@@ -120,9 +140,8 @@ bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &xk_find_received,
 * param: sp_key_images_in_tx -
 * param: spent_status -
 * outparam: contextual_key_images_out -
-* return: true if a set was made (there was at least one key image available)
 */
-bool try_collect_key_images_from_tx(const std::uint64_t block_index,
+void collect_key_images_from_tx(const std::uint64_t block_index,
     const std::uint64_t block_timestamp,
     const rct::key &transaction_id,
     std::vector<crypto::key_image> legacy_key_images_in_tx,
@@ -175,47 +194,50 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 /**
 * brief: process_chunk_intermediate_sp - process a chunk of contextual basic records with seraphis {kx_ua, kx_fr, s_ga}
 * param: jamtis_spend_pubkey -
-* param: xk_unlock_amounts -
-* param: xk_find_received -
+* param: d_unlock_received - d_ur
+* param: d_identify_received - d_ir
+* param: d_filter_assist - d_fa
 * param: s_generate_address -
 * param: cipher_context -
 * param: chunk_basic_records_per_tx - [ tx id : contextual basic record ]
 * outparam: found_enote_records_out - [ Ko : legacy contextual intermediate enote record ]
 */
 void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
+    const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
     const std::unordered_map<rct::key, std::list<ContextualBasicRecordVariant>> &chunk_basic_records_per_tx,
     std::unordered_map<rct::key, SpContextualIntermediateEnoteRecordV1> &found_enote_records_out);
 /**
-* brief: process_chunk_full_sp - process a chunk of contextual basic records with seraphis view-balance privkey
+* brief: process_chunk_full_sp - process a chunk of contextual basic/auxiliary records with seraphis view-balance key
 * param: jamtis_spend_pubkey -
-* param: k_view_balance -
-* param: xk_unlock_amounts -
-* param: xk_find_received -
+* param: s_view_balance -
+* param: d_unlock_received -
+* param: d_identify_received -
+* param: d_filter_assist -
 * param: s_generate_address -
 * param: cipher_context -
-* param: check_key_image_is_known_func - callback for checking if a key image is known by the caller
 * param: chunk_basic_records_per_tx - [ tx id : contextual basic record ]
 * param: chunk_contextual_key_images -
-* outparam: found_enote_records_out - [ seraphis KI : legacy contextual intermediate enote record ]
-* outparam: found_spent_sp_key_images_out - [ seraphis KI : spent context ]
-* outparam: legacy_key_images_in_sp_selfspends_out - [ legacy KI : spent context ]
+* outparam: found_enote_records_out - [ seraphis KI : legacy contextual enote record ]
+* outparam: sp_key_images_in_sp_selfsends_out - [ seraphis KI : spent context ]
+* outparam: legacy_key_images_in_sp_selfsends_out - [ legacy KI : spent context ]
 */
 void process_chunk_full_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
-    const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
+    const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
-    const std::function<bool(const crypto::key_image&)> &check_key_image_is_known_func,
     const std::unordered_map<rct::key, std::list<ContextualBasicRecordVariant>> &chunk_basic_records_per_tx,
     const std::list<SpContextualKeyImageSetV1> &chunk_contextual_key_images,
     std::unordered_map<crypto::key_image, SpContextualEnoteRecordV1> &found_enote_records_out,
-    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> &found_spent_sp_key_images_out,
-    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> &legacy_key_images_in_sp_selfspends_out);
+    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> &sp_key_images_in_sp_selfsends_out,
+    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> &legacy_key_images_in_sp_selfsends_out);
 
 } //namespace scanning
 } //namespace sp

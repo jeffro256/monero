@@ -237,10 +237,23 @@ void subtract_secret_key_vectors(const std::vector<crypto::secret_key> &keys_A,
         sc_sub(to_bytes(result_out), to_bytes(result_out), to_bytes(key_B));
 }
 //-------------------------------------------------------------------------------------------------------------------
+void normalize_x(crypto::public_key &P)
+{
+    P.data[31] &= 0x7f;
+}
+//-------------------------------------------------------------------------------------------------------------------
 void mask_key(const crypto::secret_key &mask, const rct::key &key, rct::key &masked_key_out)
 {
     // K" = mask G + K
     rct::addKeys1(masked_key_out, rct::sk2rct(mask), key);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void mask_key(const crypto::secret_key &mask, const crypto::public_key &key, crypto::public_key &masked_key_out)
+{
+    // K" = mask G + K
+    rct::key res_rct;
+    rct::addKeys1(res_rct, rct::sk2rct(mask), rct::pk2rct(key));
+    masked_key_out = rct::rct2pk(res_rct);
 }
 //-------------------------------------------------------------------------------------------------------------------
 crypto::secret_key add_secrets(const crypto::secret_key &a, const crypto::secret_key &b)

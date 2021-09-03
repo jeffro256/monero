@@ -345,3 +345,128 @@ TEST(Crypto, generator_consistency)
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
 }
+
+TEST(Crypto, verify_fe_fffb5)
+{
+  // verify that (fe_fffb5 * fe_fffb5) * (-1) + (-2) is equal to A
+  //     where A = 2 * (1 - d) / (1 + d) = 486662
+  const fe neg_one{-1};
+  const fe neg_two{-2};
+
+  fe temp;
+  fe_mul(temp, fe_fffb5, fe_fffb5);
+  fe_mul(temp, temp, neg_one);
+  fe_add(temp, temp, neg_two);
+
+  std::uint8_t res[32];
+  fe_tobytes(res, temp);
+
+  for (int i = 4; i < 32; ++i)
+    EXPECT_EQ(0, res[i]);
+  
+  std::uint32_t res32;
+  memcpy(&res32, res, sizeof(res32));
+
+  EXPECT_EQ(486662, res32);
+}
+
+static rct::key skGenX25519compat()
+{
+  rct::key sk{rct::skGen()}; // LE integer evenly distributed in [0, l)
+  sk.bytes[0]  &= 0xf8;      // clear lower 3 bits to force scalarmult results into prime subgroup
+  sk.bytes[31] &= 0x7f;      // clear top bit just in case
+  return sk;
+}
+
+static rct::key normalizeX(const rct::key &P)
+{
+  rct::key posP{P};
+  posP.bytes[31] &= 0x7f;
+  return posP;
+}
+
+static crypto::x25519_pubkey x25519_scmul_base(const rct::key &sk)
+{
+  crypto::x25519_secret_key skx;
+  memcpy(skx.data, sk.bytes, sizeof(skx));
+  crypto::x25519_pubkey P;
+  crypto::x25519_scmul_base(skx, P);
+  return P;
+}
+
+static crypto::x25519_pubkey x25519_scmul_key(const rct::key &sk, const crypto::x25519_pubkey &P)
+{
+  crypto::x25519_secret_key skx;
+  memcpy(skx.data, sk.bytes, sizeof(skx));
+  crypto::x25519_pubkey skP;
+  crypto::x25519_scmul_key(skx, P, skP);
+  return skP;
+}
+
+TEST(Crypto, ge_fromx25519_vartime_xbase_to_edbase)
+{
+  crypto::x25519_pubkey x25519_base{};
+  x25519_base.data[0] = 9;
+
+  ge_p3 base_p3;
+  ASSERT_EQ(0, ge_fromx25519_vartime(&base_p3, x25519_base.data));
+
+  rct::key base_serialized;
+  ge_p3_tobytes(base_serialized.bytes, &base_p3);
+
+  EXPECT_EQ(rct::G, base_serialized);
+}
+
+TEST(Crypto, XandEd_conv_scalarmult)
+{
+  const rct::key sk1{skGenX25519compat()};
+  const rct::key sk2{skGenX25519compat()};
+
+  const rct::key pk1e{rct::scalarmultBase(sk1)};
+  const rct::key pk2e{rct::scalarmultBase(sk2)};
+  const rct::key ss1e{rct::scalarmultKey(pk2e, sk1)};
+  const rct::key ss2e{rct::scalarmultKey(pk1e, sk2)};
+
+  const crypto::x25519_pubkey pk1x{x25519_scmul_base(sk1)};
+  const crypto::x25519_pubkey pk2x{x25519_scmul_base(sk2)};
+  const crypto::x25519_pubkey ss1x{x25519_scmul_key(sk1, pk2x)};
+  const crypto::x25519_pubkey ss2x{x25519_scmul_key(sk2, pk1x)};
+
+  // sanity check that Diffie-Helman exchange still works ;)
+  ASSERT_EQ(ss1e, ss2e);
+  ASSERT_EQ(ss1x, ss2x);
+  ASSERT_NE(rct::I, ss1e);
+
+  //----------------------------------------------------------------------------
+  // Convert X25519 Shared Secret to Ed25519
+  //----------------------------------------------------------------------------
+
+  // convert X25519 shared secret exchange point to ed25519
+  ge_p3 ss_p3;
+  ge_fromx25519_vartime(&ss_p3, ss1x.data);
+
+  rct::key conv_sse;
+  ge_p3_tobytes(conv_sse.bytes, &ss_p3);
+
+  // check that the converted point is serialized with 'even' x
+  EXPECT_EQ(0, conv_sse.bytes[31] & 0x80);
+
+  // normalize the ed25519 point
+  const rct::key sse_norm{normalizeX(ss1e)};
+
+  // check that the converted X25519 point is equal to the normalized ed25519 point
+  EXPECT_EQ(sse_norm, conv_sse);
+
+  //----------------------------------------------------------------------------
+  // Convert Ed25519 Shared Secret to X25519
+  //----------------------------------------------------------------------------
+
+  // deserialize Ed25519 shared secret (we don't need to normalize X since X25519 drops sign)
+  ge_frombytes_vartime(&ss_p3, ss1e.bytes);
+
+  // convert to X25519 point
+  crypto::x25519_pubkey conv_ssx;
+  ge_p3_to_x25519(conv_ssx.data, &ss_p3);
+
+  EXPECT_EQ(ss1x, conv_ssx);
+}

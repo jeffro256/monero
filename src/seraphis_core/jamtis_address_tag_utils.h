@@ -67,35 +67,24 @@ public:
 
 //member functions
     address_tag_t cipher(const address_index_t &j) const;
-    bool try_decipher(const address_tag_t &addr_tag, address_index_t &j_out) const;
+    void decipher(const address_tag_t &addr_tag, address_index_t &j_out) const;
 
 //member variables
 private:
-    crypto::secret_key m_cipher_key;
     Twofish_key m_twofish_key;
 };
 
-/// addr_tag = cipher[k](j) || H_2(k, cipher[k](j))
+/// addr_tag = cipher[k](j)
 address_tag_t cipher_address_index(const jamtis_address_tag_cipher_context &cipher_context, const address_index_t &j);
 address_tag_t cipher_address_index(const crypto::secret_key &cipher_key, const address_index_t &j);
 
-/// try to get j from an address tag
-bool try_decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
+/// get j from an address tag
+void decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
     const address_tag_t &addr_tag,
     address_index_t &j_out);
-bool try_decipher_address_index(const crypto::secret_key &cipher_key,
+void decipher_address_index(const crypto::secret_key &cipher_key,
     const address_tag_t &addr_tag,
     address_index_t &j_out);
-
-/// addr_tag_enc = addr_tag XOR H_32(q, Ko)
-encrypted_address_tag_t encrypt_address_tag(const rct::key &sender_receiver_secret,
-    const rct::key &onetime_address,
-    const address_tag_t &addr_tag);
-
-/// addr_tag = addr_tag_enc XOR H_32(q, Ko)
-address_tag_t decrypt_address_tag(const rct::key &sender_receiver_secret,
-    const rct::key &onetime_address,
-    const encrypted_address_tag_t &addr_tag_enc);
 
 /// generate a random tag
 void gen_address_tag(address_tag_t &addr_tag_inout);

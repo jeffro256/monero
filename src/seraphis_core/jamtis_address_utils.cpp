@@ -33,8 +33,9 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "cryptonote_config.h"
-#include "jamtis_core_utils.h"
+#include "jamtis_account_secrets.h"
 #include "jamtis_support_types.h"
+#include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
 #include "seraphis_crypto/sp_hash_functions.h"
@@ -143,7 +144,7 @@ void make_jamtis_address_privkey(const rct::key &spend_pubkey,
     crypto::secret_key generator;
     make_jamtis_index_extension_generator(s_generate_address, j, generator);
 
-    // xk^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
+    // d^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ADDRESS_PRIVKEY, ADDRESS_INDEX_BYTES};
     transcript.append("K_s", spend_pubkey);
     transcript.append("j", j.bytes);
@@ -152,12 +153,12 @@ void make_jamtis_address_privkey(const rct::key &spend_pubkey,
     sp_hash_to_x25519_scalar(transcript.data(), transcript.size(), address_privkey_out.data);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
+void make_jamtis_address_spend_key_sp(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     rct::key &address_spendkey_out)
 {
-    // K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
+    // K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
     crypto::secret_key address_extension_key_u;
     crypto::secret_key address_extension_key_x;
     crypto::secret_key address_extension_key_g;
@@ -171,28 +172,63 @@ void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
     mask_key(address_extension_key_g, address_spendkey_out, address_spendkey_out);  //k^j_g G + k^j_x X + k^j_u U + K_s
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_address_spend_key_rct(const rct::key &spend_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    rct::key &address_spendkey_out)
+{
+    // K^j_s = k^j_g G + k^j_u U + K_s
+    crypto::secret_key address_extension_key_u;
+    crypto::secret_key address_extension_key_g;
+    make_jamtis_spendkey_extension_u(spend_pubkey, s_generate_address, j, address_extension_key_u);  //k^j_u
+    make_jamtis_spendkey_extension_g(spend_pubkey, s_generate_address, j, address_extension_key_g);  //k^j_g
+
+    address_spendkey_out = spend_pubkey;  //K_s
+    extend_seraphis_spendkey_u(address_extension_key_u, address_spendkey_out);      //k^j_u U + K_s
+    mask_key(address_extension_key_g, address_spendkey_out, address_spendkey_out);  //k^j_g G + k^j_u U + K_s
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_address_spend_key(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &spend_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    rct::key &address_spendkey_out)
+{
+    switch (onetime_address_format)
+    {
+    case JamtisOnetimeAddressFormat::RINGCT_V2:
+        make_jamtis_address_spend_key_rct(spend_pubkey, s_generate_address, j, address_spendkey_out);
+        break;
+    case JamtisOnetimeAddressFormat::SERAPHIS:
+        make_jamtis_address_spend_key_sp(spend_pubkey, s_generate_address, j, address_spendkey_out);
+        break;
+    default:
+        ASSERT_MES_AND_THROW("make jamtis address spend key: unrecognized onetime address format");
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_seraphis_key_image_jamtis_style(const rct::key &spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::secret_key &spendkey_extension_x,
     const crypto::secret_key &spendkey_extension_u,
     const crypto::secret_key &sender_extension_x,
     const crypto::secret_key &sender_extension_u,
     crypto::key_image &key_image_out)
 {
-    // KI = ((k^o_u + k^j_u + k_m)/(k^o_x + k^j_x + k_vb)) U
+    // KI = ((k^o_u + k^j_u + k_m)/(k^o_x + k^j_x + k_gi)) U
 
-    // k_m U = K_s - k_vb X
-    rct::key zU{spend_pubkey};  //K_s = k_vb X + k_m U
-    reduce_seraphis_spendkey_x(k_view_balance, zU);  //k_m U
+    // k_m U = K_s - k_gi X
+    rct::key zU{spend_pubkey};  //K_s = k_gi X + k_m U
+    reduce_seraphis_spendkey_x(k_generate_image, zU);  //k_m U
 
     // z U = (k_u + k_m) U = k^o_u U + k^j_u U + k_m U
     extend_seraphis_spendkey_u(spendkey_extension_u, zU);  //k^j_u U + k_m U
     extend_seraphis_spendkey_u(sender_extension_u, zU);  //k^o_u U + k^j_u U + k_m U
 
-    // y = k^o_x + k^j_x + k_vb
+    // y = k^o_x + k^j_x + k_gi
     crypto::secret_key y;
     sc_add(to_bytes(y), to_bytes(sender_extension_x), to_bytes(spendkey_extension_x));  //k^o_x + k^j_x
-    sc_add(to_bytes(y), to_bytes(y), to_bytes(k_view_balance));  //+ k_vb
+    sc_add(to_bytes(y), to_bytes(y), to_bytes(k_generate_image));  //+ k_gi
 
     // KI = (1/y)*(k_u + k_m)*U
     make_seraphis_key_image(y, rct::rct2pk(zU), key_image_out);

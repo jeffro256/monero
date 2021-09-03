@@ -196,7 +196,7 @@ TEST(seraphis_serialization, jamtis_destination_v1)
 TEST(seraphis_serialization, jamtis_payment_proposal_v1)
 {
     // generate
-    JamtisPaymentProposalV1 payprop{gen_jamtis_payment_proposal_v1(7, 3)};
+    JamtisPaymentProposalV1 payprop{gen_jamtis_payment_proposal_v1(JamtisOnetimeAddressFormat::SERAPHIS, 7, 3, 9)};
 
     // serialize
     std::string serialized_payprop;
@@ -214,7 +214,8 @@ TEST(seraphis_serialization, jamtis_payment_proposal_self_send_v1)
 {
     // generate
     JamtisPaymentProposalSelfSendV1 payprop{
-            gen_jamtis_selfsend_payment_proposal_v1(7, JamtisSelfSendType::SELF_SPEND, 3)
+            gen_jamtis_selfsend_payment_proposal_v1(JamtisOnetimeAddressFormat::SERAPHIS, 7,
+                JamtisSelfSendType::SELF_SPEND, 3)
         };
 
     // serialize

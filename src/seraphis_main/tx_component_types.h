@@ -82,7 +82,7 @@ struct SpEnoteV1 final
     SpEnoteCore core;
 
     /// enc(a)
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
     /// view_tag
@@ -200,8 +200,10 @@ std::size_t sp_balance_proof_v1_weight(const SpBalanceProofV1 &proof);
 ///
 struct SpTxSupplementV1 final
 {
-    /// xKe: enote ephemeral pubkeys for outputs
+    /// D_e[]: enote ephemeral pubkeys for outputs
     std::vector<crypto::x25519_pubkey> output_enote_ephemeral_pubkeys;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// tx memo
     TxExtra tx_extra;
 };

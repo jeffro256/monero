@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Dependency injectors for the find-received step of enote scanning. Intended to be stateless.
+// Dependency injectors for the filter-assist step of enote scanning. Intended to be stateless.
 
 #pragma once
 
@@ -50,7 +50,7 @@ namespace sp
 
 ////
 // EnoteFindingContextNonLedger
-// - wraps a nonledger context of some kind, produces chunks of potentially owned enotes (from find-received scanning)
+// - wraps a nonledger context of some kind, produces chunks of potentially owned enotes (from filter-assist scanning)
 ///
 class EnoteFindingContextNonLedger
 {
@@ -69,7 +69,7 @@ public:
 
 ////
 // EnoteFindingContextLedger
-// - wraps a ledger context of some kind, produces chunks of potentially owned enotes (from find-received scanning)
+// - wraps a ledger context of some kind, produces chunks of potentially owned enotes (from filter-assist scanning)
 ///
 class EnoteFindingContextLedger
 {

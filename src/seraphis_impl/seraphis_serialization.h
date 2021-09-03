@@ -178,14 +178,14 @@ END_SERIALIZE()
 BEGIN_SERIALIZE_OBJECT_FN(SpCoinbaseEnoteV1)
     FIELD_F(core)
     FIELD_F(addr_tag_enc)
-    VARINT_FIELD_F(view_tag)
+    FIELD_F(view_tag)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(SpEnoteV1)
     FIELD_F(core)
-    FIELD_F(encoded_amount)
+    FIELD_F(encrypted_amount)
     FIELD_F(addr_tag_enc)
-    VARINT_FIELD_F(view_tag)
+    FIELD_F(view_tag)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(SpBalanceProofV1, const size_t implied_lr_size = SIZE_MAX)
@@ -347,6 +347,7 @@ END_SERIALIZE()
 BEGIN_SERIALIZE_OBJECT_FN(SpTxSupplementV1, const size_t implied_num_outputs = SIZE_MAX)
     const size_t implied_num_ephem_pubkeys{(2 == implied_num_outputs) ? 1 : implied_num_outputs};
     VEC_FIELD_OPT_EXACT_F(output_enote_ephemeral_pubkeys, implied_num_ephem_pubkeys)
+    VARINT_FIELD_F(num_primary_view_tag_bits)
     FIELD_F(tx_extra)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
@@ -399,9 +400,10 @@ namespace jamtis
 {
 //--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(JamtisDestinationV1)
-    FIELD_F(addr_K1)
-    FIELD_F(addr_K2)
-    FIELD_F(addr_K3)
+    FIELD_F(addr_Ks)
+    FIELD_F(addr_Dfa)
+    FIELD_F(addr_Dir)
+    FIELD_F(addr_Dbase)
     FIELD_F(addr_tag)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
@@ -425,4 +427,5 @@ END_SERIALIZE()
 
 BLOB_SERIALIZER(sp::jamtis::address_index_t);
 BLOB_SERIALIZER(sp::jamtis::address_tag_t);
-BLOB_SERIALIZER(sp::jamtis::encoded_amount_t);
+BLOB_SERIALIZER(sp::jamtis::encrypted_amount_t);
+BLOB_SERIALIZER(sp::jamtis::view_tag_t);

@@ -172,16 +172,16 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  *  \brief begins the environment of the DSL
  *  \detailed for described the serialization of an object
  */
-#define BEGIN_SERIALIZE_OBJECT()					\
-  template <bool W, template <bool> class Archive>			\
-  bool member_do_serialize(Archive<W> &ar) {					\
-    ar.begin_object();							\
-    bool r = do_serialize_object(ar);					\
-    ar.end_object();							\
-    return r;								\
-  }									\
-  template <bool W, template <bool> class Archive>			\
-  bool do_serialize_object(Archive<W> &ar){
+#define BEGIN_SERIALIZE_OBJECT(...)                                  \
+  template <bool W, template <bool> class Archive, typename... Args> \
+  bool member_do_serialize(Archive<W> &ar, Args&&... args) {         \
+    ar.begin_object();	                                             \
+    bool r = do_serialize_object(ar, args...);                       \
+    ar.end_object();                                                 \
+    return r;                                                        \
+  }                                                                  \
+  template <bool W, template <bool> class Archive>                   \
+  bool do_serialize_object(Archive<W> &ar VA_ARGS_COMMAPREFIX(__VA_ARGS__)){
 
 /*! \macro BEGIN_SERIALIZE_OBJECT_FN
  *

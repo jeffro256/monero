@@ -86,6 +86,7 @@ struct SpTxParamPackV1
     std::vector<rct::xmr_amount> sp_input_amounts{};
     std::vector<rct::xmr_amount> output_amounts{};
     DiscretizedFee discretized_fee{sp::discretize_fee(0)};
+    std::uint8_t num_primary_view_tag_bits{8};
 };
 /// make an SpTxCoinbaseV1 transaction
 template <>

@@ -31,6 +31,11 @@
 #pragma once
 
 #include "crypto/crypto.h"
+extern "C"
+{
+#include "crypto/twofish.h"
+}
+#include "crypto/x25519.h"
 #include "ringct/rctOps.h"
 
 enum test_op
@@ -41,6 +46,8 @@ enum test_op
   op_ge_add_raw,
   op_ge_add_p3_p3,
   op_zeroCommitCached,
+  op_twofish_encrypt_block,
+  op_twofish_decrypt_block,
   ops_fast,
 
   op_addKeys,
@@ -62,13 +69,15 @@ enum test_op
   op_addKeys_aAbBcC,
   op_isInMainSubgroup,
   op_zeroCommitUncached,
+  op_x25519_scmul_key
 };
 
 template<test_op op>
 class test_crypto_ops
 {
 public:
-  static const size_t loop_count = op < ops_fast ? 10000000 : 1000;
+  static const size_t loop_count = op < ops_fast ? 1000 : 1;
+  static const size_t internal_loop_count = 1000;
 
   bool init()
   {
@@ -78,6 +87,8 @@ public:
     point0 = rct::scalarmultBase(rct::skGen());
     point1 = rct::scalarmultBase(rct::skGen());
     point2 = rct::scalarmultBase(rct::skGen());
+    xscalar0 = crypto::x25519_secret_key_gen();
+    xpoint0 = crypto::x25519_pubkey_gen();
     if (ge_frombytes_vartime(&p3_0, point0.bytes) != 0)
       return false;
     if (ge_frombytes_vartime(&p3_1, point1.bytes) != 0)
@@ -88,6 +99,8 @@ public:
     rct::precomp(precomp0, point0);
     rct::precomp(precomp1, point1);
     rct::precomp(precomp2, point2);
+    Twofish_initialise();
+    Twofish_prepare_key(scalar0.bytes, sizeof(scalar0), &twofish_key0);
     return true;
   }
 
@@ -98,39 +111,47 @@ public:
     ge_p1p1 tmp_p1p1;
     ge_p2 tmp_p2;
     ge_dsmp dsmp;
-    switch (op)
+    crypto::x25519_pubkey temp_xpub;
+    unsigned char temp_twofish[16];
+    for (size_t i = 0; i < internal_loop_count; ++i)
     {
-      case op_sc_add: sc_add(key.bytes, scalar0.bytes, scalar1.bytes); break;
-      case op_sc_sub: sc_sub(key.bytes, scalar0.bytes, scalar1.bytes); break;
-      case op_sc_mul: sc_mul(key.bytes, scalar0.bytes, scalar1.bytes); break;
-      case op_ge_add_p3_p3: {
-        ge_p3_to_cached(&tmp_cached, &p3_0);
-        ge_add(&tmp_p1p1, &p3_1, &tmp_cached);
-        ge_p1p1_to_p3(&p3_1, &tmp_p1p1);
-        break;
+      switch (op)
+      {
+        case op_sc_add: sc_add(key.bytes, scalar0.bytes, scalar1.bytes); break;
+        case op_sc_sub: sc_sub(key.bytes, scalar0.bytes, scalar1.bytes); break;
+        case op_sc_mul: sc_mul(key.bytes, scalar0.bytes, scalar1.bytes); break;
+        case op_ge_add_p3_p3: {
+          ge_p3_to_cached(&tmp_cached, &p3_0);
+          ge_add(&tmp_p1p1, &p3_1, &tmp_cached);
+          ge_p1p1_to_p3(&p3_1, &tmp_p1p1);
+          break;
+        }
+        case op_ge_add_raw: ge_add(&tmp_p1p1, &p3_1, &cached); break;
+        case op_addKeys: rct::addKeys(key, point0, point1); break;
+        case op_twofish_encrypt_block: Twofish_encrypt_block(&twofish_key0, twofish_block0, temp_twofish); break;
+        case op_twofish_decrypt_block: Twofish_decrypt_block(&twofish_key0, twofish_block0, temp_twofish); break;
+        case op_scalarmultBase: rct::scalarmultBase(scalar0); break;
+        case op_scalarmultKey: rct::scalarmultKey(point0, scalar0); break;
+        case op_scalarmultH: rct::scalarmultH(scalar0); break;
+        case op_scalarmult8: rct::scalarmult8(point0); break;
+        case op_scalarmult8_p3: rct::scalarmult8(p3_0,point0); break;
+        case op_ge_dsm_precomp: ge_dsm_precomp(dsmp, &p3_0); break;
+        case op_ge_double_scalarmult_base_vartime: ge_double_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes); break;
+        case op_ge_triple_scalarmult_base_vartime: ge_triple_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
+        case op_ge_double_scalarmult_precomp_vartime: ge_double_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes, precomp0); break;
+        case op_ge_triple_scalarmult_precomp_vartime: ge_triple_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
+        case op_ge_double_scalarmult_precomp_vartime2: ge_double_scalarmult_precomp_vartime2(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1); break;
+        case op_addKeys2: rct::addKeys2(key, scalar0, scalar1, point0); break;
+        case op_addKeys3: rct::addKeys3(key, scalar0, point0, scalar1, precomp1); break;
+        case op_addKeys3_2: rct::addKeys3(key, scalar0, precomp0, scalar1, precomp1); break;
+        case op_addKeys_aGbBcC: rct::addKeys_aGbBcC(key, scalar0, scalar1, precomp1, scalar2, precomp2); break;
+        case op_addKeys_aAbBcC: rct::addKeys_aAbBcC(key, scalar0, precomp0, scalar1, precomp1, scalar2, precomp2); break;
+        case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
+        case op_zeroCommitUncached: rct::zeroCommit(9001); break;
+        case op_zeroCommitCached: rct::zeroCommit(9000); break;
+        case op_x25519_scmul_key: crypto::x25519_scmul_key(xscalar0, xpoint0, temp_xpub); break;
+        default: return false;
       }
-      case op_ge_add_raw: ge_add(&tmp_p1p1, &p3_1, &cached); break;
-      case op_addKeys: rct::addKeys(key, point0, point1); break;
-      case op_scalarmultBase: rct::scalarmultBase(scalar0); break;
-      case op_scalarmultKey: rct::scalarmultKey(point0, scalar0); break;
-      case op_scalarmultH: rct::scalarmultH(scalar0); break;
-      case op_scalarmult8: rct::scalarmult8(point0); break;
-      case op_scalarmult8_p3: rct::scalarmult8(p3_0,point0); break;
-      case op_ge_dsm_precomp: ge_dsm_precomp(dsmp, &p3_0); break;
-      case op_ge_double_scalarmult_base_vartime: ge_double_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes); break;
-      case op_ge_triple_scalarmult_base_vartime: ge_triple_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
-      case op_ge_double_scalarmult_precomp_vartime: ge_double_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes, precomp0); break;
-      case op_ge_triple_scalarmult_precomp_vartime: ge_triple_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
-      case op_ge_double_scalarmult_precomp_vartime2: ge_double_scalarmult_precomp_vartime2(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1); break;
-      case op_addKeys2: rct::addKeys2(key, scalar0, scalar1, point0); break;
-      case op_addKeys3: rct::addKeys3(key, scalar0, point0, scalar1, precomp1); break;
-      case op_addKeys3_2: rct::addKeys3(key, scalar0, precomp0, scalar1, precomp1); break;
-      case op_addKeys_aGbBcC: rct::addKeys_aGbBcC(key, scalar0, scalar1, precomp1, scalar2, precomp2); break;
-      case op_addKeys_aAbBcC: rct::addKeys_aAbBcC(key, scalar0, precomp0, scalar1, precomp1, scalar2, precomp2); break;
-      case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
-      case op_zeroCommitUncached: rct::zeroCommit(9001); break;
-      case op_zeroCommitCached: rct::zeroCommit(9000); break;
-      default: return false;
     }
     return true;
   }
@@ -138,7 +159,11 @@ public:
 private:
   rct::key scalar0, scalar1, scalar2;
   rct::key point0, point1, point2;
+  crypto::x25519_secret_key xscalar0;
+  crypto::x25519_pubkey xpoint0;
   ge_p3 p3_0, p3_1, p3_2;
   ge_cached cached;
   ge_dsmp precomp0, precomp1, precomp2;
+  Twofish_key twofish_key0;
+  unsigned char twofish_block0[16];
 };

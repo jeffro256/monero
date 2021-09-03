@@ -42,6 +42,7 @@
 //third party headers
 
 //standard headers
+#include <optional>
 
 //forward declarations
 
@@ -92,7 +93,7 @@ void make_legacy_sender_receiver_secret(const rct::key &base_key,
 void make_legacy_enote_view_extension(const std::uint64_t tx_output_index,
     const crypto::key_derivation &sender_receiver_DH_derivation,
     const crypto::secret_key &legacy_view_privkey,
-    const boost::optional<cryptonote::subaddress_index> &subaddress_index,
+    const std::optional<cryptonote::subaddress_index> &subaddress_index,
     hw::device &hwdev,
     crypto::secret_key &enote_view_extension_out);
 /**
@@ -157,7 +158,7 @@ void make_legacy_amount_blinding_factor_v2(const rct::key &destination_viewkey,
     hw::device &hwdev,
     crypto::secret_key &amount_blinding_factor_out);
 /**
-* brief: make_legacy_encoded_amount_v1 - make a legacy encoded amount with encoded amount mask (v1: 32 byte encodings)
+* brief: make_legacy_encrypted_amount_v1 - make a legacy encoded amount with encoded amount mask (v1: 32 byte encodings)
 *   - enc(x) = x + Hn(Hn(r_t K^v, t))
 *   - enc(a) = to_key(little_endian(a)) + Hn(Hn(Hn(r_t K^v, t)))
 * param: destination_viewkey - K^v
@@ -166,33 +167,33 @@ void make_legacy_amount_blinding_factor_v2(const rct::key &destination_viewkey,
 * param: amount_mask - x
 * param: amount - a
 * inoutparam: hwdev -
-* outparam: encoded_amount_blinding_factor_out - enc(x)
-* outparam: encoded_amount_out - enc(a)
+* outparam: encrypted_amount_blinding_factor_out - enc(x)
+* outparam: encrypted_amount_out - enc(a)
 */
-void make_legacy_encoded_amount_v1(const rct::key &destination_viewkey,
+void make_legacy_encrypted_amount_v1(const rct::key &destination_viewkey,
     const std::uint64_t tx_output_index,
     const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::secret_key &amount_mask,
     const rct::xmr_amount amount,
     hw::device &hwdev,
-    rct::key &encoded_amount_blinding_factor_out,
-    rct::key &encoded_amount_out);
+    rct::key &encrypted_amount_blinding_factor_out,
+    rct::key &encrypted_amount_out);
 /**
-* brief: make_legacy_encoded_amount_v2 - make a legacy encoded amount (v2: 8-byte encoding) (note: mask is deterministic)
+* brief: make_legacy_encrypted_amount_v2 - make a legacy encoded amount (v2: 8-byte encoding) (note: mask is deterministic)
 *   - enc(a) = a XOR_8 H32("amount", Hn(r_t K^v, t))
 * param: destination_viewkey - K^v
 * param: tx_output_index - t
 * param: enote_ephemeral_privkey - r_t
 * param: amount - a
 * inoutparam: hwdev -
-* outparam: encoded_amount_out - enc(a)
+* outparam: encrypted_amount_out - enc(a)
 */
-void make_legacy_encoded_amount_v2(const rct::key &destination_viewkey,
+void make_legacy_encrypted_amount_v2(const rct::key &destination_viewkey,
     const std::uint64_t tx_output_index,
     const crypto::secret_key &enote_ephemeral_privkey,
     const rct::xmr_amount amount,
     hw::device &hwdev,
-    jamtis::encoded_amount_t &encoded_amount_out);
+    jamtis::encrypted_amount_t &encrypted_amount_out);
 /**
 * brief: try_get_legacy_amount_v1 - try to decode a legacy encoded amount (v1: 32-byte encoding)
 *   - fails if amount commitment can't be reproduced
@@ -200,8 +201,8 @@ void make_legacy_encoded_amount_v2(const rct::key &destination_viewkey,
 *   - a = system_endian(trunc_8(enc(a) - Hn(Hn(Hn(r K^v, t)))))
 * param: expected_amount_commitment - C' = x G + a H
 * param: sender_receiver_secret - Hn(r_t K^v, t)
-* param: encoded_amount_blinding_factor - enc(x)
-* param: encoded_amount - enc(a)
+* param: encrypted_amount_blinding_factor - enc(x)
+* param: encrypted_amount - enc(a)
 * inoutparam: hwdev -
 * outparam: amount_blinding_factor_out - x
 * outparam: amount_out - a
@@ -209,8 +210,8 @@ void make_legacy_encoded_amount_v2(const rct::key &destination_viewkey,
 */
 bool try_get_legacy_amount_v1(const rct::key &expected_amount_commitment,
     const crypto::secret_key &sender_receiver_secret,
-    const rct::key &encoded_amount_blinding_factor,
-    const rct::key &encoded_amount,
+    const rct::key &encrypted_amount_blinding_factor,
+    const rct::key &encrypted_amount,
     hw::device &hwdev,
     crypto::secret_key &amount_blinding_factor_out,
     rct::xmr_amount &amount_out);
@@ -218,8 +219,8 @@ bool try_get_legacy_amount_v1(const rct::key &expected_amount_commitment,
     const rct::key &destination_viewkey,
     const std::uint64_t tx_output_index,
     const crypto::secret_key &enote_ephemeral_privkey,
-    const rct::key &encoded_amount_blinding_factor,
-    const rct::key &encoded_amount,
+    const rct::key &encrypted_amount_blinding_factor,
+    const rct::key &encrypted_amount,
     hw::device &hwdev,
     crypto::secret_key &amount_blinding_factor_out,
     rct::xmr_amount &amount_out);
@@ -230,7 +231,7 @@ bool try_get_legacy_amount_v1(const rct::key &expected_amount_commitment,
 *   - a = enc(a) XOR_8 H32("amount", Hn(r K^v, t))
 * param: expected_amount_commitment - C' = x G + a H
 * param: sender_receiver_secret - Hn(r_t K^v, t)
-* param: encoded_amount - enc(a)
+* param: encrypted_amount - enc(a)
 * inoutparam: hwdev -
 * outparam: amount_blinding_factor_out - x
 * outparam: amount_out - a
@@ -238,7 +239,7 @@ bool try_get_legacy_amount_v1(const rct::key &expected_amount_commitment,
 */
 bool try_get_legacy_amount_v2(const rct::key &expected_amount_commitment,
     const crypto::secret_key &sender_receiver_secret,
-    const jamtis::encoded_amount_t &encoded_amount,
+    const jamtis::encrypted_amount_t &encrypted_amount,
     hw::device &hwdev,
     crypto::secret_key &amount_blinding_factor_out,
     rct::xmr_amount &amount_out);
@@ -246,7 +247,7 @@ bool try_get_legacy_amount_v2(const rct::key &expected_amount_commitment,
     const rct::key &destination_viewkey,
     const std::uint64_t tx_output_index,
     const crypto::secret_key &enote_ephemeral_privkey,
-    const jamtis::encoded_amount_t &encoded_amount,
+    const jamtis::encrypted_amount_t &encrypted_amount,
     hw::device &hwdev,
     crypto::secret_key &amount_blinding_factor_out,
     rct::xmr_amount &amount_out);

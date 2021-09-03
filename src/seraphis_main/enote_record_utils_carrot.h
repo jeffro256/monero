@@ -26,20 +26,17 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Output set context for use during input selection.
+// Utilities for making enote records from enotes.
 
 #pragma once
 
 //local headers
-#include "seraphis_core/jamtis_payment_proposal.h"
-#include "seraphis_core/jamtis_support_types.h"
-#include "seraphis_main/tx_input_selection_output_context.h"
+#include "enote_record_types.h"
 
 //third party headers
-#include "boost/multiprecision/cpp_int.hpp"
 
 //standard headers
-#include <vector>
+#include <optional>
 
 //forward declarations
 
@@ -47,32 +44,33 @@
 namespace sp
 {
 
-class OutputSetContextForInputSelectionV1 final : public OutputSetContextForInputSelection
-{
-public:
-//constructors
-    OutputSetContextForInputSelectionV1(const std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals,
-        const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals);
-
-//overloaded operators
-    /// disable copy/move (this is a scoped manager [concept: context binding])
-    OutputSetContextForInputSelectionV1& operator=(OutputSetContextForInputSelectionV1&&) = delete;
-
-//member functions
-    /// get total output amount
-    boost::multiprecision::uint128_t total_amount() const override;
-    /// get number of outputs assuming no change
-    std::size_t num_outputs_nochange() const override;
-    /// get number of outputs assuming non-zero change
-    std::size_t num_outputs_withchange() const override;
-
-//member variables
-private:
-    std::size_t m_num_outputs;
-    bool m_output_ephemeral_pubkeys_are_unique;
-    std::vector<jamtis::JamtisSelfSendType> m_self_send_output_types;
-    std::vector<bool> m_self_send_output_is_hidden;
-    boost::multiprecision::uint128_t m_total_output_amount;
-};
+/**
+* brief: try_get_carrot_intermediate_enote_record_v1 - try to extract an intermediate enote record from an enote
+* param: enote -
+* param: enote_ephemeral_pubkey -
+* param: payment 
+* param: input_context -
+* param: k_view
+* outparam: record_out -
+* return: true if extraction succeeded
+*/
+bool try_get_carrot_intermediate_enote_record_v1(const SpEnoteVariant &enote,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::optional<jamtis::encrypted_payment_id_t> &payment_id_enc,
+    const rct::key &input_context,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
+    CarrotIntermediateEnoteRecordV1 &record_out);
+/**
+* brief: try_get_carrot_enote_record_v1 - try to extract an enote record from an enote
+*/
+bool try_get_carrot_enote_record_v1(const SpEnoteVariant &enote,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::optional<jamtis::encrypted_payment_id_t> &payment_id_enc,
+    const rct::key &input_context,
+    const crypto::secret_key &k_view,
+    const crypto::secret_key &k_spend,
+    const crypto::public_key &primary_address_spend_pubkey,
+    CarrotEnoteRecordV1 &record_out);
 
 } //namespace sp

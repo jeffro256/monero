@@ -102,6 +102,16 @@ void extend_seraphis_spendkey_u(const crypto::secret_key &k_extender_u, rct::key
     rct::addKeys(spendkey_inout, extender_key, spendkey_inout);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void extend_seraphis_spendkey_u(const crypto::secret_key &k_extender_u, crypto::public_key &spendkey_inout)
+{
+    // K = k_extender_u U + K_original
+    rct::key temp;
+
+    rct::scalarmultKey(temp, rct::pk2rct(crypto::get_U()), rct::sk2rct(k_extender_u));
+    rct::addKeys(temp, temp, rct::pk2rct(spendkey_inout));
+    spendkey_inout = rct::rct2pk(temp);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void reduce_seraphis_spendkey_g(const crypto::secret_key &k_reducer_g, rct::key &spendkey_inout)
 {
     static const rct::key MINUS_ONE{minus_one()};

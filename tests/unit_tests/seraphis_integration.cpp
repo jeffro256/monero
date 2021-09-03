@@ -35,9 +35,9 @@
 #include "seraphis_core/binned_reference_set.h"
 #include "seraphis_core/binned_reference_set_utils.h"
 #include "seraphis_core/discretized_fee.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
@@ -88,6 +88,7 @@ TEST(seraphis_integration, txtype_squashed_v1)
     const std::size_t legacy_ring_size{2};
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{10};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -126,7 +127,10 @@ TEST(seraphis_integration, txtype_squashed_v1)
     JamtisDestinationV1 fake_destination;
     fake_destination = gen_jamtis_destination_v1();
 
-    send_sp_coinbase_amounts_to_user(fake_sp_enote_amounts, fake_destination, ledger_context);
+    send_sp_coinbase_amounts_to_user(fake_sp_enote_amounts,
+        fake_destination,
+        num_primary_view_tag_bits,
+        ledger_context);
 
 
     /// make two users
@@ -136,8 +140,8 @@ TEST(seraphis_integration, txtype_squashed_v1)
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
     make_legacy_mock_keys(legacy_user_keys_A);
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // b. legacy user address
     rct::key legacy_subaddr_spendkey_A;
@@ -175,7 +179,10 @@ TEST(seraphis_integration, txtype_squashed_v1)
             legacy_subaddr_viewkey_A,
             ledger_context
         );
-    send_sp_coinbase_amounts_to_user({1000000, 1000000, 1000000, 1000000}, destination_A, ledger_context);
+    send_sp_coinbase_amounts_to_user({1000000, 1000000, 1000000, 1000000},
+        destination_A,
+        num_primary_view_tag_bits,
+        ledger_context);
 
 
     /// send funds back and forth between users
@@ -198,6 +205,7 @@ TEST(seraphis_integration, txtype_squashed_v1)
         fee_per_tx_weight,
         max_inputs,
         {{6000000, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -215,6 +223,7 @@ TEST(seraphis_integration, txtype_squashed_v1)
         fee_per_tx_weight,
         max_inputs,
         {{3000000, destination_A, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -232,6 +241,7 @@ TEST(seraphis_integration, txtype_squashed_v1)
         fee_per_tx_weight,
         max_inputs,
         {{4000000, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,

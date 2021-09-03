@@ -177,11 +177,13 @@ bool validate_sp_semantics_input_images_v1(const std::vector<LegacyEnoteImageV2>
 *   - extra field is in sorted TLV (Type-Length-Value) format
 * param: outputs -
 * param: enote_ephemeral_pubkeys -
+* param: num_primary_view_tag_bits -
 * param: tx_extra -
 * return: true/false on validation result
 */
 bool validate_sp_semantics_coinbase_layout_v1(const std::vector<SpCoinbaseEnoteV1> &outputs,
     const std::vector<crypto::x25519_pubkey> &enote_ephemeral_pubkeys,
+    const std::uint8_t num_primary_view_tag_bits,
     const TxExtra &tx_extra);
 /**
 * brief: validate_sp_semantics_layout_v1 - check tx components have the proper layout
@@ -201,6 +203,7 @@ bool validate_sp_semantics_coinbase_layout_v1(const std::vector<SpCoinbaseEnoteV
 * param: sp_input_images -
 * param: outputs -
 * param: enote_ephemeral_pubkeys -
+* param: num_primary_view_tag_bits -
 * param: tx_extra -
 * return: true/false on validation result
 */
@@ -210,6 +213,7 @@ bool validate_sp_semantics_layout_v1(const std::vector<LegacyRingSignatureV4> &l
     const std::vector<SpEnoteImageV1> &sp_input_images,
     const std::vector<SpEnoteV1> &outputs,
     const std::vector<crypto::x25519_pubkey> &enote_ephemeral_pubkeys,
+    const std::uint8_t num_primary_view_tag_bits,
     const TxExtra &tx_extra);
 /**
 * brief: validate_sp_semantics_fee_v1 - check that a discretized fee is a valid fee representation

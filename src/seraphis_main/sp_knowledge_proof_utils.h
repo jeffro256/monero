@@ -57,7 +57,7 @@ namespace knowledge_proofs
 /**
 * brief: make an address ownership proof
 * param: message - message provided by verifier
-* param: address - address with the format xG + yX + zU (e.g. K_1 or K_s)
+* param: address - address with the format xG + yX + zU (e.g. K^j_s or K_s)
 * param: x - secret key corresponding to base G
 * param: y - secret key corresponding to base X
 * param: z - secret key corresponding to base U
@@ -70,12 +70,12 @@ void make_address_ownership_proof_v1(const rct::key &message,
     const crypto::secret_key &z,
     AddressOwnershipProofV1 &proof_out);
 void make_address_ownership_proof_v1(const rct::key &message,  //for K_s
-    const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_prove_spend,
+    const crypto::secret_key &k_generate_image,
     AddressOwnershipProofV1 &proof_out);
-void make_address_ownership_proof_v1(const rct::key &message,  //for K_1
-    const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+void make_address_ownership_proof_v1(const rct::key &message,  //for K^j_s
+    const crypto::secret_key &k_prove_spend,
+    const crypto::secret_key &s_view_balance,
     const jamtis::address_index_t &j,
     AddressOwnershipProofV1 &proof_out);
 /**
@@ -108,7 +108,7 @@ void make_address_index_proof_v1(const rct::key &jamtis_spend_pubkey,
 bool verify_address_index_proof_v1(const AddressIndexProofV1 &proof, const rct::key &expected_address);
 /**
 * brief: make an enote ownership proof
-* param: jamtis_address_spend_key - K_1
+* param: jamtis_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * param: onetime_address - Ko
@@ -128,14 +128,14 @@ void make_enote_ownership_proof_v1_sender_plain(const crypto::x25519_secret_key 
 void make_enote_ownership_proof_v1_sender_selfsend(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &jamtis_address_spend_key,
     const rct::key &input_context,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const jamtis::JamtisSelfSendType self_send_type,
     const rct::key &amount_commitment,
     const rct::key &onetime_address,
     EnoteOwnershipProofV1 &proof_out);
 void make_enote_ownership_proof_v1_receiver(const SpEnoteRecordV1 &enote_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     EnoteOwnershipProofV1 &proof_out);
 /**
 * brief: verify enote ownership proof
@@ -180,7 +180,7 @@ void make_enote_key_image_proof_v1(const rct::key &onetime_address,
     EnoteKeyImageProofV1 &proof_out);
 void make_enote_key_image_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     EnoteKeyImageProofV1 &proof_out);
 /**
 * brief: verify enote key image proof
@@ -195,14 +195,14 @@ bool verify_enote_key_image_proof_v1(const EnoteKeyImageProofV1 &proof,
 /**
 * brief: make an enote unspent proof
 * param: enote_record - record of the enote for this proof
-* param: sp_spend_privkey - k_m
-* param: k_view_balance - k_vb
+* param: sp_spend_privkey - k_ps
+* param: k_generate_image - k_gi
 * param: test_KI - key image this proof shows does NOT correspond to the proof enote
 * outparam: proof_out - proof created
 */
 void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::key_image &test_KI,
     EnoteUnspentProofV1 &proof_out);
 /**
@@ -219,15 +219,14 @@ bool verify_enote_unspent_proof_v1(const EnoteUnspentProofV1 &proof,
 * brief: make a funded tx proof
 * param: message - message provided by verifier
 * param: enote_record - enote_record containing all the mask openings 
-* param: onetime_address - address which has the format xG + yX + zU. 
-* param: k_vb - view_balance secret key 
-* param: k_m - master secret key 
+* param: sp_spend_privkey - k_ps
+* param: k_generate_image - k_gi
 * outparam: proof_out - proof created
 */
 void make_tx_funded_proof_v1(const rct::key &message,
     const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     TxFundedProofV1 &proof_out);
 /**
 * brief: verify funded tx proof
@@ -274,7 +273,7 @@ void make_reserved_enote_proof_v1(const EnoteOwnershipProofV1 &enote_ownership_p
 void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_record,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     ReservedEnoteProofV1 &proof_out);
 /**
 * brief: verify reserved enote proof
@@ -300,15 +299,15 @@ bool reserved_enote_is_reserved_v1(const ReservedEnoteProofV1 &proof, const TxVa
 * param: message - message provided by the verifier
 * param: reserved_enote_records - enotes for the proof
 * param: jamtis_spend_pubkey - K_s
-* param: sp_spend_privkey - k_m
-* param: k_view_balance - k_vb
+* param: sp_spend_privkey - k_ps
+* param: s_view_balance - k_vb
 * outparam: proof_out - proof created
 */
 void make_reserve_proof_v1(const rct::key &message,
     const std::vector<SpContextualEnoteRecordV1> &reserved_enote_records,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     ReserveProofV1 &proof_out);
 /**
 * brief: verify reserve proof

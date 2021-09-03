@@ -67,14 +67,14 @@ void make_input_images_prefix_v1(const std::vector<LegacyEnoteImageV2> &legacy_e
 *   - throws on failure
 * param: input_proposal -
 * param: sp_core_spend_pubkey -
-* param: k_view_balance -
+* param: k_generate_image -
 */
 void check_v1_input_proposal_semantics_v1(const SpInputProposalCore &input_proposal,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance);
+    const crypto::secret_key &k_generate_image);
 void check_v1_input_proposal_semantics_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance);
+    const crypto::secret_key &k_generate_image);
 /**
 * brief: make_input_proposal - make the core of a seraphis input proposal
 * param: enote_core -
@@ -113,18 +113,20 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 * brief: try_make_v1_input_proposal_v1 - try to make a seraphis v1 input proposal from an enote
 * param: enote -
 * param: enote_ephemeral_pubkey -
+* param: num_primary_view_tag_bits -
 * param: input_context -
 * param: jamtis_spend_pubkey -
-* param: k_view_balance -
+* param: s_view_balance -
 * param: address_mask -
 * param: commitment_mask -
 * outparam: proposal_out -
 */
 bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const crypto::secret_key &address_mask,
     const crypto::secret_key &commitment_mask,
     SpInputProposalV1 &proposal_out);
@@ -145,26 +147,26 @@ void make_standard_input_context_v1(const std::vector<LegacyEnoteImageV2> &legac
 * param: input_proposal -
 * param: message -
 * param: sp_spend_privkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * outparam: image_proof_out -
 */
 void make_v1_image_proof_v1(const SpInputProposalCore &input_proposal,
     const rct::key &message,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpImageProofV1 &image_proof_out);
 /**
 * brief: make_v1_image_proofs_v1 - make a set of seraphis composition proofs for enote images in the squashed enote model
 * param: input_proposals -
 * param: message -
 * param: sp_spend_privkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * outparam: image_proofs_out -
 */
 void make_v1_image_proofs_v1(const std::vector<SpInputProposalV1> &input_proposals,
     const rct::key &message,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     std::vector<SpImageProofV1> &image_proofs_out);
 /**
 * brief: check_v1_partial_input_semantics_v1 - check the semantics of a v1 partial seraphis input
@@ -178,32 +180,32 @@ void check_v1_partial_input_semantics_v1(const SpPartialInputV1 &partial_input);
 * param: tx_proposal_prefix -
 * param: sp_image_proof -
 * param: sp_core_spend_pubkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * outparam: partial_input_out -
 */
 void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &tx_proposal_prefix,
     SpImageProofV1 sp_image_proof,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpPartialInputV1 &partial_input_out);
 void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &tx_proposal_prefix,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpPartialInputV1 &partial_input_out);
 /**
 * brief: make_v1_partial_inputs_v1 - make a full set of v1 partial inputs
 * param: input_proposals -
 * param: tx_proposal_prefix -
 * param: sp_spend_privkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * outparam: partial_inputs_out -
 */
 void make_v1_partial_inputs_v1(const std::vector<SpInputProposalV1> &input_proposals,
     const rct::key &tx_proposal_prefix,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     std::vector<SpPartialInputV1> &partial_inputs_out);
 /**
 * brief: get_input_commitment_factors_v1 - collect input amounts and input image amount commitment blinding factors

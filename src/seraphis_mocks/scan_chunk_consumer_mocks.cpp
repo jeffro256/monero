@@ -36,7 +36,7 @@
 #include "crypto/x25519.h"
 #include "enote_finding_context_mocks.h"
 #include "ringct/rctTypes.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_impl/enote_store.h"
 #include "seraphis_impl/enote_store_utils.h"
 #include "seraphis_main/enote_record_types.h"
@@ -273,13 +273,15 @@ void ChunkConsumerMockLegacy::consume_onchain_chunk(const scanning::LedgerChunk 
 // Seraphis Intermediate
 //-------------------------------------------------------------------------------------------------------------------
 ChunkConsumerMockSpIntermediate::ChunkConsumerMockSpIntermediate(const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
+    const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     SpEnoteStorePaymentValidator &enote_store) :
         m_jamtis_spend_pubkey{jamtis_spend_pubkey},
-        m_xk_unlock_amounts{xk_unlock_amounts},
-        m_xk_find_received{xk_find_received},
+        m_d_unlock_received{d_unlock_received},
+        m_d_identify_received{d_identify_received},
+        m_d_filter_assist{d_filter_assist},
         m_s_generate_address{s_generate_address},
         m_enote_store{enote_store}
 {
@@ -315,8 +317,9 @@ void ChunkConsumerMockSpIntermediate::consume_nonledger_chunk(const SpEnoteOrigi
     std::unordered_map<rct::key, SpContextualIntermediateEnoteRecordV1> found_enote_records;
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
-        m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_d_unlock_received,
+        m_d_identify_received,
+        m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
         chunk_data.basic_records_per_tx,
@@ -340,8 +343,9 @@ void ChunkConsumerMockSpIntermediate::consume_onchain_chunk(const scanning::Ledg
     std::unordered_map<rct::key, SpContextualIntermediateEnoteRecordV1> found_enote_records;
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
-        m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_d_unlock_received,
+        m_d_identify_received,
+        m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
         chunk_data->basic_records_per_tx,
@@ -359,15 +363,17 @@ void ChunkConsumerMockSpIntermediate::consume_onchain_chunk(const scanning::Ledg
 // Seraphis
 //-------------------------------------------------------------------------------------------------------------------
 ChunkConsumerMockSp::ChunkConsumerMockSp(const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpEnoteStore &enote_store) :
         m_jamtis_spend_pubkey{jamtis_spend_pubkey},
-        m_k_view_balance{k_view_balance},
+        m_s_view_balance{s_view_balance},
         m_enote_store{enote_store}
 {
-    jamtis::make_jamtis_unlockamounts_key(m_k_view_balance, m_xk_unlock_amounts);
-    jamtis::make_jamtis_findreceived_key(m_k_view_balance, m_xk_find_received);
-    jamtis::make_jamtis_generateaddress_secret(m_k_view_balance, m_s_generate_address);
+    jamtis::make_jamtis_generateimage_key(m_s_view_balance, m_k_generate_image);
+    jamtis::make_jamtis_unlockreceived_key(m_s_view_balance, m_d_unlock_received);
+    jamtis::make_jamtis_identifyreceived_key(m_s_view_balance, m_d_identify_received);
+    jamtis::make_jamtis_filterassist_key(m_s_view_balance, m_d_filter_assist);
+    jamtis::make_jamtis_generateaddress_secret(m_s_view_balance, m_s_generate_address);
     jamtis::make_jamtis_ciphertag_secret(m_s_generate_address, m_s_cipher_tag);
 
     m_cipher_context = std::make_unique<jamtis::jamtis_address_tag_cipher_context>(m_s_cipher_tag);
@@ -398,30 +404,38 @@ void ChunkConsumerMockSp::consume_nonledger_chunk(const SpEnoteOriginStatus nonl
 {
     // 1. process the chunk
     std::unordered_map<crypto::key_image, SpContextualEnoteRecordV1> found_enote_records;
-    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> found_spent_key_images;
+    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> sp_key_images_in_sp_selfsends;
     std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> legacy_key_images_in_sp_selfsends;
 
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
-        m_k_view_balance,
-        m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_s_view_balance,
+        m_k_generate_image,
+        m_d_unlock_received,
+        m_d_identify_received,
+        m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
-        [this](const crypto::key_image &key_image) -> bool
-        {
-            return this->m_enote_store.has_enote_with_key_image(key_image);
-        },
         chunk_data.basic_records_per_tx,
         chunk_data.contextual_key_images,
         found_enote_records,
-        found_spent_key_images,
+        sp_key_images_in_sp_selfsends,
         legacy_key_images_in_sp_selfsends);
 
-    // 2. save the results
+    // 2. filter out key images in self send seraphis transactions which aren't "known"
+    auto sp_ki_it = sp_key_images_in_sp_selfsends.begin();
+    while (sp_ki_it != sp_key_images_in_sp_selfsends.end())
+    {
+        if (!m_enote_store.has_enote_with_key_image(sp_ki_it->first))
+            sp_ki_it = sp_key_images_in_sp_selfsends.erase(sp_ki_it);
+        else
+            ++sp_ki_it;
+    }
+
+    // 3. save the results
     std::list<EnoteStoreEvent> events;
     m_enote_store.update_with_sp_records_from_nonledger(nonledger_origin_status,
         found_enote_records,
-        found_spent_key_images,
+        sp_key_images_in_sp_selfsends,
         legacy_key_images_in_sp_selfsends,
         events);
 }
@@ -437,32 +451,40 @@ void ChunkConsumerMockSp::consume_onchain_chunk(const scanning::LedgerChunk &chu
 
     // 2. process the chunk
     std::unordered_map<crypto::key_image, SpContextualEnoteRecordV1> found_enote_records;
-    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> found_spent_key_images;
+    std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> sp_key_images_in_sp_selfsends;
     std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> legacy_key_images_in_sp_selfsends;
 
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
-        m_k_view_balance,
-        m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_s_view_balance,
+        m_k_generate_image,
+        m_d_unlock_received,
+        m_d_identify_received,
+        m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
-        [this](const crypto::key_image &key_image) -> bool
-        {
-            return this->m_enote_store.has_enote_with_key_image(key_image);
-        },
         chunk_data->basic_records_per_tx,
         chunk_data->contextual_key_images,
         found_enote_records,
-        found_spent_key_images,
+        sp_key_images_in_sp_selfsends,
         legacy_key_images_in_sp_selfsends);
 
-    // 2. save the results
+    // 2. filter out key images in self send seraphis transactions which aren't "known"
+    auto sp_ki_it = sp_key_images_in_sp_selfsends.begin();
+    while (sp_ki_it != sp_key_images_in_sp_selfsends.end())
+    {
+        if (!m_enote_store.has_enote_with_key_image(sp_ki_it->first))
+            sp_ki_it = sp_key_images_in_sp_selfsends.erase(sp_ki_it);
+        else
+            ++sp_ki_it;
+    }
+
+    // 3. save the results
     std::list<EnoteStoreEvent> events;
     m_enote_store.update_with_sp_records_from_ledger(alignment_block_id,
         first_new_block,
         new_block_ids,
         found_enote_records,
-        found_spent_key_images,
+        sp_key_images_in_sp_selfsends,
         legacy_key_images_in_sp_selfsends,
         events);
 }

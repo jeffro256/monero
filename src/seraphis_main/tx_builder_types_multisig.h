@@ -113,6 +113,8 @@ struct SpMultisigInputProposalV1 final
     SpEnoteVariant enote;
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// the enote's input context
     rct::key input_context;
 

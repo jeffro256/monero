@@ -278,8 +278,6 @@ int main(int argc, char** argv)
   p_address_tag_decipher.core_params = p.core_params;
   p_address_tag_decipher.mode = AddressTagDecipherModes::ALL_SUCCESSFUL_DECIPHER;
   TEST_PERFORMANCE0(filter, p_address_tag_decipher, test_jamtis_address_tag_decipher_sp);
-  p_address_tag_decipher.mode = AddressTagDecipherModes::NO_SUCCESSFUL_DECIPHER;
-  TEST_PERFORMANCE0(filter, p_address_tag_decipher, test_jamtis_address_tag_decipher_sp);
 
   // test client-side scanning in a seraphis remote-scanning workflow
   ParamsShuttleScannerClient p_client_scan;
@@ -564,7 +562,6 @@ int main(int argc, char** argv)
   /// TEST: SpTxSquashedV1 (end)
 
 
-/*
   TEST_PERFORMANCE3(filter, p, test_balance_check, BalanceCheckType::MultiexpSub, 1, 1);
   TEST_PERFORMANCE3(filter, p, test_balance_check, BalanceCheckType::MultiexpComp, 1, 1);
   TEST_PERFORMANCE3(filter, p, test_balance_check, BalanceCheckType::Rctops, 1, 1);
@@ -732,7 +729,6 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, p, test_range_proof, true);
   TEST_PERFORMANCE1(filter, p, test_range_proof, false);
-  */
 
   /*
   // 16 amounts
@@ -777,6 +773,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 1, 8, 1, 1, 4); // 32 proofs, with 1, 2, 3, 4 amounts, 8 of each
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 2, 1, 1, 0, 64);
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 2, 1, 1, 0, 64); // 64 proof, each with 2 amounts
+  */
 
   // 16 inputs
   TEST_PERFORMANCE2(filter, p, test_bulletproof, true, 1); // 1 bulletproof with 1 amount
@@ -807,6 +804,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_add_raw);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_add_p3_p3);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_twofish_encrypt_block);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_twofish_decrypt_block);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmultBase);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmultKey);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmultH);
@@ -826,6 +825,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_isInMainSubgroup);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitUncached);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitCached);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_x25519_scmul_key);
 
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 2);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 4);
@@ -865,9 +865,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 1024);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 2048);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 4096);
-  */
 
-  /*
 #if 1
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 2, 1);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4, 2);
@@ -1112,7 +1110,6 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 8);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 9);
 #endif
-  */
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 

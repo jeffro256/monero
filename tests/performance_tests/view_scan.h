@@ -35,7 +35,6 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
@@ -205,28 +204,29 @@ class test_view_scan_sp
 {
 public:
     static const size_t loop_count = 1000;
+    static const uint8_t num_primary_view_tag_bits = 8;
 
     bool init(const ParamsShuttleViewScan &params)
     {
         m_test_view_tag_check = params.test_view_tag_check;
 
+        const auto onetime_address_format{sp::jamtis::JamtisOnetimeAddressFormat::SERAPHIS};
+
         // user wallet keys
-        make_jamtis_mock_keys(m_keys);
+        make_jamtis_mock_keys(onetime_address_format, m_keys);
 
         // user address
         sp::jamtis::JamtisDestinationV1 user_address;
         sp::jamtis::address_index_t j{}; //address 0
 
-        sp::jamtis::make_jamtis_destination_v1(m_keys.K_1_base,
-            m_keys.xK_ua,
-            m_keys.xK_fr,
-            m_keys.s_ga,
+        sp::jamtis::mocks::make_address_for_user(m_keys,
             j,
             user_address);
 
         // make enote paying to address
         const crypto::x25519_secret_key enote_privkey{crypto::x25519_secret_key_gen()};
-        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0}, enote_privkey};
+        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0},
+            onetime_address_format, enote_privkey};
         sp::SpOutputProposalV1 output_proposal;
         make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
         m_enote_ephemeral_pubkey = output_proposal.enote_ephemeral_pubkey;
@@ -234,7 +234,11 @@ public:
 
         // invalidate the view tag to test the performance of short-circuiting on failed view tags
         if (m_test_view_tag_check)
-            ++m_enote.view_tag;
+        {
+            const sp::jamtis::view_tag_t og_view_tag = m_enote.view_tag;
+            while (m_enote.view_tag == og_view_tag)
+                m_enote.view_tag = sp::jamtis::gen_view_tag();
+        }
 
         return true;
     }
@@ -246,8 +250,9 @@ public:
         sp::SpBasicEnoteRecordV1 basic_enote_record;
         if (!sp::try_get_basic_enote_record_v1(m_enote,
                 m_enote_ephemeral_pubkey,
+                num_primary_view_tag_bits,
                 rct::zero(),
-                m_keys.xk_fr,
+                m_keys.d_fa,
                 basic_enote_record))
             return m_test_view_tag_check;  //note: this branch is only valid if trying to trigger the view tag check
 
@@ -290,24 +295,24 @@ struct ParamsShuttleScannerClient final : public ParamsShuttle
 class test_remote_scanner_client_scan_sp
 {
 public:
-    static const size_t num_records = sp::math::uint_pow(2, sp::jamtis::ADDRESS_TAG_HINT_BYTES * 8);
+    static const uint8_t num_primary_view_tag_bits = 8;
+    static const size_t num_records = 1 << 16;
     static const size_t loop_count = 256000 / num_records + 20;
 
     bool init(const ParamsShuttleScannerClient &params)
     {
         m_mode = params.mode;
 
+        const auto onetime_address_format{sp::jamtis::JamtisOnetimeAddressFormat::SERAPHIS};
+
         // user wallet keys
-        make_jamtis_mock_keys(m_keys);
+        make_jamtis_mock_keys(onetime_address_format, m_keys);
 
         // user address
         sp::jamtis::JamtisDestinationV1 user_address;
         m_real_address_index = sp::jamtis::address_index_t{}; //address 0
 
-        sp::jamtis::make_jamtis_destination_v1(m_keys.K_1_base,
-            m_keys.xK_ua,
-            m_keys.xK_fr,
-            m_keys.s_ga,
+        sp::jamtis::mocks::make_address_for_user(m_keys,
             m_real_address_index,
             user_address);
 
@@ -316,7 +321,11 @@ public:
 
         // make enote paying to address
         const crypto::x25519_secret_key enote_privkey{crypto::x25519_secret_key_gen()};
-        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0}, enote_privkey};
+        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address,
+            rct::xmr_amount{0},
+            onetime_address_format,
+            enote_privkey,
+            num_primary_view_tag_bits};
         sp::SpOutputProposalV1 output_proposal;
         make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
         sp::SpEnoteV1 real_enote;
@@ -326,8 +335,9 @@ public:
         sp::SpBasicEnoteRecordV1 basic_record;
         if (!sp::try_get_basic_enote_record_v1(real_enote,
                 output_proposal.enote_ephemeral_pubkey,
+                num_primary_view_tag_bits,
                 rct::zero(),
-                m_keys.xk_fr,
+                m_keys.d_fa,
                 basic_record))
             return false;
 
@@ -354,15 +364,28 @@ public:
                 continue;
             }
 
-            // mangle the address tag
+            // mangle the view tag bits so that the enote doesn't scan
             // - re-do the fake ones if they succeed by accident
-            sp::jamtis::address_index_t j_temp;
-            do
+            sp::jamtis::view_tag_t &last_view_tag =
+                m_basic_records.back().enote.unwrap<sp::SpEnoteV1>().view_tag;
+            bool needs_mangling{true};
+            while (needs_mangling)
             {
-                sp::jamtis::gen_address_tag(m_basic_records.back().nominal_address_tag);
-            } while(sp::jamtis::try_decipher_address_index(*m_cipher_context,
-                m_basic_records.back().nominal_address_tag,
-                j_temp));
+                last_view_tag = sp::jamtis::gen_view_tag();
+                needs_mangling = sp::jamtis::test_jamtis_primary_view_tag(m_keys.d_fa,
+                    m_basic_records.back().enote_ephemeral_pubkey,
+                    onetime_address_ref(m_basic_records.back().enote),
+                    last_view_tag,
+                    num_primary_view_tag_bits);
+                crypto::x25519_pubkey x_ir;
+                crypto::x25519_scmul_key(m_keys.d_ir, m_basic_records.back().enote_ephemeral_pubkey, x_ir);
+                bool matched_all_secondary_bits{false};
+                needs_mangling |= sp::jamtis::test_jamtis_secondary_view_tag(x_ir.data,
+                    onetime_address_ref(m_basic_records.back().enote),
+                    last_view_tag,
+                    num_primary_view_tag_bits,
+                    matched_all_secondary_bits);
+            }
         }
 
         return true;
@@ -380,11 +403,13 @@ public:
         for (std::size_t record_index{0}; record_index <  m_basic_records.size(); ++record_index)
         {
             const bool result{
-                    try_get_enote_record_v1_plain(m_basic_records[record_index],
-                        m_keys.K_1_base,
-                        m_keys.k_vb,
-                        m_keys.xk_ua,
-                        m_keys.xk_fr,
+                    try_get_enote_record_plain_v1(m_basic_records[record_index],
+                        m_keys.K_s_base,
+                        m_keys.s_vb,
+                        m_keys.k_gi,
+                        m_keys.d_ur,
+                        m_keys.d_ir,
+                        m_keys.d_fa,
                         m_keys.s_ga,
                         *m_cipher_context,
                         enote_record)
@@ -421,8 +446,7 @@ private:
 
 enum class AddressTagDecipherModes
 {
-    ALL_SUCCESSFUL_DECIPHER,
-    NO_SUCCESSFUL_DECIPHER
+    ALL_SUCCESSFUL_DECIPHER
 };
 
 struct ParamsShuttleAddressTagDecipher final : public ParamsShuttle
@@ -450,21 +474,9 @@ public:
 
         for (sp::jamtis::address_tag_t &addr_tag : m_address_tags)
         {
-            if (params.mode == AddressTagDecipherModes::NO_SUCCESSFUL_DECIPHER)
-            {
-                do
-                {
-                    address_index_temp = sp::jamtis::gen_address_index();
-                    addr_tag = sp::jamtis::make_address_tag(address_index_temp, sp::jamtis::address_tag_hint_t{});
-                }
-                while (sp::jamtis::try_decipher_address_index(*m_cipher_context, addr_tag, address_index_temp));
-            }
-            else
-            {
-                address_index_temp = sp::jamtis::gen_address_index();
+            address_index_temp = sp::jamtis::gen_address_index();
 
-                addr_tag = sp::jamtis::cipher_address_index(*m_cipher_context, address_index_temp);
-            }
+            addr_tag = sp::jamtis::cipher_address_index(*m_cipher_context, address_index_temp);
         }
 
         return true;
@@ -479,7 +491,7 @@ public:
         sp::jamtis::address_index_t address_index_temp;
 
         for (const sp::jamtis::address_tag_t &addr_tag : m_address_tags)
-            sp::jamtis::try_decipher_address_index(*m_cipher_context, addr_tag, address_index_temp);
+            sp::jamtis::decipher_address_index(*m_cipher_context, addr_tag, address_index_temp);
 
         return true;
     }

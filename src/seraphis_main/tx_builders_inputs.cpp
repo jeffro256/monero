@@ -89,14 +89,14 @@ void make_input_images_prefix_v1(const std::vector<LegacyEnoteImageV2> &legacy_e
 //-------------------------------------------------------------------------------------------------------------------
 void check_v1_input_proposal_semantics_v1(const SpInputProposalCore &input_proposal,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance)
+    const crypto::secret_key &k_generate_image)
 {
     // 1. the onetime address must be reproducible
     rct::key extended_spendkey{sp_core_spend_pubkey};
     extend_seraphis_spendkey_u(input_proposal.enote_view_extension_u, extended_spendkey);
 
     rct::key onetime_address_reproduced{extended_spendkey};
-    extend_seraphis_spendkey_x(add_secrets(input_proposal.enote_view_extension_x, k_view_balance),
+    extend_seraphis_spendkey_x(add_secrets(input_proposal.enote_view_extension_x, k_generate_image),
         onetime_address_reproduced);
     mask_key(input_proposal.enote_view_extension_g, onetime_address_reproduced, onetime_address_reproduced);
 
@@ -105,7 +105,7 @@ void check_v1_input_proposal_semantics_v1(const SpInputProposalCore &input_propo
 
     // 2. the key image must be reproducible and canonical
     crypto::key_image key_image_reproduced;
-    make_seraphis_key_image(add_secrets(input_proposal.enote_view_extension_x, k_view_balance),
+    make_seraphis_key_image(add_secrets(input_proposal.enote_view_extension_x, k_generate_image),
         rct::rct2pk(extended_spendkey),
         key_image_reproduced);
 
@@ -140,9 +140,9 @@ void check_v1_input_proposal_semantics_v1(const SpInputProposalCore &input_propo
 //-------------------------------------------------------------------------------------------------------------------
 void check_v1_input_proposal_semantics_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance)
+    const crypto::secret_key &k_generate_image)
 {
-    check_v1_input_proposal_semantics_v1(input_proposal.core, sp_core_spend_pubkey, k_view_balance);
+    check_v1_input_proposal_semantics_v1(input_proposal.core, sp_core_spend_pubkey, k_generate_image);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_input_proposal(const SpEnoteCoreVariant &enote_core,
@@ -188,9 +188,10 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 //-------------------------------------------------------------------------------------------------------------------
 bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const crypto::secret_key &address_mask,
     const crypto::secret_key &commitment_mask,
     SpInputProposalV1 &proposal_out)
@@ -199,9 +200,10 @@ bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     SpEnoteRecordV1 enote_record;
     if (!try_get_enote_record_v1(enote,
             enote_ephemeral_pubkey,
+            num_primary_view_tag_bits,
             input_context,
             jamtis_spend_pubkey,
-            k_view_balance,
+            s_view_balance,
             enote_record))
         return false;
 
@@ -261,7 +263,7 @@ void make_standard_input_context_v1(const std::vector<LegacyEnoteImageV2> &legac
 void make_v1_image_proof_v1(const SpInputProposalCore &input_proposal,
     const rct::key &message,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpImageProofV1 &image_proof_out)
 {
     // make image proof for an enote image in the squashed enote model
@@ -287,7 +289,7 @@ void make_v1_image_proof_v1(const SpInputProposalCore &input_proposal,
 
     // c. y: H_n(Ko,C) (k_{x, sender} + k_{x, address} + k_vb)
     crypto::secret_key y;
-    sc_add(to_bytes(y), to_bytes(input_proposal.enote_view_extension_x), to_bytes(k_view_balance));
+    sc_add(to_bytes(y), to_bytes(input_proposal.enote_view_extension_x), to_bytes(k_generate_image));
     sc_mul(to_bytes(y), squash_prefix.bytes, to_bytes(y));
 
     // d. z: H_n(Ko,C) (k_{u, sender} + k_{u, address} + k_m)
@@ -307,7 +309,7 @@ void make_v1_image_proof_v1(const SpInputProposalCore &input_proposal,
 void make_v1_image_proofs_v1(const std::vector<SpInputProposalV1> &input_proposals,
     const rct::key &message,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     std::vector<SpImageProofV1> &image_proofs_out)
 {
     // make multiple image proofs
@@ -321,7 +323,7 @@ void make_v1_image_proofs_v1(const std::vector<SpInputProposalV1> &input_proposa
         make_v1_image_proof_v1(input_proposal.core,
             message,
             sp_spend_privkey,
-            k_view_balance,
+            k_generate_image,
             tools::add_element(image_proofs_out));
     }
 }
@@ -363,11 +365,11 @@ void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &tx_proposal_prefix,
     SpImageProofV1 sp_image_proof,
     const rct::key &sp_core_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpPartialInputV1 &partial_input_out)
 {
     // 1. check input proposal semantics
-    check_v1_input_proposal_semantics_v1(input_proposal, sp_core_spend_pubkey, k_view_balance);
+    check_v1_input_proposal_semantics_v1(input_proposal, sp_core_spend_pubkey, k_generate_image);
 
     // 2. prepare input image
     get_enote_image_v1(input_proposal, partial_input_out.input_image);
@@ -385,7 +387,7 @@ void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
 void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
     const rct::key &tx_proposal_prefix,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     SpPartialInputV1 &partial_input_out)
 {
     // 1. initialization
@@ -394,21 +396,21 @@ void make_v1_partial_input_v1(const SpInputProposalV1 &input_proposal,
 
     // 2. construct image proof
     SpImageProofV1 sp_image_proof;
-    make_v1_image_proof_v1(input_proposal.core, tx_proposal_prefix, sp_spend_privkey, k_view_balance, sp_image_proof);
+    make_v1_image_proof_v1(input_proposal.core, tx_proposal_prefix, sp_spend_privkey, k_generate_image, sp_image_proof);
 
     // 3. finalize the partial input
     make_v1_partial_input_v1(input_proposal,
         tx_proposal_prefix,
         std::move(sp_image_proof),
         sp_core_spend_pubkey,
-        k_view_balance,
+        k_generate_image,
         partial_input_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_partial_inputs_v1(const std::vector<SpInputProposalV1> &input_proposals,
     const rct::key &tx_proposal_prefix,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     std::vector<SpPartialInputV1> &partial_inputs_out)
 {
     partial_inputs_out.clear();
@@ -420,7 +422,7 @@ void make_v1_partial_inputs_v1(const std::vector<SpInputProposalV1> &input_propo
         make_v1_partial_input_v1(input_proposal,
             tx_proposal_prefix,
             sp_spend_privkey,
-            k_view_balance,
+            k_generate_image,
             tools::add_element(partial_inputs_out));
     }
 }

@@ -39,6 +39,7 @@
 #define TX_EXTRA_NONCE                      0x02
 #define TX_EXTRA_MERGE_MINING_TAG           0x03
 #define TX_EXTRA_TAG_ADDITIONAL_PUBKEYS     0x04
+#define TX_EXTRA_TAG_JAMTIS_V1              0x05
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG   0xDE
 
 #define TX_EXTRA_NONCE_PAYMENT_ID           0x00
@@ -165,6 +166,29 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  struct tx_extra_jamtis_v1
+  {
+    struct enote_entry_t
+    {
+      unsigned char addr_tag_enc[16];
+      unsigned char view_tag[3]; // other 1 byte of view tag stored in tx_out
+      // encrypted amount stored in ecdhInfo
+    };
+    static_assert(sizeof(enote_entry_t) == 19, "enote_entry wrong size");
+    static_assert(std::is_standard_layout_v<enote_entry_t>, "enote_entry_t does not have standard layout");
+
+    std::vector<enote_entry_t> output_info;
+    std::vector<crypto::x25519_pubkey> enote_ephemeral_pubkeys;
+    std::uint8_t num_primary_view_tag_bits;
+    // encrypted payment ID can be added with tx_extra_nonce
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(output_info)
+      FIELD(enote_ephemeral_pubkeys)
+      FIELD(num_primary_view_tag_bits)
+    END_SERIALIZE()
+  };
+
   struct tx_extra_mysterious_minergate
   {
     std::string data;
@@ -178,12 +202,20 @@ namespace cryptonote
   //   varint tag;
   //   varint size;
   //   varint data[];
-  typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag, tx_extra_additional_pub_keys, tx_extra_mysterious_minergate> tx_extra_field;
+  typedef boost::variant<tx_extra_padding,
+    tx_extra_pub_key,
+    tx_extra_nonce,
+    tx_extra_merge_mining_tag,
+    tx_extra_additional_pub_keys,
+    tx_extra_jamtis_v1,
+    tx_extra_mysterious_minergate> tx_extra_field;
 }
 
+BLOB_SERIALIZER(cryptonote::tx_extra_jamtis_v1::enote_entry_t);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_padding, TX_EXTRA_TAG_PADDING);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_pub_key, TX_EXTRA_TAG_PUBKEY);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_nonce, TX_EXTRA_NONCE);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_merge_mining_tag, TX_EXTRA_MERGE_MINING_TAG);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_additional_pub_keys, TX_EXTRA_TAG_ADDITIONAL_PUBKEYS);
+VARIANT_TAG(binary_archive, cryptonote::tx_extra_jamtis_v1, TX_EXTRA_TAG_JAMTIS_V1);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_mysterious_minergate, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG);

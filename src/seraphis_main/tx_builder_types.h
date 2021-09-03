@@ -45,6 +45,7 @@
 //third party headers
 
 //standard headers
+#include <optional>
 
 //forward declarations
 namespace sp
@@ -82,8 +83,12 @@ struct SpCoinbaseOutputProposalV1 final
     /// proposed enote
     SpCoinbaseEnoteV1 enote;
 
-    /// xK_e: enote ephemeral pubkey
+    /// D_e: enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// pid_enc: encrypted payment id
+    std::optional<sp::jamtis::encrypted_payment_id_t> payment_id_enc;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
 };
@@ -99,10 +104,14 @@ struct SpOutputProposalV1 final
     /// core of the proposal
     SpOutputProposalCore core;
 
-    /// xK_e: enote ephemeral pubkey
+    /// D_e: enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// pid_enc: encrypted payment id
+    std::optional<sp::jamtis::encrypted_payment_id_t> payment_id_enc;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// enc_a
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
     /// view_tag
@@ -282,47 +291,63 @@ void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
 /**
 * brief: get_coinbase_output_proposals_v1 - convert the tx proposal's payment proposals into output proposals
 * param: tx_proposal -
-* param: k_view_balance -
+* param: s_view_balance -
 * outparam: output_proposals_out -
 */
 void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     std::vector<SpOutputProposalV1> &output_proposals_out);
 /**
 * brief: get_tx_proposal_prefix_v1 - get the message to be signed by input spend proofs
 * param: tx_proposal -
 * param: tx_version -
-* param: k_view_balance -
+* param: s_view_balance -
 * outparam: tx_proposal_prefix_out -
 */
 void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     rct::key &tx_proposal_prefix_out);
+/**
+* brief: get_shared_num_primary_view_tag_bits - get single shared value of npbits among payment/output proposals
+* param: ...
+* return: shared single value of npbits amongst all proposals
+* throw: std::runtime_error if the number of unique values of npbits is not equal to 1, or if npbits is too big
+*/
+std::uint8_t get_shared_num_primary_view_tag_bits(
+    const std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals,
+    const std::vector<SpCoinbaseOutputProposalV1> &coinbase_output_proposals,
+    const std::vector<SpOutputProposalV1> &output_proposals);
 /**
 * brief: gen_sp_input_proposal_v1 - generate an input proposal
 * param: sp_spend_privkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * param: amount -
 * return: random input proposal
 */
 SpInputProposalV1 gen_sp_input_proposal_v1(const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const rct::xmr_amount amount);
 /**
 * brief: gen_sp_coinbase_output_proposal_v1 - generate a coinbase output proposal
 * param: amount -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: random coinbase output proposal
 */
 SpCoinbaseOutputProposalV1 gen_sp_coinbase_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements);
 /**
 * brief: gen_sp_output_proposal_v1 - generate an output proposal
 * param: amount -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: random output proposal
 */
-SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount, const std::size_t num_random_memo_elements);
+SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
+    const std::size_t num_random_memo_elements);
 
 } //namespace sp

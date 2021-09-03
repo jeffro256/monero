@@ -59,7 +59,6 @@ namespace sp
 {
 //-------------------------------------------------------------------------------------------------------------------
 bool try_prepare_inputs_and_outputs_for_transfer_v1(const jamtis::JamtisDestinationV1 &change_address,
-    const jamtis::JamtisDestinationV1 &dummy_address,
     const InputSelectorV1 &local_user_input_selector,
     const FeeCalculator &tx_fee_calculator,
     const rct::xmr_amount fee_per_tx_weight,
@@ -109,7 +108,6 @@ bool try_prepare_inputs_and_outputs_for_transfer_v1(const jamtis::JamtisDestinat
     finalize_v1_output_proposal_set_v1(total_input_amount,
         reported_final_fee,
         change_address,
-        dummy_address,
         k_view_balance,
         normal_payment_proposals,
         selfsend_payment_proposals);

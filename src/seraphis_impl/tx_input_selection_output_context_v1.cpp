@@ -79,11 +79,13 @@ static bool ephemeral_pubkeys_are_unique(const std::vector<jamtis::JamtisPayment
 static bool need_additional_output(const std::size_t num_outputs,
     const bool output_ephemeral_pubkeys_are_unique,
     const std::vector<jamtis::JamtisSelfSendType> &self_send_output_types,
+    const std::vector<bool> &self_send_output_is_hidden,
     const rct::xmr_amount change_amount)
 {
     // see if we need an additional output
     return static_cast<bool>(try_get_additional_output_type_for_output_set_v1(num_outputs,
         self_send_output_types,
+        self_send_output_is_hidden,
         output_ephemeral_pubkeys_are_unique,
         change_amount));
 }
@@ -99,9 +101,13 @@ OutputSetContextForInputSelectionV1::OutputSetContextForInputSelectionV1(
 {
     // 1. collect self-send output types
     m_self_send_output_types.reserve(selfsend_payment_proposals.size());
+    m_self_send_output_is_hidden.reserve(selfsend_payment_proposals.size());
 
     for (const jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal : selfsend_payment_proposals)
+    {
         m_self_send_output_types.emplace_back(selfsend_proposal.type);
+        m_self_send_output_is_hidden.emplace_back(selfsend_proposal.num_primary_view_tag_bits == 0);
+    }
 
     // 2. collect total amount
     m_total_output_amount = 0;
@@ -121,7 +127,8 @@ boost::multiprecision::uint128_t OutputSetContextForInputSelectionV1::total_amou
 std::size_t OutputSetContextForInputSelectionV1::num_outputs_nochange() const
 {
     const bool need_additional_output_no_change{
-            need_additional_output(m_num_outputs, m_output_ephemeral_pubkeys_are_unique, m_self_send_output_types, 0)
+            need_additional_output(m_num_outputs, m_output_ephemeral_pubkeys_are_unique,
+                m_self_send_output_types, m_self_send_output_is_hidden, 0)
         };
 
     return m_num_outputs + (need_additional_output_no_change ? 1 : 0);
@@ -130,7 +137,8 @@ std::size_t OutputSetContextForInputSelectionV1::num_outputs_nochange() const
 std::size_t OutputSetContextForInputSelectionV1::num_outputs_withchange() const
 {
     const bool need_additional_output_with_change{
-            need_additional_output(m_num_outputs, m_output_ephemeral_pubkeys_are_unique, m_self_send_output_types, 1)
+            need_additional_output(m_num_outputs, m_output_ephemeral_pubkeys_are_unique,
+                m_self_send_output_types, m_self_send_output_is_hidden, 1)
         };
 
     return m_num_outputs + (need_additional_output_with_change ? 1 : 0);

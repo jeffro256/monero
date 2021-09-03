@@ -56,7 +56,7 @@ void append_to_transcript(const SpCoinbaseEnoteV1 &container, SpTranscriptBuilde
 {
     transcript_inout.append("core", container.core);
     transcript_inout.append("addr_tag_enc", container.addr_tag_enc.bytes);
-    transcript_inout.append("view_tag", container.view_tag);
+    transcript_inout.append("view_tag", container.view_tag.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_coinbase_enote_v1_size_bytes()
@@ -69,15 +69,15 @@ std::size_t sp_coinbase_enote_v1_size_bytes()
 void append_to_transcript(const SpEnoteV1 &container, SpTranscriptBuilder &transcript_inout)
 {
     transcript_inout.append("core", container.core);
-    transcript_inout.append("encoded_amount", container.encoded_amount.bytes);
+    transcript_inout.append("encrypted_amount", container.encrypted_amount.bytes);
     transcript_inout.append("addr_tag_enc", container.addr_tag_enc.bytes);
-    transcript_inout.append("view_tag", container.view_tag);
+    transcript_inout.append("view_tag", container.view_tag.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_enote_v1_size_bytes()
 {
     return sp_enote_core_size_bytes() +
-        sizeof(jamtis::encoded_amount_t) +
+        sizeof(jamtis::encrypted_amount_t) +
         sizeof(jamtis::encrypted_address_tag_t) +
         sizeof(jamtis::view_tag_t);
 }
@@ -255,7 +255,7 @@ std::size_t sp_balance_proof_v1_weight(const SpBalanceProofV1 &proof)
 //-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const SpTxSupplementV1 &container, SpTranscriptBuilder &transcript_inout)
 {
-    transcript_inout.append("output_xK_e_keys", container.output_enote_ephemeral_pubkeys);
+    transcript_inout.append("output_D_e_keys", container.output_enote_ephemeral_pubkeys);
     transcript_inout.append("tx_extra", container.tx_extra);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -292,10 +292,10 @@ bool operator==(const SpCoinbaseEnoteV1 &a, const SpCoinbaseEnoteV1 &b)
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const SpEnoteV1 &a, const SpEnoteV1 &b)
 {
-    return a.core        == b.core &&
-        a.encoded_amount == b.encoded_amount &&
-        a.addr_tag_enc   == b.addr_tag_enc &&
-        a.view_tag       == b.view_tag;
+    return a.core          == b.core &&
+        a.encrypted_amount == b.encrypted_amount &&
+        a.addr_tag_enc     == b.addr_tag_enc &&
+        a.view_tag         == b.view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const SpEnoteVariant &variant1, const SpEnoteVariant &variant2)
@@ -342,7 +342,7 @@ SpCoinbaseEnoteV1 gen_sp_coinbase_enote_v1()
 
     // extra pieces
     crypto::rand(sizeof(jamtis::encrypted_address_tag_t), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.view_tag = jamtis::gen_view_tag();
 
     return temp;
 }
@@ -355,9 +355,9 @@ SpEnoteV1 gen_sp_enote_v1()
     temp.core = gen_sp_enote_core();
 
     // extra pieces
-    crypto::rand(sizeof(temp.encoded_amount), temp.encoded_amount.bytes);
+    crypto::rand(sizeof(temp.encrypted_amount), temp.encrypted_amount.bytes);
     crypto::rand(sizeof(jamtis::encrypted_address_tag_t), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.view_tag = jamtis::gen_view_tag();
 
     return temp;
 }

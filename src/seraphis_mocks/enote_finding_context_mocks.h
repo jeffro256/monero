@@ -28,7 +28,7 @@
 
 // NOT FOR PRODUCTION
 
-// Dependency injectors for the find-received step of enote scanning (mock-ups).
+// Dependency injectors for the filter-assist step of enote scanning (mock-ups).
 
 #pragma once
 
@@ -104,16 +104,16 @@ private:
 
 ////
 // EnoteFindingContextLedgerMockSp
-// - wraps a mock ledger context, produces chunks of potentially owned enotes (from find-received scanning)
+// - wraps a mock ledger context, produces chunks of potentially owned enotes (from filter-assist scanning)
 ///
 class EnoteFindingContextLedgerMockSp final : public EnoteFindingContextLedger
 {
 public:
 //constructors
     EnoteFindingContextLedgerMockSp(const MockLedgerContext &mock_ledger_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &d_filter_assist) :
             m_mock_ledger_context{mock_ledger_context},
-            m_xk_find_received{xk_find_received}
+            m_d_filter_assist{d_filter_assist}
     {}
 
 //overloaded operators
@@ -128,21 +128,21 @@ public:
 //member variables
 private:
     const MockLedgerContext &m_mock_ledger_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_d_filter_assist;
 };
 
 ////
 // EnoteFindingContextUnconfirmedMockSp
-// - wraps a mock ledger context, produces chunks of potentially owned unconfirmed enotes (from find-received scanning)
+// - wraps a mock ledger context, produces chunks of potentially owned unconfirmed enotes (from filter-assist scanning)
 ///
 class EnoteFindingContextUnconfirmedMockSp final : public EnoteFindingContextNonLedger
 {
 public:
 //constructors
     EnoteFindingContextUnconfirmedMockSp(const MockLedgerContext &mock_ledger_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &d_filter_assist) :
             m_mock_ledger_context{mock_ledger_context},
-            m_xk_find_received{xk_find_received}
+            m_d_filter_assist{d_filter_assist}
     {}
 
 //overloaded operators
@@ -156,21 +156,21 @@ public:
 //member variables
 private:
     const MockLedgerContext &m_mock_ledger_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_d_filter_assist;
 };
 
 ////
 // EnoteFindingContextOffchainMockSp
-// - wraps a mock offchain context, produces chunks of potentially owned enotes (from find-received scanning)
+// - wraps a mock offchain context, produces chunks of potentially owned enotes (from filter-assist scanning)
 ///
 class EnoteFindingContextOffchainMockSp final : public EnoteFindingContextNonLedger
 {
 public:
 //constructors
     EnoteFindingContextOffchainMockSp(const MockOffchainContext &mock_offchain_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &d_filter_assist) :
             m_mock_offchain_context{mock_offchain_context},
-            m_xk_find_received{xk_find_received}
+            m_d_filter_assist{d_filter_assist}
     {}
 
 //overloaded operators
@@ -184,7 +184,7 @@ public:
 //member variables
 private:
     const MockOffchainContext &m_mock_offchain_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_d_filter_assist;
 };
 
 } //namespace mocks

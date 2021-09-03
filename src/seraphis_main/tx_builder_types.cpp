@@ -121,9 +121,9 @@ void get_enote_v1(const SpOutputProposalV1 &proposal, SpEnoteV1 &enote_out)
         rct::commit(amount_ref(proposal), rct::sk2rct(proposal.core.amount_blinding_factor));
 
     // enote misc. details
-    enote_out.encoded_amount = proposal.encoded_amount;
-    enote_out.addr_tag_enc   = proposal.addr_tag_enc;
-    enote_out.view_tag       = proposal.view_tag;
+    enote_out.encrypted_amount = proposal.encrypted_amount;
+    enote_out.addr_tag_enc     = proposal.addr_tag_enc;
+    enote_out.view_tag         = proposal.view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
@@ -147,7 +147,7 @@ void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     std::vector<SpOutputProposalV1> &output_proposals_out)
 {
     CHECK_AND_ASSERT_THROW_MES(tx_proposal.normal_payment_proposals.size() +
@@ -164,13 +164,15 @@ void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
         tx_proposal.selfsend_payment_proposals.size());
 
     for (const jamtis::JamtisPaymentProposalV1 &normal_payment_proposal : tx_proposal.normal_payment_proposals)
-        make_v1_output_proposal_v1(normal_payment_proposal, input_context, tools::add_element(output_proposals_out));
+        make_v1_output_proposal_v1(normal_payment_proposal,
+            input_context,
+            tools::add_element(output_proposals_out));
 
     for (const jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_payment_proposal :
         tx_proposal.selfsend_payment_proposals)
     {
         make_v1_output_proposal_v1(selfsend_payment_proposal,
-            k_view_balance,
+            s_view_balance,
             input_context,
             tools::add_element(output_proposals_out));
     }
@@ -183,12 +185,12 @@ void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
 //-------------------------------------------------------------------------------------------------------------------
 void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     rct::key &tx_proposal_prefix_out)
 {
     // get output proposals
     std::vector<SpOutputProposalV1> output_proposals;
-    get_output_proposals_v1(tx_proposal, k_view_balance, output_proposals);
+    get_output_proposals_v1(tx_proposal, s_view_balance, output_proposals);
 
     // sanity check semantics
     check_v1_output_proposal_set_semantics_v1(output_proposals);
@@ -203,16 +205,62 @@ void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
         tx_proposal_prefix_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+std::uint8_t get_shared_num_primary_view_tag_bits(
+    const std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals,
+    const std::vector<SpCoinbaseOutputProposalV1> &coinbase_output_proposals,
+    const std::vector<SpOutputProposalV1> &output_proposals)
+{
+    std::set<std::uint8_t> npbits_values;
+
+    // search thru normal payment proposals
+    for (const jamtis::JamtisPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
+        npbits_values.insert(normal_payment_proposal.num_primary_view_tag_bits);
+
+    // search thru selfsend payment proposals
+    for (const jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
+        npbits_values.insert(selfsend_payment_proposal.num_primary_view_tag_bits);
+
+    // search thru coinbase output proposals
+    for (const SpCoinbaseOutputProposalV1 &coinbase_output_proposal : coinbase_output_proposals)
+        npbits_values.insert(coinbase_output_proposal.num_primary_view_tag_bits);
+
+    // search thru non-coinbase output proposals
+    for (const SpOutputProposalV1 &output_proposal : output_proposals)
+        npbits_values.insert(output_proposal.num_primary_view_tag_bits);
+
+    // assert that at least 1 non-zero value exists
+    CHECK_AND_ASSERT_THROW_MES(npbits_values.size() && (npbits_values.size() > 1 || *npbits_values.begin() != 0),
+        "get shared num primary view tag bits: there are no npbits values, so getting the value is undefined");
+
+    // assert that the set is {x>0} or {0, x>0} (0 means hidden enote)
+    CHECK_AND_ASSERT_THROW_MES(npbits_values.size() == 1 || (npbits_values.size() == 2 && *npbits_values.begin() == 0),
+        "get shared num primary view tag bits: there are multiple unique values of npbits among these proposals, "
+        "so getting the value is undefined");
+
+    // get the npbits value
+    const std::uint8_t num_primary_view_tag_bits{*npbits_values.crbegin()};
+
+    // assert that the value of npbits is in acceptable range
+    static constexpr size_t MAX_NPBITS_VALUE{8 * jamtis::VIEW_TAG_BYTES};
+    CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= MAX_NPBITS_VALUE,
+        "get shared num primary view tag bits: the value of npbits is too large: "
+        << num_primary_view_tag_bits << " vs " << MAX_NPBITS_VALUE);
+
+    return num_primary_view_tag_bits;
+}
+//-------------------------------------------------------------------------------------------------------------------
 SpInputProposalV1 gen_sp_input_proposal_v1(const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const rct::xmr_amount amount)
 {
     SpInputProposalV1 temp;
-    temp.core = gen_sp_input_proposal_core(sp_spend_privkey, k_view_balance, amount);
+    temp.core = gen_sp_input_proposal_core(sp_spend_privkey, k_generate_image, amount);
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
 SpCoinbaseOutputProposalV1 gen_sp_coinbase_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements)
 {
     SpCoinbaseOutputProposalV1 temp;
@@ -224,6 +272,9 @@ SpCoinbaseOutputProposalV1 gen_sp_coinbase_output_proposal_v1(const rct::xmr_amo
     // enote ephemeral pubkey
     temp.enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
 
+    // npbits
+    temp.num_primary_view_tag_bits = num_primary_view_tag_bits;
+
     // partial memo
     std::vector<ExtraFieldElement> memo_elements;
     memo_elements.resize(num_random_memo_elements);
@@ -234,7 +285,9 @@ SpCoinbaseOutputProposalV1 gen_sp_coinbase_output_proposal_v1(const rct::xmr_amo
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
-SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount, const std::size_t num_random_memo_elements)
+SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
+    const std::size_t num_random_memo_elements)
 {
     SpOutputProposalV1 temp;
 
@@ -242,9 +295,12 @@ SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount, const
     temp.core = gen_sp_output_proposal_core(amount);
 
     temp.enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
-    crypto::rand(sizeof(temp.encoded_amount), temp.encoded_amount.bytes);
+    crypto::rand(sizeof(temp.encrypted_amount), temp.encrypted_amount.bytes);
     crypto::rand(sizeof(temp.addr_tag_enc), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.view_tag = jamtis::gen_view_tag();
+
+    // npbits
+    temp.num_primary_view_tag_bits = num_primary_view_tag_bits;
 
     std::vector<ExtraFieldElement> memo_elements;
     memo_elements.resize(num_random_memo_elements);

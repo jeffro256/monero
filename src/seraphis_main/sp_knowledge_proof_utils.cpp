@@ -35,8 +35,8 @@
 #include "crypto/generators.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/sp_core_enote_utils.h"
@@ -149,58 +149,60 @@ void make_address_ownership_proof_v1(const rct::key &message,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_address_ownership_proof_v1(const rct::key &message,
-    const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_prove_spend,
+    const crypto::secret_key &k_generate_image,
     AddressOwnershipProofV1 &proof_out)
 {
     // for address ownership of K_s
 
-    // 1. prepare K_s = k_vb X + k_m U
+    // 1. prepare K_s = k_gi X + k_ps U
     rct::key jamtis_spend_pubkey;
-    make_seraphis_spendkey(k_view_balance, sp_spend_privkey, jamtis_spend_pubkey);
+    make_seraphis_spendkey(k_generate_image, k_prove_spend, jamtis_spend_pubkey);
 
     // 2. finish the proof
     make_address_ownership_proof_v1(message,
         jamtis_spend_pubkey,
         rct::rct2sk(rct::zero()),
-        k_view_balance,
-        sp_spend_privkey,
+        k_generate_image,
+        k_prove_spend,
         proof_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_address_ownership_proof_v1(const rct::key &message,
-    const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_prove_spend,
+    const crypto::secret_key &s_view_balance,
     const jamtis::address_index_t &j,
     AddressOwnershipProofV1 &proof_out)
 {
-    // for address ownership of K_1
+    // for address ownership of K^j_s
 
     // 1. prepare privkey
+    crypto::secret_key k_generate_image;
     crypto::secret_key s_generate_address;
-    jamtis::make_jamtis_generateaddress_secret(k_view_balance, s_generate_address);
+    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
+    jamtis::make_jamtis_generateaddress_secret(s_view_balance, s_generate_address);
 
-    // 2. prepare K_s = k_vb X + k_m U
+    // 2. prepare K_s = k_gi X + k_ps U
     rct::key jamtis_spend_pubkey;
-    make_seraphis_spendkey(k_view_balance, sp_spend_privkey, jamtis_spend_pubkey);
+    make_seraphis_spendkey(k_generate_image, k_prove_spend, jamtis_spend_pubkey);
 
     // 3. prepare address privkey components
     // a. x = k^j_g
     crypto::secret_key x;
     jamtis::make_jamtis_spendkey_extension_g(jamtis_spend_pubkey, s_generate_address, j, x);  //k^j_g
 
-    // b. y = k^j_x + k_vb
+    // b. y = k^j_x + k_gi
     crypto::secret_key y;
     jamtis::make_jamtis_spendkey_extension_x(jamtis_spend_pubkey, s_generate_address, j, y);  //k^j_x
-    sc_add(to_bytes(y), to_bytes(k_view_balance), to_bytes(y));  //+ k_vb
+    sc_add(to_bytes(y), to_bytes(k_generate_image), to_bytes(y));  //+ k_vb
 
-    // c. z = k^j_u + k_m
+    // c. z = k^j_u + k_ps
     crypto::secret_key z;
     jamtis::make_jamtis_spendkey_extension_u(jamtis_spend_pubkey, s_generate_address, j, z);  //k^j_u
-    sc_add(to_bytes(z), to_bytes(sp_spend_privkey), to_bytes(z));  //+ k_m
+    sc_add(to_bytes(z), to_bytes(k_prove_spend), to_bytes(z));  //+ k_m
 
     // 4. compute address
-    // K_1 = x G + y X + z U
+    // K^j_s = x G + y X + z U
     rct::key jamtis_address_spend_key;
     make_seraphis_spendkey(y, z, jamtis_address_spend_key);  //y X + z U
     mask_key(x, jamtis_address_spend_key, jamtis_address_spend_key);  //+ x G
@@ -245,23 +247,23 @@ void make_address_index_proof_v1(const rct::key &jamtis_spend_pubkey,
     crypto::secret_key generator;
     jamtis::make_jamtis_index_extension_generator(s_generate_address, j, generator);
 
-    // 2. compute K_1
-    rct::key K_1;
-    jamtis::make_jamtis_address_spend_key(jamtis_spend_pubkey, s_generate_address, j, K_1);
+    // 2. compute K^j_s
+    rct::key addr_Ks;
+    jamtis::make_jamtis_address_spend_key_sp(jamtis_spend_pubkey, s_generate_address, j, addr_Ks);
 
     // 3. assemble the full proof
     proof_out = AddressIndexProofV1{
             .K_s       = jamtis_spend_pubkey,
             .j         = j,
             .generator = rct::sk2rct(generator),
-            .K_1       = K_1
+            .addr_Ks   = addr_Ks
         };
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_address_index_proof_v1(const AddressIndexProofV1 &proof, const rct::key &expected_address)
 {
     // 1. check the proof matches the expected address
-    if (!(proof.K_1 == expected_address))
+    if (!(proof.addr_Ks == expected_address))
         return false;
 
     // 2. reproduce the address index extensions
@@ -290,14 +292,14 @@ bool verify_address_index_proof_v1(const AddressIndexProofV1 &proof, const rct::
         address_extension_key_g);
 
     // 3. compute the nominal address spendkey
-    // K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
+    // K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
     rct::key nominal_address{proof.K_s};  //K_s
     extend_seraphis_spendkey_u(address_extension_key_u, nominal_address);  //k^j_u U + K_s
     extend_seraphis_spendkey_x(address_extension_key_x, nominal_address);  //k^j_x X + k^j_u U + K_s
     mask_key(address_extension_key_g, nominal_address, nominal_address);   //k^j_g G + k^j_x X + k^j_u U + K_s
 
     // 4. check that the proof address spendkey was recreated
-    if (!(nominal_address == proof.K_1))
+    if (!(nominal_address == proof.addr_Ks))
         return false;
 
     return true;
@@ -310,10 +312,10 @@ void make_enote_ownership_proof_v1(const rct::key &jamtis_address_spend_key,
     EnoteOwnershipProofV1 &proof_out)
 {
     proof_out = EnoteOwnershipProofV1{
-            .K_1 = jamtis_address_spend_key,
-            .q   = sender_receiver_secret,
-            .C   = amount_commitment,
-            .Ko  = onetime_address
+            .addr_Ks = jamtis_address_spend_key,
+            .q       = sender_receiver_secret,
+            .C       = amount_commitment,
+            .Ko      = onetime_address
         };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -327,25 +329,36 @@ void make_enote_ownership_proof_v1_sender_plain(const crypto::x25519_secret_key 
     // 1. compute the enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
     jamtis::make_jamtis_enote_ephemeral_pubkey(enote_ephemeral_privkey,
-        recipient_destination.addr_K3,
+        recipient_destination.addr_Dbase,
         enote_ephemeral_pubkey);
+    
+    // 2. prepare X_fa, X_ir, and X_ur
+    crypto::x25519_pubkey x_fa;
+    crypto::x25519_scmul_key(enote_ephemeral_privkey, recipient_destination.addr_Dfa, x_fa);
 
-    // 2. prepare the sender-receiver secret
+    crypto::x25519_pubkey x_ir;
+    crypto::x25519_scmul_key(enote_ephemeral_privkey, recipient_destination.addr_Dir, x_ir);
+
+    crypto::x25519_pubkey x_ur;
+    crypto::x25519_scmul_base(enote_ephemeral_privkey, x_ur);
+
+    // 3. prepare the sender-receiver secret
     rct::key sender_receiver_secret;
-    jamtis::make_jamtis_sender_receiver_secret_plain(enote_ephemeral_privkey,
-        recipient_destination.addr_K2,
+    jamtis::make_jamtis_sender_receiver_secret(x_fa.data,
+        x_ir.data,
+        x_ur.data,
         enote_ephemeral_pubkey,
         input_context,
         sender_receiver_secret);
 
-    // 3. complete the proof
-    make_enote_ownership_proof_v1(recipient_destination.addr_K1,
+    // 4. complete the proof
+    make_enote_ownership_proof_v1(recipient_destination.addr_Ks,
         sender_receiver_secret,
         amount_commitment,
         onetime_address,
         proof_out);
 
-    // 4. verify that the proof was created successfully
+    // 5. verify that the proof was created successfully
     // - will fail if the enote is a jamtis selfsend type
     CHECK_AND_ASSERT_THROW_MES(verify_enote_ownership_proof_v1(proof_out, amount_commitment, onetime_address),
         "make enote ownership proof (v1 sender plain): failed to make proof.");
@@ -354,28 +367,37 @@ void make_enote_ownership_proof_v1_sender_plain(const crypto::x25519_secret_key 
 void make_enote_ownership_proof_v1_sender_selfsend(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &jamtis_address_spend_key,
     const rct::key &input_context,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const jamtis::JamtisSelfSendType self_send_type,
     const rct::key &amount_commitment,
     const rct::key &onetime_address,
     EnoteOwnershipProofV1 &proof_out)
 {
-    // 1. prepare the sender-receiver secret
+    // 1. helper privkeys
+    crypto::x25519_secret_key d_filter_assist;
+    jamtis::make_jamtis_filterassist_key(s_view_balance, d_filter_assist);
+
+    // 2. prepare X_fa
+    crypto::x25519_pubkey x_fa;
+    crypto::x25519_scmul_key(d_filter_assist, enote_ephemeral_pubkey, x_fa);
+
+    // 3. prepare the sender-receiver secret
     rct::key sender_receiver_secret;
-    jamtis::make_jamtis_sender_receiver_secret_selfsend(k_view_balance,
+    jamtis::make_jamtis_sender_receiver_secret(x_fa.data,
+        reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
         enote_ephemeral_pubkey,
         input_context,
-        self_send_type,
         sender_receiver_secret);
 
-    // 2. complete the proof
+    // 4. complete the proof
     make_enote_ownership_proof_v1(jamtis_address_spend_key,
         sender_receiver_secret,
         amount_commitment,
         onetime_address,
         proof_out);
 
-    // 3. verify that the proof was created successfully
+    // 5. verify that the proof was created successfully
     // - will fail if the enote is a jamtis plain type
     CHECK_AND_ASSERT_THROW_MES(verify_enote_ownership_proof_v1(proof_out, amount_commitment, onetime_address),
         "make enote ownership proof (v1 sender selfsend): failed to make proof.");
@@ -383,42 +405,52 @@ void make_enote_ownership_proof_v1_sender_selfsend(const crypto::x25519_pubkey &
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_ownership_proof_v1_receiver(const SpEnoteRecordV1 &enote_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     EnoteOwnershipProofV1 &proof_out)
 {
     // 1. helper privkeys
-    crypto::x25519_secret_key xk_find_received;
+    crypto::x25519_secret_key d_unlock_received;
+    crypto::x25519_secret_key d_identify_received;
+    crypto::x25519_secret_key d_filter_assist;
     crypto::secret_key s_generate_address;
-    jamtis::make_jamtis_findreceived_key(k_view_balance, xk_find_received);
-    jamtis::make_jamtis_generateaddress_secret(k_view_balance, s_generate_address);
+    jamtis::make_jamtis_unlockreceived_key(s_view_balance, d_unlock_received);
+    jamtis::make_jamtis_identifyreceived_key(s_view_balance, d_identify_received);
+    jamtis::make_jamtis_filterassist_key(s_view_balance, d_filter_assist);
+    jamtis::make_jamtis_generateaddress_secret(s_view_balance, s_generate_address);
 
-    // 2. get the owning address's spendkey K_1
+    // 2. get the owning address's spendkey K^j_s
     rct::key jamtis_address_spend_key;
-    jamtis::make_jamtis_address_spend_key(jamtis_spend_pubkey,
+    jamtis::make_jamtis_address_spend_key_sp(jamtis_spend_pubkey,
         s_generate_address,
         enote_record.address_index,
         jamtis_address_spend_key);
+    
+    // 3. get address privkey d^j_a
+    crypto::x25519_secret_key address_privkey;
+    jamtis::make_jamtis_address_privkey(jamtis_spend_pubkey,
+        s_generate_address,
+        enote_record.address_index,
+        address_privkey);
 
-    // 3. prepare the sender-receiver secret
+    // 4. prepare plain X_fa, X_ir, X_ur
+    crypto::x25519_pubkey x_fa;
+    crypto::x25519_scmul_key(d_filter_assist, enote_record.enote_ephemeral_pubkey, x_fa);
+
+    crypto::x25519_pubkey x_ir;
+    crypto::x25519_scmul_key(d_identify_received, enote_record.enote_ephemeral_pubkey, x_ir);
+
+    crypto::x25519_pubkey x_ur;
+    crypto::x25519_invmul_key({d_unlock_received, address_privkey}, enote_record.enote_ephemeral_pubkey, x_ur);
+
+    // 5. prepare the sender-receiver secret
+    const bool is_plain{enote_record.type == jamtis::JamtisEnoteType::PLAIN};
     rct::key sender_receiver_secret;
-    jamtis::JamtisSelfSendType self_send_type;
-
-    if (jamtis::try_get_jamtis_self_send_type(enote_record.type, self_send_type))
-    {
-        jamtis::make_jamtis_sender_receiver_secret_selfsend(k_view_balance,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.input_context,
-            self_send_type,
-            sender_receiver_secret);
-    }
-    else
-    {
-        jamtis::make_jamtis_sender_receiver_secret_plain(xk_find_received,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.input_context,
-            sender_receiver_secret);
-    }
+    jamtis::make_jamtis_sender_receiver_secret(x_fa.data,
+        is_plain ? x_ir.data : reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        is_plain ? x_ur.data : reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        enote_record.enote_ephemeral_pubkey,
+        enote_record.input_context,
+        sender_receiver_secret);
 
     // 4. complete the proof
     make_enote_ownership_proof_v1(jamtis_address_spend_key,
@@ -446,7 +478,7 @@ bool verify_enote_ownership_proof_v1(const EnoteOwnershipProofV1 &proof,
 
     // 2. reproduce the onetime address
     rct::key reproduced_Ko;
-    jamtis::make_jamtis_onetime_address(proof.K_1, proof.q, proof.C, reproduced_Ko);
+    jamtis::make_jamtis_onetime_address_sp(proof.addr_Ks, proof.q, proof.C, reproduced_Ko);
 
     // 3. check the reproduced onetime address matches the proof
     if (!(proof.Ko == reproduced_Ko))
@@ -508,14 +540,14 @@ void make_enote_key_image_proof_v1(const rct::key &onetime_address,
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_key_image_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     EnoteKeyImageProofV1 &proof_out)
 {
-    // 1. y = k_x + k_vb
+    // 1. y = k_x + k_gi
     crypto::secret_key y;
-    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_view_balance));
+    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
-    // 2. z = k_u + k_m
+    // 2. z = k_u + k_ps
     crypto::secret_key z;
     sc_add(to_bytes(z), to_bytes(enote_record.enote_view_extension_u), to_bytes(sp_spend_privkey));
 
@@ -555,7 +587,7 @@ bool verify_enote_key_image_proof_v1(const EnoteKeyImageProofV1 &proof,
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::key_image &test_KI,
     EnoteUnspentProofV1 &proof_out)
 {
@@ -564,11 +596,11 @@ void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     // a. ko_g = k_g
     const crypto::secret_key kog_skey{enote_record.enote_view_extension_g};
 
-    // b. ko_x = (k_x + k_vb)
+    // b. ko_x = (k_x + k_gi)
     crypto::secret_key kox_skey;
-    sc_add(to_bytes(kox_skey), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_view_balance));
+    sc_add(to_bytes(kox_skey), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
-    // c. ko_u = (k_u + k_m)
+    // c. ko_u = (k_u + k_ps)
     crypto::secret_key kou_skey;
     sc_add(to_bytes(kou_skey), to_bytes(enote_record.enote_view_extension_u), to_bytes(sp_spend_privkey));
 
@@ -671,7 +703,7 @@ bool verify_enote_unspent_proof_v1(const EnoteUnspentProofV1 &proof,
 void make_tx_funded_proof_v1(const rct::key &message,
     const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     TxFundedProofV1 &proof_out)
 {
     // 1. prepare a masked version of our enote's onetime address
@@ -685,9 +717,9 @@ void make_tx_funded_proof_v1(const rct::key &message,
     crypto::secret_key x;
     sc_add(to_bytes(x), to_bytes(t_k_new), to_bytes(enote_record.enote_view_extension_g));
 
-    // b. y = k_x + k_vb
+    // b. y = k_x + k_gi
     crypto::secret_key y;
-    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_view_balance));
+    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
     // c. z = k_u + k_m
     crypto::secret_key z;
@@ -769,14 +801,14 @@ void make_reserved_enote_proof_v1(const EnoteOwnershipProofV1 &enote_ownership_p
 void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_record,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     ReservedEnoteProofV1 &proof_out)
 {
     // 1. make enote ownership proof
     EnoteOwnershipProofV1 enote_ownership_proof;
     make_enote_ownership_proof_v1_receiver(contextual_record.record,
         jamtis_spend_pubkey,
-        k_view_balance,
+        s_view_balance,
         enote_ownership_proof);
 
     // 2. make amount proof
@@ -786,14 +818,18 @@ void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_re
         amount_commitment_ref(contextual_record.record.enote),
         amount_proof);
 
-    // 3. make key image proof
+    // 3. generate-image
+    crypto::secret_key k_generate_image;
+    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
+
+    // 4. make key image proof
     EnoteKeyImageProofV1 key_image_proof;
     make_enote_key_image_proof_v1(contextual_record.record,
         sp_spend_privkey,
-        k_view_balance,
+        k_generate_image,
         key_image_proof);
 
-    // 4. complete full proof
+    // 5. complete full proof
     make_reserved_enote_proof_v1(enote_ownership_proof,
         amount_proof,
         key_image_proof,
@@ -863,7 +899,7 @@ void make_reserve_proof_v1(const rct::key &message,
     const std::vector<SpContextualEnoteRecordV1> &reserved_enote_records,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     ReserveProofV1 &proof_out)
 {
     // 1. make randomized indices into the records
@@ -893,7 +929,7 @@ void make_reserve_proof_v1(const rct::key &message,
         make_reserved_enote_proof_v1(record,
             jamtis_spend_pubkey,
             sp_spend_privkey,
-            k_view_balance,
+            s_view_balance,
             tools::add_element(reserved_enote_proofs));
 
         // d. save the address index
@@ -908,7 +944,7 @@ void make_reserve_proof_v1(const rct::key &message,
     {
         make_address_ownership_proof_v1(message,
             sp_spend_privkey,
-            k_view_balance,
+            s_view_balance,
             j,
             tools::add_element(address_ownership_proofs));
     }
@@ -943,9 +979,9 @@ bool verify_reserve_proof_v1(const ReserveProofV1 &proof,
     // 2. check all the reserved enote proofs
     for (const ReservedEnoteProofV1 &reserved_enote_proof : proof.reserved_enote_proofs)
     {
-        // a. check that the owning address K_1 in each of the reserved enote proofs corresponds to an address owned by
+        // a. check that the owning address K^j_s in each of the reserved enote proofs corresponds to an address owned by
         //    the prover
-        if (found_addresses.find(reserved_enote_proof.enote_ownership_proof.K_1) == found_addresses.end())
+        if (found_addresses.find(reserved_enote_proof.enote_ownership_proof.addr_Ks) == found_addresses.end())
             return false;
 
         // b. check that the enotes referenced by the reserved enote proofs are in the ledger and unspent

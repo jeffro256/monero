@@ -38,6 +38,7 @@
 #include "seraphis_core/binned_reference_set.h"
 #include "seraphis_core/binned_reference_set_utils.h"
 #include "seraphis_core/discretized_fee.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_core/sp_core_types.h"
@@ -334,7 +335,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
     std::vector<SpMembershipProofPrepV1> sp_membership_proof_preps,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpTxSquashedV1 &tx_out)
 {
     // partial tx
@@ -345,7 +346,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
         tx_version_from(semantic_rules_version),
         legacy_spend_pubkey,
         jamtis_spend_pubkey,
-        k_view_balance,
+        s_view_balance,
         partial_tx);
 
     // seraphis membership proofs (assumes the caller prepared to make a membership proof for each input)
@@ -365,13 +366,13 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
     std::vector<SpMembershipProofPrepV1> sp_membership_proof_preps,
     const crypto::secret_key &legacy_spend_privkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     hw::device &hwdev,
     SpTxSquashedV1 &tx_out)
 {
     // tx proposal prefix
     rct::key tx_proposal_prefix;
-    get_tx_proposal_prefix_v1(tx_proposal, tx_version_from(semantic_rules_version), k_view_balance, tx_proposal_prefix);
+    get_tx_proposal_prefix_v1(tx_proposal, tx_version_from(semantic_rules_version), s_view_balance, tx_proposal_prefix);
 
     // legacy inputs
     std::vector<LegacyInputV1> legacy_inputs;
@@ -382,12 +383,16 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
         hwdev,
         legacy_inputs);
 
+    // generate-image key
+    crypto::secret_key k_generate_image;
+    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
+
     // seraphis partial inputs
     std::vector<SpPartialInputV1> sp_partial_inputs;
     make_v1_partial_inputs_v1(tx_proposal.sp_input_proposals,
         tx_proposal_prefix,
         sp_spend_privkey,
-        k_view_balance,
+        k_generate_image,
         sp_partial_inputs);
 
     // legacy spend pubkey
@@ -395,7 +400,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
 
     // jamtis spend pubkey
     rct::key jamtis_spend_pubkey;
-    make_seraphis_spendkey(k_view_balance, sp_spend_privkey, jamtis_spend_pubkey);
+    make_seraphis_spendkey(k_generate_image, sp_spend_privkey, jamtis_spend_pubkey);
 
     // finish tx
     make_seraphis_tx_squashed_v1(semantic_rules_version,
@@ -405,7 +410,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
         std::move(sp_membership_proof_preps),
         legacy_spend_pubkey,
         jamtis_spend_pubkey,
-        k_view_balance,
+        s_view_balance,
         tx_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -552,6 +557,7 @@ bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
             tx.sp_input_images,
             tx.outputs,
             tx.tx_supplement.output_enote_ephemeral_pubkeys,
+            tx.tx_supplement.num_primary_view_tag_bits,
             tx.tx_supplement.tx_extra))
         return false;
 

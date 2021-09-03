@@ -223,11 +223,11 @@ public:
     */
     std::uint64_t pop_blocks(const std::size_t num_blocks);
     /**
-    * brief: get_unconfirmed_chunk_sp - try to find-received scan the unconfirmed tx cache
-    * param: xk_find_received -
+    * brief: get_unconfirmed_chunk_sp - try to filter-assist scan the unconfirmed tx cache
+    * param: d_filter_assist -
     * outparam: chunk_data_out -
     */
-    void get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+    void get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &d_filter_assist,
         scanning::ChunkData &chunk_data_out) const;
     /**
     * brief: get_onchain_chunk_legacy - legacy view scan a chunk of blocks
@@ -249,16 +249,16 @@ public:
         scanning::ChunkContext &chunk_context_out,
         scanning::ChunkData &chunk_data_out) const;
     /**
-    * brief: get_onchain_chunk_sp - find-received scan a chunk of blocks
+    * brief: get_onchain_chunk_sp - filter-assist scan a chunk of blocks
     * param: chunk_start_index -
     * param: chunk_max_size -
-    * param: xk_find_received -
+    * param: d_filter_assist -
     * outparam: chunk_context_out - chunk of scanned blocks (or empty chunk representing top of current chain)
     * outparam: chunk_data_out -
     */
     void get_onchain_chunk_sp(const std::uint64_t chunk_start_index,
         const std::uint64_t chunk_max_size,
-        const crypto::x25519_secret_key &xk_find_received,
+        const crypto::x25519_secret_key &d_filter_assist,
         scanning::ChunkContext &chunk_context_out,
         scanning::ChunkData &chunk_data_out) const;
 

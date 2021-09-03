@@ -621,7 +621,7 @@ std::uint64_t MockLedgerContext::pop_blocks(const std::size_t num_blocks)
     return this->pop_chain_at_index(top_block_index + 1 >= num_blocks ? top_block_index + 1 - num_blocks : 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &d_filter_assist,
     scanning::ChunkData &chunk_data_out) const
 {
     chunk_data_out.basic_records_per_tx.clear();
@@ -638,16 +638,14 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
             m_unconfirmed_tx_output_contents.size() * 2 * 140 / 100 / sizeof(sp::jamtis::view_tag_t)
         );
 
-    // find-received scan each tx in the unconfirmed chache
-    std::list<ContextualBasicRecordVariant> collected_records;
-    SpContextualKeyImageSetV1 collected_key_images;
-
+    // filter-assist scan each tx in the unconfirmed chache
     for (const auto &tx_with_output_contents : m_unconfirmed_tx_output_contents)
     {
         const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
 
         // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-        if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+        std::list<ContextualBasicRecordVariant> collected_records;
+        if (scanning::try_find_sp_enotes_in_tx(d_filter_assist,
             -1,
             -1,
             tx_id,
@@ -664,16 +662,15 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
 
             CHECK_AND_ASSERT_THROW_MES(m_unconfirmed_tx_key_images.find(tx_with_output_contents.first) !=
                     m_unconfirmed_tx_key_images.end(),
-                "unconfirmed chunk find-received scanning (mock ledger context): key image map missing tx (bug).");
+                "unconfirmed chunk filter-assist scanning (mock ledger context): key image map missing tx (bug).");
 
-            if (scanning::try_collect_key_images_from_tx(-1,
-                    -1,
-                    tx_id,
-                    std::get<0>(m_unconfirmed_tx_key_images.at(tx_with_output_contents.first)),
-                    std::get<1>(m_unconfirmed_tx_key_images.at(tx_with_output_contents.first)),
-                    SpEnoteSpentStatus::SPENT_UNCONFIRMED,
-                    collected_key_images))
-                chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+            scanning::collect_key_images_from_tx(-1,
+                -1,
+                tx_id,
+                std::get<0>(m_unconfirmed_tx_key_images.at(tx_with_output_contents.first)),
+                std::get<1>(m_unconfirmed_tx_key_images.at(tx_with_output_contents.first)),
+                SpEnoteSpentStatus::SPENT_UNCONFIRMED,
+                tools::add_element(chunk_data_out.contextual_key_images));
         }
     }
 }
@@ -791,9 +788,6 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
     }
 
     // c. legacy-view scan each block in the range
-    std::list<ContextualBasicRecordVariant> collected_records;
-    SpContextualKeyImageSetV1 collected_key_images;
-
     std::for_each(
             m_blocks_of_legacy_tx_output_contents.find(chunk_context_out.start_index),
             m_blocks_of_legacy_tx_output_contents.find(chunk_end_index),
@@ -828,6 +822,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                     // legacy view-scan the tx if in scan mode
                     if (legacy_scan_mode == LegacyScanMode::SCAN)
                     {
+                        std::list<ContextualBasicRecordVariant> collected_records;
                         if (scanning::try_find_legacy_enotes_in_tx(legacy_base_spend_pubkey,
                             legacy_subaddress_map,
                             legacy_view_privkey,
@@ -862,7 +857,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                             .at(block_of_tx_output_contents.first).end(),
                         "onchain chunk legacy-view scanning (mock ledger context): key image map missing tx (bug).");
 
-                    if (scanning::try_collect_key_images_from_tx(block_of_tx_output_contents.first,
+                    scanning::collect_key_images_from_tx(block_of_tx_output_contents.first,
                             std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
                             tx_id,
                             std::get<0>(m_blocks_of_tx_key_images
@@ -872,8 +867,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                                 .at(block_of_tx_output_contents.first)
                                 .at(tx_id)),
                             SpEnoteSpentStatus::SPENT_ONCHAIN,
-                            collected_key_images))
-                        chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+                            tools::add_element(chunk_data_out.contextual_key_images));
 
                     // add this tx's number of outputs to the chunk's total output count per amount
                     for (const LegacyEnoteVariant &enote : enotes)
@@ -894,7 +888,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
 //-------------------------------------------------------------------------------------------------------------------
 void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_index,
     const std::uint64_t chunk_max_size,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &d_filter_assist,
     scanning::ChunkContext &chunk_context_out,
     scanning::ChunkData &chunk_data_out) const
 {
@@ -914,7 +908,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
         {
             CHECK_AND_ASSERT_THROW_MES(m_block_infos.find(chunk_context_out.start_index - 1) !=
                     m_block_infos.end(),
-                "onchain chunk find-received scanning (mock ledger context): block ids map incorrect indexing (bug).");
+                "onchain chunk filter-assist scanning (mock ledger context): block ids map incorrect indexing (bug).");
 
             chunk_context_out.prefix_block_id = std::get<rct::key>(m_block_infos.at(chunk_context_out.start_index - 1));
         }
@@ -936,10 +930,10 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
         };
 
     CHECK_AND_ASSERT_THROW_MES(chunk_end_index > chunk_context_out.start_index,
-        "onchain chunk find-received scanning (mock ledger context): chunk has no blocks below failure tests (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): chunk has no blocks below failure tests (bug).");
     CHECK_AND_ASSERT_THROW_MES(m_block_infos.find(chunk_context_out.start_index) != m_block_infos.end() &&
             m_block_infos.find(chunk_end_index - 1) != m_block_infos.end(),
-        "onchain chunk find-received scanning (mock ledger context): block range outside of block ids map (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): block range outside of block ids map (bug).");
 
     // b. prefix block id
     chunk_context_out.prefix_block_id =
@@ -961,7 +955,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
 
     CHECK_AND_ASSERT_THROW_MES(chunk_context_out.block_ids.size() ==
             chunk_end_index - chunk_context_out.start_index,
-        "onchain chunk find-received scanning (mock ledger context): invalid number of block ids acquired (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): invalid number of block ids acquired (bug).");
 
 
     /// 3. scan blocks in the chunk range that may contain seraphis enotes or key images
@@ -976,16 +970,16 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
 
     CHECK_AND_ASSERT_THROW_MES(m_blocks_of_sp_tx_output_contents.find(chunk_start_adjusted) !=
             m_blocks_of_sp_tx_output_contents.end(),
-        "onchain chunk find-received scanning (mock ledger context): start of chunk not known in tx outputs map (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): start of chunk not known in tx outputs map (bug).");
     CHECK_AND_ASSERT_THROW_MES(m_blocks_of_sp_tx_output_contents.find(chunk_end_index - 1) !=
             m_blocks_of_sp_tx_output_contents.end(),
-        "onchain chunk find-received scanning (mock ledger context): end of chunk not known in tx outputs map (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): end of chunk not known in tx outputs map (bug).");
     CHECK_AND_ASSERT_THROW_MES(m_blocks_of_tx_key_images.find(chunk_start_adjusted) !=
             m_blocks_of_tx_key_images.end(),
-        "onchain chunk find-received scanning (mock ledger context): start of chunk not known in key images map (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): start of chunk not known in key images map (bug).");
     CHECK_AND_ASSERT_THROW_MES(m_blocks_of_tx_key_images.find(chunk_end_index - 1) !=
             m_blocks_of_tx_key_images.end(),
-        "onchain chunk find-received scanning (mock ledger context): end of chunk not known in key images map (bug).");
+        "onchain chunk filter-assist scanning (mock ledger context): end of chunk not known in key images map (bug).");
 
     // c. initialize output count to the total number of seraphis enotes in the ledger before the first block to scan
     std::uint64_t total_output_count_before_tx{0};
@@ -994,7 +988,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
     {
         CHECK_AND_ASSERT_THROW_MES(m_accumulated_sp_output_counts.find(chunk_start_adjusted - 1) !=
                 m_accumulated_sp_output_counts.end(),
-            "onchain chunk find-received scanning (mock ledger context): output counts missing a block (bug).");
+            "onchain chunk filter-assist scanning (mock ledger context): output counts missing a block (bug).");
 
         total_output_count_before_tx = m_accumulated_sp_output_counts.at(chunk_start_adjusted - 1);
     }
@@ -1014,24 +1008,22 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
             );
     }
 
-    // e. find-received scan each block in the range
-    std::list<ContextualBasicRecordVariant> collected_records;
-    SpContextualKeyImageSetV1 collected_key_images;
-
+    // e. filter-assist scan each block in the range
     std::for_each(
             m_blocks_of_sp_tx_output_contents.find(chunk_start_adjusted),
             m_blocks_of_sp_tx_output_contents.find(chunk_end_index),
             [&](const auto &block_of_tx_output_contents)
             {
                 CHECK_AND_ASSERT_THROW_MES(m_block_infos.find(block_of_tx_output_contents.first) != m_block_infos.end(),
-                    "onchain chunk find-received scanning (mock ledger context): block infos map missing index (bug).");
+                    "onchain chunk filter-assist scanning (mock ledger context): block infos map missing index (bug).");
 
                 for (const auto &tx_with_output_contents : block_of_tx_output_contents.second)
                 {
                     const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
 
                     // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-                    if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+                    std::list<ContextualBasicRecordVariant> collected_records;
+                    if (scanning::try_find_sp_enotes_in_tx(d_filter_assist,
                         block_of_tx_output_contents.first,
                         std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
                         tx_id,
@@ -1051,21 +1043,20 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
                                 .at(block_of_tx_output_contents.first).find(tx_with_output_contents.first) !=
                             m_blocks_of_tx_key_images
                                 .at(block_of_tx_output_contents.first).end(),
-                            "onchain chunk find-received scanning (mock ledger context): key image map missing tx "
+                            "onchain chunk filter-assist scanning (mock ledger context): key image map missing tx "
                             "(bug).");
 
-                        if (scanning::try_collect_key_images_from_tx(block_of_tx_output_contents.first,
-                                std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
-                                tx_id,
-                                std::get<0>(m_blocks_of_tx_key_images
-                                    .at(block_of_tx_output_contents.first)
-                                    .at(tx_with_output_contents.first)),
-                                std::get<1>(m_blocks_of_tx_key_images
-                                    .at(block_of_tx_output_contents.first)
-                                    .at(tx_with_output_contents.first)),
-                                SpEnoteSpentStatus::SPENT_ONCHAIN,
-                                collected_key_images))
-                            chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+                        scanning::collect_key_images_from_tx(block_of_tx_output_contents.first,
+                            std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
+                            tx_id,
+                            std::get<0>(m_blocks_of_tx_key_images
+                                .at(block_of_tx_output_contents.first)
+                                .at(tx_with_output_contents.first)),
+                            std::get<1>(m_blocks_of_tx_key_images
+                                .at(block_of_tx_output_contents.first)
+                                .at(tx_with_output_contents.first)),
+                            SpEnoteSpentStatus::SPENT_ONCHAIN,
+                            tools::add_element(chunk_data_out.contextual_key_images));
                     }
 
                     // add this tx's number of outputs to the total output count

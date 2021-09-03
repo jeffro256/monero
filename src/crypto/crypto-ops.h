@@ -143,9 +143,12 @@ extern const fe fe_fffb1;
 extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
+extern const fe fe_fffb5; /* sqrt(-(A + 2)) */
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
+int ge_fromx25519_vartime(ge_p3 *, const unsigned char *);
+void ge_p3_to_x25519(unsigned char *, const ge_p3 *);
 void sc_0(unsigned char *);
 void sc_reduce32(unsigned char *);
 void sc_add(unsigned char *, const unsigned char *, const unsigned char *);

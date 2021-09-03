@@ -35,9 +35,9 @@
 #include "ringct/rctTypes.h"
 #include "seraphis_core/binned_reference_set.h"
 #include "seraphis_core/discretized_fee.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
@@ -248,29 +248,28 @@ TEST(seraphis_enote_scanning, trivial_ledger)
 {
     // make user keys
     jamtis_mock_keys user_keys;
-    make_jamtis_mock_keys(user_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys);
 
     // make user address
-    address_index_t j;
-    j = sp::jamtis::gen_address_index();
+    const address_index_t j = sp::jamtis::gen_address_index();
     JamtisDestinationV1 user_address;
 
-    ASSERT_NO_THROW(make_jamtis_destination_v1(user_keys.K_1_base,
-        user_keys.xK_ua,
-        user_keys.xK_fr,
-        user_keys.s_ga,
+    ASSERT_NO_THROW(make_address_for_user(user_keys,
         j,
         user_address));
 
     // make enote for user
     const rct::xmr_amount enote_amount{1};
     const rct::key mock_input_context{rct::skGen()};
+    const std::uint8_t num_primary_view_tag_bits{13};
     SpTxSupplementV1 mock_tx_supplement{};
 
     const JamtisPaymentProposalV1 payment_proposal{
             .destination = user_address,
             .amount = enote_amount,
+            .onetime_address_format = JamtisOnetimeAddressFormat::SERAPHIS,
             .enote_ephemeral_privkey = crypto::x25519_secret_key_gen(),
+            .num_primary_view_tag_bits = num_primary_view_tag_bits,
             .partial_memo = mock_tx_supplement.tx_extra
         };
     SpOutputProposalV1 output_proposal;
@@ -279,6 +278,7 @@ TEST(seraphis_enote_scanning, trivial_ledger)
     SpEnoteV1 single_enote;
     get_enote_v1(output_proposal, single_enote);
     mock_tx_supplement.output_enote_ephemeral_pubkeys.emplace_back(output_proposal.enote_ephemeral_pubkey);
+    mock_tx_supplement.num_primary_view_tag_bits = num_primary_view_tag_bits;
 
     // add enote to mock ledger context as a coinbase enote
     MockLedgerContext ledger_context{0, 0};
@@ -294,11 +294,11 @@ TEST(seraphis_enote_scanning, trivial_ledger)
             .max_chunk_size_hint = 1,
             .max_partialscan_attempts = 0
         };
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
-    ChunkConsumerMockSp chunk_consumer{user_keys.K_1_base, user_keys.k_vb, user_enote_store};
+    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.s_vb, user_enote_store};
 
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed,
@@ -310,9 +310,10 @@ TEST(seraphis_enote_scanning, trivial_ledger)
 
     ASSERT_TRUE(try_get_enote_record_v1(single_enote,
         output_proposal.enote_ephemeral_pubkey,
+        num_primary_view_tag_bits,
         mock_input_context,
-        user_keys.K_1_base,
-        user_keys.k_vb,
+        user_keys.K_s_base,
+        user_keys.s_vb,
         single_enote_record));
 
     // expect the enote to be found
@@ -330,9 +331,11 @@ TEST(seraphis_enote_scanning, simple_ledger_1)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{5};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -344,7 +347,7 @@ TEST(seraphis_enote_scanning, simple_ledger_1)
     // 1. one coinbase to user
     MockLedgerContext ledger_context{0, 0};
     SpEnoteStore enote_store_A{0, 0, 0};
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -364,9 +367,11 @@ TEST(seraphis_enote_scanning, simple_ledger_2)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{9};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -378,7 +383,7 @@ TEST(seraphis_enote_scanning, simple_ledger_2)
     // 2. two coinbase to user (one coinbase tx)
     MockLedgerContext ledger_context{0, 0};
     SpEnoteStore enote_store_A{0, 0, 0};
-    send_sp_coinbase_amounts_to_users({{1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -398,11 +403,13 @@ TEST(seraphis_enote_scanning, simple_ledger_3)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{8};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -417,7 +424,10 @@ TEST(seraphis_enote_scanning, simple_ledger_3)
     MockLedgerContext ledger_context{0, 0};
     SpEnoteStore enote_store_A{0, 0, 0};
     SpEnoteStore enote_store_B{0, 0, 0};
-    send_sp_coinbase_amounts_to_users({{1}, {2}}, {destination_A, destination_B}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}, {2}},
+        {destination_A, destination_B},
+        num_primary_view_tag_bits,
+        ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
     refresh_user_enote_store(user_keys_B, refresh_config, ledger_context, enote_store_B);
 
@@ -442,9 +452,11 @@ TEST(seraphis_enote_scanning, simple_ledger_4)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{15};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -456,7 +468,7 @@ TEST(seraphis_enote_scanning, simple_ledger_4)
     // 4. two coinbase to user, search between each send (two coinbase txs i.e. two blocks)
     MockLedgerContext ledger_context{0, 0};
     SpEnoteStore enote_store_A{0, 0, 0};
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -464,7 +476,7 @@ TEST(seraphis_enote_scanning, simple_ledger_4)
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
 
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -484,9 +496,11 @@ TEST(seraphis_enote_scanning, simple_ledger_5)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{8};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -504,9 +518,9 @@ TEST(seraphis_enote_scanning, simple_ledger_5)
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
 
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);
-    send_sp_coinbase_amounts_to_users({{4}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
+    send_sp_coinbase_amounts_to_users({{4}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -522,7 +536,7 @@ TEST(seraphis_enote_scanning, simple_ledger_5)
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
 
-    send_sp_coinbase_amounts_to_users({{8}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{8}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -542,9 +556,11 @@ TEST(seraphis_enote_scanning, simple_ledger_6)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{1};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -564,9 +580,9 @@ TEST(seraphis_enote_scanning, simple_ledger_6)
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
 
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);
-    send_sp_coinbase_amounts_to_users({{4}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
+    send_sp_coinbase_amounts_to_users({{4}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -582,7 +598,7 @@ TEST(seraphis_enote_scanning, simple_ledger_6)
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
 
-    send_sp_coinbase_amounts_to_users({{8}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{8}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -617,9 +633,11 @@ TEST(seraphis_enote_scanning, simple_ledger_7)
             .density_factor = 1
         };
 
+    const std::uint8_t num_primary_view_tag_bits{3};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -637,19 +655,19 @@ TEST(seraphis_enote_scanning, simple_ledger_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
 
     // send funds: blocks 0 - 12, refresh
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 0
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 1
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 2
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 3
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 4
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 5
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 6
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 7
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 8
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 9
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 10
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 11
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 12
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 0
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 1
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 2
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 3
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 4
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 5
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 6
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 7
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 8
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 9
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 10
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 11
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 12
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -667,11 +685,11 @@ TEST(seraphis_enote_scanning, simple_ledger_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 4);
 
     // send funds: blocks 8 - 12, refresh
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);  //block 8
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);  //block 9
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);  //block 10
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);  //block 11
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);  //block 12
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 8
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 9
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 10
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 11
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 12
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -683,17 +701,17 @@ TEST(seraphis_enote_scanning, simple_ledger_7)
     ledger_context.pop_blocks(11);
 
     // send funds: blocks 2 - 12, refresh
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 2
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 3
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 4
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 5
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 6
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 7
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 8
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 9
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 10
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 11
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);  //block 12
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 2
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 3
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 4
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 5
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 6
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 7
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 8
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 9
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 10
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 11
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);  //block 12
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::OFFCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
@@ -713,9 +731,11 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
             .max_partialscan_attempts = 0
         };
 
+    const std::uint8_t num_primary_view_tag_bits{16};
+
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -741,7 +761,7 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
         {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
-    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
     refresh_user_enote_store_PV(user_keys_A, refresh_config, ledger_context, enote_store_PV_A);
 
@@ -754,7 +774,7 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
         {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //amount 1 locked
 
-    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
     refresh_user_enote_store_PV(user_keys_A, refresh_config, ledger_context, enote_store_PV_A);
 
@@ -790,6 +810,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{4};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -807,8 +828,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -826,7 +847,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     transfer_funds_single_mock_v1_unconfirmed_sp_only(user_keys_A,
@@ -835,6 +856,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
         fee_per_tx_weight,
         max_inputs,
         {{2, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -891,6 +913,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_2)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{11};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -908,8 +931,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_2)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -925,7 +948,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_2)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{0, 0, 0, 8}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{0, 0, 0, 8}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     transfer_funds_single_mock_v1_unconfirmed_sp_only(user_keys_A,
@@ -934,6 +957,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_2)
         fee_per_tx_weight,
         max_inputs,
         {{3, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -982,6 +1006,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{12};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -999,8 +1024,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1017,7 +1042,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{0, 0, 0, 8}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{0, 0, 0, 8}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     transfer_funds_single_mock_v1_unconfirmed_sp_only(user_keys_A,
@@ -1026,6 +1051,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
         fee_per_tx_weight,
         max_inputs,
         {{3, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1047,7 +1073,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
     ASSERT_TRUE(get_balance(enote_store_B, {SpEnoteOriginStatus::ONCHAIN, SpEnoteOriginStatus::UNCONFIRMED},
         {SpEnoteSpentStatus::SPENT_ONCHAIN, SpEnoteSpentStatus::SPENT_UNCONFIRMED}) == 3);
 
-    send_sp_coinbase_amounts_to_users({{8}}, {destination_B}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{8}}, {destination_B}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
     refresh_user_enote_store(user_keys_B, refresh_config, ledger_context, enote_store_B);
 
@@ -1074,6 +1100,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{3};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -1091,8 +1118,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1109,7 +1136,10 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{10, 10, 10, 10}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10, 10, 10, 10}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     transfer_funds_single_mock_v1_unconfirmed_sp_only(user_keys_A,
@@ -1118,6 +1148,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
         fee_per_tx_weight,
         max_inputs,
         {{20, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1162,6 +1193,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
         fee_per_tx_weight,
         max_inputs,
         {{30, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1206,6 +1238,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
         fee_per_tx_weight,
         max_inputs,
         {{3, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1254,6 +1287,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{10};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -1271,8 +1305,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1289,7 +1323,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
     SpEnoteStore enote_store_B{2, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{10, 10, 10, 10}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10, 10, 10, 10}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
 
     transfer_funds_single_mock_v1_unconfirmed_sp_only(user_keys_A,
@@ -1298,6 +1332,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
         fee_per_tx_weight,
         max_inputs,
         {{11, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1342,6 +1377,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
         fee_per_tx_weight,
         max_inputs,
         {{12, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1403,6 +1439,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
         fee_per_tx_weight,
         max_inputs,
         {{13, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1451,6 +1488,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{1};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,
@@ -1467,7 +1505,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1483,7 +1521,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
     MockLedgerContext ledger_context{0, 0};
     SpEnoteStore enote_store_A{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
-    send_sp_coinbase_amounts_to_users({{16, 0, 0, 0}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{16, 0, 0, 0}}, {destination_A}, num_primary_view_tag_bits, ledger_context);
 
     for (std::size_t iteration{0}; iteration < 12; ++iteration)
     {
@@ -1503,6 +1541,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
             {
                 {amnt1, destination_A, TxExtra{}}
             },
+            num_primary_view_tag_bits,
             ref_set_decomp_n,
             ref_set_decomp_m,
             bin_config,
@@ -1548,9 +1587,11 @@ class InvocableTest2 final : public Invocable
 public:
     InvocableTest2(const JamtisDestinationV1 &user_address,
         std::vector<rct::xmr_amount> amounts_per_new_coinbase,
+        const std::uint8_t num_primary_view_tag_bits,
         MockLedgerContext &ledger_context) :
             m_user_address{user_address},
             m_amounts_per_new_coinbase{std::move(amounts_per_new_coinbase)},
+            m_num_primary_view_tag_bits{num_primary_view_tag_bits},
             m_ledger_contex{ledger_context}
     {}
     InvocableTest2& operator=(InvocableTest2&&) = delete;
@@ -1564,12 +1605,16 @@ public:
         {
             m_ledger_contex.pop_blocks(2);
             for (const rct::xmr_amount new_coinbase_amount : m_amounts_per_new_coinbase)
-                send_sp_coinbase_amounts_to_users({{new_coinbase_amount}}, {m_user_address}, m_ledger_contex);
+                send_sp_coinbase_amounts_to_users({{new_coinbase_amount}},
+                    {m_user_address},
+                    m_num_primary_view_tag_bits,
+                    m_ledger_contex);
         }
     }
 private:
     const JamtisDestinationV1 &m_user_address;
     const std::vector<rct::xmr_amount> m_amounts_per_new_coinbase;
+    const std::uint8_t m_num_primary_view_tag_bits;
     MockLedgerContext &m_ledger_contex;
     std::size_t m_num_calls{0};
 };
@@ -1579,9 +1624,11 @@ class InvocableTest3 final : public Invocable
 public:
     InvocableTest3(const JamtisDestinationV1 &user_address,
         std::vector<rct::xmr_amount> amounts_per_new_coinbase,
+        const std::uint8_t num_primary_view_tag_bits,
         MockLedgerContext &ledger_context) :
             m_user_address{user_address},
             m_amounts_per_new_coinbase{std::move(amounts_per_new_coinbase)},
+            m_num_primary_view_tag_bits{num_primary_view_tag_bits},
             m_ledger_contex{ledger_context}
     {}
     InvocableTest3& operator=(InvocableTest3&&) = delete;
@@ -1595,7 +1642,10 @@ public:
         {
             m_ledger_contex.pop_blocks(2);
             for (const rct::xmr_amount new_coinbase_amount : m_amounts_per_new_coinbase)
-                send_sp_coinbase_amounts_to_users({{new_coinbase_amount}}, {m_user_address}, m_ledger_contex);
+                send_sp_coinbase_amounts_to_users({{new_coinbase_amount}},
+                    {m_user_address},
+                    m_num_primary_view_tag_bits,
+                    m_ledger_contex);
         }
     }
 
@@ -1604,6 +1654,7 @@ public:
 private:
     const JamtisDestinationV1 &m_user_address;
     const std::vector<rct::xmr_amount> m_amounts_per_new_coinbase;
+    const std::uint8_t m_num_primary_view_tag_bits;
     MockLedgerContext &m_ledger_contex;
     std::size_t m_num_calls{0};
 };
@@ -1613,9 +1664,11 @@ class InvocableTest4 final : public Invocable
 public:
     InvocableTest4(const JamtisDestinationV1 &user_address,
         const rct::xmr_amount amount_new_coinbase,
+        const std::uint8_t num_primary_view_tag_bits,
         MockLedgerContext &ledger_context) :
             m_user_address{user_address},
             m_amount_new_coinbase{amount_new_coinbase},
+            m_num_primary_view_tag_bits{num_primary_view_tag_bits},
             m_ledger_contex{ledger_context}
     {}
     InvocableTest4& operator=(InvocableTest4&&) = delete;
@@ -1628,12 +1681,16 @@ public:
         if (m_num_calls % 3 == 0)
         {
             m_ledger_contex.pop_blocks(1);
-            send_sp_coinbase_amounts_to_users({{m_amount_new_coinbase}}, {m_user_address}, m_ledger_contex);
+            send_sp_coinbase_amounts_to_users({{m_amount_new_coinbase}},
+                {m_user_address},
+                m_num_primary_view_tag_bits,
+                m_ledger_contex);
         }
     }
 private:
     const JamtisDestinationV1 &m_user_address;
     const rct::xmr_amount m_amount_new_coinbase;
+    const std::uint8_t m_num_primary_view_tag_bits;
     MockLedgerContext &m_ledger_contex;
     std::size_t m_num_calls{0};
 };
@@ -1701,6 +1758,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{9};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -1712,8 +1770,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1735,7 +1793,10 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     // a. refresh once so alignment will begin on block 0 in the test
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -1747,6 +1808,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
         fee_per_tx_weight,
         max_inputs,
         {{2, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1771,8 +1833,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 0 (range [0, 0) -> DONE)
     // 5. DONE: refresh enote store of A
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_A{enote_finding_context_unconfirmed_A};
     scanning::ScanContextLedgerSimple scan_context_ledger_A{enote_finding_context_ledger_A};
     InvocableTest1 invocable_get_onchain{ledger_context};
@@ -1780,7 +1842,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_1_base, user_keys_A.k_vb, enote_store_A};
+    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.s_vb, enote_store_A};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_A,
         test_scan_context_A,
@@ -1813,6 +1875,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{14};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -1824,8 +1887,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1847,7 +1910,10 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     // a. refresh A so coinbase funds are available
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -1859,6 +1925,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
         fee_per_tx_weight,
         max_inputs,
         {{1, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1872,6 +1939,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
         fee_per_tx_weight,
         max_inputs,
         {{2, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -1899,16 +1967,16 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 3 (range [3, 3) -> DONE)
     // 5. DONE: refresh enote store of A
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_A{enote_finding_context_unconfirmed_A};
     scanning::ScanContextLedgerSimple scan_context_ledger_A{enote_finding_context_ledger_A};
-    InvocableTest2 invocable_get_onchain{destination_A, {3, 5}, ledger_context};
+    InvocableTest2 invocable_get_onchain{destination_A, {3, 5}, num_primary_view_tag_bits, ledger_context};
     ScanContextLedgerTEST test_scan_context_A(scan_context_ledger_A,
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_1_base, user_keys_A.k_vb, enote_store_A};
+    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.s_vb, enote_store_A};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_A,
         test_scan_context_A,
@@ -1941,6 +2009,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{14};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -1952,8 +2021,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1975,7 +2044,10 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     // a. refresh once so user A can make a tx
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -1987,6 +2059,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
         fee_per_tx_weight,
         max_inputs,
         {{1, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -2000,6 +2073,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
         fee_per_tx_weight,
         max_inputs,
         {{2, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -2026,16 +2100,16 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 3 (range [3, 3) -> DONE)
     // 5. DONE: refresh enote store of B
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
-    InvocableTest3 invocable_get_onchain{destination_B, {3, 5}, ledger_context};
+    InvocableTest3 invocable_get_onchain{destination_B, {3, 5}, num_primary_view_tag_bits, ledger_context};
     ScanContextLedgerTEST test_scan_context_B(scan_context_ledger_B,
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_1_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_B,
         test_scan_context_B,
@@ -2071,6 +2145,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{15};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -2082,8 +2157,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -2105,7 +2180,10 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     // a. refresh once so user A can make a tx
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -2117,6 +2195,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
         fee_per_tx_weight,
         max_inputs,
         {{1, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -2142,16 +2221,16 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     //     iii. get onchain chunk: block 2  (inject: pop 1, +1 blocks) (fail: chunk range [2, 2) -> NEED_PARTIALSCAN)
     //   b. skip unconfirmed chunk: (NEED_PARTIALSCAN)
     // 5. ... etc. until partialscan attempts runs out (then throw)
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
-    InvocableTest4 invocable_get_onchain{destination_B, 1, ledger_context};
+    InvocableTest4 invocable_get_onchain{destination_B, 1, num_primary_view_tag_bits, ledger_context};
     ScanContextLedgerTEST test_scan_context_B(scan_context_ledger_B,
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_1_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_FALSE(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_B,
         test_scan_context_B,
@@ -2168,6 +2247,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{8};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -2186,8 +2266,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -2209,7 +2289,10 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     SpEnoteStore enote_store_B{0, 0, 0};
     const InputSelectorMockV1 input_selector_A{enote_store_A};
     const InputSelectorMockV1 input_selector_B{enote_store_B};
-    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}}, {destination_A}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{1, 1, 1, 1}},
+        {destination_A},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     // a. refresh once so user A can make a tx
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -2221,6 +2304,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
         fee_per_tx_weight,
         max_inputs,
         {{1, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         ref_set_decomp_n,
         ref_set_decomp_m,
         bin_config,
@@ -2237,6 +2321,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
         fee_per_tx_weight,
         max_inputs,
         {{2, destination_B, TxExtra{}}},
+        num_primary_view_tag_bits,
         0, //legacy ring size
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -2260,8 +2345,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     //     i.   get onchain chunk: block 2  (inject: commit unconfirmed)  (success: chunk range [2, 3])
     //     ii.  get onchain chunk: block 3  (success: chunk range [3, 3) -> DONE)
     // 4. DONE: refresh enote store of B
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
     InvocableTest5Commit invocable_get_unconfirmed{ledger_context};
@@ -2272,7 +2357,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_1_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         test_scan_context_unconfirmed_B,
         test_scan_context_ledger_B,
@@ -5946,6 +6031,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
     const std::size_t legacy_ring_size{2};
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{6};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -5973,7 +6059,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -6170,7 +6256,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6210,7 +6299,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6257,6 +6349,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         fee_per_tx_weight,
         max_inputs,
         {{23, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -6335,7 +6428,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 0: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6463,7 +6559,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6501,7 +6600,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6546,6 +6648,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         fee_per_tx_weight,
         max_inputs,
         {{32, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -6595,7 +6698,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
     //no recovery: pop then add a block to see what happens
 
     //block 0: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6627,7 +6733,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //legacy scan
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -6734,7 +6843,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}}, 
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6772,7 +6884,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6817,6 +6932,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         fee_per_tx_weight,
         max_inputs,
         {{32, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -6866,7 +6982,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
     //no recovery: pop then add a block to see what happens
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6904,7 +7023,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -6949,6 +7071,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
         fee_per_tx_weight,
         max_inputs,
         {{32, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -7038,6 +7161,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
     const std::size_t legacy_ring_size{2};
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{7};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -7065,7 +7189,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -7262,7 +7386,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     //seraphis scan should throw if this line in mock ledger context is changed to '> 0'
@@ -7304,7 +7431,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7344,7 +7474,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 4: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7391,6 +7524,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         fee_per_tx_weight,
         max_inputs,
         {{33, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -7442,7 +7576,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
     //no recovery: pop then add a block to see what happens
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7537,7 +7674,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7577,7 +7717,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 4: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7624,6 +7767,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         fee_per_tx_weight,
         max_inputs,
         {{33, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -7708,7 +7852,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}}, 
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7746,7 +7893,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7784,7 +7934,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7822,7 +7975,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 4: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7867,6 +8023,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         fee_per_tx_weight,
         max_inputs,
         {{42, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -7949,7 +8106,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 3: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -7987,7 +8147,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
         enote_store_view);
 
     //block 4: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}}, {sp_destination}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}},
+        {sp_destination},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8065,6 +8228,8 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
     const std::uint64_t first_sp_allowed_block{1};
     const std::uint64_t first_sp_only_block{1};
 
+    const std::uint8_t num_primary_view_tag_bits{2};
+
     // 2. legacy user keys
     legacy_mock_keys legacy_keys;
     make_legacy_mock_keys(legacy_keys);
@@ -8081,7 +8246,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -8176,7 +8341,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8212,7 +8380,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits, 
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8303,7 +8474,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8339,7 +8513,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8381,7 +8558,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
     //don't scan
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, 
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8417,7 +8597,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8490,7 +8673,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 1: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8526,7 +8712,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
         enote_store_view);
 
     //block 2: seraphis amount 10
-    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}}, {sp_destination, sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{10}, {0, 0, 0}},
+        {sp_destination, sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //test recovery
     legacy_sp_transition_test_recovery_assertions(legacy_keys,
@@ -8600,6 +8789,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_4)
     const std::size_t legacy_ring_size{2};
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{3};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -8627,7 +8817,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_4)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -8848,6 +9038,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_4)
         fee_per_tx_weight,
         max_inputs,
         {{2, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -9007,6 +9198,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_4)
         fee_per_tx_weight,
         max_inputs,
         {{2, sp_destination, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -9222,6 +9414,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
     const std::size_t legacy_ring_size{2};
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
+    const std::uint8_t num_primary_view_tag_bits{16};
 
     const FeeCalculatorMockTrivial fee_calculator;  //just do a trivial calculator here (fee = fee/weight * 1 weight)
 
@@ -9249,7 +9442,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -9421,7 +9614,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
     //don't scan
 
     //block 1: seraphis block
-    send_sp_coinbase_amounts_to_users({{0}}, {sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{0}},
+        {sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //don't scan
 
@@ -9441,6 +9637,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
         fee_per_tx_weight,
         max_inputs,
         {{2, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -9541,6 +9738,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
         fee_per_tx_weight,
         max_inputs,
         {{2, sp_destination_random, TxExtra{}}},
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -9596,7 +9794,10 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
     //don't scan
 
     //block 1: seraphis block
-    send_sp_coinbase_amounts_to_users({{0}}, {sp_destination_random}, ledger_context);
+    send_sp_coinbase_amounts_to_users({{0}},
+        {sp_destination_random},
+        num_primary_view_tag_bits,
+        ledger_context);
 
     //don't scan
 

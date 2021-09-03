@@ -62,6 +62,7 @@ struct SpTxGenData
     std::vector<rct::xmr_amount> alternate_input_amounts;  //alternate all-legacy then all-seraphis inputs
     std::vector<rct::xmr_amount> output_amounts;
     DiscretizedFee discretized_transaction_fee{discretize_fee(0)};
+    std::uint8_t num_primary_view_tag_bits;
     TestType expected_result{TestType::ExpectTrue};
     bool test_double_spend{false};
 };
@@ -77,6 +78,7 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
     const std::vector<rct::xmr_amount> sp_input_amounts,
     const std::vector<rct::xmr_amount> output_amounts,
     const DiscretizedFee discretized_transaction_fee,
+    const std::uint8_t num_primary_view_tag_bits,
     const TestType expected_result,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
@@ -95,15 +97,16 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
         // mock params
         SpTxParamPackV1 tx_params;
 
-        tx_params.legacy_ring_size         = legacy_ring_size;
-        tx_params.ref_set_decomp_n         = ref_set_decomp_n;
-        tx_params.ref_set_decomp_m         = ref_set_decomp_m;
-        tx_params.num_random_memo_elements = 0;
-        tx_params.bin_config               = bin_config;
-        tx_params.legacy_input_amounts     = std::move(legacy_input_amounts);
-        tx_params.sp_input_amounts         = std::move(sp_input_amounts);
-        tx_params.output_amounts           = std::move(output_amounts);
-        tx_params.discretized_fee          = discretized_transaction_fee;
+        tx_params.legacy_ring_size          = legacy_ring_size;
+        tx_params.ref_set_decomp_n          = ref_set_decomp_n;
+        tx_params.ref_set_decomp_m          = ref_set_decomp_m;
+        tx_params.num_random_memo_elements  = 0;
+        tx_params.bin_config                = bin_config;
+        tx_params.legacy_input_amounts      = std::move(legacy_input_amounts);
+        tx_params.sp_input_amounts          = std::move(sp_input_amounts);
+        tx_params.output_amounts            = std::move(output_amounts);
+        tx_params.discretized_fee           = discretized_transaction_fee;
+        tx_params.num_primary_view_tag_bits = num_primary_view_tag_bits;
 
         // make tx
         SpTxType tx;
@@ -156,6 +159,7 @@ static void run_mock_tx_tests(const std::vector<SpTxGenData> &gen_data)
                 sp_input_amounts,
                 gen.output_amounts,
                 gen.discretized_transaction_fee,
+                gen.num_primary_view_tag_bits,
                 gen.expected_result,
                 gen.test_double_spend,
                 ledger_context);
@@ -205,15 +209,16 @@ static void run_mock_tx_test_batch(const std::vector<SpTxGenData> &gen_data)
                 // mock params
                 SpTxParamPackV1 tx_params{};
 
-                tx_params.legacy_ring_size         = gen.legacy_ring_size;
-                tx_params.ref_set_decomp_n         = gen.ref_set_decomp_n;
-                tx_params.ref_set_decomp_m         = gen.ref_set_decomp_m;
-                tx_params.num_random_memo_elements = 0;
-                tx_params.bin_config               = gen.bin_config;
-                tx_params.legacy_input_amounts     = std::move(legacy_input_amounts);
-                tx_params.sp_input_amounts         = std::move(sp_input_amounts);
-                tx_params.output_amounts           = std::move(gen.output_amounts);
-                tx_params.discretized_fee          = gen.discretized_transaction_fee;
+                tx_params.legacy_ring_size          = gen.legacy_ring_size;
+                tx_params.ref_set_decomp_n          = gen.ref_set_decomp_n;
+                tx_params.ref_set_decomp_m          = gen.ref_set_decomp_m;
+                tx_params.num_random_memo_elements  = 0;
+                tx_params.bin_config                = gen.bin_config;
+                tx_params.legacy_input_amounts      = std::move(legacy_input_amounts);
+                tx_params.sp_input_amounts          = std::move(sp_input_amounts);
+                tx_params.output_amounts            = std::move(gen.output_amounts);
+                tx_params.discretized_fee           = gen.discretized_transaction_fee;
+                tx_params.num_primary_view_tag_bits = gen.num_primary_view_tag_bits;
 
                 // make tx
                 make_mock_tx<SpTxType>(tx_params,
@@ -283,6 +288,7 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
     const std::vector<rct::xmr_amount> sp_input_amounts,
     const std::vector<rct::xmr_amount> output_amounts,
     const DiscretizedFee discretized_transaction_fee,
+    const std::uint8_t num_primary_view_tag_bits,
     const TestType expected_result,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
@@ -301,15 +307,16 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
         // mock params
         SpTxParamPackV1 tx_params{};
 
-        tx_params.legacy_ring_size         = legacy_ring_size;
-        tx_params.ref_set_decomp_n         = ref_set_decomp_n;
-        tx_params.ref_set_decomp_m         = ref_set_decomp_m;
-        tx_params.num_random_memo_elements = 0;
-        tx_params.bin_config               = bin_config;
-        tx_params.legacy_input_amounts     = std::move(legacy_input_amounts);
-        tx_params.sp_input_amounts         = std::move(sp_input_amounts);
-        tx_params.output_amounts           = std::move(output_amounts);
-        tx_params.discretized_fee          = discretized_transaction_fee;
+        tx_params.legacy_ring_size          = legacy_ring_size;
+        tx_params.ref_set_decomp_n          = ref_set_decomp_n;
+        tx_params.ref_set_decomp_m          = ref_set_decomp_m;
+        tx_params.num_random_memo_elements  = 0;
+        tx_params.bin_config                = bin_config;
+        tx_params.legacy_input_amounts      = std::move(legacy_input_amounts);
+        tx_params.sp_input_amounts          = std::move(sp_input_amounts);
+        tx_params.output_amounts            = std::move(output_amounts);
+        tx_params.discretized_fee           = discretized_transaction_fee;
+        tx_params.num_primary_view_tag_bits = num_primary_view_tag_bits;
 
         // make tx
         SpTxType tx;
@@ -363,6 +370,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -379,6 +387,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -395,6 +404,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -411,6 +421,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -429,6 +440,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
             temp.alternate_input_amounts.push_back(1);
             temp.output_amounts.push_back(1);
         }
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -447,6 +459,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
             temp.alternate_input_amounts.push_back(0);
             temp.output_amounts.push_back(0);
         }
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
         temp.test_double_spend = test_double_spend;
 
         gen_data.push_back(temp);
@@ -463,6 +476,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
 
         gen_data.push_back(temp);
     }
@@ -476,6 +490,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
 
         gen_data.push_back(temp);
     }
@@ -489,6 +504,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.legacy_ring_size = 0;
         temp.ref_set_decomp_n = 0;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
 
         gen_data.push_back(temp);
     }
@@ -503,6 +519,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_misc(const bool test_double
         temp.ref_set_decomp_n = 2;
         temp.ref_set_decomp_m = 2;
         temp.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        temp.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
 
         gen_data.push_back(temp);
     }
@@ -528,6 +545,7 @@ static std::vector<SpTxGenData> get_mock_tx_gen_data_batching()
         gen.ref_set_decomp_n = 2;
         gen.ref_set_decomp_m = 2;
         gen.bin_config = SpBinnedReferenceSetConfigV1{.bin_radius = 0, .num_bin_members = 1};
+        gen.num_primary_view_tag_bits = crypto::rand_range<std::uint8_t>(1, 8 * jamtis::VIEW_TAG_BYTES - 1);
     }
 
     return gen_data;
@@ -547,6 +565,7 @@ TEST(seraphis_tx, seraphis_coinbase)
         {},
         {1},
         discretize_fee(0),
+        6,
         TestType::ExpectTrue,
         false,
         ledger_context);
@@ -558,6 +577,7 @@ TEST(seraphis_tx, seraphis_coinbase)
         {},
         {1},
         discretize_fee(0),
+        2,
         TestType::ExpectTrue,
         false,
         ledger_context);
@@ -571,6 +591,7 @@ TEST(seraphis_tx, seraphis_coinbase)
         {},
         {1, 1},
         discretize_fee(0),
+        15,
         TestType::ExpectTrue,
         false,
         ledger_context);
@@ -598,6 +619,7 @@ TEST(seraphis_tx, seraphis_squashed_multi_input_type)
         {1, 1},
         {5},
         discretize_fee(1),
+        4,
         TestType::ExpectTrue,
         true,
         ledger_context);
@@ -609,6 +631,7 @@ TEST(seraphis_tx, seraphis_squashed_multi_input_type)
         {1, 1},
         {5},
         discretize_fee(1),
+        9,
         TestType::ExpectTrue,
         true,
         ledger_context);

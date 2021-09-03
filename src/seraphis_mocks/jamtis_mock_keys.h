@@ -62,21 +62,32 @@ namespace mocks
 ///
 struct jamtis_mock_keys
 {
-    crypto::secret_key k_m;           //master
-    crypto::secret_key k_vb;          //view-balance
-    crypto::x25519_secret_key xk_ua;  //unlock-amounts
-    crypto::x25519_secret_key xk_fr;  //find-received
-    crypto::secret_key s_ga;          //generate-address
-    crypto::secret_key s_ct;          //cipher-tag
-    rct::key K_1_base;                //jamtis spend base     = k_vb X + k_m U
-    crypto::x25519_pubkey xK_ua;      //unlock-amounts pubkey = xk_ua xG
-    crypto::x25519_pubkey xK_fr;      //find-received pubkey  = xk_fr xk_ua xG
+    JamtisOnetimeAddressFormat onetime_address_format;  //onetime address format
+    crypto::secret_key s_m;                             //master
+    crypto::secret_key s_vb;                            //view-balance
+    crypto::secret_key k_ps;                            //prove-spend
+    crypto::secret_key k_gi;                            //generate-image
+    crypto::x25519_secret_key d_ur;                     //unlock-received
+    crypto::x25519_secret_key d_ir;                     //identify-received
+    crypto::x25519_secret_key d_fa;                     //filter-assist
+    crypto::secret_key s_ga;                            //generate-address
+    crypto::secret_key s_ct;                            //cipher-tag
+    rct::key K_s_base;                                  //jamtis spend base        = k_gi X + k_ps U
+    crypto::x25519_pubkey D_base;                       //exchange-base pubkey     = d_ur xG
+    crypto::x25519_pubkey D_ir;                         //identify-received pubkey = d_ir D_base
+    crypto::x25519_pubkey D_fa;                         //filter-assist pubkey     = d_fa D_base
 };
 
 /// make a set of mock jamtis keys (for mock-ups/unit testing)
-void make_jamtis_mock_keys(jamtis_mock_keys &keys_out);
+void make_jamtis_mock_keys(const JamtisOnetimeAddressFormat onetime_address_format,
+    jamtis_mock_keys &keys_out);
+/// make a jamtis address for the given privkeys and address index
+void make_address_for_user(const jamtis_mock_keys &user_keys,
+    const address_index_t &j,
+    JamtisDestinationV1 &user_address_out);
 /// make a random jamtis address for the given privkeys
-void make_random_address_for_user(const jamtis_mock_keys &user_keys, JamtisDestinationV1 &user_address_out);
+void make_random_address_for_user(const jamtis_mock_keys &user_keys,
+    JamtisDestinationV1 &user_address_out);
 
 } //namespace mocks
 } //namespace jamtis

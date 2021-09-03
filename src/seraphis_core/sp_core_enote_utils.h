@@ -86,6 +86,7 @@ void extend_seraphis_spendkey_x(const crypto::secret_key &k_extender_x, rct::key
 * inoutparam: spendkey_inout - [in: K_original] [out: k_extender_u U + K_original]
 */
 void extend_seraphis_spendkey_u(const crypto::secret_key &k_extender_u, rct::key &spendkey_inout);
+void extend_seraphis_spendkey_u(const crypto::secret_key &k_extender_u, crypto::public_key &spendkey_inout);
 /**
 * brief: reduce_seraphis_spendkey_g - remove private key material from a seraphis spendkey (or onetime address) on
 *   generator G

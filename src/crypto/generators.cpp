@@ -75,9 +75,9 @@ constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x
 //seraphis generator X: keccak_to_pt(keccak("seraphis_X"))
 constexpr public_key X = bytes_to<public_key>({ 0xa4, 0xfb, 0x43, 0xca, 0x69, 0x5e, 0x12, 0x99, 0x88, 0x02, 0xa2, 0x0a, 0x15,
     0x8f, 0x12, 0xea, 0x79, 0x47, 0x4f, 0xb9, 0x01, 0x21, 0x16, 0x95, 0x6a, 0x69, 0x76, 0x7c, 0x4d, 0x41, 0x11, 0x0f });
-//seraphis generator U: keccak_to_pt(keccak("seraphis_U"))
-constexpr public_key U = bytes_to<public_key>({ 0x10, 0x94, 0x8b, 0x00, 0xd2, 0xde, 0x50, 0xb5, 0x76, 0x99, 0x8c, 0x11, 0xe8,
-    0x3c, 0x59, 0xa7, 0x96, 0x84, 0xd2, 0x5c, 0x9f, 0x8a, 0x0d, 0xc6, 0x86, 0x45, 0x70, 0xd7, 0x97, 0xb9, 0xc1, 0x6e });
+//seraphis generator U: keccak_to_pt(keccak("Monero Generator T"))
+constexpr public_key U = bytes_to<public_key>({ 0x96, 0x6f, 0xc6, 0x6b, 0x82, 0xcd, 0x56, 0xcf, 0x85, 0xea, 0xec, 0x80, 0x1c,
+    0x42, 0x84, 0x5f, 0x5f, 0x40, 0x88, 0x78, 0xd1, 0x56, 0x1e, 0x00, 0xd3, 0xd7, 0xde, 0xd2, 0x79, 0x4d, 0x09, 0x4f });
 static ge_p3 G_p3;
 static ge_p3 H_p3;
 static ge_p3 X_p3;
@@ -167,9 +167,9 @@ static public_key reproduce_generator_X()
 //-------------------------------------------------------------------------------------------------------------------
 static public_key reproduce_generator_U()
 {
-    // U = H_p(keccak("seraphis_U"))
+    // U = H_p(keccak("Monero Generator T"))
     const std::string U_salt{config::HASH_KEY_SERAPHIS_U};
-    hash U_temp_hash{cn_fast_hash(U_salt.data(), U_salt.size())};
+    const hash U_temp_hash{cn_fast_hash(U_salt.data(), U_salt.size())};
     public_key reproduced_U;
     hash_to_point(U_temp_hash, reproduced_U);
 
@@ -187,7 +187,7 @@ static void init_gens()
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(H.data[0]) == 0x8b, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(X.data[0]) == 0xa4, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(U.data[0]) == 0x10, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(U.data[0]) == 0x96, "compile-time constant sanity check");
 
         // build ge_p3 representations of generators
         const int G_deserialize = ge_frombytes_vartime(&G_p3, to_bytes(G));

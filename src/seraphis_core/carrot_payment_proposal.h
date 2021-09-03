@@ -26,18 +26,14 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// A 'payment proposal' is a proposal to make an enote sending funds to a Jamtis address.
-// NOTE: Coinbase output proposals cannot be made from selfsend payment proposals because selfsend balance recovery
-//       depends on looking in txs with known key images, but coinbase txs don't have key images.
+// A 'payment proposal' is a proposal to make an enote sending funds to a Carrot address.
+// Carrot: Cryptonote Address For Rerandomizable-RingCT-Output Transactions
 
 #pragma once
 
 //local headers
-#include "crypto/crypto.h"
-#include "crypto/x25519.h"
-#include "jamtis_destination.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "jamtis_support_types.h"
-#include "ringct/rctTypes.h"
 #include "sp_core_types.h"
 #include "tx_extra.h"
 
@@ -54,67 +50,53 @@ namespace jamtis
 {
 
 ////
-// JamtisPaymentProposalV1
+// CarrotPaymentProposalV1
 // - for creating an output proposal to send an amount to someone
 ///
-struct JamtisPaymentProposalV1 final
+struct CarrotPaymentProposalV1 final
 {
     /// user address
-    JamtisDestinationV1 destination;
+    cryptonote::account_public_address destination;
+    /// is destination a subaddress?
+    bool is_subaddress;
+    /// legacy payment id pid: null for main addresses and subaddresses
+    payment_id_t payment_id;
     /// b
     rct::xmr_amount amount;
-    /// onetime address format
-    JamtisOnetimeAddressFormat onetime_address_format;
-
-    /// enote ephemeral privkey: xr
-    crypto::x25519_secret_key enote_ephemeral_privkey;
-    /// npbits
-    std::uint8_t num_primary_view_tag_bits;
+    /// secret 16-byte randomness n
+    carrot_randomness_t randomness;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
 };
 
 ////
-// JamtisPaymentProposalSelfSendV1
-// - for creating an output proposal to send an amount to the tx author
+// CarrotPaymentProposalSelfSendV1
+// - for creating an output proposal to send an change to yourself
 ///
-struct JamtisPaymentProposalSelfSendV1 final
+struct CarrotPaymentProposalSelfSendV1 final
 {
-    /// user address
-    JamtisDestinationV1 destination;
     /// b
     rct::xmr_amount amount;
-    /// onetime address format
-    JamtisOnetimeAddressFormat onetime_address_format;
 
-    /// self-send type
-    JamtisSelfSendType type;
-    /// enote ephemeral privkey: xr
-    crypto::x25519_secret_key enote_ephemeral_privkey;
-    /// npbits (note: set to 0 for a 'hidden', not visible to filter-assist scanner, enote)
-    std::uint8_t num_primary_view_tag_bits;
+    /// enote ephemeral pubkey: xr G
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
 };
 
 /// equality operators
-bool operator==(const JamtisPaymentProposalV1 a, const JamtisPaymentProposalV1 b);
-bool operator==(const JamtisPaymentProposalSelfSendV1 a, const JamtisPaymentProposalSelfSendV1 b);
+bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 &b);
+/// equality operators
+bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentProposalSelfSendV1 &b);
 
 /**
 * brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
 * param: proposal -
 * outparam: enote_ephemeral_pubkey_out -
 */
-void get_enote_ephemeral_pubkey(const JamtisPaymentProposalV1 &proposal,
-    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
-/**
-* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
-* outparam: enote_ephemeral_pubkey_out -
-*/
-void get_enote_ephemeral_pubkey(const JamtisPaymentProposalSelfSendV1 &proposal,
+void get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
 * brief: get_coinbase_output_proposal_v1 - convert the jamtis proposal to a coinbase output proposal
@@ -126,7 +108,7 @@ void get_enote_ephemeral_pubkey(const JamtisPaymentProposalSelfSendV1 &proposal,
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
 */
-void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
+void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     const std::uint64_t block_height,
     SpCoinbaseEnoteCore &output_enote_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
@@ -144,7 +126,7 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
 */
-void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
+void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
@@ -153,9 +135,10 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
     view_tag_t &view_tag_out,
     TxExtra &partial_memo_out);
 /**
-* brief: get_output_proposal_v1 - convert the jamtis selfsend proposal to an output proposal
+* brief: get_output_proposal_v1 - convert the jamtis proposal to an output proposal
 * param: proposal -
-* param: s_view_balance -
+* param: k_view -
+* param: primary_address_spend_pubkey -
 * param: input_context -
 * outparam: output_proposal_core_out -
 * outparam: enote_ephemeral_pubkey_out -
@@ -164,8 +147,9 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
 */
-void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
-    const crypto::secret_key &s_view_balance,
+void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
@@ -175,28 +159,15 @@ void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
     TxExtra &partial_memo_out);
 /**
 * brief: gen_jamtis_payment_proposal_v1 - generate a random proposal
-* param: onetime_address_format -
+* param: is_subaddress - whether to generate a prooposal to subaddress
+* param: has_payment_id - true to generate non-zero payment ID, false for null payment ID
 * param: amount -
 * param: num_random_memo_elements -
-* param: num_primary_view_tag_bits -
 * return: a random proposal
 */
-JamtisPaymentProposalV1 gen_jamtis_payment_proposal_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
+    const bool has_payment_id,
     const rct::xmr_amount amount,
-    const std::size_t num_random_memo_elements,
-    const std::uint8_t num_primary_view_tag_bits);
-/**
-* brief: gen_jamtis_selfsend_payment_proposal_v1 - generate a random selfsend proposal (with specified parameters)
-* param: onetime_address_format -
-* param: amount -
-* param: type -
-* param: num_random_memo_elements
-* return: a random proposal
-*/
-JamtisPaymentProposalSelfSendV1 gen_jamtis_selfsend_payment_proposal_v1(
-    const JamtisOnetimeAddressFormat onetime_address_format,
-    const rct::xmr_amount amount,
-    const JamtisSelfSendType type,
     const std::size_t num_random_memo_elements);
 
 } //namespace jamtis
