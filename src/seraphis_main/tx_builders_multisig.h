@@ -117,6 +117,7 @@ void check_v1_sp_multisig_input_proposal_semantics_v1(const SpMultisigInputPropo
 * brief: make_v1_sp_multisig_input_proposal_v1 - make a seraphis multisig input proposal (can be sent to other people)
 * param: enote -
 * param: enote_ephemeral_pubkey -
+* param: num_primary_view_tag_bits -
 * param: input_context -
 * param: address_mask -
 * param: commitment_mask -
@@ -124,6 +125,7 @@ void check_v1_sp_multisig_input_proposal_semantics_v1(const SpMultisigInputPropo
 */
 void make_v1_sp_multisig_input_proposal_v1(const SpEnoteV1 &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const crypto::secret_key &address_mask,
     const crypto::secret_key &commitment_mask,
@@ -193,6 +195,7 @@ bool try_simulate_tx_from_multisig_tx_proposal_v1(const SpMultisigTxProposalV1 &
 * param: selfsend_payment_proposals -
 * param: discretized_transaction_fee -
 * param: additional_memo_elements -
+* param: num_primary_view_tag_bits -
 * param: tx_version -
 * param: legacy_spend_pubkey -
 * param: legacy_subaddress_map -

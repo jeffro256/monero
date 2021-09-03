@@ -32,9 +32,9 @@
 //local headers
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
+#include "jamtis_account_secrets.h"
 #include "jamtis_address_tag_utils.h"
 #include "jamtis_address_utils.h"
-#include "jamtis_core_utils.h"
 #include "jamtis_support_types.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
@@ -54,42 +54,50 @@ namespace jamtis
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const JamtisDestinationV1 &a, const JamtisDestinationV1 &b)
 {
-    return (a.addr_K1  == b.addr_K1) &&
-           (a.addr_K2  == b.addr_K2) &&
-           (a.addr_K3  == b.addr_K3) &&
-           (a.addr_tag == b.addr_tag);
+    return (a.addr_Ks    == b.addr_Ks)    &&
+           (a.addr_Dfa   == b.addr_Dfa)   &&
+           (a.addr_Dvr   == b.addr_Dvr)   &&
+           (a.addr_Dbase == b.addr_Dbase) &&
+           (a.addr_tag   == b.addr_tag);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_destination_v1(const rct::key &spend_pubkey,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     JamtisDestinationV1 &destination_out)
 {
-    // K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
-    make_jamtis_address_spend_key(spend_pubkey, s_generate_address, j, destination_out.addr_K1);
+    // K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
+    make_jamtis_address_spend_key(spend_pubkey, s_generate_address, j, destination_out.addr_Ks);
 
-    // xK_2 = xk^j_a xK_fr
+    // d^j_a = H_n_x25519(K_s, j, s^j_gen)
     crypto::x25519_secret_key address_privkey;
-    make_jamtis_address_privkey(spend_pubkey, s_generate_address, j, address_privkey);  //xk^j_a
+    make_jamtis_address_privkey(spend_pubkey, s_generate_address, j, address_privkey);
 
-    x25519_scmul_key(address_privkey, findreceived_pubkey, destination_out.addr_K2);
+    // D^j_fa = d^j_a * D_fa
+    x25519_scmul_key(address_privkey, filterassist_pubkey, destination_out.addr_Dfa);
 
-    // xK_3 = xk^j_a xK_ua
-    x25519_scmul_key(address_privkey, unlockamounts_pubkey, destination_out.addr_K3);
+    // D^j_vr = d^j_a * D_vr
+    x25519_scmul_key(address_privkey, viewreceived_pubkey, destination_out.addr_Dvr);
 
-    // addr_tag = cipher[k](j) || H_2(k, cipher[k](j))
+    // D^j_base = d^j_a * D_base
+    x25519_scmul_key(address_privkey, exchangebase_pubkey, destination_out.addr_Dbase);
+
+    // s_ct = H32[s_ga]()
     crypto::secret_key ciphertag_secret;
     make_jamtis_ciphertag_secret(s_generate_address, ciphertag_secret);
 
+    // addr_tag = cipher[s_ct](j)
     destination_out.addr_tag = cipher_address_index(ciphertag_secret, j);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     address_index_t &j_out)
 {
@@ -99,15 +107,15 @@ bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destina
 
     // get the nominal address index from the destination's address tag
     address_index_t nominal_address_index;
-    if (!try_decipher_address_index(ciphertag_secret, destination.addr_tag, nominal_address_index))
-        return false;
+    decipher_address_index(ciphertag_secret, destination.addr_tag, nominal_address_index);
 
     // recreate the destination
     JamtisDestinationV1 test_destination;
 
     make_jamtis_destination_v1(spend_pubkey,
-        unlockamounts_pubkey,
-        findreceived_pubkey,
+        filterassist_pubkey,
+        viewreceived_pubkey,
+        exchangebase_pubkey,
         s_generate_address,
         nominal_address_index,
         test_destination);
@@ -124,9 +132,10 @@ bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destina
 JamtisDestinationV1 gen_jamtis_destination_v1()
 {
     JamtisDestinationV1 temp;
-    temp.addr_K1 = rct::pkGen();
-    temp.addr_K2 = crypto::x25519_pubkey_gen();
-    temp.addr_K3 = crypto::x25519_pubkey_gen();
+    temp.addr_Ks = rct::pkGen();
+    temp.addr_Dfa = crypto::x25519_pubkey_gen();
+    temp.addr_Dvr = crypto::x25519_pubkey_gen();
+    temp.addr_Dbase = crypto::x25519_pubkey_gen();
     crypto::rand(sizeof(address_tag_t), temp.addr_tag.bytes);
 
     return temp;

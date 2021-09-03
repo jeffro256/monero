@@ -114,24 +114,24 @@ void make_jamtis_spendkey_extension_u(const rct::key &spend_pubkey,
     const address_index_t &j,
     crypto::secret_key &extension_out);
 /**
-* brief: make_jamtis_address_privkey - xk^j_a
-*   - xk^j_a = H_n_x25519(K_s, j, s^j_gen)
+* brief: make_jamtis_address_privkey - d^j_a
+*   - d^j_a = H_n_x25519(K_s, j, s^j_gen)
 * param: spend_pubkey - K_s = k_vb X + k_m U
 * param: s_generate_address - s_ga
 * param: j - address index
-* outparam: address_privkey_out - xk^j_a
+* outparam: address_privkey_out - d^j_a
 */
 void make_jamtis_address_privkey(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     crypto::x25519_secret_key &address_privkey_out);
 /**
-* brief: make_jamtis_address_spend_key - K_1
-*   - K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
+* brief: make_jamtis_address_spend_key - K^j_s
+*   - K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
 * param: spend_pubkey - K_s = k_vb X + k_m U
 * param: s_generate_address - s_ga
 * param: j - address index
-* outparam: address_spendkey_out - K_1
+* outparam: address_spendkey_out - K^j_s
 */
 void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,

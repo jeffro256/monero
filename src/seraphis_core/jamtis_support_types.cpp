@@ -68,19 +68,9 @@ address_index_t::address_index_t()
     std::memset(this->bytes, 0, ADDRESS_INDEX_BYTES);
 }
 //-------------------------------------------------------------------------------------------------------------------
-address_tag_hint_t::address_tag_hint_t()
-{
-    std::memset(this->bytes, 0, ADDRESS_TAG_HINT_BYTES);
-}
-//-------------------------------------------------------------------------------------------------------------------
 bool operator==(const address_index_t &a, const address_index_t &b)
 {
     return memcmp(a.bytes, b.bytes, sizeof(address_index_t)) == 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool operator==(const address_tag_hint_t &a, const address_tag_hint_t &b)
-{
-    return memcmp(a.bytes, b.bytes, sizeof(address_tag_hint_t)) == 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const address_tag_t &a, const address_tag_t &b)
@@ -101,6 +91,11 @@ bool operator==(const encoded_amount_t &a, const encoded_amount_t &b)
 encoded_amount_t operator^(const encoded_amount_t &a, const encoded_amount_t &b)
 {
     return xor_bytes(a, b);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool operator==(const view_tag_t &a, const view_tag_t &b)
+{
+    return memcmp(a.bytes, b.bytes, sizeof(view_tag_t)) == 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 address_index_t max_address_index()
@@ -126,12 +121,11 @@ address_index_t make_address_index(std::uint64_t half1, std::uint64_t half2)
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
-address_tag_t make_address_tag(const address_index_t &enc_j, const address_tag_hint_t &addr_tag_hint)
+address_tag_t make_address_tag(const address_index_t &enc_j)
 {
-    // addr_tag = enc(j) || hint
+    // addr_tag = enc(j)
     address_tag_t temp;
     memcpy(temp.bytes, &enc_j, ADDRESS_INDEX_BYTES);
-    memcpy(temp.bytes + ADDRESS_INDEX_BYTES, &addr_tag_hint, ADDRESS_TAG_HINT_BYTES);
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -142,14 +136,22 @@ address_index_t gen_address_index()
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
+view_tag_t gen_view_tag()
+{
+    view_tag_t temp;
+    crypto::rand(VIEW_TAG_BYTES, temp.bytes);
+    return temp;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_get_jamtis_enote_type(const JamtisSelfSendType self_send_type, JamtisEnoteType &enote_type_out)
 {
     switch (self_send_type)
     {
-        case (JamtisSelfSendType::DUMMY)      : enote_type_out = JamtisEnoteType::DUMMY;      return true;
-        case (JamtisSelfSendType::CHANGE)     : enote_type_out = JamtisEnoteType::CHANGE;     return true;
-        case (JamtisSelfSendType::SELF_SPEND) : enote_type_out = JamtisEnoteType::SELF_SPEND; return true;
-        default                               : return false;
+        case (JamtisSelfSendType::EXCLUSIVE_SELF_SPEND) : enote_type_out = JamtisEnoteType::EXCLUSIVE_SELF_SPEND; return true;
+        case (JamtisSelfSendType::EXCLUSIVE_CHANGE)     : enote_type_out = JamtisEnoteType::EXCLUSIVE_CHANGE;     return true;
+        case (JamtisSelfSendType::AUXILIARY_SELF_SPEND) : enote_type_out = JamtisEnoteType::AUXILIARY_SELF_SPEND; return true;
+        case (JamtisSelfSendType::AUXILIARY_CHANGE)     : enote_type_out = JamtisEnoteType::AUXILIARY_CHANGE;     return true;
+        default                                         :                                                         return false;
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -157,10 +159,11 @@ bool try_get_jamtis_self_send_type(const JamtisEnoteType enote_type, JamtisSelfS
 {
     switch (enote_type)
     {
-        case (JamtisEnoteType::DUMMY)      : self_send_type_out = JamtisSelfSendType::DUMMY;      return true;
-        case (JamtisEnoteType::CHANGE)     : self_send_type_out = JamtisSelfSendType::CHANGE;     return true;
-        case (JamtisEnoteType::SELF_SPEND) : self_send_type_out = JamtisSelfSendType::SELF_SPEND; return true;
-        default                            : return false;
+        case (JamtisEnoteType::EXCLUSIVE_SELF_SPEND) : self_send_type_out = JamtisSelfSendType::EXCLUSIVE_SELF_SPEND; return true;
+        case (JamtisEnoteType::EXCLUSIVE_CHANGE)     : self_send_type_out = JamtisSelfSendType::EXCLUSIVE_CHANGE;     return true;
+        case (JamtisEnoteType::AUXILIARY_SELF_SPEND) : self_send_type_out = JamtisSelfSendType::AUXILIARY_SELF_SPEND; return true;
+        case (JamtisEnoteType::AUXILIARY_CHANGE)     : self_send_type_out = JamtisSelfSendType::AUXILIARY_CHANGE;     return true;
+        default                                      :                                                                return false;
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -168,6 +171,26 @@ bool is_jamtis_selfsend_type(const JamtisEnoteType enote_type)
 {
     JamtisSelfSendType dummy;
     return try_get_jamtis_self_send_type(enote_type, dummy);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool is_jamtis_auxiliary_selfsend_type(const JamtisSelfSendType self_send_type)
+{
+    switch (self_send_type)
+    {
+        case JamtisSelfSendType::EXCLUSIVE_SELF_SPEND:
+        case JamtisSelfSendType::EXCLUSIVE_CHANGE:
+            return false;
+        case JamtisSelfSendType::AUXILIARY_SELF_SPEND:
+        case JamtisSelfSendType::AUXILIARY_CHANGE:
+            return true;
+        default:
+            ASSERT_MES_AND_THROW("is auxiliary selfsend type: unrecognized Jamtis self send type");
+    };
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool is_jamtis_exclusive_selfsend_type(const JamtisSelfSendType self_send_type)
+{
+    return !is_jamtis_auxiliary_selfsend_type(self_send_type);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis

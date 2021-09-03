@@ -57,7 +57,7 @@ namespace knowledge_proofs
 ////
 // AddressOwnershipProofV1
 // - proof that an address K is constructed in the seraphis address style and is owned by the prover
-// - {K = K_1}  OR  {K = K_s = k_vb X + k_m U}
+// - {K = K^j_s}  OR  {K = K_s = k_vb X + k_m U}
 //
 // - INTERACTIVE PROOF: verifier must give a custom message to the prover, otherwise the prover can just copy-paste
 //   a pre-computed proof that he got from who-knows-where
@@ -74,30 +74,30 @@ struct AddressOwnershipProofV1
 
 ////
 // AddressIndexProofV1
-// - proof that a jamtis address with spendkey K_1 was constructed from an index j from base spend key K_s
+// - proof that a jamtis address with spendkey K^j_s was constructed from an index j from base spend key K_s
 //
-// - VERIFIER: recompute K_1 ?= [G/X/U spendkey extensions from {j, generator, K_s}] + K_s
+// - VERIFIER: recompute K^j_s ?= [G/X/U spendkey extensions from {j, generator, K_s}] + K_s
 ///
 struct AddressIndexProofV1
 {
     rct::key K_s;
     jamtis::address_index_t j;
     rct::key generator;
-    rct::key K_1;
+    rct::key addr_Ks;
 };
 
 ////
 // EnoteOwnershipProofV1
-// - proof an enote with onetime adress Ko is owned by an address K_1
-// - disclaimer: this does not prove that the owner of address K_1 can actually spend the enote; q could be computed in
-//   violation of the jamtis spec, in which case the owner of K_1 may never recover the enote and so the funds are
+// - proof an enote with onetime adress Ko is owned by an address K^j_s
+// - disclaimer: this does not prove that the owner of address K^j_s can actually spend the enote; q could be computed in
+//   violation of the jamtis spec, in which case the owner of K^j_s may never recover the enote and so the funds are
 //   effectively burned
 //
-// - VERIFIER: recompute Ko ?= [G/X/U sender extensions from {K_1, q, C}] + K_1
+// - VERIFIER: recompute Ko ?= [G/X/U sender extensions from {K^j_s, q, C}] + K^j_s
 ///
 struct EnoteOwnershipProofV1
 {
-    rct::key K_1;
+    rct::key addr_Ks;
     rct::key q;
     rct::key C;
     rct::key Ko;
@@ -183,7 +183,7 @@ struct TxFundedProofV1
 
 ////
 // EnoteSentProofV1
-// - proof that an enote with amount a and onetime address Ko was sent to an address K_1
+// - proof that an enote with amount a and onetime address Ko was sent to an address K^j_s
 //
 // - VERIFIER: validate the EnoteOwnershipProofV1 and EnoteAmountProofV1
 ///
@@ -195,7 +195,7 @@ struct EnoteSentProofV1
 
 ////
 // ReservedEnoteProofV1
-// - proof that an enote with onetime address Ko is owned by address K_1, has amount a, has key image KI, is onchain, and
+// - proof that an enote with onetime address Ko is owned by address K^j_s, has amount a, has key image KI, is onchain, and
 //   is unspent
 //
 // - VERIFIER:
@@ -219,7 +219,7 @@ struct ReservedEnoteProofV1
 //
 // - VERIFIER:
 //   - validate the AddressOwnershipProofV1 proofs
-//   - check that the owning address K_1 in each of the reserved enote proofs corresponds to an address owned by the prover
+//   - check that the owning address K^j_s in each of the reserved enote proofs corresponds to an address owned by the prover
 //   - check that the enotes referenced by the reserved enote proofs exist in the ledger
 //   - check that the key images in the reserved enote proofs do not exist in the ledger
 //   - validate the ReservedEnoteProofV1 proofs

@@ -54,12 +54,14 @@ namespace jamtis
 ///
 struct JamtisDestinationV1 final
 {
-    /// K_1 = k^j_g G + k^j_x X + k^j_u U + K_s   (address spend key)
-    rct::key addr_K1;
-    /// xK_2 = xk^j_a xK_fr                       (address view key)
-    crypto::x25519_pubkey addr_K2;
-    /// xK_3 = xk^j_a xK_ua                       (DH base key)
-    crypto::x25519_pubkey addr_K3;
+    /// K^j_s    = k^j_g G + k^j_x X + k^j_u U + K_s (address spend key)
+    rct::key addr_Ks;
+    /// D^j_fa   = d^j_a * D_fa                      (address filter-assist key)
+    crypto::x25519_pubkey addr_Dfa;
+    /// D^j_vr   = d^j_a * D_vr                      (address view-received key)
+    crypto::x25519_pubkey addr_Dvr;
+    /// D^j_base = d^j_a * D_base                    (address DH base key)
+    crypto::x25519_pubkey addr_Dbase;
     /// addr_tag
     address_tag_t addr_tag;
 };
@@ -70,15 +72,17 @@ bool operator==(const JamtisDestinationV1 &a, const JamtisDestinationV1 &b);
 /**
 * brief: make_jamtis_destination_v1 - make a destination address
 * param: spend_pubkey - K_s = k_vb X + k_m U
-* param: unlockamounts_pubkey - xK_ua = xk_ua xG
-* param: findreceived_pubkey - xK_fr = xk_fr xk_ua xG
+* param: filterassist_pubkey - D_fa = d_fa D_base
+* param: viewreceived_pubkey - D_vr = d_vr D_base
+* param: exchangebase_pubkey - D_base = d_vr xG
 * param: s_generate_address - s_ga
 * param: j - address_index
 * outparam: destination_out - the full address, with address tag
 */
 void make_jamtis_destination_v1(const rct::key &spend_pubkey,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     JamtisDestinationV1 &destination_out);
@@ -87,16 +91,18 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
 *   - note: partial-recreation of a destination will return FALSE
 * param: destination - destination address to recreate
 * param: spend_pubkey - K_s
-* param: unlockamounts_pubkey - xK_ua = xk_ua xG
-* param: findreceived_pubkey - xK_fr = xk_fr xk_ua xG
+* param: filterassist_pubkey - D_fa = d_fa xG
+* param: viewreceived_pubkey - D_vr = d_vr xG
+* param: exchangebase_pubkey - D_base = d_vr xG
 * param: s_generate_address - s_ga
 * outparam: j_out - address index (if successful)
 * return: true if the destination can be recreated
 */
 bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     address_index_t &j_out);
 /**

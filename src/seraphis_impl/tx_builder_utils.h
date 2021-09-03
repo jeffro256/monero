@@ -72,7 +72,6 @@ namespace sp
 * outparam: discretized_transaction_fee_out -
 */
 bool try_prepare_inputs_and_outputs_for_transfer_v1(const jamtis::JamtisDestinationV1 &change_address,
-    const jamtis::JamtisDestinationV1 &dummy_address,
     const InputSelectorV1 &local_user_input_selector,
     const FeeCalculator &tx_fee_calculator,
     const rct::xmr_amount fee_per_tx_weight,

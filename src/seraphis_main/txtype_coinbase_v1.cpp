@@ -140,6 +140,8 @@ void make_seraphis_tx_coinbase_v1(const SpTxCoinbaseV1::SemanticRulesVersion sem
     SpTxSupplementV1 tx_supplement;
     make_v1_coinbase_outputs_v1(output_proposals, output_enotes, tx_supplement.output_enote_ephemeral_pubkeys);
 
+    tx_supplement.num_primary_view_tag_bits = get_shared_num_primary_view_tag_bits({}, {}, output_proposals, {});
+
     // 4. collect full memo
     finalize_tx_extra_v1(tx_proposal.partial_memo, output_proposals, tx_supplement.tx_extra);
 
@@ -208,6 +210,7 @@ bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx)
     // validate layout (sorting, uniqueness) of outputs and tx supplement
     if (!validate_sp_semantics_coinbase_layout_v1(tx.outputs,
             tx.tx_supplement.output_enote_ephemeral_pubkeys,
+            tx.tx_supplement.num_primary_view_tag_bits,
             tx.tx_supplement.tx_extra))
         return false;
 

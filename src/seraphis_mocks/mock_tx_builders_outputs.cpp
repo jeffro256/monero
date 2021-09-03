@@ -52,6 +52,7 @@ namespace mocks
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<SpCoinbaseOutputProposalV1> gen_mock_sp_coinbase_output_proposals_v1(
     const std::vector<rct::xmr_amount> &out_amounts,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements)
 {
     // 1. generate random output proposals
@@ -59,7 +60,9 @@ std::vector<SpCoinbaseOutputProposalV1> gen_mock_sp_coinbase_output_proposals_v1
     output_proposals.reserve(out_amounts.size());
 
     for (const rct::xmr_amount out_amount : out_amounts)
-        output_proposals.emplace_back(gen_sp_coinbase_output_proposal_v1(out_amount, num_random_memo_elements));
+        output_proposals.emplace_back(gen_sp_coinbase_output_proposal_v1(out_amount,
+            num_primary_view_tag_bits,
+            num_random_memo_elements));
 
     // 2. sort them
     std::sort(output_proposals.begin(),
@@ -70,6 +73,7 @@ std::vector<SpCoinbaseOutputProposalV1> gen_mock_sp_coinbase_output_proposals_v1
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<SpOutputProposalV1> gen_mock_sp_output_proposals_v1(const std::vector<rct::xmr_amount> &out_amounts,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements)
 {
     // 1. generate random output proposals
@@ -77,7 +81,9 @@ std::vector<SpOutputProposalV1> gen_mock_sp_output_proposals_v1(const std::vecto
     output_proposals.reserve(out_amounts.size());
 
     for (const rct::xmr_amount out_amount : out_amounts)
-        output_proposals.emplace_back(gen_sp_output_proposal_v1(out_amount, num_random_memo_elements));
+        output_proposals.emplace_back(gen_sp_output_proposal_v1(out_amount,
+            num_primary_view_tag_bits,
+            num_random_memo_elements));
 
     // 2. sort them
     std::sort(output_proposals.begin(), output_proposals.end(), tools::compare_func<SpOutputProposalV1>(compare_Ko));

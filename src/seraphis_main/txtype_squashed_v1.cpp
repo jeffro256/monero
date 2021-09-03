@@ -552,6 +552,7 @@ bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
             tx.sp_input_images,
             tx.outputs,
             tx.tx_supplement.output_enote_ephemeral_pubkeys,
+            tx.tx_supplement.num_primary_view_tag_bits,
             tx.tx_supplement.tx_extra))
         return false;
 

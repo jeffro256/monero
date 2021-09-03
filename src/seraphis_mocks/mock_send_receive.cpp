@@ -80,13 +80,15 @@ namespace mocks
 void convert_outlay_to_payment_proposal(const rct::xmr_amount outlay_amount,
     const jamtis::JamtisDestinationV1 &destination,
     const TxExtra &partial_memo_for_destination,
+    const std::uint8_t num_primary_view_tag_bits,
     jamtis::JamtisPaymentProposalV1 &payment_proposal_out)
 {
     payment_proposal_out = jamtis::JamtisPaymentProposalV1{
-            .destination             = destination,
-            .amount                  = outlay_amount,
-            .enote_ephemeral_privkey = crypto::x25519_secret_key_gen(),
-            .partial_memo            = partial_memo_for_destination
+            .destination               = destination,
+            .amount                    = outlay_amount,
+            .enote_ephemeral_privkey   = crypto::x25519_secret_key_gen(),
+            .num_primary_view_tag_bits = num_primary_view_tag_bits,
+            .partial_memo              = partial_memo_for_destination
         };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -134,6 +136,7 @@ void send_legacy_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &co
 //-------------------------------------------------------------------------------------------------------------------
 void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinbase_amounts,
     const jamtis::JamtisDestinationV1 &user_address,
+    const std::uint8_t num_primary_view_tag_bits,
     MockLedgerContext &ledger_context_inout)
 {
     // 1. prepare payment proposals
@@ -144,9 +147,10 @@ void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinba
     {
         // a. make payment proposal
         convert_outlay_to_payment_proposal(coinbase_amount,
-        user_address,
-        TxExtra{},
-        tools::add_element(payment_proposals));
+            user_address,
+            TxExtra{},
+            num_primary_view_tag_bits,
+            tools::add_element(payment_proposals));
     }
 
     // 2. make a coinbase tx
@@ -168,6 +172,7 @@ void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinba
 //-------------------------------------------------------------------------------------------------------------------
 void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_amount>> &coinbase_amounts_per_user,
     const std::vector<jamtis::JamtisDestinationV1> &user_addresses,
+    const std::uint8_t num_primary_view_tag_bits,
     MockLedgerContext &ledger_context_inout)
 {
     CHECK_AND_ASSERT_THROW_MES(coinbase_amounts_per_user.size() == user_addresses.size(),
@@ -185,6 +190,7 @@ void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_am
             convert_outlay_to_payment_proposal(user_amount,
                 user_addresses[user_index],
                 TxExtra{},
+                num_primary_view_tag_bits,
                 tools::add_element(payment_proposals));
         }
     }
@@ -213,6 +219,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -239,6 +246,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
         convert_outlay_to_payment_proposal(std::get<rct::xmr_amount>(outlay),
             std::get<jamtis::JamtisDestinationV1>(outlay),
             std::get<TxExtra>(outlay),
+            num_primary_view_tag_bits,
             tools::add_element(normal_payment_proposals));
     }
 
@@ -250,7 +258,6 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     std::vector<jamtis::JamtisPaymentProposalSelfSendV1> selfsend_payment_proposals;  //note: no user-defined selfsends
     DiscretizedFee discretized_transaction_fee;
     CHECK_AND_ASSERT_THROW_MES(try_prepare_inputs_and_outputs_for_transfer_v1(change_address,
-            dummy_address,
             local_user_input_selector,
             tx_fee_calculator,
             fee_per_tx_weight,
@@ -328,6 +335,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -345,6 +353,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
         fee_per_tx_weight,
         max_inputs,
         outlays,
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -361,6 +370,7 @@ void transfer_funds_single_mock_v1_unconfirmed_sp_only(const jamtis::mocks::jamt
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
     const SpBinnedReferenceSetConfigV1 &bin_config,
@@ -375,6 +385,7 @@ void transfer_funds_single_mock_v1_unconfirmed_sp_only(const jamtis::mocks::jamt
         fee_per_tx_weight,
         max_inputs,
         outlays,
+        num_primary_view_tag_bits,
         0,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -404,6 +415,7 @@ void transfer_funds_single_mock_v1_unconfirmed(const legacy_mock_keys &local_use
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -419,6 +431,7 @@ void transfer_funds_single_mock_v1_unconfirmed(const legacy_mock_keys &local_use
         fee_per_tx_weight,
         max_inputs,
         outlays,
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -448,6 +461,7 @@ void transfer_funds_single_mock_v1(const legacy_mock_keys &local_user_legacy_key
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -463,6 +477,7 @@ void transfer_funds_single_mock_v1(const legacy_mock_keys &local_user_legacy_key
         fee_per_tx_weight,
         max_inputs,
         outlays,
+        num_primary_view_tag_bits,
         legacy_ring_size,
         ref_set_decomp_n,
         ref_set_decomp_m,
@@ -550,14 +565,14 @@ void refresh_user_enote_store_PV(const jamtis::mocks::jamtis_mock_keys &user_key
     const MockLedgerContext &ledger_context,
     SpEnoteStorePaymentValidator &user_enote_store_inout)
 {
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
     ChunkConsumerMockSpIntermediate chunk_consumer{
-            user_keys.K_1_base,
-            user_keys.xk_ua,
-            user_keys.xk_fr,
+            user_keys.K_s_base,
+            user_keys.d_vr,
+            user_keys.d_fa,
             user_keys.s_ga,
             user_enote_store_inout
         };
@@ -573,11 +588,11 @@ void refresh_user_enote_store(const jamtis::mocks::jamtis_mock_keys &user_keys,
     const MockLedgerContext &ledger_context,
     SpEnoteStore &user_enote_store_inout)
 {
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.d_fa};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
-    ChunkConsumerMockSp chunk_consumer{user_keys.K_1_base, user_keys.k_vb, user_enote_store_inout};
+    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.k_vb, user_enote_store_inout};
 
     sp::refresh_enote_store(refresh_config,
         scan_context_unconfirmed,

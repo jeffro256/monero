@@ -81,25 +81,25 @@ static auto make_derivation_with_wiper(const crypto::x25519_secret_key &privkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static const boost::string_ref selfsend_sender_receiver_secret_domain_separator(const JamtisSelfSendType self_send_type)
+static const boost::string_ref selfsend_sender_receiver_secret_domain_separator(const bool auxiliary_self_spend)
 {
-    CHECK_AND_ASSERT_THROW_MES(self_send_type <= JamtisSelfSendType::MAX,
-        "jamtis self-send sender-receiver secret: unknown self-send type.");
-
-    // dummy self-send
-    if (self_send_type == JamtisSelfSendType::DUMMY)
-        return config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_DUMMY;
-
-    // change self-send
-    if (self_send_type == JamtisSelfSendType::CHANGE)
-        return config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_CHANGE;
-
-    // self-spend self-send
-    if (self_send_type == JamtisSelfSendType::SELF_SPEND)
-        return config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_SELF_SPEND;
-
-    CHECK_AND_ASSERT_THROW_MES(false, "jamtis self-send sender-receiver secret domain separator error.");
-    return "";
+    return auxiliary_self_spend ?
+        config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_AUXILIARY :
+        config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_EXCLUSIVE;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static const boost::string_ref selfsend_amount_baked_key_domain_separator(const JamtisSelfSendType self_send_type)
+{
+    switch (self_send_type)
+    {
+        case JamtisSelfSendType::EXCLUSIVE_SELF_SPEND: return config::HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_EXCLUSIVE_SELFSPEND;
+        case JamtisSelfSendType::EXCLUSIVE_CHANGE: return config::HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_EXCLUSIVE_CHANGE;
+        case JamtisSelfSendType::AUXILIARY_SELF_SPEND: return config::HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_AUXILIARY_SELFSPEND;
+        case JamtisSelfSendType::AUXILIARY_CHANGE: return config::HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_AUXILIARY_CHANGE;
+        default:
+            throw std::logic_error("bug: unexpected self-send type when searching for domain seperator");
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -153,39 +153,88 @@ static void make_jamtis_amount_baked_key_plain(const crypto::x25519_pubkey &reve
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static inline std::uint32_t vttou32(view_tag_t vt)
+{
+    // Interpret view tag as little-endian unsigned int bytes, returning uint32_t
+    std::uint32_t u32;
+    memcpy(&u32, vt.bytes, VIEW_TAG_BYTES);
+    return SWAP32LE(u32);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static void make_jamtis_naked_primary_view_tag(const crypto::x25519_pubkey &dhe_fa,
+    const rct::key &onetime_address,
+    view_tag_t &naked_primary_view_tag_out)
+{
+    static_assert(VIEW_TAG_BYTES == 2, "sp_hash_to_2/VIEW_TAG_BYTES output mismatch");
+
+    // H_2(D^d_fa, Ko)
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG_PRIMARY, 2*sizeof(rct::key)};
+    transcript.append("D^d_fa", dhe_fa);
+    transcript.append("Ko", onetime_address);
+    sp_hash_to_2(transcript.data(), transcript.size(), naked_primary_view_tag_out.bytes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static void make_jamtis_naked_complementary_view_tag(const rct::key &sender_receiver_secret,
+    view_tag_t &naked_complementary_view_tag_out)
+{
+    static_assert(VIEW_TAG_BYTES == 2, "sp_hash_to_2/VIEW_TAG_BYTES output mismatch");
+
+    // H_2(q)
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG_COMPLEMENTARY, sizeof(rct::key)};
+    transcript.append("q", sender_receiver_secret);
+    sp_hash_to_2(transcript.data(), transcript.size(), naked_complementary_view_tag_out.bytes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_ephemeral_privkey,
-    const crypto::x25519_pubkey &DH_base,
+    const crypto::x25519_pubkey &addr_Dbase,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
 {
-    // xK_e = xr xK_3
-    x25519_scmul_key(enote_ephemeral_privkey, DH_base, enote_ephemeral_pubkey_out);
+    // D_e = xr D^j_base
+    x25519_scmul_key(enote_ephemeral_privkey, addr_Dbase, enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_view_tag(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
+void make_jamtis_standard_view_tag(const crypto::x25519_pubkey &dhe_fa,
+    const rct::key &onetime_address,
+    const rct::key &sender_receiver_secret,
+    const std::uint8_t num_primary_view_tag_bits,
+    view_tag_t &view_tag_out)
+{
+    CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= 8 * VIEW_TAG_BYTES,
+        "num_primary_view_tag_bits is bigger than the size of the view tag");
+
+    // naked_primary_view_tag = H_2(D^d_fa, Ko)
+    view_tag_t naked_primary_view_tag;
+    make_jamtis_naked_primary_view_tag(dhe_fa, onetime_address, naked_primary_view_tag);
+
+    // naked_complementary_view_tag = H_2(q)
+    view_tag_t naked_complementary_view_tag;
+    make_jamtis_naked_complementary_view_tag(sender_receiver_secret, naked_complementary_view_tag);
+
+    const std::uint32_t primary_mask = (1 << num_primary_view_tag_bits) - 1;
+    const std::uint32_t comp_mask = ~primary_mask;
+
+    // view_tag = naked_primary_view_tag[:npbits] || naked_complementary_view_tag[:ncbits]
+    std::uint32_t combined_view_tag_u32 = (vttou32(naked_primary_view_tag) & primary_mask) |
+        ((vttou32(naked_complementary_view_tag) << num_primary_view_tag_bits) & comp_mask);
+
+    combined_view_tag_u32 = SWAP32LE(combined_view_tag_u32);
+    memcpy(view_tag_out.bytes, &combined_view_tag_u32, VIEW_TAG_BYTES);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_auxiliary_view_tag(const crypto::secret_key &k_view_balance,
     const rct::key &onetime_address,
     view_tag_t &view_tag_out)
 {
-    static_assert(sizeof(view_tag_t) == 1, "");
-
-    // view_tag = H_1(xK_d, Ko)
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG, 2*sizeof(rct::key)};
-    transcript.append("xK_d", sender_receiver_DH_derivation);
+    // H_2[k_vb](Ko)
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG_AUXILIARY, sizeof(rct::key)};
     transcript.append("Ko", onetime_address);
 
-    sp_hash_to_1(transcript.data(), transcript.size(), &view_tag_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_view_tag(const crypto::x25519_secret_key &privkey,
-    const crypto::x25519_pubkey &DH_key,
-    const rct::key &onetime_address,
-    view_tag_t &view_tag_out)
-{
-    // xK_d = privkey * DH_key
-    crypto::x25519_pubkey derivation;
-    auto a_wiper = make_derivation_with_wiper(privkey, DH_key, derivation);
-
-    // view_tag = H_1(xK_d, Ko)
-    make_jamtis_view_tag(derivation, onetime_address, view_tag_out);
+    std::uint8_t aux_view_tag_buffer[32];
+    sp_derive_secret(to_bytes(k_view_balance), transcript.data(), transcript.size(), aux_view_tag_buffer);
+    memcpy(view_tag_out.bytes, aux_view_tag_buffer, VIEW_TAG_BYTES);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_input_context_coinbase(const std::uint64_t block_height, rct::key &input_context_out)
@@ -219,15 +268,15 @@ void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &le
     sp_hash_to_32(transcript.data(), transcript.size(), input_context_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
+void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &dhe_vr,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     rct::key &sender_receiver_secret_out)
 {
-    // q = H_32(xK_d, xK_e, input_context)
+    // q = H_32(D^d_vr, D_e, input_context)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_PLAIN, 3*sizeof(rct::key)};
-    transcript.append("xK_d", sender_receiver_DH_derivation);
-    transcript.append("xK_e", enote_ephemeral_pubkey);
+    transcript.append("D^d_vr", dhe_vr);
+    transcript.append("D_e", enote_ephemeral_pubkey);
     transcript.append("input_context", input_context);
 
     sp_hash_to_32(transcript.data(), transcript.size(), sender_receiver_secret_out.bytes);
@@ -239,11 +288,11 @@ void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_secret_key &p
     const rct::key &input_context,
     rct::key &sender_receiver_secret_out)
 {
-    // xK_d = privkey * DH_key
+    // D^d_vr = privkey * DH_key
     crypto::x25519_pubkey derivation;
     auto a_wiper = make_derivation_with_wiper(privkey, DH_key, derivation);
 
-    // q = H_32(xK_d, xK_e, input_context)
+    // q = H_32(D^d_vr, D_e, input_context)
     make_jamtis_sender_receiver_secret_plain(derivation,
         enote_ephemeral_pubkey,
         input_context,
@@ -253,12 +302,12 @@ void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_secret_key &p
 void make_jamtis_sender_receiver_secret_selfsend(const crypto::secret_key &k_view_balance,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
-    const JamtisSelfSendType self_send_type,
+    const bool is_auxiliary_self_send_type,
     rct::key &sender_receiver_secret_out)
 {
-    // q = H_32[k_vb](xK_e, input_context)
-    SpKDFTranscript transcript{selfsend_sender_receiver_secret_domain_separator(self_send_type), 2*sizeof(rct::key)};
-    transcript.append("xK_e", enote_ephemeral_pubkey);
+    // q = H_32[k_vb](D_e, input_context)
+    SpKDFTranscript transcript{selfsend_sender_receiver_secret_domain_separator(is_auxiliary_self_send_type), 2*sizeof(rct::key)};
+    transcript.append("D_e", enote_ephemeral_pubkey);
     transcript.append("input_context", input_context);
 
     sp_derive_secret(to_bytes(k_view_balance), transcript.data(), transcript.size(), sender_receiver_secret_out.bytes);
@@ -269,9 +318,9 @@ void make_jamtis_onetime_address_extension_g(const rct::key &recipient_address_s
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
-    // k_{g, sender} = H_n("..g..", K_1, q, C)
+    // k_{g, sender} = H_n("..g..", K^j_s, q, C)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_G, 3*sizeof(rct::key)};
-    transcript.append("K_1", recipient_address_spend_key);
+    transcript.append("K^j_s", recipient_address_spend_key);
     transcript.append("q", sender_receiver_secret);
     transcript.append("C", amount_commitment);
 
@@ -283,9 +332,9 @@ void make_jamtis_onetime_address_extension_x(const rct::key &recipient_address_s
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
-    // k_{x, sender} = H_n("..x..", K_1, q, C)
+    // k_{x, sender} = H_n("..x..", K^j_s, q, C)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_X, 3*sizeof(rct::key)};
-    transcript.append("K_1", recipient_address_spend_key);
+    transcript.append("K^j_s", recipient_address_spend_key);
     transcript.append("q", sender_receiver_secret);
     transcript.append("C", amount_commitment);
 
@@ -297,9 +346,9 @@ void make_jamtis_onetime_address_extension_u(const rct::key &recipient_address_s
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
-    // k_{u, sender} = H_n("..u..", K_1, q, C)
+    // k_{u, sender} = H_n("..u..", K^j_s, q, C)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_U, 3*sizeof(rct::key)};
-    transcript.append("K_1", recipient_address_spend_key);
+    transcript.append("K^j_s", recipient_address_spend_key);
     transcript.append("q", sender_receiver_secret);
     transcript.append("C", amount_commitment);
 
@@ -311,7 +360,7 @@ void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
     const rct::key &amount_commitment,
     rct::key &onetime_address_out)
 {
-    // Ko = k^o_g G + k^o_x X + k^o_u U + K_1
+    // Ko = k^o_g G + k^o_x X + k^o_u U + K^j_s
     crypto::secret_key extension_g;
     crypto::secret_key extension_x;
     crypto::secret_key extension_u;
@@ -328,46 +377,45 @@ void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
         amount_commitment,
         extension_u);  //k^o_u
 
-    onetime_address_out = recipient_address_spend_key;  //K_1
-    extend_seraphis_spendkey_u(extension_u, onetime_address_out);  //k^o_u U + K_1
-    extend_seraphis_spendkey_x(extension_x, onetime_address_out);  //k^o_x X + k^o_u U + K_1
+    onetime_address_out = recipient_address_spend_key;  //K^j_s
+    extend_seraphis_spendkey_u(extension_u, onetime_address_out);  //k^o_u U + K^j_s
+    extend_seraphis_spendkey_x(extension_x, onetime_address_out);  //k^o_x X + k^o_u U + K^j_s
     mask_key(extension_g,
         onetime_address_out,
-        onetime_address_out);  //k^o_g G + k^o_x X + k^o_u U + K_1
+        onetime_address_out);  //k^o_g G + k^o_x X + k^o_u U + K^j_s
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_amount_baked_key_plain_sender(const crypto::x25519_secret_key &enote_ephemeral_privkey,
     rct::key &baked_key_out)
 {
-    // xR = xr xG
-    crypto::x25519_pubkey reverse_sender_receiver_secret;
-    crypto::x25519_scmul_base(enote_ephemeral_privkey, reverse_sender_receiver_secret);
+    // dhe_inv = xR = xr xG
+    crypto::x25519_pubkey dhe_inv;
+    crypto::x25519_scmul_base(enote_ephemeral_privkey, dhe_inv);
 
-    // H_32(xR)
-    make_jamtis_amount_baked_key_plain(reverse_sender_receiver_secret, baked_key_out);
+    // H_32(dhe_inv)
+    make_jamtis_amount_baked_key_plain(dhe_inv, baked_key_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_amount_baked_key_plain_recipient(const crypto::x25519_secret_key &address_privkey,
-    const crypto::x25519_secret_key &xk_unlock_amounts,
+    const crypto::x25519_secret_key &d_view_received,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     rct::key &baked_key_out)
 {
-    // xR = (1/(xk^j_a * xk_ua)) * xK_e = xr xG
-    crypto::x25519_pubkey reverse_sender_receiver_secret;
-    crypto::x25519_invmul_key({address_privkey, xk_unlock_amounts},
-        enote_ephemeral_pubkey,
-        reverse_sender_receiver_secret);
+    // dhe_inv = 1/(d^j_a * d_vr) * D_e = xr xG
+    crypto::x25519_pubkey dhe_inv;
+    crypto::x25519_invmul_key({address_privkey, d_view_received}, enote_ephemeral_pubkey, dhe_inv);
 
-    // H_32(xR)
-    make_jamtis_amount_baked_key_plain(reverse_sender_receiver_secret, baked_key_out);
+    // H_32(dhe_inv)
+    make_jamtis_amount_baked_key_plain(dhe_inv, baked_key_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_amount_baked_key_selfsend(const crypto::secret_key &k_view_balance,
     const rct::key &sender_receiver_secret,
+    const JamtisSelfSendType self_send_type,
     rct::key &baked_key_out)
 {
     // [selfsend] baked_key = H_32[k_vb](q)
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_AMOUNT_BAKED_KEY_SELFSEND, sizeof(rct::key)};
+    SpKDFTranscript transcript{selfsend_amount_baked_key_domain_separator(self_send_type), sizeof(rct::key)};
     transcript.append("q", sender_receiver_secret);
 
     sp_derive_secret(to_bytes(k_view_balance), transcript.data(), transcript.size(), baked_key_out.bytes);
@@ -417,27 +465,73 @@ bool test_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
     return nominal_onetime_address == expected_onetime_address;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_get_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const rct::key &input_context,
+bool test_jamtis_primary_view_tag(const crypto::x25519_pubkey &dhe_fa,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
-    rct::key &sender_receiver_secret_out)
+    const std::uint8_t num_primary_view_tag_bits)
 {
-    // recompute view tag and check that it matches; short-circuit on failure
-    view_tag_t recomputed_view_tag;
-    make_jamtis_view_tag(sender_receiver_DH_derivation, onetime_address, recomputed_view_tag);
+    // npbits can't be greater than total tag size (duh)
+    CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= 8 * VIEW_TAG_BYTES,
+        "num_primary_view_tag_bits is too large: " << num_primary_view_tag_bits);
 
-    if (recomputed_view_tag != view_tag)
-        return false;
+    // primary_view_tag' = H_2(D^d_fa, Ko)
+    view_tag_t naked_primary_view_tag;
+    make_jamtis_naked_primary_view_tag(dhe_fa,
+        onetime_address,
+        naked_primary_view_tag);
 
-    // q (normal derivation path)
-    make_jamtis_sender_receiver_secret_plain(sender_receiver_DH_derivation,
-        enote_ephemeral_pubkey,
-        input_context,
-        sender_receiver_secret_out);
+    // primary_view_tag' ?= primary_view_tag
+    const std::uint32_t partial_recomputed_view_tag = vttou32(naked_primary_view_tag);
+    const std::uint32_t primary_mask = (1 << num_primary_view_tag_bits) - 1;
+    return 0 == ((partial_recomputed_view_tag ^ vttou32(view_tag)) & primary_mask);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assist,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::key &onetime_address,
+    const view_tag_t view_tag,
+    const std::uint8_t num_primary_view_tag_bits)
+{
+    // D^d_fa = d_fa D_e
+    crypto::x25519_pubkey dhe_fa;
+    crypto::x25519_scmul_key(d_filter_assist, enote_ephemeral_pubkey, dhe_fa);
 
-    return true;
+    return test_jamtis_primary_view_tag(dhe_fa,
+        onetime_address,
+        view_tag,
+        num_primary_view_tag_bits);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_complementary_view_tag(const rct::key &sender_receiver_secret,
+    const view_tag_t view_tag,
+    const std::uint8_t num_primary_view_tag_bits)
+{
+    // npbits can't be greater than total tag size (duh)
+    CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= 8 * VIEW_TAG_BYTES,
+        "num_primary_view_tag_bits is too large: " << num_primary_view_tag_bits);
+
+    // complementary_view_tag' = H_2(q)
+    view_tag_t naked_complementary_view_tag;
+    make_jamtis_naked_complementary_view_tag(sender_receiver_secret,
+        naked_complementary_view_tag);
+
+    // complementary_view_tag' ?= complementary_view_tag
+    const std::uint32_t ncbits = 8 * VIEW_TAG_BYTES - num_primary_view_tag_bits;
+    const std::uint32_t complementary_mask = ((1ul << ncbits) - 1) << num_primary_view_tag_bits;
+    const std::uint32_t partial_recomputed_view_tag = vttou32(naked_complementary_view_tag) << num_primary_view_tag_bits;
+    return 0 == ((partial_recomputed_view_tag ^ vttou32(view_tag)) & complementary_mask);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_auxiliary_view_tag(const crypto::secret_key &k_view_balance,
+    const rct::key &onetime_address,
+    const view_tag_t view_tag)
+{
+    // view_tag' = H_2[k_vb](Ko)
+    view_tag_t auxiliary_view_tag;
+    make_jamtis_auxiliary_view_tag(k_view_balance, onetime_address, auxiliary_view_tag);
+
+    // view_tag' ?= view_tag
+    return auxiliary_view_tag == view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,

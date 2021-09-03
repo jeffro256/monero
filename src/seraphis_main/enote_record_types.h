@@ -129,7 +129,7 @@ struct LegacyEnoteRecord final
 
 ////
 // SpBasicEnoteRecordV1
-// - a seraphis enote that has passed the view-tag check using a jamtis find-received key
+// - a seraphis enote that resides in a transaction with an enote that passes the primary view tag check
 ///
 struct SpBasicEnoteRecordV1 final
 {
@@ -137,15 +137,18 @@ struct SpBasicEnoteRecordV1 final
     SpEnoteVariant enote;
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    // the transaction primary view tag size
+    std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
     rct::key input_context;
-    /// t'_addr: nominal address tag (only useful for jamtis non-selfsend enote types)
-    jamtis::address_tag_t nominal_address_tag;
+    /// indicates if this enote passed the exclusive-enote view tag check
+    /// - If it did not pass, then it *might* be an auxiliary enote.
+    bool passed_exclusive_check;
 };
 
 ////
 // SpIntermediateEnoteRecordV1 (jamtis non-selfsend enote type only)
-// - a seraphis enote with info extracted using a jamtis find-received key, generate-address secret, and unlock-amounts key
+// - a seraphis enote with info extracted using a jamtis view-received key and generate-address secret key
 ///
 struct SpIntermediateEnoteRecordV1 final
 {
@@ -153,6 +156,8 @@ struct SpIntermediateEnoteRecordV1 final
     SpEnoteVariant enote;
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    // the transaction primary view tag size
+    std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
     rct::key input_context;
     /// a: amount
@@ -173,22 +178,24 @@ struct SpEnoteRecordV1 final
     SpEnoteVariant enote;
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    // the transaction primary view tag size
+    std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
     rct::key input_context;
+    /// a: amount
+    rct::xmr_amount amount;
+    /// x: amount blinding factor
+    crypto::secret_key amount_blinding_factor;
+    /// j: jamtis address index
+    jamtis::address_index_t address_index;
     /// k_{g, sender} + k_{g, address}: enote view extension for G component
     crypto::secret_key enote_view_extension_g;
     /// k_{x, sender} + k_{x, address}: enote view extension for X component (excludes k_vb)
     crypto::secret_key enote_view_extension_x;
     /// k_{u, sender} + k_{u, address}: enote view extension for U component (excludes k_m)
     crypto::secret_key enote_view_extension_u;
-    /// a: amount
-    rct::xmr_amount amount;
-    /// x: amount blinding factor
-    crypto::secret_key amount_blinding_factor;
     /// KI: key image
     crypto::key_image key_image;
-    /// j: jamtis address index
-    jamtis::address_index_t address_index;
     /// jamtis enote type
     jamtis::JamtisEnoteType type;
 };

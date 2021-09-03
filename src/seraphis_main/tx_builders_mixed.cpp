@@ -39,7 +39,7 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/binned_reference_set_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_core/sp_ref_set_index_mapper_flat.h"
@@ -441,6 +441,9 @@ static void check_tx_proposal_semantics_selfsend_outputs_v1(const std::size_t nu
             jamtis_spend_pubkey,
             k_view_balance);
     }
+
+    // 4. assert that there is exactly 1 value & unique npbits value amongst the proposals
+    get_shared_num_primary_view_tag_bits({}, selfsend_payment_proposals, {}, {});
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -1102,6 +1105,9 @@ void make_v1_partial_tx_v1(std::vector<LegacyInputV1> legacy_inputs,
         output_amounts,
         output_amount_commitment_blinding_factors,
         tx_supplement.output_enote_ephemeral_pubkeys);
+
+    tx_supplement.num_primary_view_tag_bits = get_shared_num_primary_view_tag_bits({}, {}, {},
+        output_proposals);
 
     // 5. collect full memo
     finalize_tx_extra_v1(partial_memo, output_proposals, tx_supplement.tx_extra);

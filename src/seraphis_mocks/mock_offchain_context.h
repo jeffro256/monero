@@ -109,12 +109,12 @@ public:
     */
     void clear_cache();
     /**
-    * brief: get_offchain_chunk_sp - find-received scan the offchain tx cache
-    * param: xk_find_received -
+    * brief: get_offchain_chunk_sp - filter-assist scan the offchain tx cache
+    * param: d_filter_assist -
     * outparam: chunk_data_out -
     * return: true if chunk is not empty
     */
-    void get_offchain_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+    void get_offchain_chunk_sp(const crypto::x25519_secret_key &d_filter_assist,
         scanning::ChunkData &chunk_data_out) const;
 
 private:

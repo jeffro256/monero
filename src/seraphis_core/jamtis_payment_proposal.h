@@ -66,6 +66,8 @@ struct JamtisPaymentProposalV1 final
 
     /// enote ephemeral privkey: xr
     crypto::x25519_secret_key enote_ephemeral_privkey;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
@@ -86,6 +88,8 @@ struct JamtisPaymentProposalSelfSendV1 final
     JamtisSelfSendType type;
     /// enote ephemeral privkey: xr
     crypto::x25519_secret_key enote_ephemeral_privkey;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
@@ -96,14 +100,14 @@ bool operator==(const JamtisPaymentProposalV1 a, const JamtisPaymentProposalV1 b
 bool operator==(const JamtisPaymentProposalSelfSendV1 a, const JamtisPaymentProposalSelfSendV1 b);
 
 /**
-* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey xK_e
+* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
 * param: proposal -
 * outparam: enote_ephemeral_pubkey_out -
 */
 void get_enote_ephemeral_pubkey(const JamtisPaymentProposalV1 &proposal,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
-* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey xK_e
+* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
 * outparam: enote_ephemeral_pubkey_out -
 */
 void get_enote_ephemeral_pubkey(const JamtisPaymentProposalSelfSendV1 &proposal,
@@ -169,10 +173,12 @@ void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
 * brief: gen_jamtis_payment_proposal_v1 - generate a random proposal
 * param: amount -
 * param: num_random_memo_elements -
+* param: num_primary_view_tag_bits -
 * return: a random proposal
 */
 JamtisPaymentProposalV1 gen_jamtis_payment_proposal_v1(const rct::xmr_amount amount,
-    const std::size_t num_random_memo_elements);
+    const std::size_t num_random_memo_elements,
+    const std::uint8_t num_primary_view_tag_bits);
 /**
 * brief: gen_jamtis_selfsend_payment_proposal_v1 - generate a random selfsend proposal (with specified parameters)
 * param: amount -

@@ -200,8 +200,10 @@ std::size_t sp_balance_proof_v1_weight(const SpBalanceProofV1 &proof);
 ///
 struct SpTxSupplementV1 final
 {
-    /// xKe: enote ephemeral pubkeys for outputs
+    /// D_e[]: enote ephemeral pubkeys for outputs
     std::vector<crypto::x25519_pubkey> output_enote_ephemeral_pubkeys;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// tx memo
     TxExtra tx_extra;
 };

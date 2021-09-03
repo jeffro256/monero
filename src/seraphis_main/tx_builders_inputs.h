@@ -113,6 +113,7 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 * brief: try_make_v1_input_proposal_v1 - try to make a seraphis v1 input proposal from an enote
 * param: enote -
 * param: enote_ephemeral_pubkey -
+* param: num_primary_view_tag_bits -
 * param: input_context -
 * param: jamtis_spend_pubkey -
 * param: k_view_balance -
@@ -122,6 +123,7 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 */
 bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &k_view_balance,

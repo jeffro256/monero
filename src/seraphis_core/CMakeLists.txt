@@ -30,9 +30,9 @@ set(seraphis_core_sources
   binned_reference_set.cpp
   binned_reference_set_utils.cpp
   discretized_fee.cpp
+  jamtis_account_secrets.cpp
   jamtis_address_tag_utils.cpp
   jamtis_address_utils.cpp
-  jamtis_core_utils.cpp
   jamtis_destination.cpp
   jamtis_enote_utils.cpp
   jamtis_payment_proposal.cpp

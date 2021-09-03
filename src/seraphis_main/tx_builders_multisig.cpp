@@ -52,8 +52,8 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/discretized_fee.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/legacy_core_utils.h"
 #include "seraphis_core/sp_core_enote_utils.h"
@@ -825,17 +825,19 @@ void check_v1_sp_multisig_input_proposal_semantics_v1(const SpMultisigInputPropo
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_sp_multisig_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const crypto::secret_key &address_mask,
     const crypto::secret_key &commitment_mask,
     SpMultisigInputProposalV1 &proposal_out)
 {
     // add components
-    proposal_out.enote                  = enote;
-    proposal_out.enote_ephemeral_pubkey = enote_ephemeral_pubkey;
-    proposal_out.input_context          = input_context;
-    proposal_out.address_mask           = address_mask;
-    proposal_out.commitment_mask        = commitment_mask;
+    proposal_out.enote                     = enote;
+    proposal_out.enote_ephemeral_pubkey    = enote_ephemeral_pubkey;
+    proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
+    proposal_out.input_context             = input_context;
+    proposal_out.address_mask              = address_mask;
+    proposal_out.commitment_mask           = commitment_mask;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_sp_multisig_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
@@ -845,6 +847,7 @@ void make_v1_sp_multisig_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 {
     make_v1_sp_multisig_input_proposal_v1(enote_record.enote,
         enote_record.enote_ephemeral_pubkey,
+        enote_record.num_primary_view_tag_bits,
         enote_record.input_context,
         address_mask,
         commitment_mask,

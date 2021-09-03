@@ -33,7 +33,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "cryptonote_config.h"
-#include "jamtis_core_utils.h"
+#include "jamtis_account_secrets.h"
 #include "jamtis_support_types.h"
 #include "ringct/rctOps.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
@@ -143,7 +143,7 @@ void make_jamtis_address_privkey(const rct::key &spend_pubkey,
     crypto::secret_key generator;
     make_jamtis_index_extension_generator(s_generate_address, j, generator);
 
-    // xk^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
+    // d^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ADDRESS_PRIVKEY, ADDRESS_INDEX_BYTES};
     transcript.append("K_s", spend_pubkey);
     transcript.append("j", j.bytes);
@@ -157,7 +157,7 @@ void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
     const address_index_t &j,
     rct::key &address_spendkey_out)
 {
-    // K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
+    // K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
     crypto::secret_key address_extension_key_u;
     crypto::secret_key address_extension_key_x;
     crypto::secret_key address_extension_key_g;

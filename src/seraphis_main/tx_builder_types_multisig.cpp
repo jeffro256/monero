@@ -102,6 +102,7 @@ void get_sp_input_proposal_v1(const SpMultisigInputProposalV1 &multisig_input_pr
 {
     CHECK_AND_ASSERT_THROW_MES(try_make_v1_input_proposal_v1(multisig_input_proposal.enote,
             multisig_input_proposal.enote_ephemeral_pubkey,
+            multisig_input_proposal.num_primary_view_tag_bits,
             multisig_input_proposal.input_context,
             jamtis_spend_pubkey,
             k_view_balance,

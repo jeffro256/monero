@@ -57,7 +57,7 @@ namespace knowledge_proofs
 /**
 * brief: make an address ownership proof
 * param: message - message provided by verifier
-* param: address - address with the format xG + yX + zU (e.g. K_1 or K_s)
+* param: address - address with the format xG + yX + zU (e.g. K^j_s or K_s)
 * param: x - secret key corresponding to base G
 * param: y - secret key corresponding to base X
 * param: z - secret key corresponding to base U
@@ -73,7 +73,7 @@ void make_address_ownership_proof_v1(const rct::key &message,  //for K_s
     const crypto::secret_key &sp_spend_privkey,
     const crypto::secret_key &k_view_balance,
     AddressOwnershipProofV1 &proof_out);
-void make_address_ownership_proof_v1(const rct::key &message,  //for K_1
+void make_address_ownership_proof_v1(const rct::key &message,  //for K^j_s
     const crypto::secret_key &sp_spend_privkey,
     const crypto::secret_key &k_view_balance,
     const jamtis::address_index_t &j,
@@ -108,7 +108,7 @@ void make_address_index_proof_v1(const rct::key &jamtis_spend_pubkey,
 bool verify_address_index_proof_v1(const AddressIndexProofV1 &proof, const rct::key &expected_address);
 /**
 * brief: make an enote ownership proof
-* param: jamtis_address_spend_key - K_1
+* param: jamtis_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * param: onetime_address - Ko

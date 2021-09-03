@@ -117,6 +117,10 @@ void x25519_invmul_key(std::vector<x25519_secret_key> privkeys_to_invert,
 
 } //namespace crypto
 
+inline const unsigned char* to_bytes(const crypto::x25519_pubkey &point) { return &reinterpret_cast<const unsigned char&>(point); }
+inline const unsigned char* to_bytes(const crypto::x25519_scalar &scalar) { return &reinterpret_cast<const unsigned char&>(scalar); }
+inline const unsigned char* to_bytes(const crypto::x25519_secret_key &skey) { return &reinterpret_cast<const unsigned char&>(skey); }
+
 /// upgrade x25519 keys
 CRYPTO_MAKE_HASHABLE(x25519_pubkey)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(x25519_scalar)

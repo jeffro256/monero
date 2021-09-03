@@ -71,6 +71,7 @@ namespace mocks
 void convert_outlay_to_payment_proposal(const rct::xmr_amount outlay_amount,
     const jamtis::JamtisDestinationV1 &destination,
     const TxExtra &partial_memo_for_destination,
+    const std::uint8_t num_primary_view_tag_bits,
     jamtis::JamtisPaymentProposalV1 &payment_proposal_out);
 /// send funds as coinbase enotes
 void send_legacy_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinbase_amounts,
@@ -79,9 +80,11 @@ void send_legacy_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &co
     MockLedgerContext &ledger_context_inout);
 void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinbase_amounts,
     const jamtis::JamtisDestinationV1 &user_address,
+    const std::uint8_t num_primary_view_tag_bits,
     MockLedgerContext &ledger_context_inout);
 void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_amount>> &coinbase_amounts_per_user,
     const std::vector<jamtis::JamtisDestinationV1> &user_addresses,
+    const std::uint8_t num_primary_view_tag_bits,
     MockLedgerContext &ledger_context_inout);
 /// create a seraphis transaction
 void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_keys,
@@ -91,6 +94,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -106,6 +110,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -119,6 +124,7 @@ void transfer_funds_single_mock_v1_unconfirmed_sp_only(const jamtis::mocks::jamt
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
     const SpBinnedReferenceSetConfigV1 &bin_config,
@@ -130,6 +136,7 @@ void transfer_funds_single_mock_v1_unconfirmed(const legacy_mock_keys &local_use
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,
@@ -142,6 +149,7 @@ void transfer_funds_single_mock_v1(const legacy_mock_keys &local_user_legacy_key
     const rct::xmr_amount fee_per_tx_weight,
     const std::size_t max_inputs,
     const std::vector<std::tuple<rct::xmr_amount, jamtis::JamtisDestinationV1, TxExtra>> &outlays,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t legacy_ring_size,
     const std::size_t ref_set_decomp_n,
     const std::size_t ref_set_decomp_m,

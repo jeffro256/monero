@@ -52,19 +52,23 @@ namespace mocks
 /**
 * brief: gen_mock_sp_coinbase_output_proposals_v1 - create random coinbase output proposals
 * param: out_amounts -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: set of generated output proposals
 */
 std::vector<SpCoinbaseOutputProposalV1> gen_mock_sp_coinbase_output_proposals_v1(
     const std::vector<rct::xmr_amount> &out_amounts,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements);
 /**
 * brief: gen_mock_sp_output_proposals_v1 - create random output proposals
 * param: out_amounts -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: set of generated output proposals
 */
 std::vector<SpOutputProposalV1> gen_mock_sp_output_proposals_v1(const std::vector<rct::xmr_amount> &out_amounts,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements);
 
 } //namespace mocks

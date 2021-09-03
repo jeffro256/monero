@@ -57,7 +57,7 @@ namespace scanning
 
 ////
 // ChunkConsumer
-// - provides an API for consuming chunks of enotes from find-received scanning
+// - provides an API for consuming chunks of enotes from filter-assist scanning
 ///
 class ChunkConsumer
 {

@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Dependency injectors for managing the find-received step of enote scanning. Intended to be stateful, managing
+// Dependency injectors for managing the filter-assist step of enote scanning. Intended to be stateful, managing
 //   a connection to a context that contains enotes and key images, and linking together successive 'get chunk' calls.
 
 #pragma once

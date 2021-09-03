@@ -35,7 +35,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "ringct/rctOps.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_account_secrets.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 
 //third party headers
@@ -57,26 +57,34 @@ void make_jamtis_mock_keys(jamtis_mock_keys &keys_out)
 {
     keys_out.k_m  = rct::rct2sk(rct::skGen());
     keys_out.k_vb = rct::rct2sk(rct::skGen());
-    make_jamtis_unlockamounts_key(keys_out.k_vb, keys_out.xk_ua);
-    make_jamtis_findreceived_key(keys_out.k_vb, keys_out.xk_fr);
-    make_jamtis_generateaddress_secret(keys_out.k_vb, keys_out.s_ga);
+    make_jamtis_viewreceived_key(keys_out.k_vb, keys_out.d_vr);
+    make_jamtis_filterassist_key(keys_out.d_vr, keys_out.d_fa);
+    make_jamtis_generateaddress_secret(keys_out.d_vr, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
-    make_seraphis_spendkey(keys_out.k_vb, keys_out.k_m, keys_out.K_1_base);
-    make_jamtis_unlockamounts_pubkey(keys_out.xk_ua, keys_out.xK_ua);
-    make_jamtis_findreceived_pubkey(keys_out.xk_fr, keys_out.xK_ua, keys_out.xK_fr);
+    make_seraphis_spendkey(keys_out.k_vb, keys_out.k_m, keys_out.K_s_base);
+    make_jamtis_exchangebase_pubkey(keys_out.d_vr, keys_out.D_base);
+    make_jamtis_viewreceived_pubkey(keys_out.d_vr, keys_out.D_base, keys_out.D_vr);
+    make_jamtis_filterassist_pubkey(keys_out.d_fa, keys_out.D_base, keys_out.D_fa);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_address_for_user(const jamtis_mock_keys &user_keys,
+    const address_index_t &j,
+    JamtisDestinationV1 &user_address_out)
+{
+    make_jamtis_destination_v1(user_keys.K_s_base,
+        user_keys.D_fa,
+        user_keys.D_vr,
+        user_keys.D_base,
+        user_keys.s_ga,
+        j,
+        user_address_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_random_address_for_user(const jamtis_mock_keys &user_keys, JamtisDestinationV1 &user_address_out)
 {
-    address_index_t address_index;
-    address_index = gen_address_index();
+    const address_index_t random_j = gen_address_index();
 
-    make_jamtis_destination_v1(user_keys.K_1_base,
-        user_keys.xK_ua,
-        user_keys.xK_fr,
-        user_keys.s_ga,
-        address_index,
-        user_address_out);
+    make_address_for_user(user_keys, random_j, user_address_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace mocks

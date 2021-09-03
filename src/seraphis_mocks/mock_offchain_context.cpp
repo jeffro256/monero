@@ -32,6 +32,7 @@
 #include "mock_offchain_context.h"
 
 //local headers
+#include "common/container_helpers.h"
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "misc_log_ex.h"
@@ -138,7 +139,7 @@ void MockOffchainContext::clear_cache()
     m_tx_key_images.clear();
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key &d_filter_assist,
     scanning::ChunkData &chunk_data_out) const
 {
     chunk_data_out.basic_records_per_tx.clear();
@@ -148,16 +149,14 @@ void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key 
     if (m_output_contents.size() == 0)
         return;
 
-    // 2. find-received scan each tx in the unconfirmed chache
-    std::list<ContextualBasicRecordVariant> collected_records;
-    SpContextualKeyImageSetV1 collected_key_images;
-
+    // 2. filter-assist scan each tx in the unconfirmed chache
     for (const auto &tx_with_output_contents : m_output_contents)
     {
         const rct::key &tx_id{tx_with_output_contents.first};  //use input context as proxy for tx id
 
         // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-        if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+        std::list<ContextualBasicRecordVariant> collected_records;
+        if (scanning::try_find_sp_enotes_in_tx(d_filter_assist,
             -1,
             -1,
             tx_id,
@@ -172,16 +171,15 @@ void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key 
                 .splice(chunk_data_out.basic_records_per_tx[tx_id].end(), collected_records);
 
             CHECK_AND_ASSERT_THROW_MES(m_tx_key_images.find(tx_with_output_contents.first) != m_tx_key_images.end(),
-                "offchain find-received scanning (mock offchain context): key image map missing input context (bug).");
+                "offchain filter-assist scanning (mock offchain context): key image map missing input context (bug).");
 
-            if (scanning::try_collect_key_images_from_tx(-1,
-                    -1,
-                    tx_id,
-                    std::get<0>(m_tx_key_images.at(tx_with_output_contents.first)),
-                    std::get<1>(m_tx_key_images.at(tx_with_output_contents.first)),
-                    SpEnoteSpentStatus::SPENT_OFFCHAIN,
-                    collected_key_images))
-                chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
+            scanning::collect_key_images_from_tx(-1,
+                -1,
+                tx_id,
+                std::get<0>(m_tx_key_images.at(tx_with_output_contents.first)),
+                std::get<1>(m_tx_key_images.at(tx_with_output_contents.first)),
+                SpEnoteSpentStatus::SPENT_OFFCHAIN,
+                tools::add_element(chunk_data_out.contextual_key_images));
         }
     }
 }

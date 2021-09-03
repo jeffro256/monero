@@ -82,8 +82,10 @@ struct SpCoinbaseOutputProposalV1 final
     /// proposed enote
     SpCoinbaseEnoteV1 enote;
 
-    /// xK_e: enote ephemeral pubkey
+    /// D_e: enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
 };
@@ -99,8 +101,10 @@ struct SpOutputProposalV1 final
     /// core of the proposal
     SpOutputProposalCore core;
 
-    /// xK_e: enote ephemeral pubkey
+    /// D_e: enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// npbits
+    std::uint8_t num_primary_view_tag_bits;
     /// enc_a
     jamtis::encoded_amount_t encoded_amount;
     /// addr_tag_enc
@@ -300,6 +304,17 @@ void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
     const crypto::secret_key &k_view_balance,
     rct::key &tx_proposal_prefix_out);
 /**
+* brief: get_shared_num_primary_view_tag_bits - get single shared value of npbits among payment/output proposals
+* param: ...
+* return: shared single value of npbits amongst all proposals
+* throw: std::runtime_error if the number of unique values of npbits is not equal to 1, or if npbits is too big
+*/
+std::uint8_t get_shared_num_primary_view_tag_bits(
+    const std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals,
+    const std::vector<SpCoinbaseOutputProposalV1> &coinbase_output_proposals,
+    const std::vector<SpOutputProposalV1> &output_proposals);
+/**
 * brief: gen_sp_input_proposal_v1 - generate an input proposal
 * param: sp_spend_privkey -
 * param: k_view_balance -
@@ -312,17 +327,22 @@ SpInputProposalV1 gen_sp_input_proposal_v1(const crypto::secret_key &sp_spend_pr
 /**
 * brief: gen_sp_coinbase_output_proposal_v1 - generate a coinbase output proposal
 * param: amount -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: random coinbase output proposal
 */
 SpCoinbaseOutputProposalV1 gen_sp_coinbase_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
     const std::size_t num_random_memo_elements);
 /**
 * brief: gen_sp_output_proposal_v1 - generate an output proposal
 * param: amount -
+* param: num_primary_view_tag_bits -
 * param: num_random_memo_elements -
 * return: random output proposal
 */
-SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount, const std::size_t num_random_memo_elements);
+SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount,
+    const std::uint8_t num_primary_view_tag_bits,
+    const std::size_t num_random_memo_elements);
 
 } //namespace sp

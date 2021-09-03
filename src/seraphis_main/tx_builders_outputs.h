@@ -53,18 +53,14 @@ namespace sp
 
 enum class OutputProposalSetExtraTypeV1
 {
-    // a plain dummy output             (random recipient, random enote ephemeral pubkey, zero amount)
-    NORMAL_DUMMY,
-    // a self-send dummy output         (self recipient,   normal enote ephemeral pubkey, zero amount)
-    NORMAL_SELF_SEND_DUMMY,
-    // a normal change output           (self recipient,   normal enote ephemeral pubkey, non-zero amount)
-    NORMAL_CHANGE,
-    // a special dummy output           (random recipient, shared enote ephemeral pubkey, zero amount)
-    SPECIAL_DUMMY,
-    // a special self-send dummy output (self recipient,   shared enote ephemeral pubkey, zero amount)
-    SPECIAL_SELF_SEND_DUMMY,
-    // a special change output          (self recipient,   shared enote ephemeral pubkey, non-zero amount)
-    SPECIAL_CHANGE
+    //     primary view tag flagging, normal enote ephemeral pubkey
+    NORMAL_EXCLUSIVE_CHANGE,
+    // NOT primary view tag flagging, normal enote ephemeral pubkey
+    NORMAL_AUXILIARY_CHANGE,
+    //     primary view tag flagging, shared enote ephemeral pubkey
+    SPECIAL_EXCLUSIVE_CHANGE,
+    // NOT primary view tag flagging, shared enote ephemeral pubkey
+    SPECIAL_AUXILIARY_CHANGE,
 };
 
 /**
@@ -117,6 +113,7 @@ void make_v1_coinbase_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &
 * brief: make_v1_output_proposal_v1 - convert a jamtis proposal to an output proposal
 * param: proposal -
 * param: input_context -
+* param: num_primary_view_tag_bits -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
@@ -127,6 +124,7 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
 * param: proposal -
 * param: k_view_balance -
 * param: input_context -
+* param: num_primary_view_tag_bits -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &proposal,
@@ -159,14 +157,9 @@ void make_v1_outputs_v1(const std::vector<SpOutputProposalV1> &output_proposals,
 * brief: finalize_v1_output_proposal_set_v1 - finalize a set of output proposals by adding 0-1 new proposals
 *        (new proposals are appended)
 *   - NOT FOR COINBASE OUTPUT SETS (coinbase output sets don't need to be finalized)
-*   - add a change output if necessary
-*   - add a dummy output if appropriate
-*   - All output sets will contain at least 1 self-send, either from the original set passed in, or by adding a change
-*     or selfsend dummy here.
-*     - Only very rare txs should have more than two outputs and include a dummy output (i.e. have numerically more outputs
-*       than if this invariant weren't enforced; note that all txs must have at least two outputs). Only txs with at least
-*       two outputs and zero change amount and zero specified self-sends will acquire an additional dummy selfsend output.
-*     - A self-send dummy will only be made if there are no other self-sends; otherwise dummies will be purely random.
+*   - add an exclusive/auxiliary change output if necessary
+*   - All output sets will contain exactly 1 exclusive self-send, plus any number of auxiliary self-sends, either from
+*     the original set passed in, or by adding an exclusive/auxiliary change enote here.
 *     - The goal of this function is for all txs made from output sets produced by this function to be identifiable by view
 *       tag checks. That way, a signer scanning for balance recovery only needs key images from txs that are flagged by a
 *       view tag check in order to A) identify all spent enotes, B) identify all of their self-send enotes in txs that use
@@ -177,7 +170,6 @@ void make_v1_outputs_v1(const std::vector<SpOutputProposalV1> &output_proposals,
 * param: total_input_amount -
 * param: transaction_fee -
 * param: change_destination -
-* param: dummy_destination -
 * param: jamtis_spend_pubkey -
 * param: k_view_balance -
 * inoutparam: normal_payment_proposals_inout -
@@ -188,28 +180,16 @@ boost::optional<OutputProposalSetExtraTypeV1> try_get_additional_output_type_for
     const std::vector<jamtis::JamtisSelfSendType> &self_send_output_types,
     const bool output_ephemeral_pubkeys_are_unique,
     const rct::xmr_amount change_amount);
-void make_additional_output_dummy_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
+void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
     const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
-    jamtis::JamtisPaymentProposalV1 &normal_proposal_out);  //exposed for unit testing
-void make_additional_output_selfsend_v1(const OutputProposalSetExtraTypeV1 additional_output_type,
-    const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
+    const std::uint8_t num_primary_view_tag_bits,
     const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
     const crypto::secret_key &k_view_balance,
     const rct::xmr_amount change_amount,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out);  //exposed for unit testing
-void make_additional_output_v1(const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
-    const crypto::secret_key &k_view_balance,
-    const rct::xmr_amount change_amount,
-    const OutputProposalSetExtraTypeV1 additional_output_type,
-    const crypto::x25519_pubkey &first_enote_ephemeral_pubkey,
-    std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout);  //exposed for unit testing
 void finalize_v1_output_proposal_set_v1(const boost::multiprecision::uint128_t &total_input_amount,
     const rct::xmr_amount transaction_fee,
     const jamtis::JamtisDestinationV1 &change_destination,
-    const jamtis::JamtisDestinationV1 &dummy_destination,
     const crypto::secret_key &k_view_balance,
     std::vector<jamtis::JamtisPaymentProposalV1> &normal_payment_proposals_inout,
     std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout);

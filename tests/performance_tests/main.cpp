@@ -278,8 +278,6 @@ int main(int argc, char** argv)
   p_address_tag_decipher.core_params = p.core_params;
   p_address_tag_decipher.mode = AddressTagDecipherModes::ALL_SUCCESSFUL_DECIPHER;
   TEST_PERFORMANCE0(filter, p_address_tag_decipher, test_jamtis_address_tag_decipher_sp);
-  p_address_tag_decipher.mode = AddressTagDecipherModes::NO_SUCCESSFUL_DECIPHER;
-  TEST_PERFORMANCE0(filter, p_address_tag_decipher, test_jamtis_address_tag_decipher_sp);
 
   // test client-side scanning in a seraphis remote-scanning workflow
   ParamsShuttleScannerClient p_client_scan;

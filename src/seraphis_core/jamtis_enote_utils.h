@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Utilities for making and handling enotes with jamtis.
+// @file Utilities for making and handling enotes with jamtis.
 
 #pragma once
 
@@ -49,35 +49,37 @@ namespace jamtis
 {
 
 /**
-* brief: make_jamtis_enote_ephemeral_pubkey - enote ephemeral pubkey xK_e
-*   xK_e = xr xK_3
+* brief: make_jamtis_enote_ephemeral_pubkey - enote ephemeral pubkey D_e
+*   D_e = xr D^j_base
 * param: enote_ephemeral_privkey - xr
-* param: DH_base - xK_3
-* outparam: enote_ephemeral_pubkey_out - xK_e
+* param: addr_Dbase - D^j_base
+* outparam: enote_ephemeral_pubkey_out - D_e
 */
 void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_ephemeral_privkey,
-    const crypto::x25519_pubkey &DH_base,
+    const crypto::x25519_pubkey &addr_Dbase,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
-* brief: make_jamtis_view_tag - view tag for optimized identification of owned enotes
-*    view_tag = H_1(xK_d, Ko)
-* param: sender_receiver_DH_derivation - xK_d
+* brief: make_jamtis_standard_view_tag - used for optimized identification of plain enotes and exclusive self-send enotes
+*    view_tag = H_npbits(D^d_fa, Ko) || H_ncbits(q)
+* param: dhe_fa - D^d_fa
 * param: onetime_address - Ko
+* param: sender_receiver_secret - q
+* param: num_primary_view_tag_bits - npbits
 * outparam: view_tag_out - view_tag
 */
-void make_jamtis_view_tag(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
+void make_jamtis_standard_view_tag(const crypto::x25519_pubkey &dhe_fa,
     const rct::key &onetime_address,
+    const rct::key &sender_receiver_secret,
+    const std::uint8_t num_primary_view_tag_bits,
     view_tag_t &view_tag_out);
 /**
-* brief: make_jamtis_view_tag - view tag for optimized identification of owned enotes
-*    view_tag = H_1(privkey * DH_key, Ko)
-* param: privkey - [sender: xr] [recipient: xk_fr]
-* param: DH_key - [sender: xK_2] [sender-selfsend-2out: xk_fr * xK_3_other] [recipient: xK_e = xr xK_3]
+* brief: make_jamtis_auxiliary_view_tag - used for optimized identification of auxiliary self-send enotes
+*    view_tag = H_2[k_vb](Ko)
+* param: k_view_balance - k_vb
 * param: onetime_address - Ko
 * outparam: view_tag_out - view_tag
 */
-void make_jamtis_view_tag(const crypto::x25519_secret_key &privkey,
-    const crypto::x25519_pubkey &DH_key,
+void make_jamtis_auxiliary_view_tag(const crypto::secret_key &k_view_balance,
     const rct::key &onetime_address,
     view_tag_t &view_tag_out);
 /**
@@ -99,23 +101,23 @@ void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &le
     rct::key &input_context_out);
 /**
 * brief: make_jamtis_sender_receiver_secret_plain - sender-receiver secret q for a normal enote
-*    q = H_32(xK_d, xK_e, input_context)
-* param: sender_receiver_DH_derivation - xK_d = xr xK_2 = k_fr xK_e
-* param: enote_ephemeral_pubkey - xK_e
+*    q = H_32(D^d_vr, D_e, input_context)
+* param: dhe_vr - D^d_vr = xr D^j_vr = d_vr D_e
+* param: enote_ephemeral_pubkey - D_e
 * param: input_context - [normal: H_32({legacy KI}, {seraphis KI})] [coinbase: H_32(block height)]
 * outparam: sender_receiver_secret_out - q
 *   - note: this is 'rct::key' instead of 'crypto::secret_key' for better performance in multithreaded environments
 */
-void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
+void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &dhe_vr,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     rct::key &sender_receiver_secret_out);
 /**
 * brief: make_jamtis_sender_receiver_secret_plain - sender-receiver secret q for a normal enote
-*    q = H_32(xr * xk_fr * xG, input_context) => H_32(privkey * DH_key, input_context)
-* param: privkey - [sender: xr] [recipient: xk_fr]
-* param: DH_key - [sender: xK_2] [recipient: xK_e = xr xK_3]
-* param: enote_ephemeral_pubkey - xK_e
+*    q = H_32(xr * d_vr * xG, D_e, input_context) => H_32(privkey * DH_key, D_e, input_context)
+* param: privkey - [sender: xr] [recipient: d_vr]
+* param: DH_key - [sender: D^j_vr] [recipient: D_e = xr D^j_base]
+* param: enote_ephemeral_pubkey - D_e
 * param: input_context - [normal: H_32({legacy KI}, {seraphis KI})] [coinbase: H_32(block height)]
 * outparam: sender_receiver_secret_out - q
 *   - note: this is 'rct::key' instead of 'crypto::secret_key' for better performance in multithreaded environments
@@ -127,24 +129,24 @@ void make_jamtis_sender_receiver_secret_plain(const crypto::x25519_secret_key &p
     rct::key &sender_receiver_secret_out);
 /**
 * brief: make_jamtis_sender_receiver_secret_selfsend - sender-receiver secret q for a self-send enote of a specific type
-*    q = H_32[k_vb](xK_e, input_context)
+*    q = H_32[k_vb](D_e, input_context)
 * param: k_view_balance - k_vb
-* param: enote_ephemeral_pubkey - xK_e
+* param: enote_ephemeral_pubkey - D_e
 * param: input_context - [normal: H_32({legacy KI}, {seraphis KI})] [coinbase: H_32(block height)]
-* param: self_send_type - type of the self-send enote, used to select the domain separator
+* param: is_auxiliary_self_send_type - is_aux
 * outparam: sender_receiver_secret_out - q
 *   - note: this is 'rct::key' instead of 'crypto::secret_key' for better performance in multithreaded environments
 */
 void make_jamtis_sender_receiver_secret_selfsend(const crypto::secret_key &k_view_balance,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
-    const JamtisSelfSendType self_send_type,
+    const bool is_auxiliary_self_send_type,
     rct::key &sender_receiver_secret_out);
 /**
 * brief: make_jamtis_onetime_address_extension_g - extension for transforming a recipient spendkey into an
 *        enote one-time address
-*    k_{g, sender} = k^o_g = H_n("..g..", K_1, q, C)
-* param: recipient_address_spend_key - K_1
+*    k_{g, sender} = k^o_g = H_n("..g..", K^j_s, q, C)
+* param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{g, sender}
@@ -156,8 +158,8 @@ void make_jamtis_onetime_address_extension_g(const rct::key &recipient_address_s
 /**
 * brief: make_jamtis_onetime_address_extension_x - extension for transforming a recipient spendkey into an
 *        enote one-time address
-*    k_{x, sender} = k^o_x = H_n("..x..", K_1, q, C)
-* param: recipient_address_spend_key - K_1
+*    k_{x, sender} = k^o_x = H_n("..x..", K^j_s, q, C)
+* param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{x, sender}
@@ -169,8 +171,8 @@ void make_jamtis_onetime_address_extension_x(const rct::key &recipient_address_s
 /**
 * brief: make_jamtis_onetime_address_extension_u - extension for transforming a recipient spendkey into an
 *        enote one-time address
-*    k_{u, sender} = k^o_u = H_n("..u..", K_1, q, C)
-* param: recipient_address_spend_key - K_1
+*    k_{u, sender} = k^o_u = H_n("..u..", K^j_s, q, C)
+* param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{u, sender}
@@ -181,8 +183,8 @@ void make_jamtis_onetime_address_extension_u(const rct::key &recipient_address_s
     crypto::secret_key &sender_extension_out);
 /**
 * brief: make_jamtis_onetime_address - create a onetime address
-*    Ko = k^o_g G + k^o_x X + k^o_u U + K_1
-* param: recipient_address_spend_key - K_1
+*    Ko = k^o_g G + k^o_x X + k^o_u U + K^j_s
+* param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: onetime_address_out - Ko
@@ -193,7 +195,7 @@ void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
     rct::key &onetime_address_out);
 /**
 * brief: make_jamtis_amount_baked_key_plain_sender - key baked into amount encodings of plain enotes, to provide
-*        fine-tuned control over read rights to the amount
+*        fine-tuned control over read rights to the amount and protect against Janus attacks
 *    [normal: sender] baked_key = H_32(xr xG)
 * param: enote_ephemeral_privkey - xr
 * outparam: baked_key_out - baked_key
@@ -201,16 +203,16 @@ void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
 void make_jamtis_amount_baked_key_plain_sender(const crypto::x25519_secret_key &enote_ephemeral_privkey,
     rct::key &baked_key_out);
 /**
-* brief: make_jamtis_amount_baked_key_plain_recipient - key baked into amount encodings of plain enotes, to provide
-*        fine-tuned control over read rights to the amount
-*    [normal: recipient] baked_key = H_32( (1/(xk^j_a * xk_ua)) * xK_e )
-* param: address_privkey - xk^j_a
-* param: xk_unlock_amounts - xk_ua
-* param: enote_ephemeral_pubkey - xK_e
+* brief: make_jamtis_amount_baked_key_plain_recipient - key baked into amount encodings of plain enotes,
+*        to provide fine-tuned control over read rights to the amount and protect against Janus attacks
+*    [normal: recipient] baked_key = H_32(1/(d^j_a * D_vr) * D_e)
+* param: address_privkey - d^j_a
+* param: d_view_received - d_vr
+* param: enote_ephemeral_pubkey - D_e
 * outparam: baked_key_out - baked_key
 */
 void make_jamtis_amount_baked_key_plain_recipient(const crypto::x25519_secret_key &address_privkey,
-    const crypto::x25519_secret_key &xk_unlock_amounts,
+    const crypto::x25519_secret_key &d_view_received,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     rct::key &baked_key_out);
 /**
@@ -223,6 +225,7 @@ void make_jamtis_amount_baked_key_plain_recipient(const crypto::x25519_secret_ke
 */
 void make_jamtis_amount_baked_key_selfsend(const crypto::secret_key &k_view_balance,
     const rct::key &sender_receiver_secret,
+    const JamtisSelfSendType self_send_type,
     rct::key &baked_key_out);
 /**
 * brief: make_jamtis_amount_blinding_factor - x for a normal enote's amount commitment C = x G + a H
@@ -258,7 +261,7 @@ rct::xmr_amount decode_jamtis_amount(const encoded_amount_t &encoded_amount,
     const rct::key &baked_key);
 /**
 * brief: test_jamtis_onetime_address - see if a onetime address can be reconstructed
-* param: recipient_address_spend_key - recipient's address spendkey K_1
+* param: recipient_address_spend_key - recipient's address spendkey K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - amount commtiment C
 * param: expected_onetime_address - onetime address to test Ko
@@ -269,22 +272,51 @@ bool test_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
     const rct::key &amount_commitment,
     const rct::key &expected_onetime_address);
 /**
-* brief: try_get_jamtis_sender_receiver_secret_plain - test view tag; if it passes, get the nominal sender-receiver secret
-*        (for a normal enote)
-* param: sender_receiver_DH_derivation - privkey * DH_key
-* param: enote_ephemeral_pubkey - xK_e
-* param: input_context - input_context
+* brief: test_jamtis_primary_view_tag - test primary view tag
+* param: dhe_fa - D^d_fa = [sender: xr * D^j_fa] = [recipient: d_fa * D_e]
 * param: onetime_address - Ko
 * param: view_tag - view_tag
-* outparam: sender_receiver_secret_out - q
-* return: true if successfully recomputed the view tag
+* param: num_primary_view_tag_bits - npbits
+* return: true if successfully recomputed the primary view tag
 */
-bool try_get_jamtis_sender_receiver_secret_plain(const crypto::x25519_pubkey &sender_receiver_DH_derivation,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const rct::key &input_context,
+bool test_jamtis_primary_view_tag(const crypto::x25519_pubkey &dhe_fa,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
-    rct::key &sender_receiver_secret_out);
+    const std::uint8_t num_primary_view_tag_bits);
+/**
+* brief: test_jamtis_primary_view_tag - test primary view tag
+* param: d_filter_assist - d_fa
+* param: enote_ephemeral_pubkey - D_e = xr D^j_base
+* param: onetime_address - Ko
+* param: view_tag - view_tag
+* param: num_primary_view_tag_bits - npbits
+* return: true if successfully recomputed the primary view tag
+*/
+bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assist,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::key &onetime_address,
+    const view_tag_t view_tag,
+    const std::uint8_t num_primary_view_tag_bits);
+/**
+* brief: test_jamtis_complementary_view_tag - test complementary view tag
+* param: sender_receiver_secret - q
+* param: view_tag - view_tag
+* param: num_primary_view_tag_bits - npbits
+* return: true if successfully recomputed the complementary view tag
+*/
+bool test_jamtis_complementary_view_tag(const rct::key &sender_receiver_secret,
+    const view_tag_t view_tag,
+    const std::uint8_t num_primary_view_tag_bits);
+/**
+* brief: test_jamtis_auxiliary_view_tag - test auxiliary view tag
+* param: k_view_balance - k_vb
+* param: onetime_address - Ko
+* param: view_tag - view_tag
+* return: true if successfully recomputed the auxiliary view tag
+*/
+bool test_jamtis_auxiliary_view_tag(const crypto::secret_key &k_view_balance,
+    const rct::key &onetime_address,
+    const view_tag_t view_tag);
 /**
 * brief: try_get_jamtis_amount - test recreating the amount commitment; if it is recreate-able, return the amount
 * param: sender_receiver_secret - q
