@@ -1,12 +1,17 @@
 #include <string>
 
-#include "serializer.h"
-
 namespace portable_storage::binary {
     template<class ostream_t>
     class BinarySerializer {
     public:
-        typedef BinarySectionSerializer object_serializer;
+        // Compound serializer forward declarations
+        template<class>
+        class BinarySectionSerializer;
+        template<class>
+        class BinaryArraySerializer;
+
+        typedef BinarySectionSerializer<ostream_t> object_serializer;
+        typedef BinaryArraySerializer<ostream_t> array_serializer;
 
         BinarySerializer(ostream_t stream);
 
@@ -24,42 +29,25 @@ namespace portable_storage::binary {
 
         object_serializer serialize_object();
 
-        template <typename InputIterator>
-        void serialize_int64_array (InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_int32_array (InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_int16_array (InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_int8_array  (InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_uint64_array(InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_uint32_array(InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_uint16_array(InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_uint8_array (InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_double_array(InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_string_array(InputIterator begin, size_t num_elements);
-        template <typename InputIterator>
-        void serialize_bool_array  (InputIterator begin, size_t num_elements);
-
-        template <typename InputIterator>
-        void serialize_object_array(InputIterator begin, size_t num_elements);
+        array_serializer serialize_array();
 
         bool is_human_readable() const { return false; }
 
-        ~BinarySerializer();
-
     private:
+        friend class BinarySectionSerializer<ostream_t>;
+        friend class BinaryArraySerializer<ostream_t>;
+
+        enum class EntryState {
+            Scalar,
+            ArrayFirst,
+            ArrayInside,
+        };
+
         void write_type_code(uint8_t code);
 
         ostream_t m_stream;
         size_t m_object_depth;
-        bool m_inside_array;
+        EntryState m_entry_state;
     };
 
     template <class ostream_t>
@@ -74,11 +62,26 @@ namespace portable_storage::binary {
 
         void end();
 
-        ~BinarySectionSerializer();
+    private:
+        BinarySerializer<ostream_t>& m_base_serializer;
+        size_t m_remaining;
+    };
+
+    template <class ostream_t>
+    class BinaryArraySerializer {
+    public:
+        BinaryArraySerializer(BinarySerializer<ostream_t>& base_serializer);
+
+        void start(size_t num_elements);
+
+        template<typename Serializable>
+        void serialize_element(const Serializable& value);
+
+        void end();
 
     private:
-        BinarySerializer& base_serializer;
-        size_t remaining;
+        BinarySerializer<ostream_t>& m_base_serializer;
+        size_t m_length;
+        size_t m_remaining;
     };
-}
-
+} // namespace portable_storage::binary
