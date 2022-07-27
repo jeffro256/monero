@@ -24,13 +24,13 @@ namespace portable_storage::binary {
     // BinarySerializer declaration                                          //
     ///////////////////////////////////////////////////////////////////////////
 
-    template<class ostream_t>
+    template<class t_ostream>
     class BinarySerializer {
     public:
-        typedef BinarySectionSerializer<ostream_t> object_serializer;
-        typedef BinaryArraySerializer<ostream_t> array_serializer;
+        typedef BinarySectionSerializer<t_ostream> object_serializer;
+        typedef BinaryArraySerializer<t_ostream> array_serializer;
 
-        BinarySerializer(ostream_t stream);
+        BinarySerializer(t_ostream stream);
 
         void serialize_int64 (int64_t            value);
         void serialize_int32 (int32_t            value);
@@ -50,11 +50,11 @@ namespace portable_storage::binary {
 
         bool is_human_readable() const { return false; }
 
-        ostream_t move_inner_stream() { return std::move(m_stream); }
+        t_ostream move_inner_stream() { return std::move(m_stream); }
 
     private:
-        friend class BinarySectionSerializer<ostream_t>;
-        friend class BinaryArraySerializer<ostream_t>;
+        friend class BinarySectionSerializer<t_ostream>;
+        friend class BinaryArraySerializer<t_ostream>;
 
         enum class EntryState {
             Scalar,
@@ -64,7 +64,7 @@ namespace portable_storage::binary {
 
         void write_type_code(uint8_t code);
 
-        ostream_t m_stream;
+        t_ostream m_stream;
         size_t m_object_depth;
         EntryState m_entry_state;
     };
@@ -73,10 +73,10 @@ namespace portable_storage::binary {
     // BinarySectionSerializer declaration                                   //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <class ostream_t>
+    template <class t_ostream>
     class BinarySectionSerializer {
     public:
-        BinarySectionSerializer(BinarySerializer<ostream_t>& base_serializer);
+        BinarySectionSerializer(BinarySerializer<t_ostream>& base_serializer);
 
         void start(size_t num_entries);
 
@@ -86,7 +86,7 @@ namespace portable_storage::binary {
         void end();
 
     private:
-        BinarySerializer<ostream_t>& m_base_serializer;
+        BinarySerializer<t_ostream>& m_base_serializer;
         size_t m_remaining;
     };
 
@@ -94,10 +94,10 @@ namespace portable_storage::binary {
     // BinaryArraySerializer declaration                                     //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <class ostream_t>
+    template <class t_ostream>
     class BinaryArraySerializer {
     public:
-        BinaryArraySerializer(BinarySerializer<ostream_t>& base_serializer);
+        BinaryArraySerializer(BinarySerializer<t_ostream>& base_serializer);
 
         void start(size_t num_elements);
 
@@ -107,7 +107,7 @@ namespace portable_storage::binary {
         void end();
 
     private:
-        BinarySerializer<ostream_t>& m_base_serializer;
+        BinarySerializer<t_ostream>& m_base_serializer;
         size_t m_length;
         size_t m_remaining;
     };
@@ -116,16 +116,16 @@ namespace portable_storage::binary {
     // BinarySerializer definitions                                          //
     ///////////////////////////////////////////////////////////////////////////
 
-    template<class ostream_t>
-    BinarySerializer<ostream_t>::BinarySerializer(ostream_t stream):
+    template<class t_ostream>
+    BinarySerializer<t_ostream>::BinarySerializer(t_ostream stream):
         m_stream(std::move(stream)),
         m_object_depth(0),
         m_entry_state(EntryState::Scalar)
     {}
 
     #define DEF_SERIALIZE_LE_INT(inttype, typecode)                                \
-        template<class ostream_t>                                                  \
-        void BinarySerializer<ostream_t>::serialize_##inttype(inttype##_t value) { \
+        template<class t_ostream>                                                  \
+        void BinarySerializer<t_ostream>::serialize_##inttype(inttype##_t value) { \
             this->write_type_code(typecode);                                       \
             value = CONVERT_POD(value);                                            \
             m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value));  \
@@ -140,45 +140,45 @@ namespace portable_storage::binary {
     DEF_SERIALIZE_LE_INT(uint16, SERIALIZE_TYPE_UINT16);
     DEF_SERIALIZE_LE_INT( uint8,  SERIALIZE_TYPE_UINT8);
 
-    template<class ostream_t>
-    void BinarySerializer<ostream_t>::serialize_double(double value) {
+    template<class t_ostream>
+    void BinarySerializer<t_ostream>::serialize_double(double value) {
         this->write_type_code(SERIALIZE_TYPE_DOUBLE);
         value = CONVERT_POD(value);
         m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value));
     }
 
-    template<class ostream_t>
-    void BinarySerializer<ostream_t>::serialize_string(const std::string& value) {
+    template<class t_ostream>
+    void BinarySerializer<t_ostream>::serialize_string(const std::string& value) {
         this->write_type_code(SERIALIZE_TYPE_STRING);
         write_varint(m_stream, value.length());
         m_stream.write(value.c_str(), value.length());
     }
 
-    template<class ostream_t>
-    void BinarySerializer<ostream_t>::serialize_bool(bool value) {
+    template<class t_ostream>
+    void BinarySerializer<t_ostream>::serialize_bool(bool value) {
         this->write_type_code(SERIALIZE_TYPE_BOOL);
         m_stream.put(value ? 1 : 0);
     }
 
-    template<class ostream_t>
-    typename BinarySerializer<ostream_t>::object_serializer
-            BinarySerializer<ostream_t>::serialize_object() {
-        return BinarySectionSerializer<ostream_t>(*this);
+    template<class t_ostream>
+    typename BinarySerializer<t_ostream>::object_serializer
+            BinarySerializer<t_ostream>::serialize_object() {
+        return BinarySectionSerializer<t_ostream>(*this);
     }
 
-    template<class ostream_t>
-    typename BinarySerializer<ostream_t>::array_serializer
-            BinarySerializer<ostream_t>::serialize_array() {
+    template<class t_ostream>
+    typename BinarySerializer<t_ostream>::array_serializer
+            BinarySerializer<t_ostream>::serialize_array() {
         CHECK_AND_ASSERT_THROW_MES(
             m_entry_state == EntryState::Scalar,
             "nested arrays not allowed in the epee portable storage data model"
         );
 
-        return BinaryArraySerializer<ostream_t>(*this);
+        return BinaryArraySerializer<t_ostream>(*this);
     }
 
-    template<class ostream_t>
-    void BinarySerializer<ostream_t>::write_type_code(uint8_t code) {
+    template<class t_ostream>
+    void BinarySerializer<t_ostream>::write_type_code(uint8_t code) {
         switch (m_entry_state) {
         case EntryState::Scalar:
             m_stream.put(code);
@@ -195,14 +195,14 @@ namespace portable_storage::binary {
     // BinarySectionSerializer definitions                                   //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <class ostream_t>
-    BinarySectionSerializer<ostream_t>::BinarySectionSerializer(
-            BinarySerializer<ostream_t>& base_serializer):
+    template <class t_ostream>
+    BinarySectionSerializer<t_ostream>::BinarySectionSerializer(
+            BinarySerializer<t_ostream>& base_serializer):
         m_base_serializer(base_serializer),
         m_remaining(PS_BIN_REMAINING_UNINIT) {}
 
-    template <class ostream_t>
-    void BinarySectionSerializer<ostream_t>::start(size_t num_entries) {
+    template <class t_ostream>
+    void BinarySectionSerializer<t_ostream>::start(size_t num_entries) {
         m_remaining = num_entries;
         const bool is_root = m_base_serializer.m_object_depth == 0;
         m_base_serializer.m_object_depth++;
@@ -219,21 +219,21 @@ namespace portable_storage::binary {
         write_varint(m_base_serializer.m_stream, num_entries);
     }
 
-    template<class ostream_t> template<typename Serializable>
-    void BinarySectionSerializer<ostream_t>::serialize_entry(
+    template<class t_ostream> template<typename Serializable>
+    void BinarySectionSerializer<t_ostream>::serialize_entry(
             const char* key, uint8_t key_size, const Serializable& value
     ) {
         CHECK_AND_ASSERT_THROW_MES(m_remaining > 0, "trying to serialize too many elements");
 
         m_base_serializer.m_stream.put(key_size);
         m_base_serializer.m_stream.write(key, key_size);
-        m_base_serializer.m_entry_state = BinarySerializer<ostream_t>::EntryState::Scalar;
+        m_base_serializer.m_entry_state = BinarySerializer<t_ostream>::EntryState::Scalar;
         portable_storage::model::serialize(value, m_base_serializer);
         m_remaining--;
     }
 
-    template <class ostream_t>
-    void BinarySectionSerializer<ostream_t>::end() {
+    template <class t_ostream>
+    void BinarySectionSerializer<t_ostream>::end() {
         CHECK_AND_ASSERT_THROW_MES(
             m_remaining == 0,
             "trying to end array serialization with" << m_remaining << " elements left"
@@ -246,31 +246,31 @@ namespace portable_storage::binary {
     // BinaryArraySerializer definitions                                     //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <class ostream_t>
-    BinaryArraySerializer<ostream_t>::BinaryArraySerializer(
-            BinarySerializer<ostream_t>& base_serializer):
+    template <class t_ostream>
+    BinaryArraySerializer<t_ostream>::BinaryArraySerializer(
+            BinarySerializer<t_ostream>& base_serializer):
         m_base_serializer(base_serializer),
         m_length(PS_BIN_REMAINING_UNINIT),
         m_remaining(PS_BIN_REMAINING_UNINIT) {}
 
-    template <class ostream_t>
-    void BinaryArraySerializer<ostream_t>::start(size_t num_entries) {
+    template <class t_ostream>
+    void BinaryArraySerializer<t_ostream>::start(size_t num_entries) {
         m_length = m_remaining = num_entries;
     }
 
-    template<class ostream_t> template<typename Serializable>
-    void BinaryArraySerializer<ostream_t>::serialize_element(const Serializable& value) {
+    template<class t_ostream> template<typename Serializable>
+    void BinaryArraySerializer<t_ostream>::serialize_element(const Serializable& value) {
         CHECK_AND_ASSERT_THROW_MES(m_remaining > 0, "trying to serialize too many elements");
 
-        typedef typename BinarySerializer<ostream_t>::EntryState EntryState;
+        typedef typename BinarySerializer<t_ostream>::EntryState EntryState;
         const bool first = m_length == m_remaining;
         m_base_serializer.m_entry_state = first ? EntryState::ArrayFirst : EntryState::ArrayInside;
         portable_storage::model::serialize(value, m_base_serializer);
         m_remaining--;
     }
 
-    template <class ostream_t>
-    void BinaryArraySerializer<ostream_t>::end() {
+    template <class t_ostream>
+    void BinaryArraySerializer<t_ostream>::end() {
         CHECK_AND_ASSERT_THROW_MES(
             m_remaining == 0,
             "trying to end array serialization with" << m_remaining << " elements left"
