@@ -22,16 +22,16 @@
 #include <list>
 #include <vector>
 
-namespace epee_format::ser {
+namespace portable_storage::model {
     ///////////////////////////////////////////////////////////////////////////
     // Serializing primitives                                                //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define DEF_SERIALIZE_PRIMITIVE(tyname, mname)                    \
-        template <class Serializer>                                   \
+    #define DEF_SERIALIZE_PRIMITIVE(tyname, mname)                          \
+        template <class Serializer>                                         \
         void serialize(const tyname& value, Serializer& serializer) { \
-            serializer.serialize_##mname(value);                      \
-        }                                                             \
+            serializer.serialize_##mname(value);                            \
+        }                                                                   \
 
     DEF_SERIALIZE_PRIMITIVE(    int64_t,  int64)
     DEF_SERIALIZE_PRIMITIVE(    int32_t,  int32)
@@ -48,9 +48,12 @@ namespace epee_format::ser {
     // Serializing containers                                                //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define DEF_SERIALIZE_PRIMITIVE_CONTAINER(contname, valtype, sermeth)       \ 
+    /*
+
+    #define DEF_SERIALIZE_PRIMITIVE_CONTAINER(contname, valtype, sermeth)       \
         template<class Serializer>                                              \
         void serialize(const contname<valtype>& cont, Serializer& serializer) { \
+
             serializer.sermeth(cont.begin(), cont.size());                      \
         }                                                                       \
     
@@ -81,6 +84,8 @@ namespace epee_format::ser {
     
     DEF_SERIALIZE_CONTAINER_ALL_TYPES(std::vector)
     DEF_SERIALIZE_CONTAINER_ALL_TYPES(std::list)
+
+    */
 
     ///////////////////////////////////////////////////////////////////////////
     // Serializing user-defined types                                        //

@@ -29,9 +29,25 @@
 
 #include <cstdint>
 #include <gtest/gtest.h>
+#include <sstream>
 
 #include "storages/portable_storage.h"
+#include "portable_storage/binary/serializer_bin.h"
 #include "span.h"
+
+namespace {
+  struct Data1 {
+    int16_t val;
+
+    template<class Serializer>
+    void epee_serialize(Serializer& serializer) {
+      auto obj = serializer.serialize_object();
+      obj.start(1);
+      obj.serialize_entry("val", 3, val);
+      obj.end();
+    }
+  };
+}
 
 TEST(epee_binary, two_keys)
 {
@@ -53,4 +69,28 @@ TEST(epee_binary, duplicate_key)
 
   epee::serialization::portable_storage storage{};
   EXPECT_FALSE(storage.load_from_binary(data));
+}
+
+#define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
+
+TEST(epee_serialization, data_no_derive)
+{
+  using namespace portable_storage::binary;
+
+  static constexpr const std::uint8_t expected_binary[] = {
+    0x01, 0x11, 0x01, 0x01, // Signature A
+    0x01, 0x01, 0x02, 0x01, // Signature B
+    0x01,                   // Format Version
+    0x04,                   // Varint number of entries
+    0x03, 'v','a', 'l',     // entry key
+    0x03,                   // entry type
+    0xe7, 0x07              // INT16 value of 'val'
+  };
+
+  Data1 data = { 2023 };
+  BinarySerializer<std::stringstream> bs = {std::stringstream()};
+  data.epee_serialize(bs);
+  std::string result = bs.move_inner_stream().str();
+
+  EXPECT_EQ(ARRAY_STR(expected_binary), result);
 }
