@@ -208,7 +208,7 @@ namespace portable_storage::json {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    // BinaryArraySerializer definitions                                     //
+    // JsonArraySerializer definitions                                       //
     ///////////////////////////////////////////////////////////////////////////
 
     template <class t_ostream>
@@ -237,7 +237,7 @@ namespace portable_storage::json {
     }
 
     template <class t_ostream>
-    void BinaryArraySerializer<t_ostream>::end() {
+    void JsonArraySerializer<t_ostream>::end() {
         CHECK_AND_ASSERT_THROW_MES(
             m_remaining == 0,
             "trying to end array serialization with" << m_remaining << " elements left"

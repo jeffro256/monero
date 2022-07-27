@@ -33,6 +33,7 @@
 
 #include "storages/portable_storage.h"
 #include "portable_storage/binary/serializer_bin.h"
+#include "portable_storage/json/serializer_json.h"
 #include "span.h"
 
 namespace {
@@ -73,7 +74,33 @@ TEST(epee_binary, duplicate_key)
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
 
-TEST(epee_serialization, data_no_derive)
+
+TEST(epee_serialization, varint_serialize)
+{
+  constexpr size_t NUM_TESTS = 4;
+  static constexpr const std::uint8_t bin_10[] = { 0x28 };
+  static constexpr const std::uint8_t bin_100[] = { 0x91, 0x01 };
+  static constexpr const std::uint8_t bin_100000[] = { 0x82, 0x1a, 0x06, 0x00};
+  static constexpr const std::uint8_t bin_10000000000[] = {
+    0x03, 0x90, 0x2f, 0x50,
+    0x09, 0x00, 0x00, 0x00
+  };
+
+  size_t sizes[NUM_TESTS] = {10, 100, 100000, 10000000000};
+  const uint8_t* varint_reps[NUM_TESTS] = { bin_10, bin_100, bin_100000, bin_10000000000 };
+  const size_t varint_rep_sizes[NUM_TESTS] = { 1, 2, 4, 8 };
+
+  for (size_t i = 0; i < sizeof(sizes) / sizeof(size_t); i++) {
+    std::stringstream ss;
+    const size_t varint_val = sizes[i];
+    portable_storage::binary::write_varint(ss, varint_val);
+    const std::string expected(reinterpret_cast<const char*>(varint_reps[i]), varint_rep_sizes[i]);
+    EXPECT_EQ(expected, ss.str());
+  }
+}
+
+
+TEST(epee_serialization, bin_serialize_1)
 {
   using namespace portable_storage::binary;
 
@@ -93,4 +120,18 @@ TEST(epee_serialization, data_no_derive)
   std::string result = bs.move_inner_stream().str();
 
   EXPECT_EQ(ARRAY_STR(expected_binary), result);
+}
+
+TEST (epee_serialization, json_serialize_1)
+{
+  using namespace portable_storage::json;
+
+  const std::string expected_json("{\"val\":2023}");
+
+  Data1 data = { 2023 };
+  JsonSerializer<std::stringstream> js = {std::stringstream()};
+  data.epee_serialize(js);
+  std::string result = js.move_inner_stream().str();
+
+  EXPECT_EQ(expected_json, result);
 }
