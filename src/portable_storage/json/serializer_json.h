@@ -54,7 +54,8 @@ namespace portable_storage::json {
         friend class JsonObjectSerializer<t_ostream>;
         friend class JsonArraySerializer<t_ostream>;
 
-        void write_string(const char* str, size_t length);
+        void write_string(const char* str, size_t length, bool escape = true);
+        void write_escaped_string(const uint8_t* str, size_t length);
 
         t_ostream m_stream;
     };
@@ -157,12 +158,67 @@ namespace portable_storage::json {
         return JsonArraySerializer<t_ostream>(*this);
     }
 
-    // @TODO: escape strings
     template<class t_ostream>
-    void JsonSerializer<t_ostream>::write_string(const char* str, size_t length) {
+    void JsonSerializer<t_ostream>::write_string(const char* str, size_t length, bool escape) {
         m_stream << '"';
-        m_stream.write(str, length);
+        if (escape) {
+            this->write_escaped_string(reinterpret_cast<const uint8_t*>(str), length);
+        } else {
+            m_stream.write(str, length);
+        }
         m_stream << '"';
+    }
+
+    // @TODO: compare performance against transform_to_escape_sequence
+    template<class t_ostream>
+    void JsonSerializer<t_ostream>::write_escaped_string(const uint8_t* str, size_t length) {
+        const uint8_t* head;
+        const uint8_t* tail;
+        const uint8_t* const end = str + length;
+
+        // The tail pointer steps through the string and searches for characters which require
+        // escaping. m_stream is only written to when it must write escape characters or when
+        // tail reaches the end of the string.
+
+        for (head = tail = str; tail < end; tail++) { // while not done searching characters
+            if (*tail < 32 || *tail == '\\' || *tail == '"') { // character needs to be escaped
+                if (head != tail) { // if not flushed
+                    // flush characters in [head, tail)
+                    m_stream.write(reinterpret_cast<const char*>(head), tail - head);
+                    head = tail;
+                }
+
+                #define JSON_SER_ESCAPE_REPL(srcchar, replstr) \
+                    case srcchar: m_stream << replstr; break;  \
+
+                switch (*tail) {
+                    JSON_SER_ESCAPE_REPL('\\', "\\\\")
+                    JSON_SER_ESCAPE_REPL('"', "\\\"")
+                    JSON_SER_ESCAPE_REPL('\b', "\\b")
+                    JSON_SER_ESCAPE_REPL('\f', "\\f")
+                    JSON_SER_ESCAPE_REPL('\n', "\\n")
+                    JSON_SER_ESCAPE_REPL('\r', "\\r")
+                    JSON_SER_ESCAPE_REPL('\t', "\\t")
+                default:
+                    // Encode control character in the form "\u00XX" where X are hex digits
+                    static constexpr const char hex[17] = "0123456789ABCDEF";
+                    const char hex_msb = hex[*tail >> 4];
+                    const char hex_lsb = hex[*tail & 0xF]; 
+                    m_stream << "\\u00" << hex_msb << hex_lsb;
+                    break;
+                } // end switch
+
+                // If we execute the next statement, we have escaped a character previously.
+                // tail will be incremented when control flow hits bottom of for loop.
+                head++;
+            } // end if
+        } // end for
+
+        if (head != tail) { // if not flushed
+            // flush characters in [head, tail)
+            m_stream.write(reinterpret_cast<const char*>(head), tail - head);
+            head = tail;
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -187,7 +243,7 @@ namespace portable_storage::json {
     ) {
         CHECK_AND_ASSERT_THROW_MES(m_remaining > 0, "trying to serialize too many elements");
 
-        m_base_serializer.write_string(key, key_size);
+        m_base_serializer.write_string(key, key_size, false); // do not escape key
         m_base_serializer.m_stream << ':';
         portable_storage::model::serialize(value, m_base_serializer);
         m_remaining--;

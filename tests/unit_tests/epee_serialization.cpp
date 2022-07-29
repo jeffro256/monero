@@ -41,10 +41,22 @@ namespace {
     int16_t val;
 
     template<class Serializer>
-    void epee_serialize(Serializer& serializer) {
+    void epee_serialize(Serializer& serializer) const {
       auto obj = serializer.serialize_object();
       obj.start(1);
       obj.serialize_entry("val", 3, val);
+      obj.end();
+    }
+  };
+
+  struct StringData {
+    std::string str;
+
+    template <class Serializer>
+    void epee_serialize(Serializer& serializer) const {
+      auto obj = serializer.serialize_object();
+      obj.start(1);
+      obj.serialize_entry("str", 3, this->str);
       obj.end();
     }
   };
@@ -128,10 +140,34 @@ TEST (epee_serialization, json_serialize_1)
 
   const std::string expected_json("{\"val\":2023}");
 
-  Data1 data = { 2023 };
+  const Data1 data = { 2023 };
   JsonSerializer<std::stringstream> js = {std::stringstream()};
   data.epee_serialize(js);
   std::string result = js.move_inner_stream().str();
 
   EXPECT_EQ(expected_json, result);
+}
+
+TEST(epee_serialization, json_escape)
+{
+  using namespace portable_storage::json;
+
+  static const std::pair<StringData, std::string> test_cases[] =
+  {
+    { { "Howdy, World!" }, R"({"str":"Howdy, World!"})" },
+    { { "New\nline"     }, R"({"str":"New\nline"})" },
+    { { "\b\ruh"        }, R"({"str":"\b\ruh"})" },
+    { { "\u1234"        }, "{\"str\":\"\u1234\"}" }, // not raw
+  };
+
+  for (const auto& test_case : test_cases) {
+    const auto& input_instance = test_case.first;
+    const auto& expected_json = test_case.second;
+
+    JsonSerializer<std::stringstream> js = {std::stringstream()};
+    portable_storage::model::serialize(input_instance, js);
+    const auto actual_json = js.move_inner_stream().str();
+
+    EXPECT_EQ(expected_json, actual_json);
+  }
 }
