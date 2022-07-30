@@ -66,27 +66,3 @@ constexpr char PORTABLE_STORAGE_SIG_AND_VER[9] = {1, 17, 1, 1, 1, 1, 2, 1, 1};
 #define SERIALIZE_FLAG_ARRAY              0x80
 
 #define SERIALIZE_FLAG_ARRAY 0x80
-
-
-
-struct SectionEntryType {
-    enum struct ScalarEntryType: uint8_t {
-        int64 = 1,
-        int32,
-        int16,
-        int8,
-        uint64,
-        uint32,
-        uint16,
-        uint8,
-        DOUBLE,
-        STRING,
-        BOOL,
-        OBJECT
-    };
-
-    ScalarEntryType scalar_type;
-    bool is_array;
-};
-
-

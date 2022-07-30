@@ -47,8 +47,12 @@ namespace portable_storage::model {
             ASSERT_MES_AND_THROW("unexpected visit in visit_double()");
         }
 
+        virtual Value visit_bytes(const char* buf, size_t length) {
+            ASSERT_MES_AND_THROW("unexpected visit in visit_bytes()");   
+        }
+
         virtual Value visit_string(const std::string& value) {
-            ASSERT_MES_AND_THROW("unexpected visit in visit_string()");   
+            this->visit_bytes(value.c_str(), value.length());
         }
 
         virtual Value visit_bool(bool value) {
