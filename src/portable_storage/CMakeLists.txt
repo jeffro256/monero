@@ -26,17 +26,19 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#set(portable_storage_sources)
-#set(portable_storage_headers)
-#monero_find_all_headers(portable_storage_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
+set(portable_storage_sources
+  model/serializer.cpp
+)
+set(portable_storage_headers)
+monero_find_all_headers(portable_storage_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
-#monero_private_headers(portable_storage)
-#monero_add_library(portable_storage
-#  ${portable_storage_sources}
-#  ${portable_storage_headers}
-#  ${portable_storage_private_headers})
-#target_link_libraries(portable_storage
-#  PUBLIC
-#    epee
-#  PRIVATE
-#    ${EXTRA_LIBRARIES})
+monero_private_headers(portable_storage)
+monero_add_library(portable_storage
+  ${portable_storage_sources}
+  ${portable_storage_headers}
+  ${portable_storage_private_headers})
+target_link_libraries(portable_storage
+  PUBLIC
+    epee
+  PRIVATE
+    ${EXTRA_LIBRARIES})
