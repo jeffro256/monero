@@ -14,7 +14,7 @@
 #define VARINT_VAL_FITS_BYTE(val) (val < 63)
 #define VARINT_VAL_FITS_WORD(val) (val < 16383)
 #define VARINT_VAL_FITS_DWORD(val) (val < 1073741823)
-// Below is same as checking val <= 4611686018427387903 and portable for 32-bit size_t
+// Below is same as checking val <= 4611686018427387903 but portable for 32-bit size_t
 #define VARINT_VAL_FITS_QWORD(val) (!(val >> 31 >> 31))
 
 namespace portable_storage::binary {
@@ -61,7 +61,7 @@ namespace portable_storage::binary {
         void uint16(uint16_t) override final;
         void uint8(uint8_t) override final;
         void float64(double) override final;
-        void string(const std::string&) override final;
+        void bytes(const char*, size_t) override final;
         void boolean(bool) override final;
 
         void start_array(size_t) override final;
@@ -82,7 +82,7 @@ namespace portable_storage::binary {
 
     #define DEF_SERIALIZE_LE_INT(inttype, typecode)                               \
         template<class t_ostream>                                                 \
-        void Serializer<t_ostream>::inttype(inttype##_t value) {                \
+        void Serializer<t_ostream>::inttype(inttype##_t value) {                  \
             this->write_type_code(typecode);                                      \
             value = CONVERT_POD(value);                                           \
             m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value)); \
@@ -107,10 +107,10 @@ namespace portable_storage::binary {
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::string(const std::string& value) {
+    void Serializer<t_ostream>::bytes(const char* buf, size_t length) {
         this->write_type_code(SERIALIZE_TYPE_STRING);
-        this->write_varint(value.size());
-        m_stream.write(value.c_str(), value.size());
+        this->write_varint(length);
+        m_stream.write(buf, length);
         this->did_serialize();
     }
 

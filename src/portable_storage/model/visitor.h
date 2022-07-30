@@ -7,7 +7,10 @@
 
 namespace portable_storage::model {
     template <class Value>
-    struct Visitor { 
+    struct Visitor {
+        Visitor() = default;
+        virtual ~Visitor() {};
+
         virtual Value visit_int64(int64_t value) {
             return this->visit_double(value);   
         }
@@ -52,11 +55,11 @@ namespace portable_storage::model {
             ASSERT_MES_AND_THROW("unexpected visit in visit_bool()");
         }
 
-        virtual Value visit_object() {
+        virtual Value visit_object(Serializer& serializer) {
             ASSERT_MES_AND_THROW("unexpected visit in visit_object()");
         }
 
-        virtual Value visit_array() {
+        virtual Value visit_array(Serializer& serializer) {
             ASSERT_MES_AND_THROW("unexpected visit in visit_array()");
         }
     }; // class Visitor

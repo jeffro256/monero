@@ -1,5 +1,9 @@
+#include <string>
+
 #include "serializer.h"
 
 namespace portable_storage::model {
-    Serializer::~Serializer() {}
+    void Serializer::string(const std::string& value) {
+        this->bytes(value.c_str(), value.length());
+    }
 }

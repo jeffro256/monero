@@ -9,7 +9,8 @@ namespace portable_storage::model {
 
     struct Serializer
     {
-        virtual ~Serializer()                           = 0;
+        Serializer() = default;
+        virtual ~Serializer() {};
 
         virtual void int64  (int64_t)                   = 0;
         virtual void int32  (int32_t)                   = 0;
@@ -20,7 +21,8 @@ namespace portable_storage::model {
         virtual void uint16 (uint16_t)                  = 0;
         virtual void uint8  (uint8_t)                   = 0;
         virtual void float64(double)                    = 0;
-        virtual void string (const std::string&)        = 0;
+        virtual void bytes  (const char*, size_t)       = 0;
+        virtual void string (const std::string&)           ; // defers to blob(), for convenience
         virtual void boolean(bool)                      = 0;
 
         virtual void start_array(size_t)                = 0;

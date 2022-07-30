@@ -41,7 +41,7 @@ namespace portable_storage::json {
         void uint16(uint16_t) override final;
         void uint8(uint8_t) override final;
         void float64(double) override final;
-        void string(const std::string&) override final;
+        void bytes(const char*, size_t) override final;
         void boolean(bool) override final;
 
         void start_array(size_t) override final;
@@ -82,9 +82,9 @@ namespace portable_storage::json {
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::string(const std::string& value) {
+    void Serializer<t_ostream>::bytes(const char* buf, size_t length) {
         this->comma();
-        this->write_string(value.c_str(), value.length());
+        this->write_string(buf, length);
     }
 
     template<class t_ostream>
