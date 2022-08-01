@@ -26,10 +26,10 @@ namespace portable_storage::json {
         inline void comma();
 
         t_ostream m_stream;
-        
+
         // True after start_array() or start_object(), false after an element / entry is serialized
-        bool m_first; 
-    
+        bool m_first;
+
     // Serializer interface
     public:
         void int64(int64_t) override final;
@@ -171,7 +171,7 @@ namespace portable_storage::json {
                     // Encode control character in the form "\u00XX" where X are hex digits
                     static constexpr const char hex[17] = "0123456789ABCDEF";
                     const char hex_msb = hex[*tail >> 4];
-                    const char hex_lsb = hex[*tail & 0xF]; 
+                    const char hex_lsb = hex[*tail & 0xF];
                     m_stream << "\\u00" << hex_msb << hex_lsb;
                     break;
                 } // end switch

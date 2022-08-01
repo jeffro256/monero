@@ -4,7 +4,8 @@
 #include <string>
 #include <utility>
 
-#include "binary_common.h"
+#include "constants.h"
+#include "../internal/endianness.h"
 #include "misc_log_ex.h"
 #include "../model/serializer.h"
 
@@ -49,7 +50,7 @@ namespace portable_storage::binary {
 
         t_ostream m_stream;
         std::list<recursion_level> m_stack;
-    
+
     // Serializer interface
     public:
         void int64(int64_t) override final;

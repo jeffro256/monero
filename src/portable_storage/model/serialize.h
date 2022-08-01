@@ -6,7 +6,7 @@
  *     ...
  * }
  * ```
- * 
+ *
  * This function should call methods of Serializer with data from X to build a format-independent model of X,
  * analagous to Rust's serde's Serialize trait.
  */
@@ -56,7 +56,7 @@ namespace portable_storage::model {
 
             serializer.sermeth(cont.begin(), cont.size());                      \
         }                                                                       \
-    
+s
     #define DEF_SERIALIZE_OBJECT_CONTAINER(contname)                      \
         template <typename T, class Serializer>                           \
         void serialize(const contname<T>& cont, Serializer& serializer) { \
@@ -81,7 +81,7 @@ namespace portable_storage::model {
         DEF_SERIALIZE_PRIMITIVE_CONTAINER(contname, std::string,  serialize_sring) \
         DEF_SERIALIZE_PRIMITIVE_CONTAINER(contname,     uint8_t,  serialize_uint8) \
         DEF_SERIALIZE_OBJECT_CONTAINER(contname)                                   \
-    
+
     DEF_SERIALIZE_CONTAINER_ALL_TYPES(std::vector)
     DEF_SERIALIZE_CONTAINER_ALL_TYPES(std::list)
 
@@ -92,7 +92,7 @@ namespace portable_storage::model {
     ///////////////////////////////////////////////////////////////////////////
 
     // User-defined type needs method:
-    // 
+    //
     // template<class Serializer>
     // void epee_serialize(Serializer& serializer);
     //
