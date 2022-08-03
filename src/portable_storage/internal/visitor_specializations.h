@@ -1,25 +1,92 @@
 #pragma once
 
-// Do not include directly!
+#include "external_libs.h"
+#include "../model/visitor.h"
 
-namespace portable_storage::model {
+namespace portable_storage::internal {
+    ///////////////////////////////////////////////////////////////////////////
+    // Base Visitor class                                                    //
+    ///////////////////////////////////////////////////////////////////////////
+    template <typename T>
+    class OwnedVisitor: public Visitor {
+    public:
+        T get() const {
+            CHECK_AND_ASSERT_THROW_MES(
+                !m_assigned,
+                "OwnedVisitor must be set before being get"
+            );
+
+            return m_val;
+        }
+
+    protected:
+        OwnedVisitor(): m_val(), assigned(false) {}
+
+        void set(T val) {
+            CHECK_AND_ASSERT_THROW_MES(
+                !m_assigned,
+                "OwnedVisitor disallows assigning to internal value twice"
+            );
+
+            m_val = val;
+            m_assigned = true;
+        }
+
+    private:
+        T m_val;
+        bool m_assigned;
+    };
+
+    template <class MT>
+    class MoveVisitor: public Visitor {
+    public:
+        MT collect() {
+            CHECK_AND_ASSERT_THROW_MES(
+                !m_assigned,
+                "MoveVisitor must be assigned before being collected"
+            );
+
+            return std::move(m_val);
+        }
+    
+    protected:
+        MoveVisitor(): m_val(), assigned(false) {}
+
+        void assign(MT val) {
+            CHECK_AND_ASSERT_THROW_MES(
+                !m_assigned,
+                "MoveVisitor disallows assigning to internal value twice"
+            );
+
+            m_val = std::move(val);
+            m_assigned = true;
+        }
+
+    private:
+
+        T m_val;
+        bool m_assigned;
+    };
+
     ///////////////////////////////////////////////////////////////////////////
     // Default Visitor implementations/specializations                       //
     ///////////////////////////////////////////////////////////////////////////
 
     // Default Visitor for types which can be coerced using boost::numeric_cast
-    template <typename NumericValue>
-    struct DefaultNumericVisitor: public Visitor<NumericValue> {
+    template <typename numeric>
+    struct DefaultNumericVisitor: public OwnedVisitor<numeric> {
         // Defines an number visiting method using boost::numeric_cast, with better error msgs
         #define DEF_NUM_VISIT_METHOD(mname, numtype)                                    \
-            NumericValue mname(numtype value) override final {                          \
+            void visit_##mname(numtype value) override final {                          \
+                numeric val;                                                            \
                 try {                                                                   \
-                    return boost::numeric_cast<NumericValue>(value);                    \
+                    val = safe_numeric_cast<numeric>(value);                          \
                 } catch(...) {                                                          \
                     ASSERT_MES_AND_THROW(                                               \
                         #numtype " value " << value << " can not be losslessly visited" \
                     );                                                                  \
                 }                                                                       \
+                this->set(val);                                                         \
             }                                                                           \
 
         DEF_NUM_VISIT_METHOD(int64, int64_t)
@@ -31,22 +98,25 @@ namespace portable_storage::model {
         DEF_NUM_VISIT_METHOD(uint16, uint16_t)
         DEF_NUM_VISIT_METHOD(uint8, uint8_t)
         DEF_NUM_VISIT_METHOD(float64, double)
+        DEF_NUM_VISIT_METHOD(boolean, bool)
+    };
 
-        // yeah
-        NumericValue boolean(bool value) override final {
-            return value ? 1 : 0;
+    struct DefaultStringVisitor: public MoveVisitor<std::string> {
+        void visit_bytes(const char* buf, size_t length) override final {
+            this->assign(std::string(buf, length));
         }
     };
 
-    struct DefaultStringVisitor: public Visitor<std::string> {
-        std::string bytes(const char* buf, size_t length) override final {
-            return std::string(buf, length);
+    template <typename Container>
+    struct DefaultContainerVisitor: public MoveVisitor<Container> {
+        void visit_array(optional<size_t>, Deserializer& deserializer) override final {
+            Container cont;
+            // @TODO: size hint ?
+            while (!deserializer.has_array_elements()) {
+
+            }
         }
     };
-
-    // @TODO
-    //template <class ontainer>
-
 
     ///////////////////////////////////////////////////////////////////////////
     // Blob Visitor implementations/specializations                          //

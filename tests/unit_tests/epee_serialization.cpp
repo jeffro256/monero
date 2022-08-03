@@ -33,6 +33,7 @@
 
 #include "storages/portable_storage.h"
 #include "portable_storage/binary/serializer.h"
+#include "portable_storage/model/serialization.h"
 #include "portable_storage/model/visitor.h"
 #include "portable_storage/json/serializer.h"
 #include "span.h"
@@ -40,27 +41,29 @@
 using namespace portable_storage;
 
 namespace {
-  struct Data1 {
+  struct Data1: public model::Serializable {
     int16_t val;
 
-    template<class Serializer>
-    void epee_serialize(Serializer& serializer) const {
-      serializer.start_object(1);
-      serializer.key("val", 3);
-      serializer.int16(this->val);
-      serializer.end_object();
+    Data1(int64_t val): model::Serializable(), val(val) {}
+
+    void describe_serialization(model::Serializer& serializer) const override final {
+      serializer.serialize_start_object(1);
+      serializer.serialize_key("val", 3);
+      serializer.serialize_int16(this->val);
+      serializer.serialize_end_object();
     }
   };
 
-  struct StringData {
+  struct StringData: public model::Serializable {
     std::string str;
 
-    template <class Serializer>
-    void epee_serialize(Serializer& serializer) const {
-      serializer.start_object(1);
-      serializer.key("str", 3);
-      serializer.string(this->str);
-      serializer.end_object();
+    StringData(std::string str): model::Serializable(), str(str) {}
+
+    void describe_serialization(model::Serializer& serializer) const override final {
+      serializer.serialize_start_object(1);
+      serializer.serialize_key("str", 3);
+      serializer.serialize_string(this->str);
+      serializer.serialize_end_object();
     }
   };
 }
@@ -131,7 +134,7 @@ TEST(epee_serialization, bin_serialize_1)
 
   Data1 data = { 2023 };
   Serializer<std::stringstream> bs = {std::stringstream()};
-  data.epee_serialize(bs);
+  data.describe_serialization(bs);
   std::string result = bs.move_inner_stream().str();
 
   EXPECT_EQ(ARRAY_STR(expected_binary), result);
@@ -145,7 +148,7 @@ TEST (epee_serialization, json_serialize_1)
 
   const Data1 data = { 2023 };
   Serializer<std::stringstream> js = {std::stringstream()};
-  data.epee_serialize(js);
+  data.describe_serialization(js);
   std::string result = js.move_inner_stream().str();
 
   EXPECT_EQ(expected_json, result);
@@ -168,7 +171,7 @@ TEST(epee_serialization, json_escape)
     const auto& expected_json = test_case.second;
 
     Serializer<std::stringstream> js = {std::stringstream()};
-    input_instance.epee_serialize(js);
+    input_instance.describe_serialization(js);
     const auto actual_json = js.move_inner_stream().str();
 
     EXPECT_EQ(expected_json, actual_json);

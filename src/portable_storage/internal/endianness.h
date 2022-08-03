@@ -1,33 +1,32 @@
 #pragma once
 
-#include "int-util.h"
-#include <iostream> // @TODO REMOVE
+#include "external_libs.h"
+
+// SWAP8LE is a NOOP but makes code more uniform below
+#ifndef SWAP8LE
+#define SWAP8LE(x) x
+#endif
 
 namespace portable_storage::internal {
     template <typename T>
     struct le_conversion {
         static constexpr bool needed_for_type() { return false; }
-        static constexpr bool needed() {
-            #if BYTE_ORDER == BIG_ENDIAN
-                constexpr bool is_big_endian = true;
-            #else
-                constexpr bool is_big_endian = false;
-            #endif
-
-            constexpr bool is_pod = std::is_pod<T>::value;
-            constexpr bool is_needed_for_type = le_conversion<T>::needed_for_type();
-
-            return is_big_endian && is_pod && is_needed_for_type;
-        }
-
-        inline static constexpr T convert(T value) {
-            return value;
-        }
+        inline static constexpr T convert(T value) { return value; }
     };
 
-    #ifndef SWAP8LE
-    #define SWAP8LE(x) x
-    #endif
+    template <typename T>
+    constexpr bool should_convert_pod() {
+        #if BYTE_ORDER == BIG_ENDIAN
+            constexpr bool is_big_endian = true;
+        #else
+            constexpr bool is_big_endian = false;
+        #endif
+
+        constexpr bool is_pod = std::is_pod<T>::value;
+        constexpr bool is_needed_for_type = le_conversion<T>::needed_for_type();
+
+        return is_big_endian && is_pod && is_needed_for_type;
+    }
 
     #define SPECIALIZE_INT_CONVERSION(b)                                                          \
         template<> constexpr                                                                      \
@@ -47,8 +46,8 @@ namespace portable_storage::internal {
 
 // @TODO passthough if LE system
 #ifndef CONVERT_POD
-    #define CONVERT_POD(x)                                                    \
-        (portable_storage::internal::le_conversion<decltype(x)>::needed()     \
-        ? portable_storage::internal::le_conversion<decltype(x)>::convert(x)  \
+    #define CONVERT_POD(x)                                                   \
+        (portable_storage::internal::should_convert_pod<decltype(x)>()       \
+        ? portable_storage::internal::le_conversion<decltype(x)>::convert(x) \
         : x)
 #endif

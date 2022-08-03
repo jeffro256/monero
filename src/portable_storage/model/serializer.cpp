@@ -3,7 +3,7 @@
 #include "serializer.h"
 
 namespace portable_storage::model {
-    void Serializer::string(const std::string& value) {
-        this->bytes(value.c_str(), value.length());
+    void Serializer::serialize_string(const std::string& value) {
+        this->serialize_bytes(value.c_str(), value.length());
     }
 }

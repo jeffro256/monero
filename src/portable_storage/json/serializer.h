@@ -2,11 +2,8 @@
 
 #include <string>
 
-#include "misc_log_ex.h"
+#include "../internal/external_libs.h"
 #include "../model/serializer.h"
-
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
 namespace portable_storage::json {
     template<class t_ostream>
@@ -32,24 +29,24 @@ namespace portable_storage::json {
 
     // Serializer interface
     public:
-        void int64(int64_t) override final;
-        void int32(int32_t) override final;
-        void int16(int16_t) override final;
-        void int8(int8_t) override final;
-        void uint64(uint64_t) override final;
-        void uint32(uint32_t) override final;
-        void uint16(uint16_t) override final;
-        void uint8(uint8_t) override final;
-        void float64(double) override final;
-        void bytes(const char*, size_t) override final;
-        void boolean(bool) override final;
+        void serialize_int64(int64_t) override final;
+        void serialize_int32(int32_t) override final;
+        void serialize_int16(int16_t) override final;
+        void serialize_int8(int8_t) override final;
+        void serialize_uint64(uint64_t) override final;
+        void serialize_uint32(uint32_t) override final;
+        void serialize_uint16(uint16_t) override final;
+        void serialize_uint8(uint8_t) override final;
+        void serialize_float64(double) override final;
+        void serialize_bytes(const char*, size_t) override final;
+        void serialize_boolean(bool) override final;
 
-        void start_array(size_t) override final;
-        void end_array() override final;
+        void serialize_start_array(size_t) override final;
+        void serialize_end_array() override final;
 
-        void start_object(size_t) override final;
-        void key(const char*, uint8_t) override final;
-        void end_object() override final;
+        void serialize_start_object(size_t) override final;
+        void serialize_key(const char*, uint8_t) override final;
+        void serialize_end_object() override final;
 
         bool is_human_readable() const noexcept override final { return true; }
     };
@@ -60,11 +57,11 @@ namespace portable_storage::json {
         m_first(true)
     {}
 
-    #define DEF_SERIALIZE_INT_AS_DOUBLE(inttype)                   \
-        template<class t_ostream>                                  \
-        void Serializer<t_ostream>::inttype(inttype##_t value) { \
-            this->float64(static_cast<double>(value));             \
-        }                                                          \
+    #define DEF_SERIALIZE_INT_AS_DOUBLE(inttype)                             \
+        template<class t_ostream>                                            \
+        void Serializer<t_ostream>::serialize_##inttype(inttype##_t value) { \
+            this->serialize_float64(static_cast<double>(value));             \
+        }                                                                    \
 
     DEF_SERIALIZE_INT_AS_DOUBLE( int64);
     DEF_SERIALIZE_INT_AS_DOUBLE( int32);
@@ -76,44 +73,44 @@ namespace portable_storage::json {
     DEF_SERIALIZE_INT_AS_DOUBLE( uint8);
 
     template<class t_ostream>
-    void Serializer<t_ostream>::float64(double value) {
+    void Serializer<t_ostream>::serialize_float64(double value) {
         this->comma();
         m_stream << value;
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::bytes(const char* buf, size_t length) {
+    void Serializer<t_ostream>::serialize_bytes(const char* buf, size_t length) {
         this->comma();
         this->write_string(buf, length);
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::boolean(bool value) {
+    void Serializer<t_ostream>::serialize_boolean(bool value) {
         this->comma();
         m_stream << (value ? "true" : "false");
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::start_array(size_t num_entries) {
+    void Serializer<t_ostream>::serialize_start_array(size_t num_entries) {
         this->comma(); // this should never run b/c nested arrays aren't allowed in model
         m_stream << '[';
         m_first = true;
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::end_array() {
+    void Serializer<t_ostream>::serialize_end_array() {
         m_stream << ']';
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::start_object(size_t num_entries) {
+    void Serializer<t_ostream>::serialize_start_object(size_t num_entries) {
         this->comma();
         m_stream << '{';
         m_first = true;
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::key(const char* key, uint8_t key_size) {
+    void Serializer<t_ostream>::serialize_key(const char* key, uint8_t key_size) {
         this->comma();
         this->write_string(key, key_size, false); // do not escape key
         m_stream << ':';
@@ -121,7 +118,7 @@ namespace portable_storage::json {
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::end_object() {
+    void Serializer<t_ostream>::serialize_end_object() {
         m_stream << '}';
     }
 

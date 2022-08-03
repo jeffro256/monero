@@ -1,8 +1,5 @@
-#include "constants.h"
-#include "misc_log_ex.h"
+/*#include "constants.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
 #define VARINT_SIZE_MASK 0b00000011
 
@@ -40,3 +37,4 @@ namespace portable_storage::binary {
         return varint_size;
     }
 }
+*/

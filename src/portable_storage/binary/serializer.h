@@ -6,11 +6,7 @@
 
 #include "constants.h"
 #include "../internal/endianness.h"
-#include "misc_log_ex.h"
 #include "../model/serializer.h"
-
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
 #define VARINT_VAL_FITS_BYTE(val) (val < 63)
 #define VARINT_VAL_FITS_WORD(val) (val < 16383)
@@ -53,24 +49,24 @@ namespace portable_storage::binary {
 
     // Serializer interface
     public:
-        void int64(int64_t) override final;
-        void int32(int32_t) override final;
-        void int16(int16_t) override final;
-        void int8(int8_t) override final;
-        void uint64(uint64_t) override final;
-        void uint32(uint32_t) override final;
-        void uint16(uint16_t) override final;
-        void uint8(uint8_t) override final;
-        void float64(double) override final;
-        void bytes(const char*, size_t) override final;
-        void boolean(bool) override final;
+        void serialize_int64(int64_t) override final;
+        void serialize_int32(int32_t) override final;
+        void serialize_int16(int16_t) override final;
+        void serialize_int8(int8_t) override final;
+        void serialize_uint64(uint64_t) override final;
+        void serialize_uint32(uint32_t) override final;
+        void serialize_uint16(uint16_t) override final;
+        void serialize_uint8(uint8_t) override final;
+        void serialize_float64(double) override final;
+        void serialize_bytes(const char*, size_t) override final;
+        void serialize_boolean(bool) override final;
 
-        void start_array(size_t) override final;
-        void end_array() override final;
+        void serialize_start_array(size_t) override final;
+        void serialize_end_array() override final;
 
-        void start_object(size_t) override final;
-        void key(const char*, uint8_t) override final;
-        void end_object() override final;
+        void serialize_start_object(size_t) override final;
+        void serialize_key(const char*, uint8_t) override final;
+        void serialize_end_object() override final;
 
         bool is_human_readable() const noexcept override final { return true; }
     };
@@ -83,7 +79,7 @@ namespace portable_storage::binary {
 
     #define DEF_SERIALIZE_LE_INT(inttype, typecode)                               \
         template<class t_ostream>                                                 \
-        void Serializer<t_ostream>::inttype(inttype##_t value) {                  \
+        void Serializer<t_ostream>::serialize_##inttype(inttype##_t value) {      \
             this->write_type_code(typecode);                                      \
             value = CONVERT_POD(value);                                           \
             m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value)); \
@@ -100,7 +96,7 @@ namespace portable_storage::binary {
     DEF_SERIALIZE_LE_INT( uint8,  SERIALIZE_TYPE_UINT8);
 
     template<class t_ostream>
-    void Serializer<t_ostream>::float64(double value) {
+    void Serializer<t_ostream>::serialize_float64(double value) {
         this->write_type_code(SERIALIZE_TYPE_DOUBLE);
         value = CONVERT_POD(value);
         m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value));
@@ -108,7 +104,7 @@ namespace portable_storage::binary {
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::bytes(const char* buf, size_t length) {
+    void Serializer<t_ostream>::serialize_bytes(const char* buf, size_t length) {
         this->write_type_code(SERIALIZE_TYPE_STRING);
         this->write_varint(length);
         m_stream.write(buf, length);
@@ -116,25 +112,25 @@ namespace portable_storage::binary {
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::boolean(bool value) {
+    void Serializer<t_ostream>::serialize_boolean(bool value) {
         this->write_type_code(SERIALIZE_TYPE_BOOL);
         m_stream.put(value ? 1 : 0);
         this->did_serialize();
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::start_array(size_t num_entries) {
+    void Serializer<t_ostream>::serialize_start_array(size_t num_entries) {
         this->push_array(num_entries);
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::end_array() {
+    void Serializer<t_ostream>::serialize_end_array() {
         this->pop(false);
         this->did_serialize();
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::start_object(size_t num_entries) {
+    void Serializer<t_ostream>::serialize_start_object(size_t num_entries) {
         if (this->root()) {
             m_stream.write(PORTABLE_STORAGE_SIG_AND_VER, sizeof(PORTABLE_STORAGE_SIG_AND_VER));
         } else {
@@ -146,7 +142,7 @@ namespace portable_storage::binary {
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::key(const char* key, uint8_t key_size) {
+    void Serializer<t_ostream>::serialize_key(const char* key, uint8_t key_size) {
         CHECK_AND_ASSERT_THROW_MES(
             this->inside_object(),
             "invalid serializer usage: called key() inside array"
@@ -157,7 +153,7 @@ namespace portable_storage::binary {
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::end_object() {
+    void Serializer<t_ostream>::serialize_end_object() {
         this->did_serialize();
         this->pop(true);
     }
