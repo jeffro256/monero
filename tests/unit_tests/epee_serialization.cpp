@@ -46,7 +46,7 @@ namespace {
 
     Data1(int64_t val): model::Serializable(), val(val) {}
 
-    void describe_serialization(model::Serializer& serializer) const override final {
+    void serialize_default(model::Serializer& serializer) const override final {
       serializer.serialize_start_object(1);
       serializer.serialize_key("val", 3);
       serializer.serialize_int16(this->val);
@@ -59,7 +59,7 @@ namespace {
 
     StringData(std::string str): model::Serializable(), str(str) {}
 
-    void describe_serialization(model::Serializer& serializer) const override final {
+    void serialize_default(model::Serializer& serializer) const override final {
       serializer.serialize_start_object(1);
       serializer.serialize_key("str", 3);
       serializer.serialize_string(this->str);
@@ -134,7 +134,7 @@ TEST(epee_serialization, bin_serialize_1)
 
   Data1 data = { 2023 };
   Serializer<std::stringstream> bs = {std::stringstream()};
-  data.describe_serialization(bs);
+  data.serialize_default(bs);
   std::string result = bs.move_inner_stream().str();
 
   EXPECT_EQ(ARRAY_STR(expected_binary), result);
@@ -148,7 +148,7 @@ TEST (epee_serialization, json_serialize_1)
 
   const Data1 data = { 2023 };
   Serializer<std::stringstream> js = {std::stringstream()};
-  data.describe_serialization(js);
+  data.serialize_default(js);
   std::string result = js.move_inner_stream().str();
 
   EXPECT_EQ(expected_json, result);
@@ -171,7 +171,7 @@ TEST(epee_serialization, json_escape)
     const auto& expected_json = test_case.second;
 
     Serializer<std::stringstream> js = {std::stringstream()};
-    input_instance.describe_serialization(js);
+    input_instance.serialize_default(js);
     const auto actual_json = js.move_inner_stream().str();
 
     EXPECT_EQ(expected_json, actual_json);

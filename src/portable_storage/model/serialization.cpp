@@ -5,13 +5,13 @@
 
 namespace portable_storage::model {
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization() basic specializations                        //
+    // serialize_default() basic specializations                        //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define DEF_DESC_SER_BASIC(sername, tyname)                                                \
-        template <> void describe_serialization(const tyname& value, Serializer& serializer) { \
-            serializer.serialize_##sername(value);                                             \
-        }                                                                                      \
+    #define DEF_DESC_SER_BASIC(sername, tyname)                                           \
+        template <> void serialize_default(const tyname& value, Serializer& serializer) { \
+            serializer.serialize_##sername(value);                                        \
+        }                                                                                 \
     
     DEF_DESC_SER_BASIC(int64, int64_t)
     DEF_DESC_SER_BASIC(int32, int32_t)
@@ -26,17 +26,17 @@ namespace portable_storage::model {
     DEF_DESC_SER_BASIC(boolean, bool)
 
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization() overloads                                    //
+    // serialize_default() overloads                                    //
     ///////////////////////////////////////////////////////////////////////////
 
-    void describe_serialization(const Serializable* value, Serializer& serializer) {
-        value->describe_serialization(serializer);
+    void serialize_default(const Serializable* value, Serializer& serializer) {
+        value->serialize_default(serializer);
     }
 
-    #define DEF_DESC_SER_BASIC_NO_REF(sername, tyname)                      \
-        void describe_serialization(tyname value, Serializer& serializer) { \
-            serializer.serialize_##sername(value);                          \
-        }
+    #define DEF_DESC_SER_BASIC_NO_REF(sername, tyname)                 \
+        void serialize_default(tyname value, Serializer& serializer) { \
+            serializer.serialize_##sername(value);                     \
+        }                                                              \
     
     DEF_DESC_SER_BASIC_NO_REF(int64, int64_t)
     DEF_DESC_SER_BASIC_NO_REF(int32, int32_t)

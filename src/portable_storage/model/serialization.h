@@ -16,80 +16,80 @@ namespace portable_storage::model {
         Serializable() = default;
         virtual ~Serializable() = default;
 
-        virtual void describe_serialization(Serializer& serializer) const = 0;
+        virtual void serialize_default(Serializer& serializer) const = 0;
     };
 
     template <typename T>
-    void describe_serialization(const T& value, Serializer& serializer) {
-        value.describe_serialization(serializer);
+    void serialize_default(const T& value, Serializer& serializer) {
+        value.serialize_default(serializer);
     }
 
     template <typename T>
-    void describe_serialization_as_blob(const T& value_, Serializer& serializer) {
+    void serialize_as_blob(const T& value_, Serializer& serializer) {
         static_assert(std::is_pod<T>::value);
         T value = CONVERT_POD(value_);
         serializer.serialize_bytes(reinterpret_cast<const char*>(&value), sizeof(T));
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization() basic specializations                        //
+    // serialize_default() basic specializations                        //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <> void describe_serialization(const int64_t&, Serializer&);
-    template <> void describe_serialization(const int32_t&, Serializer&);
-    template <> void describe_serialization(const int16_t&, Serializer&);
-    template <> void describe_serialization(const int8_t&, Serializer&);
-    template <> void describe_serialization(const uint64_t&, Serializer&);
-    template <> void describe_serialization(const uint32_t&, Serializer&);
-    template <> void describe_serialization(const uint16_t&, Serializer&);
-    template <> void describe_serialization(const uint8_t&, Serializer&);
-    template <> void describe_serialization(const double&, Serializer&);
-    template <> void describe_serialization(const std::string&, Serializer&);
-    template <> void describe_serialization(const bool&, Serializer&);
+    template <> void serialize_default(const int64_t&, Serializer&);
+    template <> void serialize_default(const int32_t&, Serializer&);
+    template <> void serialize_default(const int16_t&, Serializer&);
+    template <> void serialize_default(const int8_t&, Serializer&);
+    template <> void serialize_default(const uint64_t&, Serializer&);
+    template <> void serialize_default(const uint32_t&, Serializer&);
+    template <> void serialize_default(const uint16_t&, Serializer&);
+    template <> void serialize_default(const uint8_t&, Serializer&);
+    template <> void serialize_default(const double&, Serializer&);
+    template <> void serialize_default(const std::string&, Serializer&);
+    template <> void serialize_default(const bool&, Serializer&);
 
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization() container specializations                    //
+    // serialize_default() container specializations                    //
     ///////////////////////////////////////////////////////////////////////////
 
     template <class Container>
     void describe_container_serialization(const Container& cont, Serializer& serializer) {
         serializer.serialize_start_array(cont.size());
         for (const auto& elem: cont) {
-            describe_serialization(elem, serializer);
+            serialize_default(elem, serializer);
         }
         serializer.serialize_end_array();
     }
 
-    #define DEF_DESC_SER_FOR_CONTAINER(contname)                                       \
-        template <typename T>                                                          \
-        void describe_serialization(const contname<T>& cont, Serializer& serializer) { \
-            describe_container_serialization(cont, serializer);                        \
-        }                                                                              \
+    #define DEF_DESC_SER_FOR_CONTAINER(contname)                                  \
+        template <typename T>                                                     \
+        void serialize_default(const contname<T>& cont, Serializer& serializer) { \
+            describe_container_serialization(cont, serializer);                   \
+        }                                                                         \
 
     DEF_DESC_SER_FOR_CONTAINER(std::list)
     DEF_DESC_SER_FOR_CONTAINER(std::vector)
 
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization() overloads                                    //
+    // serialize_default() overloads                                    //
     //                                                                       //
     // The first is for virtual support of Serializable, the rest of the     //
     // overloads benefit performance/ease of use for cheaply copyable types  //
     ///////////////////////////////////////////////////////////////////////////
 
-    void describe_serialization(const Serializable*, Serializer&);
-    void describe_serialization(int64_t, Serializer&);
-    void describe_serialization(int32_t, Serializer&);
-    void describe_serialization(int16_t, Serializer&);
-    void describe_serialization(int8_t, Serializer&);
-    void describe_serialization(uint64_t, Serializer&);
-    void describe_serialization(uint32_t, Serializer&);
-    void describe_serialization(uint16_t, Serializer&);
-    void describe_serialization(uint8_t, Serializer&);
-    void describe_serialization(double, Serializer&);
-    void describe_serialization(bool, Serializer&);
+    void serialize_default(const Serializable*, Serializer&);
+    void serialize_default(int64_t, Serializer&);
+    void serialize_default(int32_t, Serializer&);
+    void serialize_default(int16_t, Serializer&);
+    void serialize_default(int8_t, Serializer&);
+    void serialize_default(uint64_t, Serializer&);
+    void serialize_default(uint32_t, Serializer&);
+    void serialize_default(uint16_t, Serializer&);
+    void serialize_default(uint8_t, Serializer&);
+    void serialize_default(double, Serializer&);
+    void serialize_default(bool, Serializer&);
 
     ///////////////////////////////////////////////////////////////////////////
-    // describe_serialization_as_blob() container specializations            //
+    // serialize_as_blob() container specializations                         //
     ///////////////////////////////////////////////////////////////////////////
 
     // Describe any standard container whose storage isn't contiguous in memory as a blob
@@ -126,17 +126,17 @@ namespace portable_storage::model {
         }
     }
 
-    #define DEF_DESC_CONT_SER_AS_BLOB(contname)                                                \
-        template <typename T>                                                                  \
-        void describe_serialization_as_blob(const contname<T>& cont, Serializer& serializer) { \
-            describe_cont_serialization_as_blob(cont, serializer);                             \
-        }
+    #define DEF_DESC_CONT_SER_AS_BLOB(contname)                                   \
+        template <typename T>                                                     \
+        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) { \
+            describe_cont_serialization_as_blob(cont, serializer);                \
+        }                                                                         \
     
-    #define DEF_DESC_CONTCONT_SER_AS_BLOB(contname)                                            \
-        template <typename T>                                                                  \
-        void describe_serialization_as_blob(const contname<T>& cont, Serializer& serializer) { \
-            describe_contcont_serialization_as_blob(cont, serializer);                         \
-        }
+    #define DEF_DESC_CONTCONT_SER_AS_BLOB(contname)                               \
+        template <typename T>                                                     \
+        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) { \
+            describe_contcont_serialization_as_blob(cont, serializer);            \
+        }                                                                         \
 
     DEF_DESC_CONT_SER_AS_BLOB(std::list)
     DEF_DESC_CONTCONT_SER_AS_BLOB(std::vector)

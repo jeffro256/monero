@@ -42,6 +42,7 @@ namespace portable_storage::internal {
     SPECIALIZE_INT_CONVERSION(32)
     SPECIALIZE_INT_CONVERSION(16)
     SPECIALIZE_INT_CONVERSION(8)
+    // @TODO: double endianness
 } // namespace portable_storage::internal
 
 // @TODO passthough if LE system
