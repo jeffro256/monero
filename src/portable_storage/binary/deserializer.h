@@ -94,10 +94,11 @@ namespace portable_storage::binary
         void validate_signature()
         {
             constexpr size_t SIGSIZE = sizeof(PORTABLE_STORAGE_SIG_AND_VER);
+            t_const_uint8_iterator begin = this->consume(SIGSIZE);
 
             CHECK_AND_ASSERT_THROW_MES
             (
-                memcmp(this->consume(SIGSIZE), PORTABLE_STORAGE_SIG_AND_VER, SIGSIZE),
+                0 == memcmp(begin, PORTABLE_STORAGE_SIG_AND_VER, SIGSIZE),
                 "missing portable format signature and version"
             );
         }
@@ -315,10 +316,10 @@ namespace portable_storage::binary
             }
         }
 
-        #define DEFER_TO_DESER_ANY(mname)                       \
-            template <typename Value>                           \
+        #define DEFER_TO_DESER_ANY(mname)                \
+            template <typename Value>                    \
             Value deserialize_##mname(Visitor<Value>& v) \
-            { return this->deserialize_any(v); }                \
+            { return this->deserialize_any(v); }         \
 
         // The epee binary format is self-describing, so means we can ignore deserialization hints
         DEFER_TO_DESER_ANY(int64)
