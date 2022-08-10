@@ -32,7 +32,7 @@ namespace portable_storage::model {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    // serialize_default() basic specializations                        //
+    // serialize_default() basic specializations                             //
     ///////////////////////////////////////////////////////////////////////////
 
     template <> void serialize_default(const int64_t&, Serializer&);
@@ -48,7 +48,7 @@ namespace portable_storage::model {
     template <> void serialize_default(const bool&, Serializer&);
 
     ///////////////////////////////////////////////////////////////////////////
-    // serialize_default() container specializations                    //
+    // serialize_default() container specializations                         //
     ///////////////////////////////////////////////////////////////////////////
 
     template <class Container>
@@ -70,7 +70,7 @@ namespace portable_storage::model {
     DEF_DESC_SER_FOR_CONTAINER(std::vector)
 
     ///////////////////////////////////////////////////////////////////////////
-    // serialize_default() overloads                                    //
+    // serialize_default() overloads                                         //
     //                                                                       //
     // The first is for virtual support of Serializable, the rest of the     //
     // overloads benefit performance/ease of use for cheaply copyable types  //

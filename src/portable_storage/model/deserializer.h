@@ -5,38 +5,47 @@
 #include "../internal/external_libs.h"
 #include "visitor.h"
 
+#define UNIMPL_DESER ASSERT_MES_AND_THROW("unimplemented deserialize method");
+
 namespace portable_storage::model {
     struct Deserializer
     {
-        Deserializer() = default;
-        virtual ~Deserializer() = default;
+        Deserializer();
+        virtual ~Deserializer();
 
-        virtual void deserialize_any(Visitor&) = 0;
+        template <typename Value> Value deserialize_any(Visitor<Value>&);
 
-        virtual void deserialize_int64  (Visitor&)                  = 0;
-        virtual void deserialize_int32  (Visitor&)                  = 0;
-        virtual void deserialize_int16  (Visitor&)                  = 0;
-        virtual void deserialize_int8   (Visitor&)                  = 0;
-        virtual void deserialize_uint64 (Visitor&)                  = 0;
-        virtual void deserialize_uint32 (Visitor&)                  = 0;
-        virtual void deserialize_uint16 (Visitor&)                  = 0;
-        virtual void deserialize_uint8  (Visitor&)                  = 0;
-        virtual void deserialize_float64(Visitor&)                  = 0;
-        virtual void deserialize_bytes  (Visitor&)                  = 0;
-        // deserialize_string() defers to deserialize_bytes(), for convenience
-        virtual void deserialize_string (Visitor&)                     ;
-        virtual void deserialize_boolean(Visitor&)                  = 0;
+        template <typename Value> Value deserialize_int64  (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_int32  (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_int16  (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_int8   (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_uint64 (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_uint32 (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_uint16 (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_uint8  (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_float64(Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_bytes  (Visitor<Value>&) { UNIMPL_DESER }
+        template <typename Value> Value deserialize_boolean(Visitor<Value>&) { UNIMPL_DESER }
 
-        virtual void deserialize_array(optional<size_t>, Visitor&)  = 0;
-        // array_has_next() is used by visitors, not by Deserializables
-        virtual bool array_has_next()                               = 0;
+        template <typename Value> Value deserialize_array(optional<size_t>, Visitor<Value>&)
+        { UNIMPL_DESER }
 
-        virtual void deserialize_object(optional<size_t>, Visitor&) = 0;
-        virtual void deserialize_key(Visitor&)                      = 0;
-        // array_has_next() is used by visitors, not by Deserializables
-        virtual bool object_has_next()                              = 0;
+        template <typename Value> Value deserialize_object(optional<size_t>, Visitor<Value>&)
+        { UNIMPL_DESER }
+        template <typename Value> Value deserialize_key(Visitor<Value>&) { UNIMPL_DESER }
 
-        virtual bool is_human_readable() const noexcept             = 0;
+        // This method is used by Visitors, not Deserializables. It signals to the Deserializer
+        // that the Visitor wants to move to the next element / entry and lets the Visitor know
+        // when to stop. Visitors should call this once each time before deserializing an
+        // element/entry and once after the array/object is finished, at which point the return
+        // value should be false.
+        // Returns true if there element/entries left to deserialize, false if there is not
+        // Once false is returned, it can be assumed that the Visitor knows the array/object is
+        // over and the Deserializer can go up one level in recursion. This method is not
+        // idempotent.
+        virtual bool continue_collection() = 0;
+
+        virtual bool is_human_readable() const noexcept = 0;
     };
 } // namespace portable_storage::binary
 

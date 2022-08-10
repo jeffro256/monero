@@ -32,7 +32,9 @@
 #include <sstream>
 
 #include "storages/portable_storage.h"
+#include "portable_storage/binary/deserializer.h"
 #include "portable_storage/binary/serializer.h"
+#include "portable_storage/model/deserialization.h"
 #include "portable_storage/model/serialization.h"
 #include "portable_storage/model/visitor.h"
 #include "portable_storage/json/serializer.h"
@@ -41,7 +43,44 @@
 using namespace portable_storage;
 
 namespace {
-  struct Data1: public model::Serializable {
+  template <typename BaseVisitor>
+  class SingleEntryVisitor: public BaseVisitor
+  {
+  public:
+    void visit_object(optional<size_t> nentries, model::Deserializer& deserializer) override final
+    {
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        nentries && *nentries == 1,
+        "bad size: != 1"
+      );
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        deserializer.continue_collection(),
+        "expected atleast 1 entry"
+      );
+      deserializer
+
+      deserializer.continue_collection();
+    }
+
+    void visit_key(const char* key, size_t length) override final
+    {
+      std::string visited_key = std::string(key, length);
+
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        visited_key == m_key,
+        "Expected key != actual key: expected {" << m_key << "}, actual {" << visited_key << "}"
+      );
+    }
+
+  private:
+    std::string m_key;
+  };
+
+  struct Data1: public model::Serializable, public model::Deserializable
+  {
     int16_t val;
 
     Data1(int64_t val): model::Serializable(), val(val) {}
@@ -52,9 +91,19 @@ namespace {
       serializer.serialize_int16(this->val);
       serializer.serialize_end_object();
     }
+
+    void deserialize_in_place(model::Deserializer& deserializer) override final {
+      SingleEntryVisitor<internal::NumericVisitor<int16_t>> entry_visitor;
+
+      deserializer.deserialize_object(1, entry_visitor);
+      deserializer.continue_collection();
+      this->val = model::deserialize_default<int16_t>(deserializer);
+      deserializer.continue_collection();
+    }
   };
 
-  struct StringData: public model::Serializable {
+  struct StringData: public model::Serializable
+  {
     std::string str;
 
     StringData(std::string str): model::Serializable(), str(str) {}
@@ -122,7 +171,8 @@ TEST(epee_serialization, bin_serialize_1)
 {
   using namespace portable_storage::binary;
 
-  static constexpr const std::uint8_t expected_binary[] = {
+  static constexpr const std::uint8_t expected_binary[] =
+  {
     0x01, 0x11, 0x01, 0x01, // Signature A
     0x01, 0x01, 0x02, 0x01, // Signature B
     0x01,                   // Format Version
@@ -176,4 +226,22 @@ TEST(epee_serialization, json_escape)
 
     EXPECT_EQ(expected_json, actual_json);
   }
+}
+
+TEST(epee_serialization, bin_deserialize_1)
+{
+  using namespace portable_storage::binary;
+
+  static constexpr const std::uint8_t source_binary[] =
+  {
+    0x01, 0x11, 0x01, 0x01, // Signature A
+    0x01, 0x01, 0x02, 0x01, // Signature B
+    0x01,                   // Format Version
+    0x04,                   // Varint number of entries
+    0x03, 'v','a', 'l',     // entry key
+    0x03,                   // entry type
+    0xe7, 0x07              // INT16 value of 'val'
+  };
+
+
 }

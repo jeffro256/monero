@@ -31,7 +31,7 @@
 #define PORTABLE_STORAGE_SIGNATUREA 0x01011101
 #define PORTABLE_STORAGE_SIGNATUREB 0x01020101 // bender's nightmare 
 #define PORTABLE_STORAGE_FORMAT_VER 1
-constexpr char PORTABLE_STORAGE_SIG_AND_VER[9] = {1, 17, 1, 1, 1, 1, 2, 1, 1};
+constexpr std::uint8_t PORTABLE_STORAGE_SIG_AND_VER[9] = {1, 17, 1, 1, 1, 1, 2, 1, 1};
 
 #define SERIALIZE_TYPE_INT64                1
 #define SERIALIZE_TYPE_INT32                2
