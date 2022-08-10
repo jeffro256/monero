@@ -11,6 +11,6 @@ namespace portable_storage::internal {
 
     template<typename T> inline
     void container_reserve(std::vector<T>& vec, size_t new_capacity) {
-        vec.reserve(new_size);
+        vec.reserve(new_capacity);
     }
 }

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "../internal/endianness.h"
 #include "serialization.h"
 

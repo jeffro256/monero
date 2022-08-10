@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/mpl/numeric_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 
 #include "int-util.h"
 #include "misc_log_ex.h"
@@ -43,7 +43,7 @@ namespace portable_storage
         {
             try
             {
-                return boost::mpl::numeric_cast<Target>(arg);
+                return boost::numeric_cast<Target>(arg);
             }
             catch (const std::exception& e)
             {

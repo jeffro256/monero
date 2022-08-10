@@ -132,7 +132,11 @@ namespace portable_storage::binary {
     template <class t_ostream>
     void Serializer<t_ostream>::serialize_start_object(size_t num_entries) {
         if (this->root()) {
-            m_stream.write(PORTABLE_STORAGE_SIG_AND_VER, sizeof(PORTABLE_STORAGE_SIG_AND_VER));
+            m_stream.write
+            (
+                reinterpret_cast<const char*>(PORTABLE_STORAGE_SIG_AND_VER),
+                sizeof(PORTABLE_STORAGE_SIG_AND_VER)
+            );
         } else {
             this->write_type_code(SERIALIZE_TYPE_OBJECT);
         }

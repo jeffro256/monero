@@ -2,31 +2,24 @@
 
 #include <string>
 
+#include "deserializer.h"
 #include "../internal/container.h"
 #include "../internal/endianness.h"
 #include "../internal/external_libs.h"
 
 namespace portable_storage::model
 {
-    ///////////////////////////////////////////////////////////////////////////
-    // Forward declarations for compound Visitors                            //
-    ///////////////////////////////////////////////////////////////////////////
-    class Deserializer;
-
-    template <typename Deserializable>
-    struct Deserialize
-    {
-        static Deserializable dflt(Deserializer&);
-    };
+    // fwd
+    template <typename Deserializable, class Deserializer> struct Deserialize;
 
     ///////////////////////////////////////////////////////////////////////////
     // Visitor                                                               //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <typename Value>
+    template <typename Value, class Deserializer>
     struct Visitor
     {
-        using value_type = Value;
+        using value_type = Value; // @TODO: maybe unneccessary
 
         Visitor() = default;
         virtual ~Visitor() {};
@@ -111,12 +104,12 @@ namespace portable_storage::internal {
     //                                                                       //
     // Acts as a selector for visiting all primitive suported types          //
     ///////////////////////////////////////////////////////////////////////////
-    template <typename Value>
-    struct DefaultVisitor: public model::Visitor<Value> {};
+    template <typename Value, class Deserializer>
+    struct DefaultVisitor: public model::Visitor<Value, Deserializer> {};
 
     // Default Visitor for types which can be coerced using boost::numeric_cast
-    template <typename Numeric>
-    struct NumericVisitor: public model::Visitor<Numeric>
+    template <typename Numeric, class Deserializer>
+    struct NumericVisitor: public model::Visitor<Numeric, Deserializer>
     {
         std::string expecting() const override final
         {
@@ -141,8 +134,11 @@ namespace portable_storage::internal {
         DEF_NUM_VISIT_METHOD(boolean, bool)
     };
 
-    #define SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(numty)                         \
-        template<> struct DefaultVisitor<numty>: public NumericVisitor<numty> {}; \
+    #define SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(numty) \
+        template<class Deserializer>                      \
+        struct DefaultVisitor<numty, Deserializer>:       \
+            public NumericVisitor<numty, Deserializer>    \
+        {};                                               \
 
     SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(int64_t)
     SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(int32_t)
@@ -155,8 +151,9 @@ namespace portable_storage::internal {
     SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(double)
     SPECIALIZE_DEFAULT_VISITOR_FOR_NUMERIC(bool)
 
-    template<>
-    struct DefaultVisitor<std::string>: public model::Visitor<std::string>
+    template<class Deserializer>
+    struct DefaultVisitor<std::string, Deserializer>:
+        public model::Visitor<std::string, Deserializer>
     {
         std::string expecting() const override final
         {
@@ -169,14 +166,15 @@ namespace portable_storage::internal {
         }
     };
 
-    template <typename Container>
-    struct DefaultContainerVisitor: public model::Visitor<Container> {
+    template <typename Container, class Deserializer>
+    struct DefaultContainerVisitor: public model::Visitor<Container, Deserializer>
+    {
         std::string expecting() const override final
         {
             return "array";
         }
 
-        Container visit_array(optional<size_t> size, model::Deserializer& deserializer) override final
+        Container visit_array(optional<size_t> size, Deserializer& deserializer) override final
         {
             typedef typename Container::value_type value_type;
 
@@ -188,8 +186,7 @@ namespace portable_storage::internal {
 
             while (deserializer.continue_collection())
             {
-                const auto element = model::Deserialize<value_type>::dflt(deserializer);
-                cont.push_back(element);
+                cont.push_back(model::Deserialize<value_type, Deserializer>::dflt(deserializer));
             }
 
             return cont;
@@ -197,8 +194,10 @@ namespace portable_storage::internal {
     };
 
     #define SPECIALIZE_DEFAULT_VISITOR_FOR_CONTAINER(contname)                                    \
-        template<typename Elem>                                                                   \
-        struct DefaultVisitor<contname<Elem>>: public DefaultContainerVisitor<contname<Elem>> {}; \
+        template<typename Elem, class Deserializer>                                               \
+        struct DefaultVisitor<contname<Elem>, Deserializer>:                                      \
+            public DefaultContainerVisitor<contname<Elem>, Deserializer>                          \
+        {};                                                                                       \
 
     SPECIALIZE_DEFAULT_VISITOR_FOR_CONTAINER(std::list)
     SPECIALIZE_DEFAULT_VISITOR_FOR_CONTAINER(std::vector)
@@ -209,31 +208,31 @@ namespace portable_storage::internal {
     // Acts as a selector for visiting all primitive suported types as blobs //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <typename T>
-    struct BlobVisitor: public model::Visitor<T>
+    template <typename PodValue, class Deserializer>
+    struct BlobVisitor: public model::Visitor<PodValue, Deserializer>
     {
-        static_assert(std::is_pod<T>::value);
+        static_assert(std::is_pod<PodValue>::value);
 
         std::string expecting() const override final
         {
             return "blob string";
         }
 
-        T visit_bytes(const char* blob, size_t length) override final
+        PodValue visit_bytes(const char* blob, size_t length) override final
         {
             CHECK_AND_ASSERT_THROW_MES
             (
-                length == sizeof(T),
+                length == sizeof(PodValue),
                 "trying to visit blob of incorrect lenngth"
             );
 
-            T raw_val = *reinterpret_cast<const T*>(blob);
+            PodValue raw_val = *reinterpret_cast<const PodValue*>(blob);
             return CONVERT_POD(raw_val);
         }
     };
 
-    template <typename Container>
-    struct BlobContainerVisitor: public model::Visitor<Container>
+    template <typename Container, class Deserializer>
+    struct BlobContainerVisitor: public model::Visitor<Container, Deserializer>
     {
         typedef typename Container::value_type value_type;
         static_assert(std::is_pod<value_type>::value);
@@ -265,14 +264,16 @@ namespace portable_storage::internal {
         }
     };
 
-    #define SPECIALIZE_BLOB_VISITOR_FOR_DISCONTIGUOUS_CONTAINER(contname)                   \
-        template<typename Elem>                                                             \
-        struct BlobVisitor<contname<Elem>>: public BlobContainerVisitor<contname<Elem>> {}; \
+    #define SPECIALIZE_BLOB_VISITOR_FOR_DISCONTIGUOUS_CONTAINER(contname) \
+        template<typename Elem, class Deserializer>                       \
+        struct BlobVisitor<contname<Elem>, Deserializer>:                 \
+            public BlobContainerVisitor<contname<Elem>, Deserializer>     \
+        {};                                                               \
     
     SPECIALIZE_BLOB_VISITOR_FOR_DISCONTIGUOUS_CONTAINER(std::list)
 
-    template <typename Container>
-    struct BlobContiguousContainerVisitor: public model::Visitor<Container>
+    template <typename Container, class Deserializer>
+    struct BlobContiguousContainerVisitor: public model::Visitor<Container, Deserializer>
     {
         typedef typename Container::value_type value_type;
         static_assert(std::is_pod<value_type>::value);
@@ -294,7 +295,8 @@ namespace portable_storage::internal {
 
             if (internal::le_conversion<value_type>::needed())
             {
-                return BlobContainerVisitor<Container>().visit_bytes(blob, blob_length);
+                BlobContainerVisitor<Container, Deserializer> default_container_visitor;
+                return default_container_visitor.visit_bytes(blob, blob_length);
             }
             else
             {
@@ -306,9 +308,11 @@ namespace portable_storage::internal {
         }
     };
 
-    #define SPECIALIZE_BLOB_VISITOR_FOR_CONTIGUOUS_CONTAINER(contname)                            \
-        template<typename Em>                                                                     \
-        struct BlobVisitor<contname<Em>>: public BlobContiguousContainerVisitor<contname<Em>> {}; \
+    #define SPECIALIZE_BLOB_VISITOR_FOR_CONTIGUOUS_CONTAINER(contname)             \
+        template<typename Element, class Deserializer>                             \
+        struct BlobVisitor<contname<Element>, Deserializer>:                       \
+            public BlobContiguousContainerVisitor<contname<Element>, Deserializer> \
+        {};                                                                        \
     
     SPECIALIZE_BLOB_VISITOR_FOR_CONTIGUOUS_CONTAINER(std::vector)
 } // namespace portable_storage::model

@@ -7,15 +7,20 @@
 #include "../internal/external_libs.h"
 #include "../model/constants.h"
 #include "../model/deserializer.h"
+#include "../model/visitor.h"
 
 namespace portable_storage::binary
 {
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
 
+    // @TODO: not templated, byte_ref
     template <class t_const_uint8_iterator>
     class Deserializer: public model::Deserializer
     {
+        template <typename Value>
+        using Visitor = model::Visitor<Value, portable_storage::binary::Deserializer<t_const_uint8_iterator>>;
+
     public:
 
         Deserializer(t_const_uint8_iterator begin, t_const_uint8_iterator end):
@@ -37,7 +42,7 @@ namespace portable_storage::binary
 
         uint8_t peek() const
         {
-            return m_current;
+            return *m_current;
         }
 
         t_const_uint8_iterator consume(size_t nbytes)
@@ -53,7 +58,7 @@ namespace portable_storage::binary
             return old;
         }
 
-        void consume(uint8_t* dst, size_t nbytes)
+        void consume(void* dst, size_t nbytes)
         {
             t_const_uint8_iterator src = this->consume(nbytes);
             memcpy(dst, src, nbytes);
@@ -98,7 +103,7 @@ namespace portable_storage::binary
         }
 
         template <typename Value>
-        Value deserialize_scalar(uint8_t type_code, model::Visitor<Value>& visitor)
+        Value deserialize_scalar(uint8_t type_code, Visitor<Value>& visitor)
         {
             #define DESER_POD_SCALAR(sname, mname, tyname)                        \
                 case SERIALIZE_TYPE_##sname:                                      \
@@ -116,9 +121,11 @@ namespace portable_storage::binary
             DESER_POD_SCALAR( UINT8,   uint8,  uint8_t)
             DESER_POD_SCALAR(DOUBLE, float64,   double)
             case SERIALIZE_TYPE_STRING:
-                const size_t str_len = this->read_varint();
-                const char* str = this->consume(str_len);
-                return visitor.visit_bytes(str, str_len);
+                {
+                    const size_t str_len = this->read_varint();
+                    const char* str = reinterpret_cast<const char*>(this->consume(str_len));
+                    return visitor.visit_bytes(str, str_len);
+                }
             DESER_POD_SCALAR(BOOL, boolean, bool)
             case SERIALIZE_TYPE_OBJECT:
                 return this->deserialize_raw_section(visitor);
@@ -128,7 +135,7 @@ namespace portable_storage::binary
         }
 
         template <typename Value>
-        Value deserialize_raw_section(model::Visitor<Value>& visitor)
+        Value deserialize_raw_section(Visitor<Value>& visitor)
         {
             const size_t obj_len = this->read_varint();
             this->push_object(obj_len);
@@ -136,16 +143,16 @@ namespace portable_storage::binary
         }
 
         template <typename Value>
-        Value deserialize_raw_key(model::Visitor<Value>& visitor)
+        Value deserialize_raw_key(Visitor<Value>& visitor)
         {
             const uint8_t key_len = *this->consume(1);
-            t_const_uint8_iterator key = this->consume(key_len);
+            const char* key = reinterpret_cast<const char*>(this->consume(key_len));
             this->did_read_key();
             return visitor.visit_key(key, key_len);
         }
 
         template <typename Value>
-        Value deserialize_section_entry(model::Visitor<Value>& visitor)
+        Value deserialize_section_entry(Visitor<Value>& visitor)
         {
             const uint8_t type_code = *this->consume(1);
             if (type_code & SERIALIZE_FLAG_ARRAY)
@@ -226,18 +233,18 @@ namespace portable_storage::binary
 
         void push_object(size_t num_entries)
         {
-            CHECK_AND_ASSERT
+            CHECK_AND_ASSERT_THROW_MES
             (
                 m_stack.size() < PS_MAX_OBJECT_DEPTH,
                 "Maximum object depth exceeded! Possibly parsing a DoS message"
             );
 
-            m_stack.push_back({{}, num_elements, true});
+            m_stack.push_back({{}, num_entries, true});
         }
 
         void pop()
         {
-            CHECK_AND_ASSERT
+            CHECK_AND_ASSERT_THROW_MES
             (
                 m_stack.size() > 0,
                 "binary::Deserializer internal logic error: called pop() too many times"
@@ -280,7 +287,7 @@ namespace portable_storage::binary
 
         // This is the main chunk of logic behind this Deserializer
         template <typename Value>
-        Value deserialize_any(model::Visitor<Value>& visitor)
+        Value deserialize_any(Visitor<Value>& visitor)
         {
             if (this->finished())
             {
@@ -310,7 +317,7 @@ namespace portable_storage::binary
 
         #define DEFER_TO_DESER_ANY(mname)                       \
             template <typename Value>                           \
-            Value deserialize_##mname(model::Visitor<Value>& v) \
+            Value deserialize_##mname(Visitor<Value>& v) \
             { return this->deserialize_any(v); }                \
 
         // The epee binary format is self-describing, so means we can ignore deserialization hints
@@ -328,15 +335,15 @@ namespace portable_storage::binary
         DEFER_TO_DESER_ANY(key)
 
         template <typename Value>
-        Value deserialize_array(optional<size_t>, model::Visitor<Value>&)
+        Value deserialize_array(optional<size_t>, Visitor<Value>& visitor)
         {
-            return this->deserialize_any(v);
+            return this->deserialize_any(visitor);
         }
 
         template <typename Value>
-        Value deserialize_object(optional<size_t>, model::Visitor<Value>&)
+        Value deserialize_object(optional<size_t>, Visitor<Value>& visitor)
         {
-            return this->deserialize_any(v);
+            return this->deserialize_any(visitor);
         }
 
         bool continue_collection() override final {

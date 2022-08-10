@@ -3,17 +3,23 @@
 #include <string>
 
 #include "../internal/external_libs.h"
-#include "visitor.h"
 
-#define UNIMPL_DESER ASSERT_MES_AND_THROW("unimplemented deserialize method");
 
 namespace portable_storage::model {
+    // fwd
+    template <typename Value, class Deserializer> class Visitor;
+
     struct Deserializer
     {
         Deserializer();
         virtual ~Deserializer();
 
-        template <typename Value> Value deserialize_any(Visitor<Value>&);
+        // Deserializer interface
+        /*
+        template <typename Value>
+        using Visitor = model::Visitor<Value, Deserializer>;
+
+        template <typename Value> Value deserialize_any(Visitor<Value, Deserializer>&);
 
         template <typename Value> Value deserialize_int64  (Visitor<Value>&) { UNIMPL_DESER }
         template <typename Value> Value deserialize_int32  (Visitor<Value>&) { UNIMPL_DESER }
@@ -33,6 +39,7 @@ namespace portable_storage::model {
         template <typename Value> Value deserialize_object(optional<size_t>, Visitor<Value>&)
         { UNIMPL_DESER }
         template <typename Value> Value deserialize_key(Visitor<Value>&) { UNIMPL_DESER }
+        */
 
         // This method is used by Visitors, not Deserializables. It signals to the Deserializer
         // that the Visitor wants to move to the next element / entry and lets the Visitor know

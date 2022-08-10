@@ -27,6 +27,10 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(portable_storage_sources
+  binary/deserializer.cpp
+  model/deserialization.cpp
+  model/deserializer.cpp
+  model/serialization.cpp
   model/serializer.cpp
 )
 set(portable_storage_headers)
