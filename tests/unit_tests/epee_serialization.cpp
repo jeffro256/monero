@@ -57,10 +57,9 @@ namespace {
       return "key '" + m_key + "'";
     }
 
-    bool visit_key(const char* key, uint8_t length) override final
+    bool visit_key(const const_byte_span& deserialized_key) override final
     {
-      std::string visited_key = std::string(key, length);
-      return visited_key == m_key;
+      return internal::byte_span_to_string(deserialized_key) == m_key;
     }
 
   private:
@@ -275,8 +274,8 @@ TEST(epee_serialization, bin_deserialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  Deserializer<const uint8_t*> deserializer(source_binary, source_binary + sizeof(source_binary));
-  const Data1 deserialized_data = model::Deserialize<Data1, Deserializer<const uint8_t*>>::dflt(deserializer);
+  Deserializer deserializer(source_binary);
+  const Data1 deserialized_data = model::Deserialize<Data1, Deserializer>::dflt(deserializer);
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

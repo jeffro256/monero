@@ -14,19 +14,16 @@ namespace portable_storage::binary
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
 
-    // @TODO: not templated, byte_ref
-    template <class t_const_uint8_iterator>
     class Deserializer: public model::Deserializer
     {
         template <typename Value>
-        using Visitor = model::Visitor<Value, portable_storage::binary::Deserializer<t_const_uint8_iterator>>;
+        using Visitor = model::Visitor<Value, portable_storage::binary::Deserializer>;
 
     public:
 
-        Deserializer(t_const_uint8_iterator begin, t_const_uint8_iterator end):
+        Deserializer(const const_byte_span& byte_view):
             model::Deserializer(),
-            m_current(begin),
-            m_end(end),
+            m_current(byte_view),
             m_stack(),
             m_finished(false)
         {
@@ -42,25 +39,26 @@ namespace portable_storage::binary
 
         uint8_t peek() const
         {
-            return *m_current;
+            return *m_current.begin();
         }
 
-        t_const_uint8_iterator consume(size_t nbytes)
+        const_byte_iterator consume(size_t nbytes)
         {
             CHECK_AND_ASSERT_THROW_MES
             (
-                m_end - m_current >= nbytes,
+                m_current.size() >= nbytes,
                 "trying to consume too many bytes from deserializer"
             );
 
-            t_const_uint8_iterator old = m_current;
-            m_current += nbytes;
-            return old;
+            const const_byte_iterator cursor_pre_consume = m_current.begin();
+            const size_t old_view_size = m_current.size();
+            m_current = { cursor_pre_consume + nbytes, old_view_size - nbytes };
+            return cursor_pre_consume;
         }
 
         void consume(void* dst, size_t nbytes)
         {
-            t_const_uint8_iterator src = this->consume(nbytes);
+            const const_byte_iterator src = this->consume(nbytes);
             memcpy(dst, src, nbytes);
         }
 
@@ -94,7 +92,7 @@ namespace portable_storage::binary
         void validate_signature()
         {
             constexpr size_t SIGSIZE = sizeof(PORTABLE_STORAGE_SIG_AND_VER);
-            t_const_uint8_iterator begin = this->consume(SIGSIZE);
+            const const_byte_iterator begin = this->consume(SIGSIZE);
 
             CHECK_AND_ASSERT_THROW_MES
             (
@@ -124,8 +122,7 @@ namespace portable_storage::binary
             case SERIALIZE_TYPE_STRING:
                 {
                     const size_t str_len = this->read_varint();
-                    const char* str = reinterpret_cast<const char*>(this->consume(str_len));
-                    return visitor.visit_bytes(str, str_len);
+                    return visitor.visit_bytes({this->consume(str_len), str_len});
                 }
             DESER_POD_SCALAR(BOOL, boolean, bool)
             case SERIALIZE_TYPE_OBJECT:
@@ -147,9 +144,9 @@ namespace portable_storage::binary
         Value deserialize_raw_key(Visitor<Value>& visitor)
         {
             const uint8_t key_len = *this->consume(1);
-            const char* key = reinterpret_cast<const char*>(this->consume(key_len));
+            const const_byte_iterator key = this->consume(key_len);
             this->did_read_key();
-            return visitor.visit_key(key, key_len);
+            return visitor.visit_key({key, key_len});
         }
 
         template <typename Value>
@@ -274,8 +271,7 @@ namespace portable_storage::binary
     ///////////////////////////////////////////////////////////////////////////
     private:
 
-        t_const_uint8_iterator m_current;
-        t_const_uint8_iterator m_end;
+        const_byte_span m_current;
         
         // keep track deserializing state
         std::vector<recursion_level> m_stack;

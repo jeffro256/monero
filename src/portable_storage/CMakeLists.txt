@@ -28,6 +28,7 @@
 
 set(portable_storage_sources
   binary/deserializer.cpp
+  internal/external/byte_span.cpp
   model/deserialization.cpp
   model/deserializer.cpp
   model/serialization.cpp

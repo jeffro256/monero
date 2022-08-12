@@ -2,7 +2,6 @@
 
 #include <string>
 
-#include "../internal/cstr.h"
 #include "../model/serializer.h"
 
 namespace portable_storage::json {

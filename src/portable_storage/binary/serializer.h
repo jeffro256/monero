@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "constants.h"
-#include "../internal/cstr.h"
 #include "../internal/endianness.h"
 #include "../model/serializer.h"
 

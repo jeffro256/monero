@@ -1,6 +1,11 @@
 #pragma once
 
+#include <string>
+
 #include "span.h" // from epee
+
+#define TO_CSTR(p) reinterpret_cast<const char*>(p)
+#define SPAN_TO_CSTR(span) reinterpret_cast<const char*>(span.begin())
 
 namespace portable_storage
 {
@@ -14,8 +19,7 @@ namespace portable_storage
 
 namespace portable_storage::internal
 {
-    //! make a byte_span from a std::string
-    // wrapper around epee::strspan
+    // make a byte_span from a std::string, same idea as epee::strspan
     template<typename U> inline
     const_byte_span string_to_byte_span(const U& s) noexcept
     {
@@ -29,4 +33,6 @@ namespace portable_storage::internal
     {
         return {reinterpret_cast<const uint8_t*>(cstr), N - 1};
     }
+
+    std::string byte_span_to_string(const const_byte_span& bytes);
 } // namespace portable_storage::internal

@@ -6,6 +6,7 @@
 #include "deserializer.h"
 #include "../internal/container.h"
 #include "../internal/endianness.h"
+#include "../internal/external/byte_span.h"
 #include "../internal/external/logging.h"
 #include "../internal/external/numeric_cast.h"
 #include "../internal/external/optional.h"
@@ -74,7 +75,7 @@ namespace portable_storage::model
             ASSERT_MES_AND_THROW("visit_double() called while expecting: " << this->expecting());
         }
 
-        virtual Value visit_bytes(const char* buf, size_t length)
+        virtual Value visit_bytes(const const_byte_span& value)
         {
             ASSERT_MES_AND_THROW("visit_bytes() called while expecting: " << this->expecting());
         }
@@ -94,7 +95,7 @@ namespace portable_storage::model
             ASSERT_MES_AND_THROW("visit_object() called while expecting: " << this->expecting());
         }
 
-        virtual Value visit_key(const char* str, uint8_t key_len)
+        virtual Value visit_key(const const_byte_span& value)
         {
             ASSERT_MES_AND_THROW("visit_key() called while expecting: " << this->expecting());
         }
@@ -163,9 +164,9 @@ namespace portable_storage::internal {
             return "string";
         }
 
-        std::string visit_bytes(const char* buf, size_t length) override final
+        std::string visit_bytes(const const_byte_span& bytes) override final
         {
-            return std::string(buf, length);
+            return internal::byte_span_to_string(bytes);
         }
     };
 
@@ -221,15 +222,15 @@ namespace portable_storage::internal {
             return "blob string";
         }
 
-        PodValue visit_bytes(const char* blob, size_t length) override final
+        PodValue visit_bytes(const const_byte_span& blob) override final
         {
             CHECK_AND_ASSERT_THROW_MES
             (
-                length == sizeof(PodValue),
+                blob.size() == sizeof(PodValue),
                 "trying to visit blob of incorrect lenngth"
             );
 
-            PodValue raw_val = *reinterpret_cast<const PodValue*>(blob);
+            const PodValue raw_val = *reinterpret_cast<const PodValue*>(blob.begin());
             return CONVERT_POD(raw_val);
         }
     };
@@ -245,22 +246,22 @@ namespace portable_storage::internal {
             return "container blob string";
         }
 
-        Container visit_bytes(const char* blob, size_t blob_length) override final
+        Container visit_bytes(const const_byte_span& blob) override final
         {
             constexpr size_t elem_size = sizeof(value_type);
 
             CHECK_AND_ASSERT_THROW_MES
             (
-                blob_length % elem_size == 0,
-                "blob length " << blob_length << " not a multiple of element size " << elem_size
+                blob.size() % elem_size == 0,
+                "blob length " << blob.size() << " not a multiple of element size " << elem_size
             );
 
             Container container;
-            const value_type* const typed_blob_ptr = reinterpret_cast<const value_type*>(blob);
-            const size_t num_elements = blob_length / elem_size;
+            const value_type* const value_ptr = reinterpret_cast<const value_type*>(blob.begin());
+            const size_t num_elements = blob.size() / elem_size;
             for (size_t i = 0; i < num_elements; i++)
             {
-                container.push_back(CONVERT_POD(typed_blob_ptr[i]));
+                container.push_back(CONVERT_POD(value_ptr[i]));
             }
 
             return container;
@@ -286,26 +287,26 @@ namespace portable_storage::internal {
             return "container blob string";
         }
 
-        Container visit_bytes(const char* blob, size_t blob_length) override final
+        Container visit_bytes(const const_byte_span& blob) override final
         {
             constexpr size_t elem_size = sizeof(value_type);
 
             CHECK_AND_ASSERT_THROW_MES
             (
-                blob_length % elem_size == 0,
-                "blob length " << blob_length << " not a multiple of element size " << elem_size
+                blob.size() % elem_size == 0,
+                "blob length " << blob.size() << " not a multiple of element size " << elem_size
             );
 
             if (internal::le_conversion<value_type>::needed())
             {
                 BlobContainerVisitor<Container, Deserializer> default_container_visitor;
-                return default_container_visitor.visit_bytes(blob, blob_length);
+                return default_container_visitor.visit_bytes(blob);
             }
             else
             {
-                const size_t num_elements = blob_length / elem_size;
+                const size_t num_elements = blob.size() / elem_size;
                 Container container(num_elements); // default fill constructor
-                memcpy(&container[0], blob, blob_length);
+                memcpy(&container[0], blob, blob.size());
                 return container;
             }   
         }
