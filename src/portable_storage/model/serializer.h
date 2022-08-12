@@ -4,7 +4,8 @@
 
 #include "../internal/external/byte_span.h"
 
-namespace portable_storage::model {
+namespace portable_storage::model
+{
     struct Serializer
     {
         Serializer() = default;

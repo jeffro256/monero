@@ -7,12 +7,14 @@
 #include "../internal/endianness.h"
 #include "serializer.h"
 
-namespace portable_storage::model {
+namespace portable_storage::model
+{
     ///////////////////////////////////////////////////////////////////////////
     // Main serialization interface                                          //
     ///////////////////////////////////////////////////////////////////////////
 
-    struct Serializable {
+    struct Serializable
+    {
         Serializable() = default;
         virtual ~Serializable() = default;
 
@@ -20,12 +22,14 @@ namespace portable_storage::model {
     };
 
     template <typename T>
-    void serialize_default(const T& value, Serializer& serializer) {
+    void serialize_default(const T& value, Serializer& serializer)
+    {
         value.serialize_default(serializer);
     }
 
     template <typename T>
-    void serialize_as_blob(const T& value_, Serializer& serializer) {
+    void serialize_as_blob(const T& value_, Serializer& serializer)
+    {
         static_assert(std::is_pod<T>::value);
         const T value = CONVERT_POD(value_);
         serializer.serialize_bytes({reinterpret_cast<const_byte_iterator>(&value), sizeof(T)});
@@ -52,19 +56,22 @@ namespace portable_storage::model {
     ///////////////////////////////////////////////////////////////////////////
 
     template <class Container>
-    void describe_container_serialization(const Container& cont, Serializer& serializer) {
+    void describe_container_serialization(const Container& cont, Serializer& serializer)
+    {
         serializer.serialize_start_array(cont.size());
-        for (const auto& elem: cont) {
+        for (const auto& elem: cont)
+        {
             serialize_default(elem, serializer);
         }
         serializer.serialize_end_array();
     }
 
-    #define DEF_DESC_SER_FOR_CONTAINER(contname)                                  \
-        template <typename T>                                                     \
-        void serialize_default(const contname<T>& cont, Serializer& serializer) { \
-            describe_container_serialization(cont, serializer);                   \
-        }                                                                         \
+    #define DEF_DESC_SER_FOR_CONTAINER(contname)                                \
+        template <typename T>                                                   \
+        void serialize_default(const contname<T>& cont, Serializer& serializer) \
+        {                                                                       \
+            describe_container_serialization(cont, serializer);                 \
+        }                                                                       \
 
     DEF_DESC_SER_FOR_CONTAINER(std::list)
     DEF_DESC_SER_FOR_CONTAINER(std::vector)
@@ -94,7 +101,8 @@ namespace portable_storage::model {
 
     // Describe any standard container whose storage isn't contiguous in memory as a blob
     template <class Container>
-    void describe_cont_serialization_as_blob(const Container& cont, Serializer& serializer) {
+    void describe_cont_serialization_as_blob(const Container& cont, Serializer& serializer)
+    {
         typedef typename Container::value_type value_type;
         static_assert(std::is_pod<value_type>::value);
 
@@ -102,7 +110,8 @@ namespace portable_storage::model {
         std::string blob(blob_size, '\0'); // fill constructor
         value_type* blob_ptr = reinterpret_cast<value_type*>(blob.data());
 
-        for (const auto& elem: cont) {
+        for (const auto& elem: cont)
+        {
             *blob_ptr = CONVERT_POD(elem);
             blob_ptr++;
         }
@@ -113,7 +122,8 @@ namespace portable_storage::model {
     // Describe any standard container whose storage IS contiguous in memory as a blob
     // contcont = contiguous container
     template <class Container>
-    void describe_contcont_serialization_as_blob(const Container& cont, Serializer& serializer) {
+    void describe_contcont_serialization_as_blob(const Container& cont, Serializer& serializer)
+    {
         typedef typename Container::value_type value_type;
         static_assert(std::is_pod<value_type>::value);
 
@@ -126,17 +136,19 @@ namespace portable_storage::model {
         }
     }
 
-    #define DEF_DESC_CONT_SER_AS_BLOB(contname)                                   \
-        template <typename T>                                                     \
-        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) { \
-            describe_cont_serialization_as_blob(cont, serializer);                \
-        }                                                                         \
+    #define DEF_DESC_CONT_SER_AS_BLOB(contname)                                 \
+        template <typename T>                                                   \
+        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) \
+        {                                                                       \
+            describe_cont_serialization_as_blob(cont, serializer);              \
+        }                                                                       \
     
-    #define DEF_DESC_CONTCONT_SER_AS_BLOB(contname)                               \
-        template <typename T>                                                     \
-        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) { \
-            describe_contcont_serialization_as_blob(cont, serializer);            \
-        }                                                                         \
+    #define DEF_DESC_CONTCONT_SER_AS_BLOB(contname)                             \
+        template <typename T>                                                   \
+        void serialize_as_blob(const contname<T>& cont, Serializer& serializer) \
+        {                                                                       \
+            describe_contcont_serialization_as_blob(cont, serializer);          \
+        }                                                                       \
 
     DEF_DESC_CONT_SER_AS_BLOB(std::list)
     DEF_DESC_CONTCONT_SER_AS_BLOB(std::vector)

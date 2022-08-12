@@ -2,12 +2,15 @@
 #include <cstdint>
 #include <limits>
 
-namespace portable_storage::binary {
-    constexpr bool uint64_fits_size(uint64_t v) {
+namespace portable_storage::binary
+{
+    constexpr bool uint64_fits_size(uint64_t v)
+    {
         constexpr uintmax_t size_max   = static_cast<uintmax_t>(std::numeric_limits<  size_t>::max());
         constexpr uintmax_t uint64_max = static_cast<uintmax_t>(std::numeric_limits<uint64_t>::max());
 
-        if (size_max >= uint64_max) {
+        if (size_max >= uint64_max)
+        {
             return true;
         }
 

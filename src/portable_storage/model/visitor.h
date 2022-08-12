@@ -102,7 +102,8 @@ namespace portable_storage::model
     }; // class Visitor
 } // namespace portable_storage::model
 
-namespace portable_storage::internal {
+namespace portable_storage::internal
+{
     ///////////////////////////////////////////////////////////////////////////
     // Default Visitor                                                       //
     //                                                                       //

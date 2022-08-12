@@ -1,15 +1,17 @@
 #include "../internal/endianness.h"
 #include "serialization.h"
 
-namespace portable_storage::model {
+namespace portable_storage::model
+{
     ///////////////////////////////////////////////////////////////////////////
     // serialize_default() basic specializations                        //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define DEF_DESC_SER_BASIC(sername, tyname)                                           \
-        template <> void serialize_default(const tyname& value, Serializer& serializer) { \
-            serializer.serialize_##sername(value);                                        \
-        }                                                                                 \
+    #define DEF_DESC_SER_BASIC(sername, tyname)                                         \
+        template <> void serialize_default(const tyname& value, Serializer& serializer) \
+        {                                                                               \
+            serializer.serialize_##sername(value);                                      \
+        }                                                                               \
     
     DEF_DESC_SER_BASIC(int64, int64_t)
     DEF_DESC_SER_BASIC(int32, int32_t)
@@ -27,14 +29,16 @@ namespace portable_storage::model {
     // serialize_default() overloads                                    //
     ///////////////////////////////////////////////////////////////////////////
 
-    void serialize_default(const Serializable* value, Serializer& serializer) {
+    void serialize_default(const Serializable* value, Serializer& serializer)
+    {
         value->serialize_default(serializer);
     }
 
-    #define DEF_DESC_SER_BASIC_NO_REF(sername, tyname)                 \
-        void serialize_default(tyname value, Serializer& serializer) { \
-            serializer.serialize_##sername(value);                     \
-        }                                                              \
+    #define DEF_DESC_SER_BASIC_NO_REF(sername, tyname)               \
+        void serialize_default(tyname value, Serializer& serializer) \
+        {                                                            \
+            serializer.serialize_##sername(value);                   \
+        }                                                            \
     
     DEF_DESC_SER_BASIC_NO_REF(int64, int64_t)
     DEF_DESC_SER_BASIC_NO_REF(int32, int32_t)

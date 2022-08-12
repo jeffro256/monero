@@ -8,13 +8,15 @@
 #include "deserializer.h"
 #include "visitor.h"
 
-namespace portable_storage::model {
+namespace portable_storage::model
+{
     ///////////////////////////////////////////////////////////////////////////
     // Main serialization interface                                          //
     ///////////////////////////////////////////////////////////////////////////
 
     template <typename Deserializable, class Deserializer>
-    struct Deserialize {
+    struct Deserialize
+    {
         static Deserializable dflt(Deserializer& deserializer)
         {
             return Deserializable::deserialize_default(deserializer);
