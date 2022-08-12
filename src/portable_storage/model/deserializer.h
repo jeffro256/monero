@@ -1,40 +1,32 @@
 #pragma once
 
-namespace portable_storage::model {
-    // fwd
-    template <typename Value, class Deserializer> class Visitor;
+#include "../internal/external/optional.h"
+#include "../internal/model_fwd.h"
 
+namespace portable_storage::model {
     struct Deserializer
     {
         Deserializer();
         virtual ~Deserializer();
 
-        // Deserializer interface
-        /*
-        template <typename Value>
-        using Visitor = model::Visitor<Value, Deserializer>;
+        virtual void deserialize_any(BasicVisitor&) = 0;
 
-        template <typename Value> Value deserialize_any(Visitor<Value, Deserializer>&);
+        virtual void deserialize_int64  (BasicVisitor&) = 0;
+        virtual void deserialize_int32  (BasicVisitor&) = 0;
+        virtual void deserialize_int16  (BasicVisitor&) = 0;
+        virtual void deserialize_int8   (BasicVisitor&) = 0;
+        virtual void deserialize_uint64 (BasicVisitor&) = 0;
+        virtual void deserialize_uint32 (BasicVisitor&) = 0;
+        virtual void deserialize_uint16 (BasicVisitor&) = 0;
+        virtual void deserialize_uint8  (BasicVisitor&) = 0;
+        virtual void deserialize_float64(BasicVisitor&) = 0;
+        virtual void deserialize_bytes  (BasicVisitor&) = 0;
+        virtual void deserialize_boolean(BasicVisitor&) = 0;
 
-        template <typename Value> Value deserialize_int64  (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_int32  (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_int16  (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_int8   (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_uint64 (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_uint32 (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_uint16 (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_uint8  (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_float64(Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_bytes  (Visitor<Value>&) { UNIMPL_DESER }
-        template <typename Value> Value deserialize_boolean(Visitor<Value>&) { UNIMPL_DESER }
+        virtual void deserialize_array(optional<size_t>, BasicVisitor&) = 0;
 
-        template <typename Value> Value deserialize_array(optional<size_t>, Visitor<Value>&)
-        { UNIMPL_DESER }
-
-        template <typename Value> Value deserialize_object(optional<size_t>, Visitor<Value>&)
-        { UNIMPL_DESER }
-        template <typename Value> Value deserialize_key(Visitor<Value>&) { UNIMPL_DESER }
-        */
+        virtual void deserialize_object(optional<size_t>, BasicVisitor&) = 0;
+        virtual void deserialize_key(BasicVisitor&) = 0;
 
         // This method is used by Visitors, not Deserializables. It signals to the Deserializer
         // that the Visitor wants to move to the next element / entry and lets the Visitor know

@@ -46,20 +46,19 @@
 using namespace portable_storage;
 
 namespace {
-  template <class Deserializer>
-  class SingleKeyVisitor: public model::Visitor<bool, Deserializer>
+  class SingleKeyVisitor: public model::GetSetVisitor<bool>
   {
   public:
-    SingleKeyVisitor(const std::string key): m_key(key), model::Visitor<bool, Deserializer>() {}
+    SingleKeyVisitor(const std::string key): m_key(key), model::GetSetVisitor<bool>() {}
 
     std::string expecting() const noexcept override final
     {
       return "key '" + m_key + "'";
     }
 
-    bool visit_key(const const_byte_span& deserialized_key) override final
+    void visit_key(const const_byte_span& deserialized_key) override final
     {
-      return internal::byte_span_to_string(deserialized_key) == m_key;
+      this->set_visited(internal::byte_span_to_string(deserialized_key) == m_key);
     }
 
   private:
@@ -70,6 +69,7 @@ namespace {
   {
     int16_t val;
 
+    Data1(): model::Serializable(), val() {}
     Data1(int64_t val): model::Serializable(), val(val) {}
 
     void serialize_default(model::Serializer& serializer) const override final {
@@ -79,59 +79,63 @@ namespace {
       serializer.serialize_end_object();
     }
 
-    template <class Deserializer>
-    struct Data1Visitor: public model::Visitor<Data1, Deserializer>
-    {
-      std::string expecting() const noexcept override final
-      {
-        return "Data1 object";
-      }
-
-      Data1 visit_object(optional<size_t> size, Deserializer& deserializer) override final
-      {
-        CHECK_AND_ASSERT_THROW_MES
-        (
-          size && *size == 1,
-          "Got wrong number of entries"
-        );
-
-        CHECK_AND_ASSERT_THROW_MES
-        (
-          deserializer.continue_collection(),
-          "Can't get first entry"
-        );
-
-        SingleKeyVisitor<Deserializer> key_visitor("val");
-        CHECK_AND_ASSERT_THROW_MES
-        (
-          deserializer.deserialize_key(key_visitor),
-          "got bad key"
-        );
-
-        const int16_t val = model::Deserialize<int16_t, Deserializer>::dflt(deserializer);
-
-        CHECK_AND_ASSERT_THROW_MES
-        (
-          !deserializer.continue_collection(),
-          "entries aren't over"
-        );
-
-        return { val };
-      }
-    };
-
-    template <class Deserializer>
-    static Data1 deserialize_default(Deserializer& deserializer)
-    { 
-      Data1Visitor<Deserializer> d1vis;
-      return deserializer.deserialize_object(1, d1vis);
-    }
+    static Data1 deserialize_default(model::Deserializer& deserializer);
 
     bool operator==(const Data1& other) const
     {
       return val == other.val;
     }
   };
+
+  struct Data1Visitor: public model::GetSetVisitor<Data1>
+  {
+    std::string expecting() const noexcept override final
+    {
+      return "Data1 object";
+    }
+
+    void visit_object(optional<size_t> size, model::Deserializer& deserializer) override final
+    {
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        size && *size == 1,
+        "Got wrong number of entries"
+      );
+
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        deserializer.continue_collection(),
+        "Can't get first entry"
+      );
+
+      SingleKeyVisitor key_visitor("val");
+      deserializer.deserialize_key(key_visitor);
+      const bool got_key = key_visitor.get_visited();
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        got_key,
+        "got bad key"
+      );
+
+      const int16_t val = model::Deserialize<int16_t>::dflt(deserializer);
+
+      CHECK_AND_ASSERT_THROW_MES
+      (
+        !deserializer.continue_collection(),
+        "entries aren't over"
+      );
+
+      this->set_visited({val});
+    }
+  };
+
+  // @TODO: incomplete type nonsense
+  Data1 Data1::deserialize_default(model::Deserializer& deserializer)
+  { 
+    Data1Visitor d1vis;
+    deserializer.deserialize_object(1, d1vis);
+    return d1vis.get_visited();
+  }
 
   struct StringData: public model::Serializable
   {
@@ -275,7 +279,7 @@ TEST(epee_serialization, bin_deserialize_1)
   };
 
   Deserializer deserializer(source_binary);
-  const Data1 deserialized_data = model::Deserialize<Data1, Deserializer>::dflt(deserializer);
+  const Data1 deserialized_data = model::Deserialize<Data1>::dflt(deserializer);
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

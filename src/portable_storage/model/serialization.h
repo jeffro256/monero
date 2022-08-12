@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "../internal/endianness.h"
 #include "serializer.h"
+#include "../internal/endianness.h"
 
 namespace portable_storage::model
 {

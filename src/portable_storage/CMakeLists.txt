@@ -33,6 +33,7 @@ set(portable_storage_sources
   model/deserializer.cpp
   model/serialization.cpp
   model/serializer.cpp
+  model/visitor.cpp
 )
 set(portable_storage_headers)
 monero_find_all_headers(portable_storage_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")

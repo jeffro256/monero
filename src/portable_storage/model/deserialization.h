@@ -4,17 +4,16 @@
 #include <string>
 #include <vector>
 
+#include "visitor_specializations.h"
 #include "../internal/endianness.h"
-#include "deserializer.h"
-#include "visitor.h"
 
 namespace portable_storage::model
 {
     ///////////////////////////////////////////////////////////////////////////
-    // Main serialization interface                                          //
+    // Main Deserialize interface                                            //
     ///////////////////////////////////////////////////////////////////////////
 
-    template <typename Deserializable, class Deserializer>
+    template <typename Deserializable>
     struct Deserialize
     {
         static Deserializable dflt(Deserializer& deserializer)
@@ -24,58 +23,34 @@ namespace portable_storage::model
 
         static Deserializable blob(Deserializer& deserializer)
         {
-            internal::BlobVisitor<Deserializable, Deserializer> blob_vis;
-            return deserializer.deserialize_bytes(blob_vis);
+            internal::BlobVisitor<Deserializable> blob_vis;
+            deserializer.deserialize_bytes(blob_vis);
+            return blob_vis.get_visited();
         }
     };
 
     ///////////////////////////////////////////////////////////////////////////
-    // deserialize_default() basic specializations                           //
+    // Deserialize::dflt() basic specializations                             //
     ///////////////////////////////////////////////////////////////////////////
     
-    #define DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(tyname, mname)       \
-        template <class Deserializer>                                   \
-        struct Deserialize<tyname, Deserializer>                        \
-        {                                                               \
-            static tyname dflt(Deserializer& deserializer)              \
-            {                                                           \
-                internal::DefaultVisitor<tyname, Deserializer> visitor; \
-                return deserializer.deserialize_##mname(visitor);       \
-            }                                                           \
-        };                                                              \
-    
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(int64_t, int64)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(int32_t, int32)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(int16_t, int16)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(int8_t, int8)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(uint64_t, uint64)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(uint32_t, uint32)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(uint16_t, uint16)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(uint8_t, uint8)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(double, float64)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(std::string, bytes)
-    DEF_DEFAULT_DESERIALIZE_SPECIALIZATION(bool, boolean)
+    template <> int64_t Deserialize<int64_t>::dflt(Deserializer&);
+    template <> int32_t Deserialize<int32_t>::dflt(Deserializer&);
+    template <> int16_t Deserialize<int16_t>::dflt(Deserializer&);
+    template <> int8_t Deserialize<int8_t>::dflt(Deserializer&);
+    template <> uint64_t Deserialize<uint64_t>::dflt(Deserializer&);
+    template <> uint32_t Deserialize<uint32_t>::dflt(Deserializer&);
+    template <> uint16_t Deserialize<uint16_t>::dflt(Deserializer&);
+    template <> uint8_t Deserialize<uint8_t>::dflt(Deserializer&);
+    template <> double Deserialize<double>::dflt(Deserializer&);
+    template <> std::string Deserialize<std::string>::dflt(Deserializer&);
+    template <> bool Deserialize<bool>::dflt(Deserializer&);
 
     ///////////////////////////////////////////////////////////////////////////
-    // deserialize_default() container specializations                       //
+    // Deserialize container specializations                                 //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define DEF_DESERIALIZE_SPECIALIZATION_FOR_CONTAINER(contname)                      \
-        template <typename Element, class Deserializer>                                 \
-        struct Deserialize<contname<Element>, Deserializer>                             \
-        {                                                                               \
-            static contname<Element> dflt(Deserializer& deserializer)                   \
-            {                                                                           \
-                internal::DefaultVisitor<contname<Element>, Deserializer> cont_visitor; \
-                return deserializer.deserialize_array({}, cont_visitor);                \
-            }                                                                           \
-            static contname<Element> blob(Deserializer& deserializer)                   \
-            {                                                                           \
-                internal::BlobVisitor<contname<Element>, Deserializer> cont_visitor;    \
-                return deserializer.deserialize_bytes(cont_visitor);                    \
-            }                                                                           \
-        };                                                                              \
-
-    DEF_DESERIALIZE_SPECIALIZATION_FOR_CONTAINER(std::list)
-    DEF_DESERIALIZE_SPECIALIZATION_FOR_CONTAINER(std::vector)
+    template <typename T> struct Deserialize<std::list<T>>;
+    template <typename T> struct Deserialize<std::vector<T>>;
 }
+
+#include "deserialization.inl"

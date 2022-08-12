@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/numeric/conversion/cast.hpp>
+#include <sstream>
 #include <stdexcept>
 
 namespace portable_storage::internal

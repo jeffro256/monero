@@ -5,6 +5,7 @@
 #include "constants.h"
 #include "../internal/endianness.h"
 #include "../internal/external/logging.h"
+#include "../internal/external/numeric_cast.h"
 #include "../model/constants.h"
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
@@ -16,9 +17,6 @@ namespace portable_storage::binary
 
     class Deserializer: public model::Deserializer
     {
-        template <typename Value>
-        using Visitor = model::Visitor<Value, portable_storage::binary::Deserializer>;
-
     public:
 
         Deserializer(const const_byte_span& byte_view):
@@ -101,12 +99,12 @@ namespace portable_storage::binary
             );
         }
 
-        template <typename Value>
-        Value deserialize_scalar(uint8_t type_code, Visitor<Value>& visitor)
+        void deserialize_scalar(uint8_t type_code, model::BasicVisitor& visitor)
         {
-            #define DESER_POD_SCALAR(sname, mname, tyname)                        \
-                case SERIALIZE_TYPE_##sname:                                      \
-                    return visitor.visit_##mname(this->read_pod_value<tyname>()); \
+            #define DESER_POD_SCALAR(sname, mname, tyname)                 \
+                case SERIALIZE_TYPE_##sname:                               \
+                    visitor.visit_##mname(this->read_pod_value<tyname>()); \
+                    break;                                                 \
 
             switch (type_code)
             {
@@ -122,35 +120,34 @@ namespace portable_storage::binary
             case SERIALIZE_TYPE_STRING:
                 {
                     const size_t str_len = this->read_varint();
-                    return visitor.visit_bytes({this->consume(str_len), str_len});
+                    visitor.visit_bytes({this->consume(str_len), str_len});
+                    break;
                 }
             DESER_POD_SCALAR(BOOL, boolean, bool)
             case SERIALIZE_TYPE_OBJECT:
-                return this->deserialize_raw_section(visitor);
+                this->deserialize_raw_section(visitor);
+                break;
             default:
                 ASSERT_MES_AND_THROW("unrecognized type code: " << type_code);
             }
         }
 
-        template <typename Value>
-        Value deserialize_raw_section(Visitor<Value>& visitor)
+        void deserialize_raw_section(model::BasicVisitor& visitor)
         {
             const size_t obj_len = this->read_varint();
             this->push_object(obj_len);
-            return visitor.visit_object(obj_len, *this);
+            visitor.visit_object(obj_len, *this);
         }
 
-        template <typename Value>
-        Value deserialize_raw_key(Visitor<Value>& visitor)
+        void deserialize_raw_key(model::BasicVisitor& visitor)
         {
             const uint8_t key_len = *this->consume(1);
             const const_byte_iterator key = this->consume(key_len);
             this->did_read_key();
-            return visitor.visit_key({key, key_len});
+            visitor.visit_key({key, key_len});
         }
 
-        template <typename Value>
-        Value deserialize_section_entry(Visitor<Value>& visitor)
+        void deserialize_section_entry(model::BasicVisitor& visitor)
         {
             const uint8_t type_code = *this->consume(1);
             if (type_code & SERIALIZE_FLAG_ARRAY)
@@ -158,11 +155,11 @@ namespace portable_storage::binary
                 const uint8_t scalar_type_code = type_code & ~SERIALIZE_FLAG_ARRAY;
                 size_t array_len = this->read_varint();
                 this->push_array(array_len, scalar_type_code);
-                return visitor.visit_array(array_len, *this);
+                visitor.visit_array(array_len, *this);
             }
             else
             {
-                return this->deserialize_scalar(type_code, visitor);
+                this->deserialize_scalar(type_code, visitor);
             }
         }
 
@@ -283,8 +280,7 @@ namespace portable_storage::binary
     public:
 
         // This is the main chunk of logic behind this Deserializer
-        template <typename Value>
-        Value deserialize_any(Visitor<Value>& visitor)
+        void deserialize_any(model::BasicVisitor& visitor) override final
         {
             if (this->finished())
             {
@@ -293,29 +289,28 @@ namespace portable_storage::binary
             else if (this->root())
             {
                 this->validate_signature();
-                return this->deserialize_raw_section(visitor);
+                this->deserialize_raw_section(visitor);
             }
             else if (this->inside_object())
             {
                 if (this->expecting_key())
                 {
-                    return this->deserialize_raw_key(visitor);
+                    this->deserialize_raw_key(visitor);
                 }
                 else
                 {
-                    return this->deserialize_section_entry(visitor);
+                    this->deserialize_section_entry(visitor);
                 }
             }
             else // inside array
             {
-                return this->deserialize_scalar(this->current_array_type(), visitor);
+                this->deserialize_scalar(this->current_array_type(), visitor);
             }
         }
 
-        #define DEFER_TO_DESER_ANY(mname)                \
-            template <typename Value>                    \
-            Value deserialize_##mname(Visitor<Value>& v) \
-            { return this->deserialize_any(v); }         \
+        #define DEFER_TO_DESER_ANY(mname)                                   \
+            void deserialize_##mname(model::BasicVisitor& v) override final \
+            { return this->deserialize_any(v); }                            \
 
         // The epee binary format is self-describing, so means we can ignore deserialization hints
         DEFER_TO_DESER_ANY(int64)
@@ -331,16 +326,14 @@ namespace portable_storage::binary
         DEFER_TO_DESER_ANY(boolean)
         DEFER_TO_DESER_ANY(key)
 
-        template <typename Value>
-        Value deserialize_array(optional<size_t>, Visitor<Value>& visitor)
+        void deserialize_array(optional<size_t>, model::BasicVisitor& visitor) override final
         {
-            return this->deserialize_any(visitor);
+            this->deserialize_any(visitor);
         }
 
-        template <typename Value>
-        Value deserialize_object(optional<size_t>, Visitor<Value>& visitor)
+        void deserialize_object(optional<size_t>, model::BasicVisitor& visitor) override final
         {
-            return this->deserialize_any(visitor);
+            this->deserialize_any(visitor);
         }
 
         bool continue_collection() override final {
