@@ -4,7 +4,7 @@
 
 #include "constants.h"
 #include "../internal/endianness.h"
-#include "../internal/external_libs.h"
+#include "../internal/external/logging.h"
 #include "../model/constants.h"
 #include "../model/deserializer.h"
 #include "../model/visitor.h"

@@ -40,6 +40,9 @@
 #include "portable_storage/json/serializer.h"
 #include "span.h"
 
+#include "portable_storage/internal/external/byte_span.h" // @TODO: catch in main header
+#include "portable_storage/internal/external/optional.h" // @TODO: catch in main header
+
 using namespace portable_storage;
 
 namespace {
@@ -72,7 +75,7 @@ namespace {
 
     void serialize_default(model::Serializer& serializer) const override final {
       serializer.serialize_start_object(1);
-      serializer.serialize_key("val", 3);
+      serializer.serialize_key(internal::cstr_to_byte_span("val"));
       serializer.serialize_int16(this->val);
       serializer.serialize_end_object();
     }
@@ -139,7 +142,7 @@ namespace {
 
     void serialize_default(model::Serializer& serializer) const override final {
       serializer.serialize_start_object(1);
-      serializer.serialize_key("str", 3);
+      serializer.serialize_key(internal::cstr_to_byte_span("str"));
       serializer.serialize_string(this->str);
       serializer.serialize_end_object();
     }

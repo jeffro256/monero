@@ -27,8 +27,8 @@ namespace portable_storage::model {
     template <typename T>
     void serialize_as_blob(const T& value_, Serializer& serializer) {
         static_assert(std::is_pod<T>::value);
-        T value = CONVERT_POD(value_);
-        serializer.serialize_bytes(reinterpret_cast<const char*>(&value), sizeof(T));
+        const T value = CONVERT_POD(value_);
+        serializer.serialize_bytes({reinterpret_cast<const_byte_iterator>(&value), sizeof(T)});
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -120,9 +120,9 @@ namespace portable_storage::model {
         if (internal::should_convert_pod<value_type>()) {
             describe_cont_serialization_as_blob(cont, serializer);
         } else {
-            const char* blob_bytes = reinterpret_cast<const char*>(&cont[0]);
+            auto blob_bytes = reinterpret_cast<const_byte_iterator>(&cont[0]);
             const size_t blob_size = cont.size() * sizeof(value_type);
-            serializer.serialize_bytes(blob_bytes, blob_size);
+            serializer.serialize_bytes({blob_bytes, blob_size});
         }
     }
 

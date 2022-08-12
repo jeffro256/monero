@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "constants.h"
+#include "../internal/cstr.h"
 #include "../internal/endianness.h"
 #include "../model/serializer.h"
 
@@ -58,14 +59,14 @@ namespace portable_storage::binary {
         void serialize_uint16(uint16_t) override final;
         void serialize_uint8(uint8_t) override final;
         void serialize_float64(double) override final;
-        void serialize_bytes(const char*, size_t) override final;
+        void serialize_bytes(const const_byte_span&) override final;
         void serialize_boolean(bool) override final;
 
         void serialize_start_array(size_t) override final;
         void serialize_end_array() override final;
 
         void serialize_start_object(size_t) override final;
-        void serialize_key(const char*, uint8_t) override final;
+        void serialize_key(const const_byte_span&) override final;
         void serialize_end_object() override final;
 
         bool is_human_readable() const noexcept override final { return true; }
@@ -77,14 +78,14 @@ namespace portable_storage::binary {
         m_stack()
     {}
 
-    #define DEF_SERIALIZE_LE_INT(inttype, typecode)                               \
-        template<class t_ostream>                                                 \
-        void Serializer<t_ostream>::serialize_##inttype(inttype##_t value) {      \
-            this->write_type_code(typecode);                                      \
-            value = CONVERT_POD(value);                                           \
-            m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value)); \
-            this->did_serialize();                                                \
-        }                                                                         \
+    #define DEF_SERIALIZE_LE_INT(inttype, typecode)                          \
+        template<class t_ostream>                                            \
+        void Serializer<t_ostream>::serialize_##inttype(inttype##_t value) { \
+            this->write_type_code(typecode);                                 \
+            value = CONVERT_POD(value);                                      \
+            m_stream.write(TO_CSTR(&value), sizeof(value));                  \
+            this->did_serialize();                                           \
+        }                                                                    \
 
     DEF_SERIALIZE_LE_INT( int64,  SERIALIZE_TYPE_INT64);
     DEF_SERIALIZE_LE_INT( int32,  SERIALIZE_TYPE_INT32);
@@ -99,15 +100,15 @@ namespace portable_storage::binary {
     void Serializer<t_ostream>::serialize_float64(double value) {
         this->write_type_code(SERIALIZE_TYPE_DOUBLE);
         value = CONVERT_POD(value);
-        m_stream.write(reinterpret_cast<const char*>(&value), sizeof(value));
+        m_stream.write(TO_CSTR(&value), sizeof(value));
         this->did_serialize();
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::serialize_bytes(const char* buf, size_t length) {
+    void Serializer<t_ostream>::serialize_bytes(const const_byte_span& bytes) {
         this->write_type_code(SERIALIZE_TYPE_STRING);
-        this->write_varint(length);
-        m_stream.write(buf, length);
+        this->write_varint(bytes.size());
+        m_stream.write(SPAN_TO_CSTR(bytes), bytes.size());
         this->did_serialize();
     }
 
@@ -134,7 +135,7 @@ namespace portable_storage::binary {
         if (this->root()) {
             m_stream.write
             (
-                reinterpret_cast<const char*>(PORTABLE_STORAGE_SIG_AND_VER),
+                TO_CSTR(PORTABLE_STORAGE_SIG_AND_VER),
                 sizeof(PORTABLE_STORAGE_SIG_AND_VER)
             );
         } else {
@@ -146,14 +147,23 @@ namespace portable_storage::binary {
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::serialize_key(const char* key, uint8_t key_size) {
-        CHECK_AND_ASSERT_THROW_MES(
+    void Serializer<t_ostream>::serialize_key(const const_byte_span& key_bytes) {
+        CHECK_AND_ASSERT_THROW_MES
+        (
             this->inside_object(),
             "invalid serializer usage: called key() inside array"
         );
 
+        const size_t key_size = key_bytes.size();
+
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            key_size <= PS_MAX_KEY_LEN,
+            "key with length " << key_size << " exceeds maximum key size of " << PS_MAX_KEY_LEN
+        );
+
         m_stream.put(key_size);
-        m_stream.write(reinterpret_cast<const char*>(key), key_size);
+        m_stream.write(SPAN_TO_CSTR(key_bytes), key_size);
     }
 
     template <class t_ostream>
@@ -192,7 +202,7 @@ namespace portable_storage::binary {
         varint_data <<= 2;
         varint_data |= varint_size_code;
         varint_data = CONVERT_POD(varint_data);
-        m_stream.write(reinterpret_cast<const char*>(&varint_data), varint_size);
+        m_stream.write(TO_CSTR(&varint_data), varint_size);
     }
 
     template <class t_ostream>

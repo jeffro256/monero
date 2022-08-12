@@ -1,6 +1,8 @@
 #pragma once
 
-#include "external_libs.h"
+#include <type_traits>
+
+#include "./external/int.h"
 
 // SWAP8LE is a NOOP but makes code more uniform below
 #ifndef SWAP8LE

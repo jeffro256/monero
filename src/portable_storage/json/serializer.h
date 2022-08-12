@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "../internal/external_libs.h"
+#include "../internal/cstr.h"
 #include "../model/serializer.h"
 
 namespace portable_storage::json {
@@ -15,8 +15,8 @@ namespace portable_storage::json {
         t_ostream move_inner_stream() { return std::move(m_stream); }
 
     private:
-        void write_string(const char* str, size_t length, bool escape = true);
-        void write_escaped_string(const uint8_t* str, size_t length);
+        void write_string(const const_byte_span& bytes, bool escape = true);
+        void write_escaped_string(const const_byte_span& bytes);
 
         // Gets called before every primitive serialize, start_object(), key()
         // Controls the serialization of entry / element delimination
@@ -38,14 +38,14 @@ namespace portable_storage::json {
         void serialize_uint16(uint16_t) override final;
         void serialize_uint8(uint8_t) override final;
         void serialize_float64(double) override final;
-        void serialize_bytes(const char*, size_t) override final;
+        void serialize_bytes(const const_byte_span&) override final;
         void serialize_boolean(bool) override final;
 
         void serialize_start_array(size_t) override final;
         void serialize_end_array() override final;
 
         void serialize_start_object(size_t) override final;
-        void serialize_key(const char*, uint8_t) override final;
+        void serialize_key(const const_byte_span&) override final;
         void serialize_end_object() override final;
 
         bool is_human_readable() const noexcept override final { return true; }
@@ -57,104 +57,107 @@ namespace portable_storage::json {
         m_first(true)
     {}
 
-    #define DEF_SERIALIZE_INT_AS_DOUBLE(inttype)                             \
-        template<class t_ostream>                                            \
-        void Serializer<t_ostream>::serialize_##inttype(inttype##_t value) { \
-            this->serialize_float64(static_cast<double>(value));             \
-        }                                                                    \
+    #define DEF_SERIALIZE_WITH_TO_STRING(tyname, mname)               \
+        template<class t_ostream>                                     \
+        void Serializer<t_ostream>::serialize_##mname(tyname value) { \
+            this->comma();                                            \
+            const std::string str_rep = std::to_string(value);        \
+            m_stream.write(str_rep.c_str(), str_rep.length());        \
+        }                                                             \
 
-    DEF_SERIALIZE_INT_AS_DOUBLE( int64);
-    DEF_SERIALIZE_INT_AS_DOUBLE( int32);
-    DEF_SERIALIZE_INT_AS_DOUBLE( int16);
-    DEF_SERIALIZE_INT_AS_DOUBLE(  int8);
-    DEF_SERIALIZE_INT_AS_DOUBLE(uint64);
-    DEF_SERIALIZE_INT_AS_DOUBLE(uint32);
-    DEF_SERIALIZE_INT_AS_DOUBLE(uint16);
-    DEF_SERIALIZE_INT_AS_DOUBLE( uint8);
-
-    template<class t_ostream>
-    void Serializer<t_ostream>::serialize_float64(double value) {
-        this->comma();
-        m_stream << value;
-    }
+    DEF_SERIALIZE_WITH_TO_STRING( int64_t,   int64);
+    DEF_SERIALIZE_WITH_TO_STRING( int32_t,   int32);
+    DEF_SERIALIZE_WITH_TO_STRING( int16_t,   int16);
+    DEF_SERIALIZE_WITH_TO_STRING(  int8_t,    int8);
+    DEF_SERIALIZE_WITH_TO_STRING(uint64_t,  uint64);
+    DEF_SERIALIZE_WITH_TO_STRING(uint32_t,  uint32);
+    DEF_SERIALIZE_WITH_TO_STRING(uint16_t,  uint16);
+    DEF_SERIALIZE_WITH_TO_STRING( uint8_t,   uint8);
+    DEF_SERIALIZE_WITH_TO_STRING(  double, float64);
 
     template<class t_ostream>
-    void Serializer<t_ostream>::serialize_bytes(const char* buf, size_t length) {
+    void Serializer<t_ostream>::serialize_bytes(const const_byte_span& bytes) {
         this->comma();
-        this->write_string(buf, length);
+        this->write_string(bytes);
     }
 
     template<class t_ostream>
     void Serializer<t_ostream>::serialize_boolean(bool value) {
         this->comma();
-        m_stream << (value ? "true" : "false");
+        if (value)
+        {
+            m_stream.write("true", 4);
+        }
+        else {
+            m_stream.write("false", 5);
+        }
     }
 
     template <class t_ostream>
     void Serializer<t_ostream>::serialize_start_array(size_t num_entries) {
         this->comma(); // this should never run b/c nested arrays aren't allowed in model
-        m_stream << '[';
+        m_stream.put('[');
         m_first = true;
     }
 
     template <class t_ostream>
     void Serializer<t_ostream>::serialize_end_array() {
-        m_stream << ']';
+        m_stream.put(']');
     }
 
     template <class t_ostream>
     void Serializer<t_ostream>::serialize_start_object(size_t num_entries) {
         this->comma();
-        m_stream << '{';
+        m_stream.put('{');
         m_first = true;
     }
 
     template <class t_ostream>
-    void Serializer<t_ostream>::serialize_key(const char* key, uint8_t key_size) {
+    void Serializer<t_ostream>::serialize_key(const const_byte_span& key_bytes) {
         this->comma();
-        this->write_string(key, key_size, false); // do not escape key
-        m_stream << ':';
+        this->write_string(key_bytes, false); // do not escape key
+        m_stream.put(':');
         m_first = true; // needed so commas are not inserted after keys
     }
 
     template <class t_ostream>
     void Serializer<t_ostream>::serialize_end_object() {
-        m_stream << '}';
+        m_stream.put('}');
     }
 
     template<class t_ostream>
-    void Serializer<t_ostream>::write_string(const char* str, size_t length, bool escape) {
-        m_stream << '"';
+    void Serializer<t_ostream>::write_string(const const_byte_span& bytes, bool escape) {
+        m_stream.put('"');
         if (escape) {
-            this->write_escaped_string(reinterpret_cast<const uint8_t*>(str), length);
+            this->write_escaped_string(bytes);
         } else {
-            m_stream.write(str, length);
+            m_stream.write(SPAN_TO_CSTR(bytes), bytes.size());
         }
-        m_stream << '"';
+        m_stream.put('"');
     }
 
     // @TODO: compare performance against transform_to_escape_sequence
     // @TODO: remove in favor of rapidjson internal function
     template<class t_ostream>
-    void Serializer<t_ostream>::write_escaped_string(const uint8_t* str, size_t length) {
-        const uint8_t* head;
-        const uint8_t* tail;
-        const uint8_t* const end = str + length;
+    void Serializer<t_ostream>::write_escaped_string(const const_byte_span& bytes) {
+        const_byte_iterator head;
+        const_byte_iterator tail;
+        const const_byte_iterator end = bytes.end();
 
         // The tail pointer steps through the string and searches for characters which require
         // escaping. m_stream is only written to when it must write escape characters or when
         // tail reaches the end of the string.
 
-        for (head = tail = str; tail < end; tail++) { // while not done searching characters
+        for (head = tail = bytes.begin(); tail < end; tail++) { // while searching characters
             if (*tail < 0x20 || *tail == '\\' || *tail == '"') { // ctrl chars are ASCII bytes < 32
                 if (head != tail) { // if not flushed
                     // flush characters in [head, tail)
-                    m_stream.write(reinterpret_cast<const char*>(head), tail - head);
+                    m_stream.write(TO_CSTR(head), tail - head);
                     head = tail;
                 }
 
-                #define JSON_SER_ESCAPE_REPL(srcchar, replstr) \
-                    case srcchar: m_stream << replstr; break;  \
+                #define JSON_SER_ESCAPE_REPL(srcchar, replstr)                         \
+                    case srcchar: m_stream.write(replstr, sizeof(replstr) - 1); break; \
 
                 switch (*tail) {
                     JSON_SER_ESCAPE_REPL('\\', "\\\\")
@@ -169,7 +172,8 @@ namespace portable_storage::json {
                     static constexpr const char hex[17] = "0123456789ABCDEF";
                     const char hex_msb = hex[*tail >> 4];
                     const char hex_lsb = hex[*tail & 0xF];
-                    m_stream << "\\u00" << hex_msb << hex_lsb;
+                    const char unicode_sub_str[6] = { '\\', 'u', '0', '0', hex_msb, hex_lsb };
+                    m_stream.write(unicode_sub_str, sizeof(unicode_sub_str));
                     break;
                 } // end switch
 
@@ -181,7 +185,7 @@ namespace portable_storage::json {
 
         if (head != tail) { // if not flushed
             // flush characters in [head, tail)
-            m_stream.write(reinterpret_cast<const char*>(head), tail - head);
+            m_stream.write(TO_CSTR(head), tail - head);
             head = tail;
         }
     }
@@ -191,7 +195,7 @@ namespace portable_storage::json {
         if (m_first) {
             m_first = false;
         } else {
-            m_stream << ',';
+            m_stream.put(',');
         }
     }
 } // namespace portable_storage::binary

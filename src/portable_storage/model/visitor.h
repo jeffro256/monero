@@ -1,11 +1,14 @@
 #pragma once
 
 #include <string>
+#include <list>
 
 #include "deserializer.h"
 #include "../internal/container.h"
 #include "../internal/endianness.h"
-#include "../internal/external_libs.h"
+#include "../internal/external/logging.h"
+#include "../internal/external/numeric_cast.h"
+#include "../internal/external/optional.h"
 
 namespace portable_storage::model
 {
