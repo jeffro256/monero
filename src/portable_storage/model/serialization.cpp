@@ -4,7 +4,7 @@
 namespace portable_storage::model
 {
     ///////////////////////////////////////////////////////////////////////////
-    // serialize_default() basic specializations                        //
+    // serialize_default() basic specializations                             //
     ///////////////////////////////////////////////////////////////////////////
 
     #define DEF_DESC_SER_BASIC(sername, tyname)                                         \
@@ -50,4 +50,13 @@ namespace portable_storage::model
     DEF_DESC_SER_BASIC_NO_REF(uint8, uint8_t)
     DEF_DESC_SER_BASIC_NO_REF(float64, double)
     DEF_DESC_SER_BASIC_NO_REF(boolean, bool)
+
+    ///////////////////////////////////////////////////////////////////////////
+    // serialize_as_blob() basic specializations                             //
+    ///////////////////////////////////////////////////////////////////////////
+
+    template <> void serialize_as_blob(const std::string& value, Serializer& serializer)
+    {
+        serializer.serialize_bytes(internal::string_to_byte_span(value));
+    }
 }

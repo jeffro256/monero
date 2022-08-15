@@ -29,4 +29,15 @@ namespace portable_storage::model
         deserializer.deserialize_bytes(visitor);
         return visitor.get_visited();
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Deserialize::blob() basic specializations                             //
+    ///////////////////////////////////////////////////////////////////////////
+
+    template <> std::string Deserialize<std::string>::blob(Deserializer& deserializer)
+    {
+        internal::BlobStringVisitor blob_string_visitor;
+        deserializer.deserialize_bytes(blob_string_visitor);
+        return blob_string_visitor.get_visited();
+    }
 }

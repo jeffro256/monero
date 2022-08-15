@@ -92,7 +92,7 @@ namespace portable_storage::internal
             return "blob string";
         }
 
-        PodValue visit_bytes(const const_byte_span& blob) override final
+        void visit_bytes(const const_byte_span& blob) override final
         {
             CHECK_AND_ASSERT_THROW_MES
             (
@@ -102,7 +102,20 @@ namespace portable_storage::internal
 
             PodValue val = *reinterpret_cast<const PodValue*>(blob.begin());
             val = CONVERT_POD(val);
-            this->assign(std::move(val));
+            this->set_visited(std::move(val));
+        }
+    };
+
+    struct BlobStringVisitor: public model::GetSetVisitor<std::string>
+    {
+        std::string expecting() const override final
+        {
+            return "blob string";
+        }
+
+        void visit_bytes(const const_byte_span& blob) override final
+        {
+            this->set_visited(internal::byte_span_to_string(blob));
         }
     };
 

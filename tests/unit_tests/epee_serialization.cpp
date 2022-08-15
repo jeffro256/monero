@@ -36,6 +36,7 @@
 #include "portable_storage/binary/serializer.h"
 #include "portable_storage/model/deserialization.h"
 #include "portable_storage/model/serialization.h"
+#include "portable_storage/model/struct.h"
 #include "portable_storage/model/visitor.h"
 #include "portable_storage/json/serializer.h"
 #include "span.h"
@@ -46,25 +47,6 @@
 using namespace portable_storage;
 
 namespace {
-  class SingleKeyVisitor: public model::GetSetVisitor<bool>
-  {
-  public:
-    SingleKeyVisitor(const std::string key): m_key(key), model::GetSetVisitor<bool>() {}
-
-    std::string expecting() const noexcept override final
-    {
-      return "key '" + m_key + "'";
-    }
-
-    void visit_key(const const_byte_span& deserialized_key) override final
-    {
-      this->set_visited(internal::byte_span_to_string(deserialized_key) == m_key);
-    }
-
-  private:
-    std::string m_key;
-  };
-
   struct Data1: public model::Serializable
   {
     int16_t val;
@@ -72,14 +54,9 @@ namespace {
     Data1(): model::Serializable(), val() {}
     Data1(int64_t val): model::Serializable(), val(val) {}
 
-    void serialize_default(model::Serializer& serializer) const override final {
-      serializer.serialize_start_object(1);
-      serializer.serialize_key(internal::cstr_to_byte_span("val"));
-      serializer.serialize_int16(this->val);
-      serializer.serialize_end_object();
-    }
-
-    static Data1 deserialize_default(model::Deserializer& deserializer);
+    PORTABLE_STORAGE_START_STRUCT(Data1)
+      PORTABLE_STORAGE_FIELD(val)
+    PORTABLE_STORAGE_END_STRUCT
 
     bool operator==(const Data1& other) const
     {
@@ -87,68 +64,16 @@ namespace {
     }
   };
 
-  struct Data1Visitor: public model::GetSetVisitor<Data1>
-  {
-    std::string expecting() const noexcept override final
-    {
-      return "Data1 object";
-    }
-
-    void visit_object(optional<size_t> size, model::Deserializer& deserializer) override final
-    {
-      CHECK_AND_ASSERT_THROW_MES
-      (
-        size && *size == 1,
-        "Got wrong number of entries"
-      );
-
-      CHECK_AND_ASSERT_THROW_MES
-      (
-        deserializer.continue_collection(),
-        "Can't get first entry"
-      );
-
-      SingleKeyVisitor key_visitor("val");
-      deserializer.deserialize_key(key_visitor);
-      const bool got_key = key_visitor.get_visited();
-      CHECK_AND_ASSERT_THROW_MES
-      (
-        got_key,
-        "got bad key"
-      );
-
-      const int16_t val = model::Deserialize<int16_t>::dflt(deserializer);
-
-      CHECK_AND_ASSERT_THROW_MES
-      (
-        !deserializer.continue_collection(),
-        "entries aren't over"
-      );
-
-      this->set_visited({val});
-    }
-  };
-
-  // @TODO: incomplete type nonsense
-  Data1 Data1::deserialize_default(model::Deserializer& deserializer)
-  { 
-    Data1Visitor d1vis;
-    deserializer.deserialize_object(1, d1vis);
-    return d1vis.get_visited();
-  }
-
   struct StringData: public model::Serializable
   {
     std::string str;
 
+    StringData(): model::Serializable(), str() {}
     StringData(std::string str): model::Serializable(), str(str) {}
 
-    void serialize_default(model::Serializer& serializer) const override final {
-      serializer.serialize_start_object(1);
-      serializer.serialize_key(internal::cstr_to_byte_span("str"));
-      serializer.serialize_string(this->str);
-      serializer.serialize_end_object();
-    }
+    PORTABLE_STORAGE_START_STRUCT(StringData)
+      PORTABLE_STORAGE_FIELD(str)
+    PORTABLE_STORAGE_END_STRUCT
   };
 }
 
