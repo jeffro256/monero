@@ -32,8 +32,8 @@
 #include <sstream>
 
 #include "storages/portable_storage.h"
-#include "serde/binary/deserializer.h"
-#include "serde/binary/serializer.h"
+#include "serde/epee/deserializer.h"
+#include "serde/epee/serializer.h"
 #include "serde/model/deserialization.h"
 #include "serde/model/serialization.h"
 #include "serde/model/struct.h"
@@ -44,15 +44,13 @@
 #include "serde/internal/external/byte_span.h" // @TODO: catch in main header
 #include "serde/internal/external/optional.h" // @TODO: catch in main header
 
-using namespace serde;
-
 namespace {
-  struct Data1: public model::Serializable
+  struct Data1: public serde::model::Serializable
   {
     int16_t val;
 
-    Data1(): model::Serializable(), val() {}
-    Data1(int64_t val): model::Serializable(), val(val) {}
+    Data1(): serde::model::Serializable(), val() {}
+    Data1(int64_t val): serde::model::Serializable(), val(val) {}
 
     PORTABLE_STORAGE_START_STRUCT(Data1)
       PORTABLE_STORAGE_FIELD(val)
@@ -64,12 +62,12 @@ namespace {
     }
   };
 
-  struct StringData: public model::Serializable
+  struct StringData: public serde::model::Serializable
   {
     std::string str;
 
-    StringData(): model::Serializable(), str() {}
-    StringData(std::string str): model::Serializable(), str(str) {}
+    StringData(): serde::model::Serializable(), str() {}
+    StringData(std::string str): serde::model::Serializable(), str(str) {}
 
     PORTABLE_STORAGE_START_STRUCT(StringData)
       PORTABLE_STORAGE_FIELD(str)
@@ -103,7 +101,7 @@ TEST(epee_binary, duplicate_key)
 
 TEST(epee_serialization, bin_serialize_1)
 {
-  using namespace serde::binary;
+  using namespace serde::epee;
 
   static constexpr const std::uint8_t expected_binary[] =
   {
@@ -164,7 +162,7 @@ TEST(epee_serialization, json_escape)
 
 TEST(epee_serialization, bin_deserialize_1)
 {
-  using namespace serde::binary;
+  using namespace serde::epee;
 
   static constexpr const std::uint8_t source_binary[] =
   {
@@ -178,7 +176,7 @@ TEST(epee_serialization, bin_deserialize_1)
   };
 
   Deserializer deserializer(source_binary);
-  const Data1 deserialized_data = model::Deserialize<Data1>::dflt(deserializer);
+  const Data1 deserialized_data = serde::model::Deserialize<Data1>::dflt(deserializer);
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

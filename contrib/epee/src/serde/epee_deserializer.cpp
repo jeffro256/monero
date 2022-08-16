@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace serde::binary
+namespace serde::epee
 {
     constexpr bool uint64_fits_size(uint64_t v)
     {

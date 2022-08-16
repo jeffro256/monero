@@ -14,7 +14,7 @@
 // Below is same as checking val <= 4611686018427387903 but portable for 32-bit size_t
 #define VARINT_VAL_FITS_QWORD(val) (!(val >> 31 >> 31))
 
-namespace serde::binary
+namespace serde::epee
 {
     template<class t_ostream>
     class Serializer: public serde::model::Serializer

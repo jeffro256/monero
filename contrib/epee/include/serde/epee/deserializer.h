@@ -10,7 +10,7 @@
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
 
-namespace serde::binary
+namespace serde::epee
 {
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
@@ -29,7 +29,7 @@ namespace serde::binary
         }
 
         ~Deserializer() = default;
-    
+
     ///////////////////////////////////////////////////////////////////////////
     // Stream helpers                                                        //
     ///////////////////////////////////////////////////////////////////////////
