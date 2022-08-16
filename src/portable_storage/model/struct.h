@@ -26,10 +26,13 @@
         portable_storage::internal::struct_serde<SerializeSelector>::call(fields, serdelizer); \
     }                                                                                          \
 
-#define PORTABLE_STORAGE_FIELD(fieldname) portable_storage::internal::StructFieldSelector< \
-    SerializeSelector, decltype(self . fieldname), true, false>(                           \
-    portable_storage::internal::cstr_to_byte_span( #fieldname ), self . fieldname)         \
-
+#define PORTABLE_STORAGE_FIELD(fieldname)                                           \
+    typename portable_storage::internal::StructFieldSelector                        \
+    <SerializeSelector,                                                             \
+    typename std::remove_reference<decltype(self . fieldname)>::type,               \
+    false,                                                                          \
+    true>::type                                                                     \
+    (portable_storage::internal::cstr_to_byte_span( #fieldname ), self . fieldname) \
 
 namespace portable_storage::internal
 {
@@ -40,7 +43,7 @@ namespace portable_storage::internal
 
         constexpr StructField(const const_byte_span& key, ValRef value): key(key), value(value) {}
 
-        const const_byte_span& key;
+        const_byte_span key;
         ValRef value;
 
         bool matches_key(const const_byte_span& other_key) const
@@ -74,22 +77,12 @@ namespace portable_storage::internal
     struct StructFieldSelector;
 
     template <typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector<true, V, AsBlob, Required>:
-        public StructSerializeField<V, AsBlob>
-    {
-        constexpr StructFieldSelector(const const_byte_span& key, const V& value):
-            StructSerializeField<V, AsBlob>(key, value)
-        {}
-    };
+    struct StructFieldSelector<true, V, AsBlob, Required>
+    { using type = StructSerializeField<V, AsBlob>; };
 
     template <typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector<false, V, AsBlob, Required>:
-        public StructDeserializeField<V, AsBlob, Required>
-    {
-        constexpr StructFieldSelector(const const_byte_span& key, V& value):
-            StructDeserializeField<V, AsBlob, Required>(key, value)
-        {}
-    };
+    struct StructFieldSelector<false, V, AsBlob, Required>
+    { using type = StructDeserializeField<V, AsBlob, Required>; };
 
     /* 
     * This struct implements a recursive templated linear search (yeah I know.. boo).
