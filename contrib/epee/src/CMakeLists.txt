@@ -38,6 +38,7 @@ monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     file_io_utils.cpp
     net_parse_helpers.cpp
     http_base.cpp
+    serde/binary_deserializer.cpp serde/byte_span.cpp serde/deserialization.cpp serde/deserializer.cpp serde/serialization.cpp serde/serializer.cpp serde/visitor.cpp
     ${EPEE_HEADERS_PUBLIC}
     )
 

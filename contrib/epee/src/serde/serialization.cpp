@@ -1,5 +1,5 @@
-#include "../internal/endianness.h"
-#include "serialization.h"
+#include "serde/internal/endianness.h"
+#include "serde/model/serialization.h"
 
 namespace portable_storage::model
 {

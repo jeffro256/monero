@@ -1,6 +1,6 @@
 #include <string>
 
-#include "serializer.h"
+#include "serde/model/serializer.h"
 
 namespace portable_storage::model
 {

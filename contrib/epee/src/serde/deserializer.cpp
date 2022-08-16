@@ -1,6 +1,6 @@
 #include <string>
 
-#include "deserializer.h"
+#include "serde/model/deserializer.h"
 
 namespace portable_storage::model {
     Deserializer::Deserializer() {}

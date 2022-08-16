@@ -1,4 +1,4 @@
-#include "byte_span.h"
+#include "serde/internal/external/byte_span.h"
 
 namespace portable_storage::internal
 {

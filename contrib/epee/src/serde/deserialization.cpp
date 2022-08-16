@@ -1,6 +1,6 @@
-#include "deserialization.h"
-#include "deserializer.h"
-#include "visitor_specializations.h"
+#include "serde/model/deserialization.h"
+#include "serde/model/deserializer.h"
+#include "serde/model/visitor_specializations.h"
 
 namespace portable_storage::model
 {

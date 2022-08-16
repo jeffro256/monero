@@ -32,17 +32,17 @@
 #include <sstream>
 
 #include "storages/portable_storage.h"
-#include "portable_storage/binary/deserializer.h"
-#include "portable_storage/binary/serializer.h"
-#include "portable_storage/model/deserialization.h"
-#include "portable_storage/model/serialization.h"
-#include "portable_storage/model/struct.h"
-#include "portable_storage/model/visitor.h"
-#include "portable_storage/json/serializer.h"
+#include "serde/binary/deserializer.h"
+#include "serde/binary/serializer.h"
+#include "serde/model/deserialization.h"
+#include "serde/model/serialization.h"
+#include "serde/model/struct.h"
+#include "serde/model/visitor.h"
+#include "serde/json/serializer.h"
 #include "span.h"
 
-#include "portable_storage/internal/external/byte_span.h" // @TODO: catch in main header
-#include "portable_storage/internal/external/optional.h" // @TODO: catch in main header
+#include "serde/internal/external/byte_span.h" // @TODO: catch in main header
+#include "serde/internal/external/optional.h" // @TODO: catch in main header
 
 using namespace portable_storage;
 
