@@ -8,18 +8,18 @@
 #include "../internal/container.h"
 #include "../internal/external/byte_span.h"
 
-#define PORTABLE_STORAGE_START_STRUCT(structname)                                  \
+#define PORTABLE_STORAGE_START_STRUCT(structname)                                                \
     void serialize_default(portable_storage::model::Serializer& deserializer) const {            \
-        serde_map<true>(*this, deserializer);                                      \
-    }                                                                              \
+        serde_map<true>(*this, deserializer);                                                    \
+    }                                                                                            \
     static structname deserialize_default(portable_storage::model::Deserializer& deserializer) { \
-        structname self;                                                           \
-        serde_map<false>(self, deserializer);                                      \
-        return self;                                                               \
-    }                                                                              \
-    template <bool SerializeSelector, class This, class Serdelizer>                \
-    static void serde_map(This& self, Serdelizer& serdelizer) {                    \
-        auto fields = std::make_tuple(                                             \
+        structname self;                                                                         \
+        serde_map<false>(self, deserializer);                                                    \
+        return self;                                                                             \
+    }                                                                                            \
+    template <bool SerializeSelector, class This, class Serdelizer>                              \
+    static void serde_map(This& self, Serdelizer& serdelizer) {                                  \
+        auto fields = std::make_tuple(                                                           \
 
 #define PORTABLE_STORAGE_END_STRUCT                                                            \
         );                                                                                     \
