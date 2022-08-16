@@ -1,6 +1,6 @@
 #pragma once
 
-namespace portable_storage::model
+namespace serde::model
 {
     template <typename> struct Deserialize;
     struct Deserializer;

@@ -2,7 +2,7 @@
 
 #include "../internal/external/logging.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     template <typename Value>
     GetSetVisitor<Value>::GetSetVisitor(): m_val(), m_get(false), m_set(false) {}

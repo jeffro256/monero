@@ -2,7 +2,7 @@
 
 #include "serde/model/deserializer.h"
 
-namespace portable_storage::model {
+namespace serde::model {
     Deserializer::Deserializer() {}
     Deserializer::~Deserializer() {}
 }

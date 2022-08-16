@@ -1,6 +1,6 @@
 #pragma once
 
-namespace portable_storage::model {
+namespace serde::model {
     #define DEF_DESERIALIZE_SPLZATION_FOR_CONTAINER(contname, blobvisitorname)     \
         template <typename Element>                                                \
         struct Deserialize<contname<Element>>                                      \

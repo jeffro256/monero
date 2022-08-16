@@ -7,7 +7,7 @@
 	#include <boost/optional.hpp>
 #endif
 
-namespace portable_storage
+namespace serde
 {
 #if __cplusplus >= 201730 // if compiler's standard >= c++17
     template <typename T>

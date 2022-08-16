@@ -7,7 +7,7 @@
 #include "../internal/external/logging.h"
 #include "../internal/external/numeric_cast.h"
 
-namespace portable_storage::internal
+namespace serde::internal
 {
     // Default Visitor for types which can be coerced using boost::numeric_cast
     template <typename Numeric>
@@ -187,4 +187,4 @@ namespace portable_storage::internal
             }   
         } // visit_bytes
     };
-} // namespace portable_storage::model
+} // namespace serde::model

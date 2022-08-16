@@ -7,7 +7,7 @@
 #include "visitor_specializations.h"
 #include "../internal/endianness.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
     // Main Deserialize interface                                            //

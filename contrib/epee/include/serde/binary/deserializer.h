@@ -10,7 +10,7 @@
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
 
-namespace portable_storage::binary
+namespace serde::binary
 {
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
@@ -358,5 +358,5 @@ namespace portable_storage::binary
             return false;
         }
     };
-} // namespace portable_storage::binary
+} // namespace serde::binary
 

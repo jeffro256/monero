@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace portable_storage::binary
+namespace serde::binary
 {
     constexpr bool uint64_fits_size(uint64_t v)
     {

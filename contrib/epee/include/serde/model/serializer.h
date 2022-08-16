@@ -4,7 +4,7 @@
 
 #include "../internal/external/byte_span.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     struct Serializer
     {
@@ -34,5 +34,5 @@ namespace portable_storage::model
 
         virtual bool is_human_readable() const noexcept = 0;
     };
-} // namespace portable_storage::binary
+} // namespace serde::binary
 

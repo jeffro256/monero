@@ -2,7 +2,7 @@
 
 #include "serde/model/serializer.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     void Serializer::serialize_string(const std::string& value)
     {

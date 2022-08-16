@@ -9,7 +9,7 @@
 #define SWAP8LE(x) x
 #endif
 
-namespace portable_storage::internal {
+namespace serde::internal {
     template <typename T>
     struct le_conversion {
         static constexpr bool needed_for_type() { return false; }
@@ -45,12 +45,12 @@ namespace portable_storage::internal {
     SPECIALIZE_INT_CONVERSION(16)
     SPECIALIZE_INT_CONVERSION(8)
     // @TODO: double endianness
-} // namespace portable_storage::internal
+} // namespace serde::internal
 
 // @TODO passthough if LE system
 #ifndef CONVERT_POD
     #define CONVERT_POD(x)                                                   \
-        (portable_storage::internal::should_convert_pod<decltype(x)>()       \
-        ? portable_storage::internal::le_conversion<decltype(x)>::convert(x) \
+        (serde::internal::should_convert_pod<decltype(x)>()       \
+        ? serde::internal::le_conversion<decltype(x)>::convert(x) \
         : x)
 #endif

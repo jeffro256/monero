@@ -7,7 +7,7 @@
 #include "serializer.h"
 #include "../internal/endianness.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
     // Main serialization interface                                          //

@@ -2,7 +2,7 @@
 #include "serde/model/deserializer.h"
 #include "serde/model/visitor_specializations.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     #define DEF_DEFAULT_DESERIALIZE_NUM_SPECIALIZATION(tyname, mname)            \
         template <> tyname Deserialize<tyname>::dflt(Deserializer& deserializer) \

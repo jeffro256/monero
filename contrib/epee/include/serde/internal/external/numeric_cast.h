@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace portable_storage::internal
+namespace serde::internal
 {
     // wrapper exception
     class safe_numeric_cast_exception: public std::runtime_error

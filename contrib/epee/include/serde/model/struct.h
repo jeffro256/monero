@@ -9,10 +9,10 @@
 #include "../internal/external/byte_span.h"
 
 #define PORTABLE_STORAGE_START_STRUCT(structname)                                                \
-    void serialize_default(portable_storage::model::Serializer& deserializer) const {            \
+    void serialize_default(serde::model::Serializer& deserializer) const {            \
         serde_map<true>(*this, deserializer);                                                    \
     }                                                                                            \
-    static structname deserialize_default(portable_storage::model::Deserializer& deserializer) { \
+    static structname deserialize_default(serde::model::Deserializer& deserializer) { \
         structname self;                                                                         \
         serde_map<false>(self, deserializer);                                                    \
         return self;                                                                             \
@@ -23,18 +23,18 @@
 
 #define PORTABLE_STORAGE_END_STRUCT                                                            \
         );                                                                                     \
-        portable_storage::internal::struct_serde<SerializeSelector>::call(fields, serdelizer); \
+        serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer); \
     }                                                                                          \
 
 #define PORTABLE_STORAGE_FIELD(fieldname)                                           \
-    typename portable_storage::internal::StructFieldSelector                        \
+    typename serde::internal::StructFieldSelector                        \
     <SerializeSelector,                                                             \
     typename std::remove_reference<decltype(self . fieldname)>::type,               \
     false,                                                                          \
     true>::type                                                                     \
-    (portable_storage::internal::cstr_to_byte_span( #fieldname ), self . fieldname) \
+    (serde::internal::cstr_to_byte_span( #fieldname ), self . fieldname) \
 
-namespace portable_storage::internal
+namespace serde::internal
 {
     template <typename ValRef, bool AsBlob>
     struct StructField

@@ -1,7 +1,7 @@
 #include "serde/internal/endianness.h"
 #include "serde/model/serialization.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
     // serialize_default() basic specializations                             //

@@ -44,7 +44,7 @@
 #include "serde/internal/external/byte_span.h" // @TODO: catch in main header
 #include "serde/internal/external/optional.h" // @TODO: catch in main header
 
-using namespace portable_storage;
+using namespace serde;
 
 namespace {
   struct Data1: public model::Serializable
@@ -101,35 +101,9 @@ TEST(epee_binary, duplicate_key)
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
 
-/*
-TEST(epee_serialization, varint_serialize)
-{
-  constexpr size_t NUM_TESTS = 4;
-  static constexpr const std::uint8_t bin_10[] = { 0x28 };
-  static constexpr const std::uint8_t bin_100[] = { 0x91, 0x01 };
-  static constexpr const std::uint8_t bin_100000[] = { 0x82, 0x1a, 0x06, 0x00};
-  static constexpr const std::uint8_t bin_10000000000[] = {
-    0x03, 0x90, 0x2f, 0x50,
-    0x09, 0x00, 0x00, 0x00
-  };
-
-  size_t sizes[NUM_TESTS] = {10, 100, 100000, 10000000000};
-  const uint8_t* varint_reps[NUM_TESTS] = { bin_10, bin_100, bin_100000, bin_10000000000 };
-  const size_t varint_rep_sizes[NUM_TESTS] = { 1, 2, 4, 8 };
-
-  for (size_t i = 0; i < sizeof(sizes) / sizeof(size_t); i++) {
-    std::stringstream ss;
-    const size_t varint_val = sizes[i];
-    portable_storage::binary::write_varint(ss, varint_val);
-    const std::string expected(reinterpret_cast<const char*>(varint_reps[i]), varint_rep_sizes[i]);
-    EXPECT_EQ(expected, ss.str());
-  }
-}
-*/
-
 TEST(epee_serialization, bin_serialize_1)
 {
-  using namespace portable_storage::binary;
+  using namespace serde::binary;
 
   static constexpr const std::uint8_t expected_binary[] =
   {
@@ -152,7 +126,7 @@ TEST(epee_serialization, bin_serialize_1)
 
 TEST (epee_serialization, json_serialize_1)
 {
-  using namespace portable_storage::json;
+  using namespace serde::json;
 
   const std::string expected_json("{\"val\":2023}");
 
@@ -166,7 +140,7 @@ TEST (epee_serialization, json_serialize_1)
 
 TEST(epee_serialization, json_escape)
 {
-  using namespace portable_storage::json;
+  using namespace serde::json;
 
   static const std::pair<StringData, std::string> test_cases[] =
   {
@@ -190,7 +164,7 @@ TEST(epee_serialization, json_escape)
 
 TEST(epee_serialization, bin_deserialize_1)
 {
-  using namespace portable_storage::binary;
+  using namespace serde::binary;
 
   static constexpr const std::uint8_t source_binary[] =
   {

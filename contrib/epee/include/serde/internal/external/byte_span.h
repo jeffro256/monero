@@ -7,7 +7,7 @@
 #define TO_CSTR(p) reinterpret_cast<const char*>(p)
 #define SPAN_TO_CSTR(span) reinterpret_cast<const char*>(span.begin())
 
-namespace portable_storage
+namespace serde
 {
     using byte_iterator = std::uint8_t*;
     using const_byte_iterator = const std::uint8_t*;
@@ -15,9 +15,9 @@ namespace portable_storage
     // .cend() return const_byte_iterator, and there is a constructor (byte_iterator src, size_t n)
     using byte_span = epee::span<std::uint8_t>;
     using const_byte_span = epee::span<const std::uint8_t>;
-} // namespace portable_storage
+} // namespace serde
 
-namespace portable_storage::internal
+namespace serde::internal
 {
     // make a byte_span from a std::string, same idea as epee::strspan
     template<typename U> inline
@@ -35,4 +35,4 @@ namespace portable_storage::internal
     }
 
     std::string byte_span_to_string(const const_byte_span& bytes);
-} // namespace portable_storage::internal
+} // namespace serde::internal

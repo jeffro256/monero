@@ -4,7 +4,7 @@
 #include <tuple>
 #include <vector>
 
-namespace portable_storage::internal {
+namespace serde::internal {
     template <class Container> inline
     void container_reserve(Container& container, size_t new_capacity) {
         // by default, do nothing

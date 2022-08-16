@@ -7,7 +7,7 @@
 #include "../internal/external/optional.h"
 #include "../internal/model_fwd.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     struct BasicVisitor
     {
@@ -54,6 +54,6 @@ namespace portable_storage::model
         bool m_set;
         bool m_get;
     }; // class GetSetVisitor
-} // namespace portable_storage::model
+} // namespace serde::model
 
 #include "visitor.inl"

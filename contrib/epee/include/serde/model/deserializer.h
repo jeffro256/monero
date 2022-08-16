@@ -3,7 +3,7 @@
 #include "../internal/external/optional.h"
 #include "../internal/model_fwd.h"
 
-namespace portable_storage::model {
+namespace serde::model {
     struct Deserializer
     {
         Deserializer();
@@ -41,5 +41,5 @@ namespace portable_storage::model {
 
         virtual bool is_human_readable() const noexcept = 0;
     };
-} // namespace portable_storage::binary
+} // namespace serde::binary
 

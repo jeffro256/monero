@@ -4,9 +4,9 @@
 
 #include "../model/serializer.h"
 
-namespace portable_storage::json {
+namespace serde::json {
     template<class t_ostream>
-    class Serializer: public portable_storage::model::Serializer {
+    class Serializer: public serde::model::Serializer {
     public:
         Serializer(t_ostream stream);
         virtual ~Serializer() override final {};
@@ -197,4 +197,4 @@ namespace portable_storage::json {
             m_stream.put(',');
         }
     }
-} // namespace portable_storage::binary
+} // namespace serde::binary

@@ -2,7 +2,7 @@
 
 #include "serde/internal/external/logging.h"
 
-namespace portable_storage::model
+namespace serde::model
 {
     BasicVisitor::BasicVisitor() {}
     BasicVisitor::~BasicVisitor() {}
@@ -38,4 +38,4 @@ namespace portable_storage::model
     {
         ASSERT_MES_AND_THROW("called visit_object() but was expecting " << this->expecting());
     }
-} // namespace portable_storage::model
+} // namespace serde::model

@@ -14,10 +14,10 @@
 // Below is same as checking val <= 4611686018427387903 but portable for 32-bit size_t
 #define VARINT_VAL_FITS_QWORD(val) (!(val >> 31 >> 31))
 
-namespace portable_storage::binary
+namespace serde::binary
 {
     template<class t_ostream>
-    class Serializer: public portable_storage::model::Serializer
+    class Serializer: public serde::model::Serializer
     {
     public:
         Serializer(t_ostream stream);
@@ -332,4 +332,4 @@ namespace portable_storage::binary
 
         m_stack.back().remaining--;
     }
-} // namespace portable_storage::binary
+} // namespace serde::binary
