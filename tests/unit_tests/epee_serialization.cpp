@@ -175,8 +175,7 @@ TEST(epee_serialization, bin_deserialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  const serde::const_byte_span src_bytes = { source_binary, sizeof(source_binary) };
-  const Data1 deserialized_data = from_bytes<Data1>(src_bytes);
+  const Data1 deserialized_data = from_bytes<Data1>(source_binary);
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

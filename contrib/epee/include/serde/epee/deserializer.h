@@ -106,6 +106,8 @@ namespace serde::epee
                     visitor.visit_##mname(this->read_pod_value<tyname>()); \
                     break;                                                 \
 
+            this->doing_one_element_or_entry();
+
             switch (type_code)
             {
             DESER_POD_SCALAR( INT64,   int64,  int64_t)
@@ -208,12 +210,12 @@ namespace serde::epee
 
         size_t remaining() const
         {
-            return m_stack.back().remaining;
+            return m_stack.size() ? m_stack.back().remaining : 0;
         }
  
         bool root() const
         {
-            return m_stack.size() == 0;
+            return m_stack.size() == 0 && !m_finished;
         }
 
         bool finished() const
@@ -284,6 +286,15 @@ namespace serde::epee
         {
             if (this->finished())
             {
+                visitor.visit_end_object();
+            }
+            else if (this->root())
+            {
+                this->validate_signature();
+                this->deserialize_raw_section(visitor);
+            }
+            else if (this->remaining() == 0)
+            {
                 if (this->inside_array())
                 {
                     this->pop();
@@ -294,11 +305,6 @@ namespace serde::epee
                     this->pop();
                     visitor.visit_end_object();
                 }
-            }
-            else if (this->root())
-            {
-                this->validate_signature();
-                this->deserialize_raw_section(visitor);
             }
             else if (this->inside_object())
             {

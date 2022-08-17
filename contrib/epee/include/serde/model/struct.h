@@ -8,30 +8,30 @@
 #include "../internal/container.h"
 #include "../internal/external/byte_span.h"
 
-#define PORTABLE_STORAGE_START_STRUCT(structname)                                                \
+#define PORTABLE_STORAGE_START_STRUCT(structname)                                     \
     void serialize_default(serde::model::Serializer& deserializer) const {            \
-        serde_map<true>(*this, deserializer);                                                    \
-    }                                                                                            \
+        serde_map<true>(*this, deserializer);                                         \
+    }                                                                                 \
     static structname deserialize_default(serde::model::Deserializer& deserializer) { \
-        structname self;                                                                         \
-        serde_map<false>(self, deserializer);                                                    \
-        return self;                                                                             \
-    }                                                                                            \
-    template <bool SerializeSelector, class This, class Serdelizer>                              \
-    static void serde_map(This& self, Serdelizer& serdelizer) {                                  \
-        auto fields = std::make_tuple(                                                           \
+        structname self;                                                              \
+        serde_map<false>(self, deserializer);                                         \
+        return self;                                                                  \
+    }                                                                                 \
+    template <bool SerializeSelector, class This, class Serdelizer>                   \
+    static void serde_map(This& self, Serdelizer& serdelizer) {                       \
+        auto fields = std::make_tuple(                                                \
 
-#define PORTABLE_STORAGE_END_STRUCT                                                            \
-        );                                                                                     \
-        serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer); \
-    }                                                                                          \
+#define PORTABLE_STORAGE_END_STRUCT                                                  \
+        );                                                                           \
+        serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
+    }                                                                                \
 
-#define PORTABLE_STORAGE_FIELD(fieldname)                                           \
+#define PORTABLE_STORAGE_FIELD(fieldname)                                \
     typename serde::internal::StructFieldSelector                        \
-    <SerializeSelector,                                                             \
-    typename std::remove_reference<decltype(self . fieldname)>::type,               \
-    false,                                                                          \
-    true>::type                                                                     \
+    <SerializeSelector,                                                  \
+    typename std::remove_reference<decltype(self . fieldname)>::type,    \
+    false,                                                               \
+    true>::type                                                          \
     (serde::internal::cstr_to_byte_span( #fieldname ), self . fieldname) \
 
 namespace serde::internal
@@ -49,18 +49,10 @@ namespace serde::internal
         bool matches_key(const const_byte_span& other_key) const
         {
             if (other_key.size() != this->key.size()) return false;
-
             return 0 == memcmp(key.begin(), other_key.begin(), key.size());
         }
     };
     
-    template <typename V, bool AsBlob>
-    struct StructSerializeField: public StructField<const V&, AsBlob> {
-        constexpr StructSerializeField(const const_byte_span& key, const V& value):
-            StructField<const V&, AsBlob>(key, value)
-        {}
-    };
-
     template <typename V, bool AsBlob, bool Required>
     struct StructDeserializeField: public StructField<V&, AsBlob>
     {
@@ -73,10 +65,14 @@ namespace serde::internal
         bool did_deser;
     }; // struct StructField
 
+    // StructFieldSelector<true, ...>::type is a StructField for serializing
+    // Selects the StructField types for the tuple in serde_map in PORTABLE_STORAGE_START_STRUCT
     template <bool SerializeSelector, typename V, bool AsBlob, bool Required>
     struct StructFieldSelector
-    { using type = StructSerializeField<V, AsBlob>; };
+    { using type = StructField<const V&, AsBlob>; };
 
+    // StructFieldSelector<false, ...>::type is a StructField for DEserializing
+    // Selects the StructField types for the tuple in serde_map in PORTABLE_STORAGE_START_STRUCT
     template <typename V, bool AsBlob, bool Required>
     struct StructFieldSelector<false, V, AsBlob, Required>
     { using type = StructDeserializeField<V, AsBlob, Required>; };
