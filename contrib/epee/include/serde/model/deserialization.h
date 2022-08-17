@@ -16,12 +16,12 @@ namespace serde::model
     template <typename Deserializable>
     struct Deserialize
     {
-        static Deserializable dflt(Deserializer& deserializer)
+        static optional<Deserializable> dflt(Deserializer& deserializer)
         {
             return Deserializable::deserialize_default(deserializer);
         }
 
-        static Deserializable blob(Deserializer& deserializer)
+        static optional<Deserializable> blob(Deserializer& deserializer)
         {
             internal::BlobVisitor<Deserializable> blob_vis;
             deserializer.deserialize_bytes(blob_vis);
@@ -33,24 +33,24 @@ namespace serde::model
     // Deserialize::dflt() basic specializations                             //
     ///////////////////////////////////////////////////////////////////////////
     
-    template <> int64_t Deserialize<int64_t>::dflt(Deserializer&);
-    template <> int32_t Deserialize<int32_t>::dflt(Deserializer&);
-    template <> int16_t Deserialize<int16_t>::dflt(Deserializer&);
-    template <> int8_t Deserialize<int8_t>::dflt(Deserializer&);
-    template <> uint64_t Deserialize<uint64_t>::dflt(Deserializer&);
-    template <> uint32_t Deserialize<uint32_t>::dflt(Deserializer&);
-    template <> uint16_t Deserialize<uint16_t>::dflt(Deserializer&);
-    template <> uint8_t Deserialize<uint8_t>::dflt(Deserializer&);
-    template <> double Deserialize<double>::dflt(Deserializer&);
-    template <> std::string Deserialize<std::string>::dflt(Deserializer&);
-    template <> bool Deserialize<bool>::dflt(Deserializer&);
+    template <> optional<int64_t> Deserialize<int64_t>::dflt(Deserializer&);
+    template <> optional<int32_t> Deserialize<int32_t>::dflt(Deserializer&);
+    template <> optional<int16_t> Deserialize<int16_t>::dflt(Deserializer&);
+    template <> optional<int8_t> Deserialize<int8_t>::dflt(Deserializer&);
+    template <> optional<uint64_t> Deserialize<uint64_t>::dflt(Deserializer&);
+    template <> optional<uint32_t> Deserialize<uint32_t>::dflt(Deserializer&);
+    template <> optional<uint16_t> Deserialize<uint16_t>::dflt(Deserializer&);
+    template <> optional<uint8_t> Deserialize<uint8_t>::dflt(Deserializer&);
+    template <> optional<double> Deserialize<double>::dflt(Deserializer&);
+    template <> optional<std::string> Deserialize<std::string>::dflt(Deserializer&);
+    template <> optional<bool> Deserialize<bool>::dflt(Deserializer&);
 
     ///////////////////////////////////////////////////////////////////////////
     // Deserialize::blob() basic specializations                             //
     ///////////////////////////////////////////////////////////////////////////
 
     // deserializes string contents
-    template <> std::string Deserialize<std::string>::blob(Deserializer&);
+    template <> optional<std::string> Deserialize<std::string>::blob(Deserializer&);
 
     ///////////////////////////////////////////////////////////////////////////
     // Deserialize container specializations                                 //

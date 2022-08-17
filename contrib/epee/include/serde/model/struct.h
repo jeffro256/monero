@@ -74,10 +74,7 @@ namespace serde::internal
     }; // struct StructField
 
     template <bool SerializeSelector, typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector;
-
-    template <typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector<true, V, AsBlob, Required>
+    struct StructFieldSelector
     { using type = StructSerializeField<V, AsBlob>; };
 
     template <typename V, bool AsBlob, bool Required>
@@ -110,11 +107,18 @@ namespace serde::internal
             );
 
             using t_field = typename std::remove_reference<decltype(field)>::type;
-            using t_field_value = typename std::remove_reference<decltype(t_field::value)>::type;
-            using D = model::Deserialize<t_field_value>;
+            using t_value = typename std::remove_reference<decltype(t_field::value)>::type;
+            using D = model::Deserialize<t_value>;
 
-            field.value = (t_field::do_as_blob ? D::blob(m_deser) : D::dflt(m_deser));
+            optional<t_value> de_res = t_field::do_as_blob ? D::blob(m_deser) : D::dflt(m_deser);
+            
+            CHECK_AND_ASSERT_THROW_MES
+            (
+                de_res,
+                "deserialize error: object ended after key " << byte_span_to_string(m_target_key)
+            );
 
+            field.value = std::move(*de_res);
             m_matched_key = true;
             return false; // no need to try to deserialize more fields
         }
@@ -161,20 +165,23 @@ namespace serde::internal
         {
             m_deserializer = &deserializer;
 
-            while (deserializer.continue_collection())
+            while (m_deserializer != nullptr)
             {
                 deserializer.deserialize_key(*this); // values also get handled in visit_key
             }
 
             // @TODO: check all required fields got deserialized
+        }
 
-            m_deserializer = nullptr; // signal that we are now outside of an object
+        void visit_end_object() override final
+        {
+            m_deserializer = nullptr; // signal stop visit_object loop
         }
     
     private:
 
         FieldsTuple m_fields;
-        model::Deserializer* m_deserializer;
+        model::Deserializer* m_deserializer; // set to nullptr when not serializing an object
     }; // class NormalStructVisitor
 
     // If true, serialize. If false, deserialize

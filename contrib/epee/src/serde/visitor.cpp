@@ -34,8 +34,18 @@ namespace serde::model
         ASSERT_MES_AND_THROW("called visit_array() but was expecting " << this->expecting());
     }
 
+    void BasicVisitor::visit_end_array()
+    {
+        ASSERT_MES_AND_THROW("called visit_end_array() but was expecting " << this->expecting());
+    }
+
     void BasicVisitor::visit_object(optional<size_t>, Deserializer&)
     {
         ASSERT_MES_AND_THROW("called visit_object() but was expecting " << this->expecting());
+    }
+
+    void BasicVisitor::visit_end_object()
+    {
+        ASSERT_MES_AND_THROW("called visit_end_object() but was expecting " << this->expecting());
     }
 } // namespace serde::model

@@ -60,6 +60,7 @@ namespace serde::internal
         void visit_array(optional<size_t> size, model::Deserializer& deserializer) override final
         {
             typedef typename Container::value_type value_type;
+            using Deserialize = model::Deserialize<value_type>;
 
             Container cont;
             if (size)
@@ -67,10 +68,18 @@ namespace serde::internal
                 internal::container_reserve(cont);
             }
 
-            while (deserializer.continue_collection())
-            {
-                cont.push_back(model::Deserialize<value_type>::dflt(deserializer));
-            }
+            bool reached_end;
+            do {
+                const optional<value_type> element = Deserialize::dflt(deserializer);
+                if (element)
+                {
+                    cont.push_back(*element);
+                }
+                else
+                {
+                    reached_end = true;
+                }
+            } while (!reached_end);
 
             this->set_visited(std::move(cont));
         }

@@ -284,7 +284,16 @@ namespace serde::epee
         {
             if (this->finished())
             {
-                ASSERT_MES_AND_THROW("trying to deserialize when data is done");
+                if (this->inside_array())
+                {
+                    this->pop();
+                    visitor.visit_end_array();
+                }
+                else // finished object
+                {
+                    this->pop();
+                    visitor.visit_end_object();
+                }
             }
             else if (this->root())
             {
@@ -297,20 +306,22 @@ namespace serde::epee
                 {
                     this->deserialize_raw_key(visitor);
                 }
-                else
+                else // expecting entry
                 {
                     this->deserialize_section_entry(visitor);
                 }
             }
-            else // inside array
+            else // inside array with elements left
             {
                 this->deserialize_scalar(this->current_array_type(), visitor);
             }
         }
 
+        #ifndef DESER_TO_DESER_ANY
         #define DEFER_TO_DESER_ANY(mname)                                   \
             void deserialize_##mname(model::BasicVisitor& v) override final \
-            { return this->deserialize_any(v); }                            \
+            { return this->deserialize_any(v); }
+        #endif
 
         // The epee binary format is self-describing, so means we can ignore deserialization hints
         DEFER_TO_DESER_ANY(int64)
@@ -325,6 +336,8 @@ namespace serde::epee
         DEFER_TO_DESER_ANY(bytes)
         DEFER_TO_DESER_ANY(boolean)
         DEFER_TO_DESER_ANY(key)
+        DEFER_TO_DESER_ANY(end_array)
+        DEFER_TO_DESER_ANY(end_object)
 
         void deserialize_array(optional<size_t>, model::BasicVisitor& visitor) override final
         {
@@ -336,27 +349,22 @@ namespace serde::epee
             this->deserialize_any(visitor);
         }
 
-        bool continue_collection() override final {
-            if (this->finished())
-            {
-                return false;
-            }
-            else if (this->remaining() == 0)
-            {
-                this->pop();
-                return false;
-            }
-            else
-            {
-                this->doing_one_element_or_entry();
-                return true;
-            }
-        }
-
         bool is_human_readable() const noexcept override final
         {
             return false;
         }
-    };
-} // namespace serde::binary
+    }; // class Deserializer
 
+    template <typename T>
+    T from_bytes(const const_byte_span& bytes)
+    {
+        Deserializer deserializer(bytes);
+        optional<T> deser_res = model::Deserialize<T>::dflt(deserializer);
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            deser_res,
+            "JSON Deserializer returned no data"
+        );
+        return *deser_res;
+    }
+} // namespace serde::epee

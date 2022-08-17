@@ -5,13 +5,13 @@ namespace serde::model {
         template <typename Element>                                                \
         struct Deserialize<contname<Element>>                                      \
         {                                                                          \
-            static contname<Element> dflt(Deserializer& deserializer)              \
+            static optional<contname<Element>> dflt(Deserializer& deserializer)    \
             {                                                                      \
                 internal::DefaultContainerVisitor<contname<Element>> cont_visitor; \
                 deserializer.deserialize_array({}, cont_visitor);                  \
                 return cont_visitor.get_visited();                                 \
             }                                                                      \
-            static contname<Element> blob(Deserializer& deserializer)              \
+            static optional<contname<Element>> blob(Deserializer& deserializer)    \
             {                                                                      \
                 blobvisitorname<contname<Element>, Deserializer> blob_visitor;     \
                 deserializer.deserialize_bytes(blob_visitor);                      \

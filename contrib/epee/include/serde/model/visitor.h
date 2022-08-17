@@ -29,9 +29,11 @@ namespace serde::model
         virtual void visit_boolean(bool value);
 
         virtual void visit_array(optional<size_t> size_hint, Deserializer& deserializer);
+        virtual void visit_end_array();
 
         virtual void visit_object(optional<size_t> size_hint, Deserializer& deserializer);
         virtual void visit_key(const const_byte_span& value);
+        virtual void visit_end_object();
     }; // struct BasicVisitor
 
     template <typename Value>
@@ -42,17 +44,20 @@ namespace serde::model
         GetSetVisitor();
         virtual ~GetSetVisitor();
 
-        Value get_visited();
+        optional<Value> get_visited();
     
+        bool was_visited() const;
+
+        void visit_end_array() override final {} // @TODO
+        void visit_end_object() override final {} // @TODO
+
     protected:
 
         void set_visited(Value&& v);
     
     private:
 
-        Value m_val;
-        bool m_set;
-        bool m_get;
+        optional<Value> m_value;
     }; // class GetSetVisitor
 } // namespace serde::model
 

@@ -332,4 +332,4 @@ namespace serde::epee
 
         m_stack.back().remaining--;
     }
-} // namespace serde::binary
+} // namespace serde::epee
