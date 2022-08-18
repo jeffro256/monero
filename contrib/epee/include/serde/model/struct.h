@@ -36,7 +36,7 @@
 #include "../internal/container.h"
 #include "../internal/deps.h"
 
-#define PORTABLE_STORAGE_START_STRUCT()                                               \
+#define BEGIN_KV_SERIALIZE_MAP()                                                      \
     using serde_struct_enabled = void;                                                \
     void serialize_default(serde::model::Serializer& deserializer) const {            \
         serde_struct_map<true>()(deserializer, *this);                                \
@@ -46,12 +46,12 @@
         bool operator()(Serdelizer& serdelizer, This& self) {                         \
             auto fields = std::make_tuple(                                            \
 
-#define PORTABLE_STORAGE_END_STRUCT()                                                    \
+#define END_KV_SERIALIZE_MAP()                                                           \
             );                                                                           \
             serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
             return true; }};                                                             \
 
-#define PORTABLE_STORAGE_FIELD(fieldname)                                \
+#define KV_SERIALIZE(fieldname)                                          \
     typename serde::internal::StructFieldSelector                        \
     <SerializeSelector,                                                  \
     typename std::remove_reference<decltype(self . fieldname)>::type,    \
@@ -259,6 +259,7 @@ namespace serde::internal
         template <typename... SF>
         static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer)
         {
+            // @TODO: support object in arrays by return false instead of throwing
             internal::CollectionBoundVisitor::expect_object({}, deserializer);
             while (true) {
                 StructKeysVisitor<SF...> keys_visitor(fields);

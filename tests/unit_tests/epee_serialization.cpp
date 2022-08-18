@@ -47,9 +47,9 @@ namespace {
     Data1(): serde::model::Serializable(), val() {}
     Data1(int64_t val): serde::model::Serializable(), val(val) {}
 
-    PORTABLE_STORAGE_START_STRUCT()
-      PORTABLE_STORAGE_FIELD(val)
-    PORTABLE_STORAGE_END_STRUCT()
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(val)
+    END_KV_SERIALIZE_MAP()
 
     bool operator==(const Data1& other) const
     {
@@ -64,9 +64,9 @@ namespace {
     StringData(): serde::model::Serializable(), str() {}
     StringData(std::string str): serde::model::Serializable(), str(str) {}
 
-    PORTABLE_STORAGE_START_STRUCT()
-      PORTABLE_STORAGE_FIELD(str)
-    PORTABLE_STORAGE_END_STRUCT()
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(str)
+    END_KV_SERIALIZE_MAP()
   };
 }
 
