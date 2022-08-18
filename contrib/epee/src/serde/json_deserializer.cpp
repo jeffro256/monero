@@ -24,21 +24,19 @@ namespace serde::json
             m_visitor.visit_bytes(str_span);
             return true;
         }
-        bool StartObject() { m_visitor.visit_object({}, m_deserializer); return true; }
+        bool StartObject() { m_visitor.visit_object({}); return true; }
         bool Key(const char* str, SizeType length, bool copy) { 
             const const_byte_span str_span(reinterpret_cast<const_byte_iterator>(str), length);
             m_visitor.visit_key(str_span);
             return true;
         }
         bool EndObject(SizeType memberCount) { m_visitor.visit_end_object(); return true; }
-        bool StartArray() { m_visitor.visit_array({}, m_deserializer); return true; }
+        bool StartArray() { m_visitor.visit_array({}); return true; }
         bool EndArray(SizeType elementCount) { m_visitor.visit_end_array(); return true; }
 
-        constexpr JsonVisitorHandler(model::BasicVisitor& vis, model::Deserializer& deser):
-            m_visitor(vis), m_deserializer(deser) {}
+        constexpr JsonVisitorHandler(model::BasicVisitor& vis): m_visitor(vis) {}
 
         model::BasicVisitor& m_visitor;
-        model::Deserializer& m_deserializer;
     };
 
     Deserializer::Deserializer(const char* src):
@@ -53,7 +51,7 @@ namespace serde::json
     {
         if (!m_json_reader.IterativeParseComplete())
         {
-            JsonVisitorHandler handler = { visitor, *this };
+            JsonVisitorHandler handler = visitor;
             m_json_reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(m_istream, handler);
         }
         else

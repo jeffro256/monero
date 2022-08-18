@@ -138,7 +138,7 @@ namespace serde::epee
         {
             const size_t obj_len = this->read_varint();
             this->push_object(obj_len);
-            visitor.visit_object(obj_len, *this);
+            visitor.visit_object(obj_len);
         }
 
         void deserialize_raw_key(model::BasicVisitor& visitor)
@@ -157,7 +157,7 @@ namespace serde::epee
                 const uint8_t scalar_type_code = type_code & ~SERIALIZE_FLAG_ARRAY;
                 size_t array_len = this->read_varint();
                 this->push_array(array_len, scalar_type_code);
-                visitor.visit_array(array_len, *this);
+                visitor.visit_array(array_len);
             }
             else
             {

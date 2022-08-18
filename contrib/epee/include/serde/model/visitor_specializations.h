@@ -70,7 +70,7 @@ namespace serde::internal
             return "the beginning or end of an array or object";
         }
 
-        void visit_array(SizeHint hint, Deserializer& deserializer) override final
+        void visit_array(SizeHint hint) override final
         {
             CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
             bound_status = BoundStatus::ArrayBegin;
@@ -83,7 +83,7 @@ namespace serde::internal
             bound_status = BoundStatus::ArrayEnd;
         }
 
-        void visit_object(SizeHint hint, Deserializer& deserializer) override final
+        void visit_object(SizeHint hint) override final
         {
             CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
             bound_status = BoundStatus::ObjectBegin;
@@ -123,44 +123,6 @@ namespace serde::internal
         BoundStatus bound_status;
         SizeHint size_hint;
     };
-
-    /*
-    template <typename Container>
-    struct DefaultContainerVisitor: public model::GetSetVisitor<Container>
-    {
-        std::string expecting() const override final
-        {
-            return "array";
-        }
-
-        void visit_array(optional<size_t> size, model::Deserializer& deserializer) override final
-        {
-            typedef typename Container::value_type value_type;
-            using Deserialize = model::Deserialize<value_type>;
-
-            Container cont;
-            if (size)
-            {
-                internal::container_reserve(cont);
-            }
-
-            bool reached_end;
-            do {
-                const optional<value_type> element = Deserialize::dflt(deserializer);
-                if (element)
-                {
-                    cont.push_back(*element);
-                }
-                else
-                {
-                    reached_end = true;
-                }
-            } while (!reached_end);
-
-            this->set_visited(std::move(cont));
-        }
-    };
-    */
 
     ///////////////////////////////////////////////////////////////////////////
     // Blob Visitor                                                          //

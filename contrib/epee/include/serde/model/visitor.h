@@ -28,10 +28,10 @@ namespace serde::model
         virtual void visit_bytes(const const_byte_span& value);
         virtual void visit_boolean(bool value);
 
-        virtual void visit_array(optional<size_t> size_hint, Deserializer& deserializer);
+        virtual void visit_array(optional<size_t> size_hint);
         virtual void visit_end_array();
 
-        virtual void visit_object(optional<size_t> size_hint, Deserializer& deserializer);
+        virtual void visit_object(optional<size_t> size_hint);
         virtual void visit_key(const const_byte_span& value);
         virtual void visit_end_object();
     }; // struct BasicVisitor
