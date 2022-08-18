@@ -43,48 +43,16 @@ namespace serde::internal {
         vec.reserve(new_capacity);
     }
 
-    template <class Functor, size_t Index = 0>
-    struct t_tuple_for_each
+    #define _ENABLE_CMP_INDEX(op) typename std::enable_if<I op std::tuple_size<Tuple>::value>::type
+
+    template <class Tuple, class Functor, size_t I = 0> _ENABLE_CMP_INDEX(<) // returns void
+    tuple_for_each(Tuple& tup, Functor& f)
     {
-        // If Index < length of tuple, instantiate Functor and call with Index-th element as arg.
-        // If the functor returns true, continue onto next element
-        template <typename... T> typename std::enable_if<Index < sizeof...(T)>::type
-        operator()(std::tuple<T...>& tup, Functor& f)
-        {
-            const bool should_continue = f(std::get<Index>(tup));
-            if (should_continue) t_tuple_for_each<Functor, Index + 1>()(tup, f);
-        }
-
-        // Same as above but for constant tuples
-        template <typename... T> typename std::enable_if<Index < sizeof...(T)>::type
-        operator()(const std::tuple<T...>& tup, Functor& f)
-        {
-            const bool should_continue = f(std::get<Index>(tup));
-            if (should_continue) t_tuple_for_each<Functor, Index + 1>()(tup, f);
-        }
-
-        // If Index >= length of tuple, then do nothing
-        template <typename... T> typename std::enable_if<Index >= sizeof...(T)>::type
-        operator()(std::tuple<T...>& tup, Functor& f) { }
-
-        // Same as above but for constant tuples
-        template <typename... T> typename std::enable_if<Index >= sizeof...(T)>::type
-        operator()(const std::tuple<T...>& tup, Functor& f) { }
-    };
-
-    template <class Tuple, class Functor>
-    void tuple_for_each(Tuple& tup, Functor& f)
-    {
-        t_tuple_for_each<Functor, 0>()(tup, f);
+        const bool should_continue = f(std::get<I>(tup));
+        if (should_continue) tuple_for_each<Tuple, Functor, I + 1>(tup, f);
     }
 
-    // @TODO: remove if unused
-    /*
-    template <class Tuple, class Functor>
-    void tuple_for_each(Tuple& tup)
-    {
-        Functor f;
-        t_tuple_for_each<Functor, 0>()(tup, f);
-    }*/
-
+    template <class Tuple, class Functor, size_t I = 0> _ENABLE_CMP_INDEX(>=) // returns void
+    tuple_for_each(Tuple& tup, Functor& f)
+    {}
 }
