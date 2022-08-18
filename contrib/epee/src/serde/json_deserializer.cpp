@@ -50,8 +50,19 @@ namespace serde::json
 
     void Deserializer::deserialize_any(model::BasicVisitor& visitor)
     {
-        JsonVisitorHandler handler = { visitor, *this };
-        m_json_reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(m_istream, handler);
-        // @TODO: check parse complete
+        if (!m_json_reader.IterativeParseComplete())
+        {
+            JsonVisitorHandler handler = { visitor, *this };
+            m_json_reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(m_istream, handler);
+        }
+        else
+        {
+            visitor.visit_end_object();
+        }
+    }
+
+    bool Deserializer::is_human_readable() const noexcept
+    {
+        return true;
     }
 }

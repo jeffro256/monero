@@ -49,6 +49,82 @@ namespace serde::internal
         }
     };
 
+    struct CollectionBoundVisitor: public model::BasicVisitor
+    {
+        using Deserializer = model::Deserializer;
+        using SizeHint = optional<size_t>;
+
+        enum struct BoundStatus
+        {
+            Unvisted,
+            ArrayBegin,
+            ArrayEnd,
+            ObjectBegin,
+            ObjectEnd
+        };
+
+        CollectionBoundVisitor(): bound_status(BoundStatus::Unvisted), size_hint() {}
+
+        std::string expecting() const override final
+        {
+            return "the beginning or end of an array or object";
+        }
+
+        void visit_array(SizeHint hint, Deserializer& deserializer) override final
+        {
+            CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
+            bound_status = BoundStatus::ArrayBegin;
+            size_hint = hint;
+        }
+
+        void visit_end_array() override final
+        {
+            CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
+            bound_status = BoundStatus::ArrayEnd;
+        }
+
+        void visit_object(SizeHint hint, Deserializer& deserializer) override final
+        {
+            CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
+            bound_status = BoundStatus::ObjectBegin;
+            size_hint = hint;
+        }
+
+        void visit_end_object() override final
+        {
+            CHECK_AND_ASSERT_THROW_MES(bound_status == BoundStatus::Unvisted, "already visited");
+            bound_status = BoundStatus::ObjectEnd;
+        }
+
+        static SizeHint expect_array(SizeHint size_hint, Deserializer& deserializer)
+        {
+            CollectionBoundVisitor visitor;
+            deserializer.deserialize_object(size_hint, visitor);
+            CHECK_AND_ASSERT_THROW_MES
+            (
+                visitor.bound_status == BoundStatus::ArrayBegin,
+                "Got some other bound besides ArrayBegin"
+            );
+            return visitor.size_hint;
+        }
+
+        static SizeHint expect_object(SizeHint size_hint, Deserializer& deserializer)
+        {
+            CollectionBoundVisitor visitor;
+            deserializer.deserialize_object(size_hint, visitor);
+            CHECK_AND_ASSERT_THROW_MES
+            (
+                visitor.bound_status == BoundStatus::ObjectBegin,
+                "Got some other bound besides ObjectBegin"
+            );
+            return visitor.size_hint;
+        }
+
+        BoundStatus bound_status;
+        SizeHint size_hint;
+    };
+
+    /*
     template <typename Container>
     struct DefaultContainerVisitor: public model::GetSetVisitor<Container>
     {
@@ -84,6 +160,7 @@ namespace serde::internal
             this->set_visited(std::move(cont));
         }
     };
+    */
 
     ///////////////////////////////////////////////////////////////////////////
     // Blob Visitor                                                          //

@@ -38,11 +38,9 @@
 #include "serde/model/serialization.h"
 #include "serde/model/struct.h"
 #include "serde/model/visitor.h"
+#include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
 #include "span.h"
-
-#include "serde/internal/external/byte_span.h" // @TODO: catch in main header
-#include "serde/internal/external/optional.h" // @TODO: catch in main header
 
 namespace {
   struct Data1: public serde::model::Serializable
@@ -177,5 +175,14 @@ TEST(epee_serialization, bin_deserialize_1)
 
   const Data1 deserialized_data = from_bytes<Data1>(source_binary);
   const Data1 expected_data = { 2023 };
+  EXPECT_EQ(expected_data, deserialized_data);
+}
+
+TEST(epee_serialization, json_deserialize_1)
+{
+  using namespace serde::json;
+
+  const Data1 deserialized_data = from_cstr<Data1>("{\"val\":7777}");
+  const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

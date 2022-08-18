@@ -77,115 +77,122 @@ namespace serde::internal
     struct StructFieldSelector<false, V, AsBlob, Required>
     { using type = StructDeserializeField<V, AsBlob, Required>; };
 
-    /* 
-    * This struct implements a recursive templated linear search (yeah I know.. boo).
-    * If the key of field at tuple[I] matches target_key, then field.value is deserialized.
-    * Otherwise, a struct of type deserialize_search<I + 1> is instantiated and the () 
-    * operator is called on it with the same arguments. Once I == sizeof...(SF), then that
-    * means we searched every field and no key matched, so we throw an error. 
-    */
-    class deserialize_search
+    class deserialize_nth_field
     {
     public:
-        deserialize_search(const const_byte_span& target_key, model::Deserializer& deser):
-            m_target_key(target_key), m_deser(deser), m_matched_key(false)
-        {}
+
+        constexpr deserialize_nth_field(size_t n, model::Deserializer& deserializer):
+            m_n(n), m_i(0), m_deser(deserializer)
+        {} 
 
         template <typename Field>
         bool operator()(Field& field)
         {
-            if (!field.matches_key(m_target_key)) return true; // continue to next field
+            if (m_i == m_n)
+            {
+                CHECK_AND_ASSERT_THROW_MES
+                (
+                    !field.did_deser, // fields should be deserialized at most once
+                    "key seen twice for same object"
+                );
 
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                !field.did_deser, // fields should be deserialized at most once
-                "key was already seen: " << byte_span_to_string(m_target_key)
-            );
+                using t_field = typename std::remove_reference<decltype(field)>::type;
+                using t_value = typename std::remove_reference<decltype(t_field::value)>::type;
+                using D = model::Deserialize<t_value>;
 
-            using t_field = typename std::remove_reference<decltype(field)>::type;
-            using t_value = typename std::remove_reference<decltype(t_field::value)>::type;
-            using D = model::Deserialize<t_value>;
+                optional<t_value> dres = t_field::do_as_blob ? D::blob(m_deser) : D::dflt(m_deser);
+                
+                CHECK_AND_ASSERT_THROW_MES(dres, "deserialize error: object ended after key");
 
-            optional<t_value> de_res = t_field::do_as_blob ? D::blob(m_deser) : D::dflt(m_deser);
-            
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                de_res,
-                "deserialize error: object ended after key " << byte_span_to_string(m_target_key)
-            );
-
-            field.value = std::move(*de_res);
-            m_matched_key = true;
-            return false; // no need to try to deserialize more fields
+                field.value = std::move(*dres);
+                return false;
+            }
+            else
+            {
+                m_i++;
+                return true;
+            }
         }
 
-        bool matched() const { return m_matched_key; }
-
     private:
-        const const_byte_span& m_target_key;
-        model::Deserializer& m_deser;
-        bool m_matched_key;
-    }; // class deserialize_seach
 
-    template <class FieldsTuple>
-    class NormalStructVisitor: public model::BasicVisitor
+        size_t m_n;
+        size_t m_i;
+        model::Deserializer& m_deser;
+    };
+
+    template <typename... SF>
+    struct StructKeysVisitor: public model::BasicVisitor
     {
-    public:
-        NormalStructVisitor(const FieldsTuple& fields): m_fields(fields), m_deserializer(nullptr)
+        static constexpr size_t NO_MATCH = std::numeric_limits<size_t>::max();
+
+        class key_search
+        {
+        public:
+            key_search(const const_byte_span& target_key):
+                m_target_key(target_key), m_match_index(NO_MATCH), m_i(0)
+            {}
+
+            template <typename Field>
+            bool operator()(Field& field)
+            {
+                if (field.matches_key(m_target_key))
+                {
+                    m_match_index = m_i;
+                    return false;
+                }
+                else
+                {
+                    m_i++;
+                    return true;
+                } 
+            }
+
+            bool matched() const { return m_match_index != NO_MATCH; }
+            size_t match_index() const { return m_match_index; }
+
+        private:
+            const const_byte_span& m_target_key;
+            size_t m_match_index;
+            size_t m_i;
+        }; // class key_seach
+
+        constexpr StructKeysVisitor(std::tuple<SF...>& fields):
+            fields(fields), object_ended(false), match_index(NO_MATCH)
         {}
 
         std::string expecting() const override final
         {
-            return "struct";
+            return "keys";
         }
 
         void visit_key(const const_byte_span& key_bytes) override final
         {
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                m_deserializer != nullptr,
-                "Not currently deserializing an object so visit_key is not allowed"
-            );
-
-            deserialize_search ds(key_bytes, *m_deserializer);
-            internal::tuple_for_each(m_fields, ds);
+            key_search key_search(key_bytes);
+            internal::tuple_for_each(fields, key_search);
 
             CHECK_AND_ASSERT_THROW_MES
             (
-                ds.matched(),
+                key_search.matched(),
                 "Key '" << byte_span_to_string(key_bytes) << "' was not found in struct"
             );
-        }
 
-        void visit_object(optional<size_t>, model::Deserializer& deserializer) override final
-        {
-            m_deserializer = &deserializer;
-
-            while (m_deserializer != nullptr)
-            {
-                deserializer.deserialize_key(*this); // values also get handled in visit_key
-            }
-
-            // @TODO: check all required fields got deserialized
+            match_index = key_search.match_index();
         }
 
         void visit_end_object() override final
         {
-            m_deserializer = nullptr; // signal stop visit_object loop
+            object_ended = true;
         }
-    
-    private:
 
-        FieldsTuple m_fields;
-        model::Deserializer* m_deserializer; // set to nullptr when not serializing an object
-    }; // class NormalStructVisitor
+        std::tuple<SF...>& fields;
+        bool object_ended;
+        size_t match_index;
+    }; // struct StructKeysVisitor
 
     // If true, serialize. If false, deserialize
     template <bool SerializeSelector>
-    struct struct_serde {};
-
-    template <>
-    struct struct_serde<true>
+    struct struct_serde
     {
         struct serialize_field
         {
@@ -222,14 +229,24 @@ namespace serde::internal
         }
     };
 
+    // If true, serialize. If false, deserialize
     template <>
     struct struct_serde<false>
     {
         template <typename... SF>
-        static void call(const std::tuple<SF...>& fields, model::Deserializer& deserializer)
+        static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer)
         {
-            NormalStructVisitor<decltype(fields)> struct_visitor(fields);
-            deserializer.deserialize_object(sizeof...(SF), struct_visitor);
+            internal::CollectionBoundVisitor::expect_object({}, deserializer);
+            while (true) {
+                StructKeysVisitor<SF...> keys_visitor(fields);
+                deserializer.deserialize_key(keys_visitor);
+
+                if (keys_visitor.object_ended) break;
+
+                deserialize_nth_field dnf(keys_visitor.match_index, deserializer);
+                tuple_for_each(fields, dnf);
+            }
+
             // @TODO: required check up etc 
         }
     };
