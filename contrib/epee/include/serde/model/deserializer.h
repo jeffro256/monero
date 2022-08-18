@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../internal/external/optional.h"
+#include "../internal/deps.h"
 #include "../internal/model_fwd.h"
 
 namespace serde::model {

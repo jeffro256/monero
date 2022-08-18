@@ -1,7 +1,5 @@
 #include "serde/model/visitor.h"
 
-#include "serde/internal/external/logging.h"
-
 namespace serde::model
 {
     BasicVisitor::BasicVisitor() {}

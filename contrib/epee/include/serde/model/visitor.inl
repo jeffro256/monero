@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../internal/external/logging.h"
-
 namespace serde::model
 {
     template <typename Value>
@@ -21,7 +19,7 @@ namespace serde::model
     {
         return m_value;
     }
-    
+
     template <typename Value>
     void GetSetVisitor<Value>::set_visited(Value&& new_val)
     {

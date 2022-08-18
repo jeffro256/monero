@@ -2,7 +2,7 @@
 
 #include <type_traits>
 
-#include "./external/int.h"
+#include "deps.h"
 
 // SWAP8LE is a NOOP but makes code more uniform below
 #ifndef SWAP8LE

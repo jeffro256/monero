@@ -3,9 +3,8 @@
 #include <vector>
 
 #include "constants.h"
+#include "../internal/deps.h"
 #include "../internal/endianness.h"
-#include "../internal/external/logging.h"
-#include "../internal/external/numeric_cast.h"
 #include "../model/constants.h"
 #include "../model/deserializer.h"
 #include "../model/visitor.h"

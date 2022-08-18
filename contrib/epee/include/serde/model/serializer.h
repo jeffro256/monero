@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "../internal/external/byte_span.h"
+#include "../internal/deps.h"
 
 namespace serde::model
 {

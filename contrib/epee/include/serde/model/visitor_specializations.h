@@ -3,9 +3,8 @@
 #include "deserializer.h"
 #include "visitor.h"
 #include "../internal/container.h"
+#include "../internal/deps.h"
 #include "../internal/endianness.h"
-#include "../internal/external/logging.h"
-#include "../internal/external/numeric_cast.h"
 
 namespace serde::internal
 {

@@ -6,7 +6,7 @@
 #include "deserialization.h"
 #include "serialization.h"
 #include "../internal/container.h"
-#include "../internal/external/byte_span.h"
+#include "../internal/deps.h"
 
 #define PORTABLE_STORAGE_START_STRUCT(structname)                                     \
     void serialize_default(serde::model::Serializer& deserializer) const {            \

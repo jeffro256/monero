@@ -3,8 +3,7 @@
 #include <string>
 #include <list>
 
-#include "../internal/external/byte_span.h"
-#include "../internal/external/optional.h"
+#include "../internal/deps.h"
 #include "../internal/model_fwd.h"
 
 namespace serde::model

@@ -1,11 +1,9 @@
 #pragma once
 
-#include <rapidjson/reader.h>
-#include <rapidjson/stream.h>
 #include <vector>
 
-#include "../internal/external/byte_span.h"
-#include "../internal/external/logging.h"
+#include "./deps.h"
+#include "../internal/deps.h"
 #include "../model/deserialization.h"
 #include "../model/deserializer.h"
 
