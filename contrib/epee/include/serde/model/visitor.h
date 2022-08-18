@@ -60,4 +60,4 @@ namespace serde::model
     }; // class GetSetVisitor
 } // namespace serde::model
 
-#include "visitor.inl"
+#include "../internal/visitor.inl"

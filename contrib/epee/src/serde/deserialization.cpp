@@ -1,6 +1,5 @@
 #include "serde/model/deserialization.h"
 #include "serde/model/deserializer.h"
-#include "serde/model/visitor_specializations.h"
 
 namespace serde::model
 {

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "visitor_specializations.h"
+#include "../internal/visitor_specializations.h"
 #include "../internal/endianness.h"
 
 namespace serde::model
@@ -60,4 +60,4 @@ namespace serde::model
     template <typename T> struct Deserialize<std::vector<T>>;
 }
 
-#include "deserialization.inl"
+#include "../internal/deserialization.inl"

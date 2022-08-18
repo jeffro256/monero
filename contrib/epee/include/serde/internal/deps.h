@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "span.h"
+#include "span.h" // from epee
 
 #define TO_CSTR(p) reinterpret_cast<const char*>(p)
 #define SPAN_TO_CSTR(span) reinterpret_cast<const char*>(span.begin())
@@ -15,7 +15,7 @@ namespace serde
 {
     // A Non-owning byte sequence for which .begin() and .end() return byte_iterator, .cbegin() and
     // .cend() return const_byte_iterator, and there is a constructor (byte_iterator src, size_t n)
-    using const_byte_span = epee::span<const std::uint8_t>;
+    using const_byte_span = ::epee::span<const std::uint8_t>;
     using const_byte_iterator = const std::uint8_t*;
 } // namespace serde
 

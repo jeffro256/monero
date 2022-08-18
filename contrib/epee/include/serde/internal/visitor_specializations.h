@@ -1,10 +1,10 @@
 #pragma once
 
-#include "deserializer.h"
-#include "visitor.h"
-#include "../internal/container.h"
-#include "../internal/deps.h"
-#include "../internal/endianness.h"
+#include "./container.h"
+#include "./deps.h"
+#include "./endianness.h"
+#include "../model/deserializer.h"
+#include "../model/visitor.h"
 
 namespace serde::internal
 {
