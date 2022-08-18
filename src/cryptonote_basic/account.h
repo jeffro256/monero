@@ -32,7 +32,7 @@
 
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 
 namespace cryptonote
 {

@@ -3,7 +3,7 @@
 
 #include <string>
 #include <cstdint>
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include "storages/portable_storage_base.h"
 
 namespace epee 

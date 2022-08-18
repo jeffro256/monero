@@ -37,7 +37,7 @@
 #include "byte_slice.h"
 #include "enums.h"
 #include "misc_log_ex.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include "int-util.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

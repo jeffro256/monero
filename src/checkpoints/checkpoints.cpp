@@ -33,7 +33,7 @@
 #include "common/dns_utils.h"
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h" // epee json include
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include <functional>
