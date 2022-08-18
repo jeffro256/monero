@@ -28,29 +28,12 @@
 
 #pragma once
 
-namespace serde::model
-{
-    template <typename Value>
-    GetSetVisitor<Value>::GetSetVisitor(): m_value() {}
+#include <type_traits>
 
-    template <typename Value>
-    GetSetVisitor<Value>::~GetSetVisitor() {}
+#define ENABLE_IF_T(cond, out) typename std::enable_if<cond>::type
+#define ENABLE_IF(cond) ENABLE_IF_T(cond, void)
+#define ENABLE_TPARAM_IF(cond) typename = ENABLE_IF(cond)
 
-    template <typename Value>
-    optional<Value> GetSetVisitor<Value>::get_visited()
-    {
-        return std::move(m_value);
-    }
-
-    template <typename Value>
-    bool GetSetVisitor<Value>::was_visited() const
-    {
-        return m_value;
-    }
-
-    template <typename Value>
-    void GetSetVisitor<Value>::set_visited(Value&& new_val)
-    {
-        m_value = new_val;
-    }
-}
+#define ENABLE_IF_POD_T(tryt, out) ENABLE_IF_T(std::is_pod<tryt>::value, out)
+#define ENABLE_IF_POD(tryt) ENABLE_IF_POD_T(tryt, void)
+#define ENABLE_TPARAM_IF_POD(tryt) typename = ENABLE_IF_POD(tryt)

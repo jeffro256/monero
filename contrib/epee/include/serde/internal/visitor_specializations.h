@@ -30,6 +30,7 @@
 
 #include "./container.h"
 #include "./deps.h"
+#include "./enable_if.h"
 #include "./endianness.h"
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
@@ -38,18 +39,20 @@ namespace serde::internal
 {
     // Default Visitor for types which can be coerced using boost::numeric_cast
     template <typename Numeric>
-    struct NumericVisitor: public model::GetSetVisitor<Numeric>
+    struct NumericVisitor: public model::RefVisitor<Numeric>
     {
+        NumericVisitor(Numeric& num_ref): model::RefVisitor<Numeric>(num_ref) {}
+
         std::string expecting() const override final
         {
             return "numeric type";
         }
 
-        #define DEF_NUM_VISIT_METHOD(mname, numtype)                            \
-            void visit_##mname(numtype value) override final                    \
-            {                                                                   \
-                this->set_visited(internal::safe_numeric_cast<Numeric>(value)); \
-            }                                                                   \
+        #define DEF_NUM_VISIT_METHOD(mname, numtype)                      \
+            void visit_##mname(numtype value) override final              \
+            {                                                             \
+                this->visit(internal::safe_numeric_cast<Numeric>(value)); \
+            }                                                             \
 
         DEF_NUM_VISIT_METHOD(int64, int64_t)
         DEF_NUM_VISIT_METHOD(int32, int32_t)
@@ -63,8 +66,10 @@ namespace serde::internal
         DEF_NUM_VISIT_METHOD(boolean, bool)
     };
 
-    struct StringVisitor: public model::GetSetVisitor<std::string>
+    struct StringVisitor: public model::RefVisitor<std::string>
     {
+        StringVisitor(std::string& val_ref): model::RefVisitor<std::string>(val_ref) {}
+
         std::string expecting() const override final
         {
             return "string";
@@ -72,7 +77,7 @@ namespace serde::internal
 
         void visit_bytes(const const_byte_span& bytes) override final
         {
-            this->set_visited(internal::byte_span_to_string(bytes));
+            this->visit(internal::byte_span_to_string(bytes));
         }
     };
 
@@ -157,11 +162,11 @@ namespace serde::internal
     // Acts as a selector for visiting all primitive suported types as blobs //
     ///////////////////////////////////////////////////////////////////////////
 
-    #define ENABLE_IF_IS_POD(T) typename = typename std::enable_if<std::is_pod<T>::value>::type
-
-    template <typename PodValue, ENABLE_IF_IS_POD(PodValue)>
-    struct BlobVisitor: public model::GetSetVisitor<PodValue>
+    template <typename PodValue, ENABLE_TPARAM_IF_POD(PodValue)>
+    struct BlobVisitor: public model::RefVisitor<PodValue>
     {
+        BlobVisitor(PodValue& val_ref): model::RefVisitor<PodValue>(val_ref) {}
+
         std::string expecting() const override final
         {
             return "blob string";
@@ -177,12 +182,14 @@ namespace serde::internal
 
             PodValue val = *reinterpret_cast<const PodValue*>(blob.begin());
             val = CONVERT_POD(val);
-            this->set_visited(std::move(val));
+            this->visit(std::move(val));
         }
     };
 
-    struct BlobStringVisitor: public model::GetSetVisitor<std::string>
+    struct BlobStringVisitor: public model::RefVisitor<std::string>
     {
+        BlobStringVisitor(std::string& str_ref): model::RefVisitor<std::string>(str_ref) {}
+
         std::string expecting() const override final
         {
             return "blob string";
@@ -190,14 +197,16 @@ namespace serde::internal
 
         void visit_bytes(const const_byte_span& blob) override final
         {
-            this->set_visited(internal::byte_span_to_string(blob));
+            this->visit(internal::byte_span_to_string(blob));
         }
     };
 
-    template <typename Container, ENABLE_IF_IS_POD(typename Container::value_type)>
-    struct BlobContainerVisitor: public model::GetSetVisitor<Container>
+    template <typename Container, ENABLE_TPARAM_IF_POD(typename Container::value_type)>
+    struct BlobContainerVisitor: public model::RefVisitor<Container>
     {
         typedef typename Container::value_type value_type;
+
+        BlobContainerVisitor(Container& cont_ref): model::RefVisitor<Container>(cont_ref) {}
 
         std::string expecting() const override final
         {
@@ -214,7 +223,7 @@ namespace serde::internal
                 "blob length " << blob.size() << " not a multiple of element size " << elem_size
             );
 
-            Container container;
+            Container container; // @TODO: we can speed up by using underlying reference
             const value_type* const value_ptr = reinterpret_cast<const value_type*>(blob.begin());
             const size_t num_elements = blob.size() / elem_size;
             for (size_t i = 0; i < num_elements; i++)
@@ -222,14 +231,22 @@ namespace serde::internal
                 container.push_back(CONVERT_POD(value_ptr[i]));
             }
 
-            this->set_visited(std::move(container));
+            this->visit(std::move(container));
         }
     };
 
-    template <typename Container, ENABLE_IF_IS_POD(typename Container::value_type)>
+    template
+    <
+        typename Container,
+        ENABLE_TPARAM_IF_POD(typename Container::value_type),
+        // Enable if container stores raw blob data in memory exactly as it will be deserialized
+        ENABLE_TPARAM_IF(!internal::le_conversion<typename Container::value_type>::needed())
+    >
     struct BlobContiguousContainerVisitor: public model::GetSetVisitor<Container>
     {
         typedef typename Container::value_type value_type;
+
+        BlobContiguousContainerVisitor(Container& c_ref): model::RefVisitor<Container>(c_ref) {}
 
         std::string expecting() const override final
         {
@@ -246,20 +263,10 @@ namespace serde::internal
                 "blob length " << blob.size() << " not a multiple of element size " << elem_size
             );
 
-            if (internal::le_conversion<value_type>::needed())
-            {
-                // If endianess conversion is needed, passthru visitation to BlobContainerVisitor
-                BlobContainerVisitor<Container> default_container_visitor;
-                default_container_visitor.visit_bytes(blob);
-                this->set_visited(default_container_visitor.get_visited());
-            }
-            else // Container stores raw blob data in memory exactly as it will be deserialized
-            {
-                const size_t num_elements = blob.size() / elem_size;
-                Container container(num_elements); // default fill constructor
-                memcpy(&container[0], blob, blob.size());
-                this->set_visited(container);
-            }   
+            const size_t num_elements = blob.size() / elem_size;
+            Container container(num_elements); // default fill constructor
+            memcpy(&container[0], blob.begin(), blob.size());
+            this->visit(std::move(container)); // @TODO: use underlying referemce
         } // visit_bytes
-    };
+    }; // struct BlobContiguousContainerVisitor
 } // namespace serde::model

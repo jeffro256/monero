@@ -32,6 +32,8 @@
 #include <tuple>
 #include <vector>
 
+#include "./enable_if.h"
+
 namespace serde::internal {
     template <class Container> inline
     void container_reserve(Container& container, size_t new_capacity) {
@@ -43,16 +45,16 @@ namespace serde::internal {
         vec.reserve(new_capacity);
     }
 
-    #define _ENABLE_CMP_INDEX(op) typename std::enable_if<I op std::tuple_size<Tuple>::value>::type
+    #define TUPLE_SIZE(tuplety) std::tuple_size<tuplety>::value
 
-    template <class Tuple, class Functor, size_t I = 0> _ENABLE_CMP_INDEX(<) // returns void
+    template <class Tuple, class Functor, size_t I = 0> ENABLE_IF(I < TUPLE_SIZE(Tuple))
     tuple_for_each(Tuple& tup, Functor& f)
     {
         const bool should_continue = f(std::get<I>(tup));
         if (should_continue) tuple_for_each<Tuple, Functor, I + 1>(tup, f);
     }
 
-    template <class Tuple, class Functor, size_t I = 0> _ENABLE_CMP_INDEX(>=) // returns void
+    template <class Tuple, class Functor, size_t I = 0> ENABLE_IF(I >= TUPLE_SIZE(Tuple))
     tuple_for_each(Tuple& tup, Functor& f)
     {}
 }

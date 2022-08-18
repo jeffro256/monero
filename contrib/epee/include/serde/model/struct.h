@@ -31,28 +31,25 @@
 #include <cstring>
 #include <tuple>
 
-#include "deserialization.h"
+#include "operator_deserialize.h"
 #include "serialization.h"
 #include "../internal/container.h"
 #include "../internal/deps.h"
 
-#define PORTABLE_STORAGE_START_STRUCT(structname)                                     \
+#define PORTABLE_STORAGE_START_STRUCT()                                               \
+    using serde_struct_enabled = void;                                                \
     void serialize_default(serde::model::Serializer& deserializer) const {            \
-        serde_map<true>(*this, deserializer);                                         \
+        serde_struct_map<true>()(deserializer, *this);                                \
     }                                                                                 \
-    static structname deserialize_default(serde::model::Deserializer& deserializer) { \
-        structname self;                                                              \
-        serde_map<false>(self, deserializer);                                         \
-        return self;                                                                  \
-    }                                                                                 \
-    template <bool SerializeSelector, class This, class Serdelizer>                   \
-    static void serde_map(This& self, Serdelizer& serdelizer) {                       \
-        auto fields = std::make_tuple(                                                \
+    template <bool SerializeSelector> struct serde_struct_map {                       \
+        template <class This, class Serdelizer>                                       \
+        bool operator()(Serdelizer& serdelizer, This& self) {                         \
+            auto fields = std::make_tuple(                                            \
 
-#define PORTABLE_STORAGE_END_STRUCT                                                  \
-        );                                                                           \
-        serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
-    }                                                                                \
+#define PORTABLE_STORAGE_END_STRUCT()                                                    \
+            );                                                                           \
+            serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
+            return true; }};                                                             \
 
 #define PORTABLE_STORAGE_FIELD(fieldname)                                \
     typename serde::internal::StructFieldSelector                        \
@@ -104,50 +101,6 @@ namespace serde::internal
     template <typename V, bool AsBlob, bool Required>
     struct StructFieldSelector<false, V, AsBlob, Required>
     { using type = StructDeserializeField<V, AsBlob, Required>; };
-
-    class deserialize_nth_field
-    {
-    public:
-
-        constexpr deserialize_nth_field(size_t n, model::Deserializer& deserializer):
-            m_n(n), m_i(0), m_deser(deserializer)
-        {} 
-
-        template <typename Field>
-        bool operator()(Field& field)
-        {
-            if (m_i == m_n)
-            {
-                CHECK_AND_ASSERT_THROW_MES
-                (
-                    !field.did_deser, // fields should be deserialized at most once
-                    "key seen twice for same object"
-                );
-
-                using t_field = typename std::remove_reference<decltype(field)>::type;
-                using t_value = typename std::remove_reference<decltype(t_field::value)>::type;
-                using D = model::Deserialize<t_value>;
-
-                optional<t_value> dres = t_field::do_as_blob ? D::blob(m_deser) : D::dflt(m_deser);
-                
-                CHECK_AND_ASSERT_THROW_MES(dres, "deserialize error: object ended after key");
-
-                field.value = std::move(*dres);
-                return false;
-            }
-            else
-            {
-                m_i++;
-                return true;
-            }
-        }
-
-    private:
-
-        size_t m_n;
-        size_t m_i;
-        model::Deserializer& m_deser;
-    };
 
     template <typename... SF>
     struct StructKeysVisitor: public model::BasicVisitor
@@ -261,6 +214,48 @@ namespace serde::internal
     template <>
     struct struct_serde<false>
     {
+        class deserialize_nth_field
+        {
+        public:
+
+            constexpr deserialize_nth_field(size_t n, model::Deserializer& deserializer):
+                m_n(n), m_i(0), m_deser(deserializer)
+            {} 
+
+            template <typename Field>
+            bool operator()(Field& field)
+            {
+                if (m_i == m_n)
+                {
+                    CHECK_AND_ASSERT_THROW_MES
+                    (
+                        !field.did_deser, // fields should be deserialized at most once
+                        "key seen twice for same object"
+                    );
+
+                    using t_field = typename std::remove_reference<decltype(field)>::type;
+
+                    field.did_deser = t_field::do_as_blob
+                        ? deserialize_as_blob(m_deser, field.value)
+                        : deserialize_default(m_deser, field.value);
+
+                    CHECK_AND_ASSERT_THROW_MES(field.did_deser, "object ended after key");
+                    return false;
+                }
+                else
+                {
+                    m_i++;
+                    return true;
+                }
+            }
+
+        private:
+
+            size_t m_n;
+            size_t m_i;
+            model::Deserializer& m_deser;
+        }; // class deserialize_nth_field
+
         template <typename... SF>
         static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer)
         {
@@ -277,5 +272,25 @@ namespace serde::internal
 
             // @TODO: required check up etc 
         }
-    };
+    }; // struct struct_serde
+} // namespace serde::internal
+
+namespace serde::model
+{
+    // @TODO: operator serialize
+    /*
+    template <class Struct, typename = typename Struct::serde_struct_enabled>
+    void serialize_default(const Struct& struct, Deserializer& deserializer)
+    {
+        return Struct::serde_struct_map<true>(deserializer, struct);
+    }
+    */
+
+    // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
+    template <class Struct, typename = typename Struct::serde_struct_enabled>
+    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref)
+    {
+        using serde_struct_map = typename Struct::serde_struct_map<false>;
+        return serde_struct_map()(deserializer, struct_ref);
+    }
 }

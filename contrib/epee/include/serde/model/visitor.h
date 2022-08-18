@@ -64,28 +64,25 @@ namespace serde::model
     }; // struct BasicVisitor
 
     template <typename Value>
-    class GetSetVisitor: public BasicVisitor
+    class RefVisitor: public BasicVisitor
     {
     public:
 
-        GetSetVisitor();
-        virtual ~GetSetVisitor();
+        RefVisitor(Value& value_ref): m_value_ref(value_ref), m_was_visited(false) {}
+        virtual ~RefVisitor() = default;
 
-        optional<Value> get_visited();
-    
-        bool was_visited() const;
+        bool was_visited() const { return m_was_visited; }
 
-        void visit_end_array() override final {} // @TODO
-        void visit_end_object() override final {} // @TODO
+        void visit_end_array() override final {}
+        void visit_end_object() override final {}
 
     protected:
 
-        void set_visited(Value&& v);
+        void visit(Value&& value) { m_value_ref = value; m_was_visited = true; }
     
     private:
 
-        optional<Value> m_value;
+        Value& m_value_ref;
+        bool m_was_visited;
     }; // class GetSetVisitor
 } // namespace serde::model
-
-#include "../internal/visitor.inl"

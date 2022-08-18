@@ -113,7 +113,7 @@ namespace serde::internal
             throw safe_numeric_cast_exception(err_stream.str());
         }
     } // safe_numeric_cast
-}
+} // namespace serde::internal
 
 ///////////////////////////////////////////////////////////////////////////////
 // optional                                                                  //

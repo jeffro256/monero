@@ -28,56 +28,49 @@
 
 #pragma once
 
+#include <cstdint>
+#include <list>
+#include <string>
 #include <vector>
 
-#include "./deps.h"
-#include "../internal/deps.h"
-#include "../model/operator_deserialize.h"
+#include "deserializer.h"
+#include "../internal/enable_if.h"
 
-namespace serde::json
+namespace serde::model
 {
-    class Deserializer: public model::SelfDescribingDeserializer
-    {
-    public:
-
-        // Rapidjson streams need null terminators so src string should have a null terminator.
-        // The internal stream type is also non-owning so the src buffer must remain valid
-        // throughout the entire lifetime of this Deserializer instance.
-        Deserializer(const char* src);
-        ~Deserializer() = default;
-
     ///////////////////////////////////////////////////////////////////////////
-    // Deserializer interface                                                //
+    // Main Deserialize interface                                            //
     ///////////////////////////////////////////////////////////////////////////
 
-        void deserialize_any(model::BasicVisitor& visitor) override final;
+    bool deserialize_default(Deserializer& deserializer, int64_t& value);
+    bool deserialize_default(Deserializer& deserializer, int32_t& value);
+    bool deserialize_default(Deserializer& deserializer, int16_t& value);
+    bool deserialize_default(Deserializer& deserializer, int8_t& value);
+    bool deserialize_default(Deserializer& deserializer, uint64_t& value);
+    bool deserialize_default(Deserializer& deserializer, uint32_t& value);
+    bool deserialize_default(Deserializer& deserializer, uint16_t& value);
+    bool deserialize_default(Deserializer& deserializer, uint8_t& value);
+    bool deserialize_default(Deserializer& deserializer, double& value);
+    bool deserialize_default(Deserializer& deserializer, std::string& value);
+    bool deserialize_default(Deserializer& deserializer, bool& value);
 
-        bool is_human_readable() const noexcept override final;
+    template <typename T, ENABLE_TPARAM_IF_POD(T)>
+    bool deserialize_as_blob(Deserializer& deserializer, T& value);
+    bool deserialize_as_blob(Deserializer& deserializer, std::string& value);
 
     ///////////////////////////////////////////////////////////////////////////
-    // private helper methods / fields                                       //
+    // Deserialize container specializations                                 //
     ///////////////////////////////////////////////////////////////////////////
-    private:
-
-        friend class JsonVisitorHandler;
-
-        rapidjson::Reader m_json_reader;
-        // Non-owning stream so buffer must remain valid the entire lifetime of the Deserializer.
-        rapidjson::InsituStringStream m_istream; 
-    }; // class Deserializer
 
     template <typename T>
-    T from_cstr(const char* src)
-    {
-        Deserializer deserializer(src);
-        T value;
-        const bool success = deserialize_default(deserializer, value);
-        CHECK_AND_ASSERT_THROW_MES
-        (
-            success,
-            "JSON Deserializer returned no data"
-        );
-        return value;
-    }
-} // namespace serde::json
+    bool deserialize_default(Deserializer& deserializer, std::list<T>& values);
+    template <typename T>
+    bool deserialize_default(Deserializer& deserializer, std::vector<T>& values);
 
+    template <typename T, ENABLE_TPARAM_IF_POD(T)>
+    bool deserialize_as_blob(Deserializer& deserializer, std::list<T>& values);
+    template <typename T, ENABLE_TPARAM_IF_POD(T)>
+    bool deserialize_as_blob(Deserializer& deserializer, std::vector<T>& values);
+}
+
+#include "../internal/operator_deserialize.inl"

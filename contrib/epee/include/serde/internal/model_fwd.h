@@ -30,7 +30,6 @@
 
 namespace serde::model
 {
-    template <typename> struct Deserialize;
     struct Deserializer;
     struct Serializer;
     struct Serializable;

@@ -34,10 +34,7 @@
 #include "storages/portable_storage.h"
 #include "serde/epee/deserializer.h"
 #include "serde/epee/serializer.h"
-#include "serde/model/deserialization.h"
-#include "serde/model/serialization.h"
 #include "serde/model/struct.h"
-#include "serde/model/visitor.h"
 #include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
 #include "span.h"
@@ -50,9 +47,9 @@ namespace {
     Data1(): serde::model::Serializable(), val() {}
     Data1(int64_t val): serde::model::Serializable(), val(val) {}
 
-    PORTABLE_STORAGE_START_STRUCT(Data1)
+    PORTABLE_STORAGE_START_STRUCT()
       PORTABLE_STORAGE_FIELD(val)
-    PORTABLE_STORAGE_END_STRUCT
+    PORTABLE_STORAGE_END_STRUCT()
 
     bool operator==(const Data1& other) const
     {
@@ -67,9 +64,9 @@ namespace {
     StringData(): serde::model::Serializable(), str() {}
     StringData(std::string str): serde::model::Serializable(), str(str) {}
 
-    PORTABLE_STORAGE_START_STRUCT(StringData)
+    PORTABLE_STORAGE_START_STRUCT()
       PORTABLE_STORAGE_FIELD(str)
-    PORTABLE_STORAGE_END_STRUCT
+    PORTABLE_STORAGE_END_STRUCT()
   };
 }
 

@@ -33,7 +33,7 @@
 #include "constants.h"
 #include "../internal/endianness.h"
 #include "../model/constants.h"
-#include "../model/deserializer.h"
+#include "../model/operator_deserialize.h"
 #include "../model/visitor.h"
 
 namespace serde::epee
@@ -359,12 +359,13 @@ namespace serde::epee
     T from_bytes(const const_byte_span& bytes)
     {
         Deserializer deserializer(bytes);
-        optional<T> deser_res = model::Deserialize<T>::dflt(deserializer);
+        T value;
+        const bool success = deserialize_default(deserializer, value);
         CHECK_AND_ASSERT_THROW_MES
         (
-            deser_res,
-            "JSON Deserializer returned no data"
+            success,
+            "Epee binary Deserializer returned no data"
         );
-        return *deser_res;
+        return value;
     }
 } // namespace serde::epee
