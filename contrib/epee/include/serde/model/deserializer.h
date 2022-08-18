@@ -32,5 +32,29 @@ namespace serde::model {
 
         virtual bool is_human_readable() const noexcept = 0;
     };
+
+    // All deserialize_* methods defer to deserialize_any, so base classes only have to define that
+    // one method. Useful for implementing Deserializers for a self-describing formats.
+    struct SelfDescribingDeserializer: public Deserializer
+    {
+        void deserialize_int64  (BasicVisitor&) override final;
+        void deserialize_int32  (BasicVisitor&) override final;
+        void deserialize_int16  (BasicVisitor&) override final;
+        void deserialize_int8   (BasicVisitor&) override final;
+        void deserialize_uint64 (BasicVisitor&) override final;
+        void deserialize_uint32 (BasicVisitor&) override final;
+        void deserialize_uint16 (BasicVisitor&) override final;
+        void deserialize_uint8  (BasicVisitor&) override final;
+        void deserialize_float64(BasicVisitor&) override final;
+        void deserialize_bytes  (BasicVisitor&) override final;
+        void deserialize_boolean(BasicVisitor&) override final;
+
+        void deserialize_array(optional<size_t>, BasicVisitor&) override final;
+        void deserialize_end_array(BasicVisitor&) override final;
+
+        void deserialize_object(optional<size_t>, BasicVisitor&) override final;
+        void deserialize_key(BasicVisitor&) override final;
+        void deserialize_end_object(BasicVisitor&) override final;
+    };
 } // namespace serde::binary
 

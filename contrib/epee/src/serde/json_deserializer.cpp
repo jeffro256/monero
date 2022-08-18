@@ -42,6 +42,7 @@ namespace serde::json
     };
 
     Deserializer::Deserializer(const char* src):
+        model::SelfDescribingDeserializer(),
         m_json_reader(),
         m_istream(const_cast<char*>(src)) // Not necessarily a safe cast
     {

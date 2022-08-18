@@ -15,12 +15,12 @@ namespace serde::epee
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
 
-    class Deserializer: public model::Deserializer
+    class Deserializer: public model::SelfDescribingDeserializer
     {
     public:
 
         Deserializer(const const_byte_span& byte_view):
-            model::Deserializer(),
+            model::SelfDescribingDeserializer(),
             m_current(byte_view),
             m_stack(),
             m_finished(false)
@@ -321,38 +321,6 @@ namespace serde::epee
             {
                 this->deserialize_scalar(this->current_array_type(), visitor);
             }
-        }
-
-        #ifndef DESER_TO_DESER_ANY
-        #define DEFER_TO_DESER_ANY(mname)                                   \
-            void deserialize_##mname(model::BasicVisitor& v) override final \
-            { return this->deserialize_any(v); }
-        #endif
-
-        // The epee binary format is self-describing, so means we can ignore deserialization hints
-        DEFER_TO_DESER_ANY(int64)
-        DEFER_TO_DESER_ANY(int32)
-        DEFER_TO_DESER_ANY(int16)
-        DEFER_TO_DESER_ANY(int8)
-        DEFER_TO_DESER_ANY(uint64)
-        DEFER_TO_DESER_ANY(uint32)
-        DEFER_TO_DESER_ANY(uint16)
-        DEFER_TO_DESER_ANY(uint8)
-        DEFER_TO_DESER_ANY(float64)
-        DEFER_TO_DESER_ANY(bytes)
-        DEFER_TO_DESER_ANY(boolean)
-        DEFER_TO_DESER_ANY(key)
-        DEFER_TO_DESER_ANY(end_array)
-        DEFER_TO_DESER_ANY(end_object)
-
-        void deserialize_array(optional<size_t>, model::BasicVisitor& visitor) override final
-        {
-            this->deserialize_any(visitor);
-        }
-
-        void deserialize_object(optional<size_t>, model::BasicVisitor& visitor) override final
-        {
-            this->deserialize_any(visitor);
         }
 
         bool is_human_readable() const noexcept override final

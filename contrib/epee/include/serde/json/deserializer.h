@@ -11,7 +11,7 @@
 
 namespace serde::json
 {
-    class Deserializer: public model::Deserializer
+    class Deserializer: public model::SelfDescribingDeserializer
     {
     public:
 
@@ -26,38 +26,6 @@ namespace serde::json
     ///////////////////////////////////////////////////////////////////////////
 
         void deserialize_any(model::BasicVisitor& visitor) override final;
-
-        #ifndef DEFER_TO_DESER_ANY
-        #define DEFER_TO_DESER_ANY(mname)                                   \
-            void deserialize_##mname(model::BasicVisitor& v) override final \
-            { return this->deserialize_any(v); }
-        #endif
-
-        // The json format is self-describing, which means we can ignore deserialization hints
-        DEFER_TO_DESER_ANY(int64)
-        DEFER_TO_DESER_ANY(int32)
-        DEFER_TO_DESER_ANY(int16)
-        DEFER_TO_DESER_ANY(int8)
-        DEFER_TO_DESER_ANY(uint64)
-        DEFER_TO_DESER_ANY(uint32)
-        DEFER_TO_DESER_ANY(uint16)
-        DEFER_TO_DESER_ANY(uint8)
-        DEFER_TO_DESER_ANY(float64)
-        DEFER_TO_DESER_ANY(bytes)
-        DEFER_TO_DESER_ANY(boolean)
-        DEFER_TO_DESER_ANY(key)
-        DEFER_TO_DESER_ANY(end_array)
-        DEFER_TO_DESER_ANY(end_object)
-
-        void deserialize_array(optional<size_t>, model::BasicVisitor& visitor) override final
-        {
-            this->deserialize_any(visitor);
-        }
-
-        void deserialize_object(optional<size_t>, model::BasicVisitor& visitor) override final
-        {
-            this->deserialize_any(visitor);
-        }
 
         bool is_human_readable() const noexcept override final;
 
