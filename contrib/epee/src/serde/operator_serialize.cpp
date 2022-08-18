@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "serde/internal/endianness.h"
-#include "serde/model/serialization.h"
+#include "serde/model/operator_serialize.h"
 
 namespace serde::model
 {
