@@ -79,6 +79,27 @@ namespace serde::internal
         bool did_deser;
     }; // struct StructDeserializeField
 
+    // Two specializations for deserializing StructDeserializeFields with AsBlob = true/false
+    template <typename V, bool Required>
+    bool deserialize_field_value
+    (
+        model::Deserializer& deser,
+        StructDeserializeField<V, true, Required>& blob_field
+    )
+    {
+        return blob_field.did_deser = deserialize_as_blob(deser, blob_field.value);
+    }
+
+    template <typename V, bool Required>
+    bool deserialize_field_value
+    (
+        model::Deserializer& deser,
+        StructDeserializeField<V, false, Required>& default_field
+    )
+    {
+        return default_field.did_deser = deserialize_default(deser, default_field.value);
+    }
+
     struct DummyStructField {};
 
     template <bool SerializeSelector, typename V, bool AsBlob, bool Required> 
@@ -223,14 +244,11 @@ namespace serde::internal
                         !field.did_deser, // fields should be deserialized at most once
                         "key seen twice for same object"
                     );
-
-                    using t_field = typename std::remove_reference<decltype(field)>::type;
-
-                    field.did_deser = t_field::do_as_blob
-                        ? deserialize_as_blob(m_deser, field.value)
-                        : deserialize_default(m_deser, field.value);
-
-                    CHECK_AND_ASSERT_THROW_MES(field.did_deser, "object ended after key");
+                    CHECK_AND_ASSERT_THROW_MES
+                    (
+                        deserialize_field_value(m_deser, field), // also sets did_deser
+                        "object ended after key"
+                    );
                     return false;
                 }
                 else
