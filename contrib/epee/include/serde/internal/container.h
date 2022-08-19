@@ -45,16 +45,16 @@ namespace serde::internal {
         vec.reserve(new_capacity);
     }
 
-    #define TUPLE_SIZE(tuplety) std::tuple_size<tuplety>::value
+    #define TUPLE_SIZE(tup) std::tuple_size<typename std::remove_reference<tup>::type>::value
 
-    template <class Tuple, class Functor, size_t I = 0> ENABLE_IF(I < TUPLE_SIZE(Tuple))
-    tuple_for_each(Tuple& tup, Functor& f)
+    template <class Tuple, class Functor, size_t I = 0, size_t J = TUPLE_SIZE(Tuple)>
+    ENABLE_IF(I < J) tuple_for_each(Tuple& tup, Functor& f)
     {
         const bool should_continue = f(std::get<I>(tup));
-        if (should_continue) tuple_for_each<Tuple, Functor, I + 1>(tup, f);
+        if (should_continue) tuple_for_each<Tuple, Functor, I + 1, J>(tup, f);
     }
 
-    template <class Tuple, class Functor, size_t I = 0> ENABLE_IF(I >= TUPLE_SIZE(Tuple))
-    tuple_for_each(Tuple& tup, Functor& f)
+    template <class Tuple, class Functor, size_t I = 0, size_t J = TUPLE_SIZE(Tuple)>
+    ENABLE_IF(I >= J) tuple_for_each(Tuple& tup, Functor& f)
     {}
 }

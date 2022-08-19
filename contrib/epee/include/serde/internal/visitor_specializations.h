@@ -233,40 +233,5 @@ namespace serde::internal
 
             this->visit(std::move(container));
         }
-    };
-
-    template
-    <
-        typename Container,
-        ENABLE_TPARAM_IF_POD(typename Container::value_type),
-        // Enable if container stores raw blob data in memory exactly as it will be deserialized
-        ENABLE_TPARAM_IF(!internal::le_conversion<typename Container::value_type>::needed())
-    >
-    struct BlobContiguousContainerVisitor: public model::GetSetVisitor<Container>
-    {
-        typedef typename Container::value_type value_type;
-
-        BlobContiguousContainerVisitor(Container& c_ref): model::RefVisitor<Container>(c_ref) {}
-
-        std::string expecting() const override final
-        {
-            return "container blob string";
-        }
-
-        void visit_bytes(const const_byte_span& blob) override final
-        {
-            constexpr size_t elem_size = sizeof(value_type);
-
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                blob.size() % elem_size == 0,
-                "blob length " << blob.size() << " not a multiple of element size " << elem_size
-            );
-
-            const size_t num_elements = blob.size() / elem_size;
-            Container container(num_elements); // default fill constructor
-            memcpy(&container[0], blob.begin(), blob.size());
-            this->visit(std::move(container)); // @TODO: use underlying referemce
-        } // visit_bytes
-    }; // struct BlobContiguousContainerVisitor
+    }; // struct BlobContainerVisitor
 } // namespace serde::model

@@ -36,28 +36,35 @@
 #include "../internal/container.h"
 #include "../internal/deps.h"
 
-#define BEGIN_KV_SERIALIZE_MAP()                                                      \
-    using serde_struct_enabled = void;                                                \
-    void serialize_default(serde::model::Serializer& deserializer) const {            \
-        serde_struct_map<true>()(deserializer, *this);                                \
-    }                                                                                 \
-    template <bool SerializeSelector> struct serde_struct_map {                       \
-        template <class This, class Serdelizer>                                       \
-        bool operator()(Serdelizer& serdelizer, This& self) {                         \
-            auto fields = std::make_tuple(                                            \
+#define BEGIN_KV_SERIALIZE_MAP()                                \
+    using serde_struct_enabled = void;                          \
+    template <bool SerializeSelector> struct serde_struct_map { \
+        template <class This, class Serdelizer>                 \
+        bool operator()(Serdelizer& serdelizer, This& self) {   \
+            auto fields = std::make_tuple(                      \
+
+#define KV_SERIALIZE_BASE(fieldname, asblob, required, key)                       \
+                serde::internal::FieldSelector                                    \
+                <SerializeSelector,                                               \
+                typename std::remove_reference<decltype(self . fieldname)>::type, \
+                asblob, required>::type(key, self . fieldname) ,                  \
+
+#define KV_SERIALIZE_N(fieldname, key)                            \
+                KV_SERIALIZE_BASE(fieldname, false, true,         \
+                serde::internal::cstr_to_byte_span( #fieldname )) \
+
+#define KV_SERIALIZE(fieldname)                       \
+                KV_SERIALIZE_N(fieldname, #fieldname) \
 
 #define END_KV_SERIALIZE_MAP()                                                           \
+                serde::internal::DummyStructField()                                      \
             );                                                                           \
             serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
             return true; }};                                                             \
 
-#define KV_SERIALIZE(fieldname)                                          \
-    typename serde::internal::StructFieldSelector                        \
-    <SerializeSelector,                                                  \
-    typename std::remove_reference<decltype(self . fieldname)>::type,    \
-    false,                                                               \
-    true>::type                                                          \
-    (serde::internal::cstr_to_byte_span( #fieldname ), self . fieldname) \
+#define SERDE_STRUCT_OPERATOR_FRIENDS(thisname)                                                   \
+    friend void serialize_default(const thisname& address, serde::model::Serializer& serializer); \
+	friend bool deserialize_default(serde::model::Deserializer& deserializer, thisname& address); \
 
 namespace serde::internal
 {
@@ -88,19 +95,21 @@ namespace serde::internal
         {}
 
         bool did_deser;
-    }; // struct StructField
+    }; // struct StructDeserializeField
 
-    // StructFieldSelector<true, ...>::type is a StructField for serializing
-    // Selects the StructField types for the tuple in serde_map in PORTABLE_STORAGE_START_STRUCT
-    template <bool SerializeSelector, typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector
-    { using type = StructField<const V&, AsBlob>; };
+    struct DummyStructField {};
 
-    // StructFieldSelector<false, ...>::type is a StructField for DEserializing
-    // Selects the StructField types for the tuple in serde_map in PORTABLE_STORAGE_START_STRUCT
-    template <typename V, bool AsBlob, bool Required>
-    struct StructFieldSelector<false, V, AsBlob, Required>
-    { using type = StructDeserializeField<V, AsBlob, Required>; };
+    template <bool SerializeSelector, typename V, bool AsBlob, bool Required> 
+    using FieldSelector = typename std::conditional<SerializeSelector, 
+        StructField<const V&, AsBlob>, 
+        StructDeserializeField<V, AsBlob, Required>>::type;
+
+    template <class Tuple, class Functor>
+    void field_for_each(Tuple& fields, Functor& f)
+    {
+        constexpr size_t real_fields_size = TUPLE_SIZE(Tuple) - 1; // -1 b/c of the dummy
+        tuple_for_each<Tuple, Functor, 0, real_fields_size>(fields, f);
+    }
 
     template <typename... SF>
     struct StructKeysVisitor: public model::BasicVisitor
@@ -150,7 +159,7 @@ namespace serde::internal
         void visit_key(const const_byte_span& key_bytes) override final
         {
             key_search key_search(key_bytes);
-            internal::tuple_for_each(fields, key_search);
+            fields_for_each(fields, key_search);
 
             CHECK_AND_ASSERT_THROW_MES
             (
@@ -202,10 +211,10 @@ namespace serde::internal
         template <typename... SF>
         static void call(const std::tuple<SF...>& fields, model::Serializer& serializer)
         {
-            serialize_field serialize_field(serializer);
+            serialize_field ser(serializer);
 
-            serializer.serialize_start_object(sizeof...(SF));
-            tuple_for_each(fields, serialize_field);
+            serializer.serialize_start_object(sizeof...(SF) - 1); // -1 b/c of the dummy
+            fields_for_each(fields, ser);
             serializer.serialize_end_object();
         }
     };
@@ -262,7 +271,7 @@ namespace serde::internal
             // @TODO: support object in arrays by return false instead of throwing
             internal::CollectionBoundVisitor::expect_object({}, deserializer);
             while (true) {
-                StructKeysVisitor<SF...> keys_visitor(fields);
+                StructKeysVisitor<SF...> keys_visitor(fields); // @TODO: construct outside while
                 deserializer.deserialize_key(keys_visitor);
 
                 if (keys_visitor.object_ended) break;
@@ -278,14 +287,13 @@ namespace serde::internal
 
 namespace serde::model
 {
-    // @TODO: operator serialize
-    /*
+    // Overload the serialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    void serialize_default(const Struct& struct, Deserializer& deserializer)
+    void serialize_default(const Struct& struct_ref, Deserializer& deserializer)
     {
-        return Struct::serde_struct_map<true>(deserializer, struct);
+        using serde_struct_map = typename Struct::serde_struct_map<true>;
+        return serde_struct_map()(deserializer, struct_ref);
     }
-    */
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
