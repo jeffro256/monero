@@ -79,5 +79,18 @@ namespace serde::json
         );
         return value;
     }
+
+    template <typename T>
+    T from_file(const std::string& file_path)
+    {
+        std::string file_contents;
+        // @TODO: maybe put a file size limit
+        CHECK_AND_ASSERT_THROW_MES(
+            ::epee::file_io_utils::load_file_to_string(file_path, file_contents),
+            "Could not read file contents from path '" << file_path << "'"
+        );
+
+        return from_cstr<T>(file_contents.c_str());
+    }
 } // namespace serde::json
 

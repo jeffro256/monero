@@ -28,3 +28,5 @@
 
 #include <rapidjson/reader.h>
 #include <rapidjson/stream.h>
+
+#include "file_io_utils.h" // from epee
