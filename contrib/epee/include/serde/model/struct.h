@@ -51,6 +51,9 @@
                 (serde::internal::cstr_to_byte_span( key ), self . fieldname, \
                 optval) ,                                                     \
 
+#define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(fieldname, optval)                   \
+                KV_SERIALIZE_BASE(fieldname, true, false, #fieldname, optval) \
+
 #define KV_SERIALIZE_N(fieldname, key)                                    \
                 KV_SERIALIZE_BASE(fieldname, false, true, #fieldname, {}) \
 
