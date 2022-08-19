@@ -257,11 +257,16 @@ namespace cryptonote
     uint64_t prev_max_height = get_max_height();
     LOG_PRINT_L1("Hard-coded max checkpoint height is " << prev_max_height);
     t_hash_json hashes;
-    if (!epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath))
+    try
     {
-      MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
+      hashes = serde::json::from_file(json_hashfile_fullpath);
+    }
+    catch(const std::exception& e)
+    {
+       MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
       return false;
     }
+
     for (std::vector<t_hashline>::const_iterator it = hashes.hashlines.begin(); it != hashes.hashlines.end(); )
     {
       uint64_t height;
