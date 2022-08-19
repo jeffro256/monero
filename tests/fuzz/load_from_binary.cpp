@@ -28,7 +28,7 @@
 
 #include "include_base_utils.h"
 #include "file_io_utils.h"
-#include "serde/model/struct.h"
+#include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage_template_helper.h"
 #include "storages/portable_storage_base.h"
 #include "fuzzer.h"

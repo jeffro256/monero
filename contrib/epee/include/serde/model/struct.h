@@ -47,7 +47,7 @@
                 serde::internal::FieldSelector                                    \
                 <SerializeSelector,                                               \
                 typename std::remove_reference<decltype(self . fieldname)>::type, \
-                asblob, required>::type(key, self . fieldname) ,                  \
+                asblob, required>(key, self . fieldname) ,                        \
 
 #define KV_SERIALIZE_N(fieldname, key)                            \
                 KV_SERIALIZE_BASE(fieldname, false, true,         \
@@ -105,7 +105,7 @@ namespace serde::internal
         StructDeserializeField<V, AsBlob, Required>>::type;
 
     template <class Tuple, class Functor>
-    void field_for_each(Tuple& fields, Functor& f)
+    void fields_for_each(Tuple& fields, Functor& f)
     {
         constexpr size_t real_fields_size = TUPLE_SIZE(Tuple) - 1; // -1 b/c of the dummy
         tuple_for_each<Tuple, Functor, 0, real_fields_size>(fields, f);
@@ -277,7 +277,7 @@ namespace serde::internal
                 if (keys_visitor.object_ended) break;
 
                 deserialize_nth_field dnf(keys_visitor.match_index, deserializer);
-                tuple_for_each(fields, dnf);
+                fields_for_each(fields, dnf);
             }
 
             // @TODO: required check up etc 
@@ -289,10 +289,10 @@ namespace serde::model
 {
     // Overload the serialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    void serialize_default(const Struct& struct_ref, Deserializer& deserializer)
+    void serialize_default(const Struct& struct_ref, Serializer& serializer)
     {
         using serde_struct_map = typename Struct::serde_struct_map<true>;
-        return serde_struct_map()(deserializer, struct_ref);
+        serde_struct_map()(serializer, struct_ref);
     }
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef

@@ -37,7 +37,7 @@
 #include "byte_slice.h"
 #include "enums.h"
 #include "misc_log_ex.h"
-#include "serde/model/struct.h"
+#include "serialization/keyvalue_serialization.h"
 #include "int-util.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -91,9 +91,17 @@ namespace net_utils
 		static constexpr zone get_zone() noexcept { return zone::public_; }
 		static constexpr bool is_blockable() noexcept { return true; }
 
-		static_assert(BYTE_ORDER == LITTLE_ENDIAN); // (de)serializes m_ip as LE
 		BEGIN_KV_SERIALIZE_MAP()
-			KV_SERIALIZE(m_ip)
+			if (is_store)
+			{
+				uint32_t ip = SWAP32LE(this_ref.m_ip);
+				epee::serialization::selector<is_store>::serialize(ip, stg, hparent_section, "m_ip");
+			}
+			else
+			{
+				KV_SERIALIZE(m_ip)
+				const_cast<ipv4_network_address&>(this_ref).m_ip = SWAP32LE(this_ref.m_ip);
+			}
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
@@ -191,7 +199,9 @@ namespace net_utils
 
 		static const uint8_t ID = 2;
 		BEGIN_KV_SERIALIZE_MAP()
-			KV_SERIALIZE_N(m_address, "addr")
+			boost::asio::ip::address_v6::bytes_type bytes = this_ref.m_address.to_bytes();
+			epee::serialization::selector<is_store>::serialize_t_val_as_blob(bytes, stg, hparent_section, "addr");
+			const_cast<boost::asio::ip::address_v6&>(this_ref.m_address) = boost::asio::ip::address_v6(bytes);
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
@@ -289,8 +299,6 @@ namespace net_utils
 			return epee::serialization::selector<true>::serialize(as<T>(), stg, hparent, "addr");
 		}
 
-		SERDE_STRUCT_OPERATOR_FRIENDS(network_address)
-
 	public:
 		network_address() : self(nullptr) {}
 		template<typename T>
@@ -349,22 +357,6 @@ namespace net_utils
 	{ return rhs.less(lhs); }
 	inline bool operator>=(const network_address& lhs, const network_address& rhs)
 	{ return !lhs.less(rhs); }
-
-	void serialize_default(const network_address& address, serde::model::Serializer& serializer)
-	{
-		serializer.serialize_start_object(2);
-			serializer.serialize_key(serde::internal::cstr_to_byte_span("type"));
-			serializer.serialize_uint8(static_cast<uint8_t>(address.get_type_id()));
-			serializer.serialize_key(serde::internal::cstr_to_byte_span("addr"));
-			serialize_default(address.self, serializer);
-		serializer.serialize_end_object();
-	}
-
-	bool deserialize_default(serde::model::Deserializer& deserializer, network_address& address)
-	{
-		
-		return true;
-	}
 
 	/************************************************************************/
 	/*                                                                      */

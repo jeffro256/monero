@@ -33,7 +33,7 @@
 #include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
-#include "serde/model/struct.h"
+#include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
 #include "net/tor_address.h" // needed for serialization
 #include "net/i2p_address.h" // needed for serialization

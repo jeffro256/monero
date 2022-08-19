@@ -65,7 +65,7 @@
 #include "net/tor_address.h"
 #include "net/zmq.h"
 #include "p2p/net_peerlist_boost_serialization.h"
-#include "serde/model/struct.h"
+#include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
 
 namespace

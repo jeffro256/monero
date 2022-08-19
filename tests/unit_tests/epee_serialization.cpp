@@ -31,21 +31,22 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-#include "storages/portable_storage.h"
 #include "serde/epee/deserializer.h"
 #include "serde/epee/serializer.h"
+#include "serde/model/operator_deserialize.h"
+#include "serde/model/operator_serialize.h"
 #include "serde/model/struct.h"
 #include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
 #include "span.h"
 
 namespace {
-  struct Data1: public serde::model::Serializable
+  struct Data1
   {
     int16_t val;
 
-    Data1(): serde::model::Serializable(), val() {}
-    Data1(int64_t val): serde::model::Serializable(), val(val) {}
+    Data1(): val() {}
+    Data1(int64_t val): val(val) {}
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(val)
@@ -57,39 +58,17 @@ namespace {
     }
   };
 
-  struct StringData: public serde::model::Serializable
+  struct StringData
   {
     std::string str;
 
-    StringData(): serde::model::Serializable(), str() {}
-    StringData(std::string str): serde::model::Serializable(), str(str) {}
+    StringData(): str() {}
+    StringData(std::string str): str(str) {}
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(str)
     END_KV_SERIALIZE_MAP()
   };
-}
-
-TEST(epee_binary, two_keys)
-{
-  static constexpr const std::uint8_t data[] = {
-    0x01, 0x11, 0x01, 0x1, 0x01, 0x01, 0x02, 0x1, 0x1, 0x08, 0x01, 'a',
-    0x0B, 0x00, 0x01, 'b', 0x0B, 0x00
-  };
-
-  epee::serialization::portable_storage storage{};
-  EXPECT_TRUE(storage.load_from_binary(data));
-}
-
-TEST(epee_binary, duplicate_key)
-{
-  static constexpr const std::uint8_t data[] = {
-    0x01, 0x11, 0x01, 0x1, 0x01, 0x01, 0x02, 0x1, 0x1, 0x08, 0x01, 'a',
-    0x0B, 0x00, 0x01, 'a', 0x0B, 0x00
-  };
-
-  epee::serialization::portable_storage storage{};
-  EXPECT_FALSE(storage.load_from_binary(data));
 }
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
@@ -111,7 +90,7 @@ TEST(epee_serialization, bin_serialize_1)
 
   Data1 data = { 2023 };
   Serializer<std::stringstream> bs = {std::stringstream()};
-  data.serialize_default(bs);
+  serialize_default(data, bs);
   std::string result = bs.move_inner_stream().str();
 
   EXPECT_EQ(ARRAY_STR(expected_binary), result);
@@ -125,7 +104,7 @@ TEST (epee_serialization, json_serialize_1)
 
   const Data1 data = { 2023 };
   Serializer<std::stringstream> js = {std::stringstream()};
-  data.serialize_default(js);
+  serialize_default(data, js);
   std::string result = js.move_inner_stream().str();
 
   EXPECT_EQ(expected_json, result);
@@ -148,7 +127,7 @@ TEST(epee_serialization, json_escape)
     const auto& expected_json = test_case.second;
 
     Serializer<std::stringstream> js = {std::stringstream()};
-    input_instance.serialize_default(js);
+    serialize_default(input_instance, js);
     const auto actual_json = js.move_inner_stream().str();
 
     EXPECT_EQ(expected_json, actual_json);
