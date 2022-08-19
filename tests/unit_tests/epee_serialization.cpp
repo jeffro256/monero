@@ -149,7 +149,8 @@ TEST(epee_serialization, bin_deserialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  const Data1 deserialized_data = from_bytes<Data1>(source_binary);
+  Data1 deserialized_data;
+  EXPECT_TRUE(from_bytes(source_binary, deserialized_data));
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
@@ -158,7 +159,8 @@ TEST(epee_serialization, json_deserialize_1)
 {
   using namespace serde::json;
 
-  const Data1 deserialized_data = from_cstr<Data1>("{\"val\":7777}");
+  Data1 deserialized_data;
+  EXPECT_TRUE(from_cstr("{\"val\":7777}", deserialized_data));
   const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
 }

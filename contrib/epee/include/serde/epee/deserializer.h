@@ -356,16 +356,9 @@ namespace serde::epee
     }; // class Deserializer
 
     template <typename T>
-    T from_bytes(const const_byte_span& bytes)
+    bool from_bytes(const const_byte_span& bytes, T& value)
     {
         Deserializer deserializer(bytes);
-        T value;
-        const bool success = deserialize_default(deserializer, value);
-        CHECK_AND_ASSERT_THROW_MES
-        (
-            success,
-            "Epee binary Deserializer returned no data"
-        );
-        return value;
+        return deserialize_default(deserializer, value);
     }
 } // namespace serde::epee
