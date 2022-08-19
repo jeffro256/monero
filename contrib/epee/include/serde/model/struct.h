@@ -46,12 +46,15 @@
 #define KV_SERIALIZE_BASE(fieldname, asblob, required, key)                       \
                 serde::internal::FieldSelector                                    \
                 <SerializeSelector,                                               \
-                typename std::remove_reference<decltype(self . fieldname)>::type, \
-                asblob, required>(key, self . fieldname) ,                        \
+                decltype(self . fieldname),                                       \
+                asblob, required>                                                 \
+                (serde::internal::cstr_to_byte_span( key ), self . fieldname) ,   \
 
-#define KV_SERIALIZE_N(fieldname, key)                            \
-                KV_SERIALIZE_BASE(fieldname, false, true,         \
-                serde::internal::cstr_to_byte_span( #fieldname )) \
+#define KV_SERIALIZE_N(fieldname, key)                                \
+                KV_SERIALIZE_BASE(fieldname, false, true, #fieldname) \
+
+#define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(fieldname)                \
+                KV_SERIALIZE_BASE(fieldname, true, true, #fieldname) \
 
 #define KV_SERIALIZE(fieldname)                       \
                 KV_SERIALIZE_N(fieldname, #fieldname) \
