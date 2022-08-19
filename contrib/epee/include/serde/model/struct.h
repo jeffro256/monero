@@ -43,18 +43,19 @@
         bool operator()(Serdelizer& serdelizer, This& self) {   \
             auto fields = std::make_tuple(                      \
 
-#define KV_SERIALIZE_BASE(fieldname, asblob, required, key)                       \
-                serde::internal::FieldSelector                                    \
-                <SerializeSelector,                                               \
-                decltype(self . fieldname),                                       \
-                asblob, required>                                                 \
-                (serde::internal::cstr_to_byte_span( key ), self . fieldname) ,   \
+#define KV_SERIALIZE_BASE(fieldname, asblob, required, key, optval)           \
+                serde::internal::FieldSelector                                \
+                <SerializeSelector,                                           \
+                decltype(self . fieldname),                                   \
+                asblob, required>                                             \
+                (serde::internal::cstr_to_byte_span( key ), self . fieldname, \
+                optval) ,                                                     \
 
-#define KV_SERIALIZE_N(fieldname, key)                                \
-                KV_SERIALIZE_BASE(fieldname, false, true, #fieldname) \
+#define KV_SERIALIZE_N(fieldname, key)                                    \
+                KV_SERIALIZE_BASE(fieldname, false, true, #fieldname, {}) \
 
-#define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(fieldname)                \
-                KV_SERIALIZE_BASE(fieldname, true, true, #fieldname) \
+#define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(fieldname)                    \
+                KV_SERIALIZE_BASE(fieldname, true, true, #fieldname, {}) \
 
 #define KV_SERIALIZE(fieldname)                       \
                 KV_SERIALIZE_N(fieldname, #fieldname) \
@@ -69,240 +70,15 @@
     friend void serialize_default(const thisname& address, serde::model::Serializer& serializer); \
 	friend bool deserialize_default(serde::model::Deserializer& deserializer, thisname& address); \
 
-namespace serde::internal
-{
-    template <typename ValRef, bool AsBlob>
-    struct StructField
-    {
-        static constexpr bool do_as_blob = AsBlob;
-
-        constexpr StructField(const const_byte_span& key, ValRef value): key(key), value(value) {}
-
-        const_byte_span key;
-        ValRef value;
-
-        bool matches_key(const const_byte_span& other_key) const
-        {
-            if (other_key.size() != this->key.size()) return false;
-            return 0 == memcmp(key.begin(), other_key.begin(), key.size());
-        }
-    };
-    
-    template <typename V, bool AsBlob, bool Required>
-    struct StructDeserializeField: public StructField<V&, AsBlob>
-    {
-        static constexpr bool required = Required;
-
-        constexpr StructDeserializeField(const const_byte_span& key, V& value):
-            StructField<V&, AsBlob>(key, value), did_deser(false)
-        {}
-
-        bool did_deser;
-    }; // struct StructDeserializeField
-
-    struct DummyStructField {};
-
-    template <bool SerializeSelector, typename V, bool AsBlob, bool Required> 
-    using FieldSelector = typename std::conditional<SerializeSelector, 
-        StructField<const V&, AsBlob>, 
-        StructDeserializeField<V, AsBlob, Required>>::type;
-
-    template <class Tuple, class Functor>
-    void fields_for_each(Tuple& fields, Functor& f)
-    {
-        constexpr size_t real_fields_size = TUPLE_SIZE(Tuple) - 1; // -1 b/c of the dummy
-        tuple_for_each<Tuple, Functor, 0, real_fields_size>(fields, f);
-    }
-
-    template <typename... SF>
-    struct StructKeysVisitor: public model::BasicVisitor
-    {
-        static constexpr size_t NO_MATCH = std::numeric_limits<size_t>::max();
-
-        class key_search
-        {
-        public:
-            key_search(const const_byte_span& target_key):
-                m_target_key(target_key), m_match_index(NO_MATCH), m_i(0)
-            {}
-
-            template <typename Field>
-            bool operator()(Field& field)
-            {
-                if (field.matches_key(m_target_key))
-                {
-                    m_match_index = m_i;
-                    return false;
-                }
-                else
-                {
-                    m_i++;
-                    return true;
-                } 
-            }
-
-            bool matched() const { return m_match_index != NO_MATCH; }
-            size_t match_index() const { return m_match_index; }
-
-        private:
-            const const_byte_span& m_target_key;
-            size_t m_match_index;
-            size_t m_i;
-        }; // class key_seach
-
-        constexpr StructKeysVisitor(std::tuple<SF...>& fields):
-            fields(fields), object_ended(false), match_index(NO_MATCH)
-        {}
-
-        std::string expecting() const override final
-        {
-            return "keys";
-        }
-
-        void visit_key(const const_byte_span& key_bytes) override final
-        {
-            key_search key_search(key_bytes);
-            fields_for_each(fields, key_search);
-
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                key_search.matched(),
-                "Key '" << byte_span_to_string(key_bytes) << "' was not found in struct"
-            );
-
-            match_index = key_search.match_index();
-        }
-
-        void visit_end_object() override final
-        {
-            object_ended = true;
-        }
-
-        std::tuple<SF...>& fields;
-        bool object_ended;
-        size_t match_index;
-    }; // struct StructKeysVisitor
-
-    // If true, serialize. If false, deserialize
-    template <bool SerializeSelector>
-    struct struct_serde
-    {
-        struct serialize_field
-        {
-            constexpr serialize_field(model::Serializer& serializer): serializer(serializer) {}
-
-            template <class Field>
-            bool operator()(Field& field)
-            {
-                serializer.serialize_key(field.key);
-
-                if (Field::do_as_blob)
-                {
-                    model::serialize_as_blob(field.value, serializer);
-                }
-                else
-                {
-                    model::serialize_default(field.value, serializer);
-                }
-                
-                return true;
-            }
-
-            model::Serializer& serializer;
-        };
-
-        template <typename... SF>
-        static void call(const std::tuple<SF...>& fields, model::Serializer& serializer)
-        {
-            serialize_field ser(serializer);
-
-            serializer.serialize_start_object(sizeof...(SF) - 1); // -1 b/c of the dummy
-            fields_for_each(fields, ser);
-            serializer.serialize_end_object();
-        }
-    };
-
-    // If true, serialize. If false, deserialize
-    template <>
-    struct struct_serde<false>
-    {
-        class deserialize_nth_field
-        {
-        public:
-
-            constexpr deserialize_nth_field(size_t n, model::Deserializer& deserializer):
-                m_n(n), m_i(0), m_deser(deserializer)
-            {} 
-
-            template <typename Field>
-            bool operator()(Field& field)
-            {
-                if (m_i == m_n)
-                {
-                    CHECK_AND_ASSERT_THROW_MES
-                    (
-                        !field.did_deser, // fields should be deserialized at most once
-                        "key seen twice for same object"
-                    );
-
-                    using t_field = typename std::remove_reference<decltype(field)>::type;
-
-                    field.did_deser = t_field::do_as_blob
-                        ? deserialize_as_blob(m_deser, field.value)
-                        : deserialize_default(m_deser, field.value);
-
-                    CHECK_AND_ASSERT_THROW_MES(field.did_deser, "object ended after key");
-                    return false;
-                }
-                else
-                {
-                    m_i++;
-                    return true;
-                }
-            }
-
-        private:
-
-            size_t m_n;
-            size_t m_i;
-            model::Deserializer& m_deser;
-        }; // class deserialize_nth_field
-
-        template <typename... SF>
-        static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer)
-        {
-            // @TODO: support object in arrays by return false instead of throwing
-            internal::CollectionBoundVisitor::expect_object({}, deserializer);
-            while (true) {
-                StructKeysVisitor<SF...> keys_visitor(fields); // @TODO: construct outside while
-                deserializer.deserialize_key(keys_visitor);
-
-                if (keys_visitor.object_ended) break;
-
-                deserialize_nth_field dnf(keys_visitor.match_index, deserializer);
-                fields_for_each(fields, dnf);
-            }
-
-            // @TODO: required check up etc 
-        }
-    }; // struct struct_serde
-} // namespace serde::internal
-
 namespace serde::model
 {
     // Overload the serialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    void serialize_default(const Struct& struct_ref, Serializer& serializer)
-    {
-        using serde_struct_map = typename Struct::serde_struct_map<true>;
-        serde_struct_map()(serializer, struct_ref);
-    }
+    void serialize_default(const Struct& struct_ref, Serializer& serializer);
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref)
-    {
-        using serde_struct_map = typename Struct::serde_struct_map<false>;
-        return serde_struct_map()(deserializer, struct_ref);
-    }
+    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref);
 }
+
+#include "../internal/struct.inl"
