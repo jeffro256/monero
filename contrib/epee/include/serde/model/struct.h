@@ -66,6 +66,9 @@
 #define KV_SERIALIZE_CONTAINER_POD_AS_BLOB(fieldname)   \
                 KV_SERIALIZE_VAL_POD_AS_BLOB(fieldname) \
 
+#define KV_SERIALIZE_OPT(fieldname, optval)                                    \
+                KV_SERIALIZE_BASE(fieldname, false, false, #fieldname, optval) \
+
 #define KV_SERIALIZE(fieldname)                       \
                 KV_SERIALIZE_N(fieldname, #fieldname) \
 
