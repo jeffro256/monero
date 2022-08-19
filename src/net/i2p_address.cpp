@@ -36,7 +36,7 @@
 #include <limits>
 
 #include "net/error.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
 

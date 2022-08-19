@@ -37,7 +37,7 @@
 #include "byte_slice.h"
 #include "enums.h"
 #include "misc_log_ex.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include "int-util.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -92,16 +92,7 @@ namespace net_utils
 		static constexpr bool is_blockable() noexcept { return true; }
 
 		BEGIN_KV_SERIALIZE_MAP()
-			if (is_store)
-			{
-				uint32_t ip = SWAP32LE(this_ref.m_ip);
-				epee::serialization::selector<is_store>::serialize(ip, stg, hparent_section, "m_ip");
-			}
-			else
-			{
-				KV_SERIALIZE(m_ip)
-				const_cast<ipv4_network_address&>(this_ref).m_ip = SWAP32LE(this_ref.m_ip);
-			}
+			KV_SERIALIZE(m_ip)
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
@@ -199,9 +190,7 @@ namespace net_utils
 
 		static const uint8_t ID = 2;
 		BEGIN_KV_SERIALIZE_MAP()
-			boost::asio::ip::address_v6::bytes_type bytes = this_ref.m_address.to_bytes();
-			epee::serialization::selector<is_store>::serialize_t_val_as_blob(bytes, stg, hparent_section, "addr");
-			const_cast<boost::asio::ip::address_v6&>(this_ref.m_address) = boost::asio::ip::address_v6(bytes);
+			KV_SERIALIZE_N(m_address, "addr")
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
@@ -283,22 +272,6 @@ namespace net_utils
 			return static_cast<implementation<Type_>*>(self_)->value;
 		}
 
-		template<typename T, typename t_storage>
-		bool serialize_addr(std::false_type, t_storage& stg, typename t_storage::hsection hparent)
-		{
-			T addr{};
-			if (!epee::serialization::selector<false>::serialize(addr, stg, hparent, "addr"))
-				return false;
-			*this = std::move(addr);
-			return true;
-		}
-
-		template<typename T, typename t_storage>
-		bool serialize_addr(std::true_type, t_storage& stg, typename t_storage::hsection hparent) const
-		{
-			return epee::serialization::selector<true>::serialize(as<T>(), stg, hparent, "addr");
-		}
-
 	public:
 		network_address() : self(nullptr) {}
 		template<typename T>
@@ -317,32 +290,7 @@ namespace net_utils
 		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
-		BEGIN_KV_SERIALIZE_MAP()
-			// need to `#include "net/[i2p|tor]_address.h"` when serializing `network_address`
-			static constexpr std::integral_constant<bool, is_store> is_store_{};
-
-			std::uint8_t type = std::uint8_t(is_store ? this_ref.get_type_id() : address_type::invalid);
-			if (!epee::serialization::selector<is_store>::serialize(type, stg, hparent_section, "type"))
-				return false;
-
-			switch (address_type(type))
-			{
-				case address_type::ipv4:
-					return this_ref.template serialize_addr<ipv4_network_address>(is_store_, stg, hparent_section);
-				case address_type::ipv6:
-					return this_ref.template serialize_addr<ipv6_network_address>(is_store_, stg, hparent_section);
-				case address_type::tor:
-					return this_ref.template serialize_addr<net::tor_address>(is_store_, stg, hparent_section);
-				case address_type::i2p:
-					return this_ref.template serialize_addr<net::i2p_address>(is_store_, stg, hparent_section);
-				case address_type::invalid:
-				default:
-					break;
-			}
-
-			MERROR("Unsupported network address type: " << (unsigned)type);
-			return false;
-		END_KV_SERIALIZE_MAP()
+		// @TODO: @jeffro256 needs to replace serialization 
 	};
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)

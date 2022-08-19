@@ -31,7 +31,7 @@
 #pragma once
 
 #include <list>
-#include "serialization/keyvalue_serialization.h"
+#include "serde/model/struct.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
 
