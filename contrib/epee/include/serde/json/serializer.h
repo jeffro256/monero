@@ -28,8 +28,10 @@
 
 #pragma once
 
+#include <fstream>
 #include <string>
 
+#include "../model/operator_serialize.h"
 #include "../model/serializer.h"
 
 namespace serde::json {
@@ -225,4 +227,12 @@ namespace serde::json {
             m_stream.put(',');
         }
     }
-} // namespace serde::binary
+
+    template <typename T>
+    void to_file(const T& value, const std::string file_path)
+    {
+        std::ofstream ofs(file_path);
+        Serializer<std::ofstream> serializer(std::move(ofs));
+        serialize_default(value, serializer);
+    }
+} // namespace serde::epee
