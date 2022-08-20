@@ -51,8 +51,8 @@
                 (serde::internal::cstr_to_byte_span( key ), self . fieldname, \
                 optval) ),                                                    \
 
-#define KV_SERIALIZE_PARENT(basename)                                  \
-                basename::make_serde_fields<SerializeSelector>()(self) \
+#define KV_SERIALIZE_PARENT(basename)                                   \
+                basename::make_serde_fields<SerializeSelector>()(self), \
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(fieldname, optval)                   \
                 KV_SERIALIZE_BASE(fieldname, true, false, #fieldname, optval) \
