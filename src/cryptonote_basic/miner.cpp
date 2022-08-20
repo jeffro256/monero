@@ -41,6 +41,8 @@
 #include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"
+#include "serde/json/deserializer.h"
+#include "serde/json/serializer.h"
 #include "boost/logic/tribool.hpp"
 #include <boost/filesystem.hpp>
 
@@ -314,7 +316,7 @@ namespace cryptonote
       m_config_folder_path = boost::filesystem::path(command_line::get_arg(vm, arg_extra_messages)).parent_path().string();
       m_config = AUTO_VAL_INIT(m_config);
       const std::string filename = m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME;
-      CHECK_AND_ASSERT_MES(epee::serialization::load_t_from_json_file(m_config, filename), false, "Failed to load data from " << filename);
+      CHECK_AND_ASSERT_MES(serde::json::from_file(filename, m_config), false, "Failed to load data from " << filename);
       MINFO("Loaded " << m_extra_messages.size() << " extra messages, current index " << m_config.current_extra_message_index);
     }
 
@@ -588,7 +590,10 @@ namespace cryptonote
         {
           //success update, lets update config
           if (!m_config_folder_path.empty())
-            epee::serialization::store_t_to_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
+          {
+            const std::string miner_config_path = m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME;
+            serde::json::to_file(m_config, miner_config_path);
+          }
         }
       }
       nonce+=m_threads_total;
