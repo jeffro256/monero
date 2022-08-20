@@ -135,32 +135,6 @@ namespace cryptonote
     blobdata block;
     uint64_t block_weight;
     std::vector<tx_blob_entry> txs;
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE_OPT(pruned, false)
-      KV_SERIALIZE(block)
-      KV_SERIALIZE_OPT(block_weight, (uint64_t)0)
-      if (this_ref.pruned)
-      {
-        KV_SERIALIZE(txs)
-      }
-      else
-      {
-        std::vector<blobdata> txs;
-        if (is_store)
-        {
-          txs.reserve(this_ref.txs.size());
-          for (const auto &e: this_ref.txs) txs.push_back(e.blob);
-        }
-        epee::serialization::selector<is_store>::serialize(txs, stg, hparent_section, "txs");
-        if (!is_store)
-        {
-          block_complete_entry &self = const_cast<block_complete_entry&>(this_ref);
-          self.txs.clear();
-          self.txs.reserve(txs.size());
-          for (auto &e: txs) self.txs.push_back({std::move(e), crypto::null_hash});
-        }
-      }
-    END_KV_SERIALIZE_MAP()
 
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
