@@ -100,19 +100,10 @@ namespace serde::internal
         return default_field.did_deser = deserialize_default(deser, default_field.value);
     }
 
-    struct DummyStructField {};
-
     template <bool SerializeSelector, typename V, bool AsBlob, bool Required> 
     using FieldSelector = typename std::conditional<SerializeSelector, 
         StructField<const V&, AsBlob>, 
         StructDeserializeField<V, AsBlob, Required>>::type;
-
-    template <class Tuple, class Functor>
-    void fields_for_each(Tuple& fields, Functor& f)
-    {
-        constexpr size_t real_fields_size = TUPLE_SIZE(Tuple) - 1; // -1 b/c of the dummy
-        tuple_for_each<Tuple, Functor, 0, real_fields_size>(fields, f);
-    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Serialization Side                                                    //
@@ -135,6 +126,7 @@ namespace serde::internal
     }; // struct serialize_field
 
     // If true, serialize. If false, deserialize
+    // @TODO: struct_serde doesn't need to be a bool overloaded struct
     template <bool SerializeSelector>
     struct struct_serde
     {
@@ -143,8 +135,8 @@ namespace serde::internal
         {
             serialize_field ser(serializer);
 
-            serializer.serialize_start_object(sizeof...(SF) - 1); // -1 b/c of the dummy
-            fields_for_each(fields, ser);
+            serializer.serialize_start_object(sizeof...(SF));
+            tuple_for_each(fields, ser);
             serializer.serialize_end_object();
         }
     }; // struct struct_serde
@@ -201,7 +193,7 @@ namespace serde::internal
         void visit_key(const const_byte_span& key_bytes) override final
         {
             key_search key_search(key_bytes);
-            fields_for_each(fields, key_search);
+            tuple_for_each(fields, key_search);
 
             CHECK_AND_ASSERT_THROW_MES
             (
@@ -223,6 +215,7 @@ namespace serde::internal
     }; // struct StructKeysVisitor
 
     // If true, serialize. If false, deserialize
+    // @TODO: struct_serde doesn't need to be a bool overloaded struct
     template <>
     struct struct_serde<false>
     {
@@ -277,7 +270,7 @@ namespace serde::internal
                 if (keys_visitor.object_ended) break;
 
                 deserialize_nth_field dnf(keys_visitor.match_index, deserializer);
-                fields_for_each(fields, dnf);
+                tuple_for_each(fields, dnf);
             }
 
             // @TODO: required check up etc 
@@ -291,15 +284,18 @@ namespace serde::model
     template <class Struct, typename = typename Struct::serde_struct_enabled>
     void serialize_default(const Struct& struct_ref, Serializer& serializer)
     {
-        using serde_struct_map = typename Struct::serde_struct_map<true>;
-        serde_struct_map()(serializer, struct_ref);
+        using serde_struct_map = typename Struct::make_serde_fields<true>;
+        const auto fields = serde_struct_map()(struct_ref);
+        internal::struct_serde<true>::call(fields, serializer);
     }
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
     bool deserialize_default(Deserializer& deserializer, Struct& struct_ref)
     {
-        using serde_struct_map = typename Struct::serde_struct_map<false>;
-        return serde_struct_map()(deserializer, struct_ref);
+        using serde_struct_map = typename Struct::make_serde_fields<false>;
+        auto fields = serde_struct_map()(struct_ref);
+        internal::struct_serde<false>::call(fields, deserializer);
+        return true; // @TODO: more robust error propogation
     }
 }

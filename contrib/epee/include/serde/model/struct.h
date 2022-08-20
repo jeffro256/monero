@@ -36,20 +36,23 @@
 #include "../internal/container.h"
 #include "../internal/deps.h"
 
-#define BEGIN_KV_SERIALIZE_MAP()                                \
-    using serde_struct_enabled = void;                          \
-    template <bool SerializeSelector> struct serde_struct_map { \
-        template <class This, class Serdelizer>                 \
-        bool operator()(Serdelizer& serdelizer, This& self) {   \
-            auto fields = std::make_tuple(                      \
+#define BEGIN_KV_SERIALIZE_MAP()                                 \
+    using serde_struct_enabled = void;                           \
+    template <bool SerializeSelector> struct make_serde_fields { \
+        template <class This>                                    \
+        auto operator()(This& self) {                            \
+            return std::tuple_cat(                               \
 
 #define KV_SERIALIZE_BASE(fieldname, asblob, required, key, optval)           \
-                serde::internal::FieldSelector                                \
+                std::make_tuple(serde::internal::FieldSelector                \
                 <SerializeSelector,                                           \
                 decltype(self . fieldname),                                   \
                 asblob, required>                                             \
                 (serde::internal::cstr_to_byte_span( key ), self . fieldname, \
-                optval) ,                                                     \
+                optval) ),                                                    \
+
+#define KV_SERIALIZE_PARENT(basename)                                  \
+                basename::make_serde_fields<SerializeSelector>()(self) \
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(fieldname, optval)                   \
                 KV_SERIALIZE_BASE(fieldname, true, false, #fieldname, optval) \
@@ -72,11 +75,9 @@
 #define KV_SERIALIZE(fieldname)                       \
                 KV_SERIALIZE_N(fieldname, #fieldname) \
 
-#define END_KV_SERIALIZE_MAP()                                                           \
-                serde::internal::DummyStructField()                                      \
-            );                                                                           \
-            serde::internal::struct_serde<SerializeSelector>::call(fields, serdelizer);  \
-            return true; }};                                                             \
+#define END_KV_SERIALIZE_MAP()    \
+                std::make_tuple() \
+            ); }};                \
 
 #define SERDE_STRUCT_OPERATOR_FRIENDS(thisname)                                                   \
     friend void serialize_default(const thisname& address, serde::model::Serializer& serializer); \
