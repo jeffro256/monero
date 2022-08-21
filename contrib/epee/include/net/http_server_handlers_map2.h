@@ -28,8 +28,6 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
-#include "storages/portable_storage.h"
-#include "storages/portable_storage_template_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"

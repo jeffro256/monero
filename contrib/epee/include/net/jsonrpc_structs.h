@@ -4,7 +4,6 @@
 #include <string>
 #include <cstdint>
 #include "serde/model/struct.h"
-#include "storages/portable_storage_base.h"
 
 namespace epee 
 {
@@ -15,7 +14,7 @@ namespace epee
     {
       std::string jsonrpc;
       std::string method;
-      epee::serialization::storage_entry id;
+      std::string id;
       t_param     params;
 
       request(): id{}, params{} {}
@@ -58,7 +57,7 @@ namespace epee
     {
       std::string jsonrpc;
       t_param     result;
-      epee::serialization::storage_entry id;
+      std::string id;
       t_error     error;
 
       response(): result{}, id(), error{} {}
@@ -76,7 +75,7 @@ namespace epee
     {
       std::string jsonrpc;
       t_param     result;
-      epee::serialization::storage_entry id;
+      std::string id;
 
       response(): result{}, id{} {}
 
@@ -92,7 +91,7 @@ namespace epee
     {
       std::string jsonrpc;
       t_error     error;
-      epee::serialization::storage_entry id;
+      std::string id;
 
       response(): error{}, id{} {}
 
