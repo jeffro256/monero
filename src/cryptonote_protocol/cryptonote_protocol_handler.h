@@ -211,7 +211,7 @@ namespace cryptonote
         LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(context) << "] post " << typeid(t_parameter).name() << " -->");
 
         epee::levin::message_writer out{256 * 1024}; // optimize for block responses
-        epee::serialization::store_t_to_binary(arg, out.buffer);
+        serde::epee_binary::to_byte_stream(arg, out.buffer);
         //handler_response_blocks_now(blob.size()); // XXX
         return m_p2p->invoke_notify_to_peer(t_parameter::ID, std::move(out), context);
       }
