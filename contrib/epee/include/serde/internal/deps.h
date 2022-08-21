@@ -149,3 +149,9 @@ namespace serde
 
 #include "byte_slice.h" // from epee
 #include "byte_stream.h" // from epee
+
+namespace serde
+{
+    using byte_slice = epee::byte_slice;
+    using byte_stream = epee::byte_stream;
+}

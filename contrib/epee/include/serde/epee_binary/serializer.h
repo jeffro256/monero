@@ -51,10 +51,8 @@ namespace serde::epee_binary
     class Serializer: public serde::model::Serializer
     {
     public:
-        Serializer(t_ostream stream);
+        Serializer(t_ostream& stream);
         virtual ~Serializer() override final {}
-
-        t_ostream move_inner_stream() { return std::move(m_stream); }
 
     private:
         struct recursion_level
@@ -78,7 +76,7 @@ namespace serde::epee_binary
         void pop(bool should_be_object);
         void did_serialize();
 
-        t_ostream m_stream;
+        t_ostream& m_stream;
         std::list<recursion_level> m_stack;
 
     // Serializer interface
@@ -106,8 +104,8 @@ namespace serde::epee_binary
     };
 
     template<class t_ostream>
-    Serializer<t_ostream>::Serializer(t_ostream stream):
-        m_stream(std::move(stream)),
+    Serializer<t_ostream>::Serializer(t_ostream& stream):
+        m_stream(stream),
         m_stack()
     {}
 
@@ -365,10 +363,17 @@ namespace serde::epee_binary
     }
 
     template <typename T>
-    void to_byte_slice(const T& value, ::epee::byte_slice& slice)
+    void to_byte_stream(const T& value, byte_stream& bystream)
     {
-        Serializer<epee::byte_stream> serializer{epee::byte_stream()};
+        Serializer<byte_stream> serializer{bystream};
         serialize_default(value, serializer);
-        slice = epee::byte_slice(serializer.move_inner_stream());
+    }
+
+    template <typename T>
+    void to_byte_slice(const T& value, byte_slice& slice)
+    {
+        byte_stream bystream; // @TODO: byte length limits
+        to_byte_stream(value, bystream);
+        slice = byte_slice(std::move(bystream));
     }
 } // namespace serde::binary_epee
