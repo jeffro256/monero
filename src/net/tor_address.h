@@ -39,13 +39,6 @@
 
 namespace epee
 {
-namespace serialization
-{
-    class portable_storage;
-    struct section;
-}
-}
-
 namespace net
 {
     //! Tor onion address; internal format not condensed/decoded.
