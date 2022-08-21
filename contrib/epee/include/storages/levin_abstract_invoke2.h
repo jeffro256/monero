@@ -42,15 +42,6 @@ void on_levin_traffic(const context_t &context, bool initiator, bool sent, bool 
 template<typename context_t>
 void on_levin_traffic(const context_t &context, bool initiator, bool sent, bool error, size_t bytes, int command);
 
-namespace
-{
-  static const constexpr epee::serialization::portable_storage::limits_t default_levin_limits = {
-    8192, // objects
-    16384, // fields
-    16384, // strings
-  };
-}
-
 namespace epee
 {
   namespace net_utils
@@ -59,10 +50,9 @@ namespace epee
     bool invoke_remote_command2(const epee::net_utils::connection_context_base context, int command, const t_arg& out_struct, t_result& result_struct, t_transport& transport)
     {
       const boost::uuids::uuid &conn_id = context.m_connection_id;
-      typename serialization::portable_storage stg;
-      out_struct.store(stg);
       levin::message_writer to_send{16 * 1024};
       std::string buff_to_recv;
+      serde::epee_binary::to_
       stg.store_to_binary(to_send.buffer);
 
       int res = transport.invoke(command, std::move(to_send), buff_to_recv, conn_id);
@@ -71,15 +61,15 @@ namespace epee
         LOG_PRINT_L1("Failed to invoke command " << command << " return code " << res);
         return false;
       }
-      typename serialization::portable_storage stg_ret;
-      if(!stg_ret.load_from_binary(buff_to_recv, &default_levin_limits))
+      const span<const uint8_t> recv_span = serde::internal::string_to_byte_span(buff_to_recv);
+      if (!serde::epee_binary::from_bytes(recv_span, result_struct))
       {
         on_levin_traffic(context, true, false, true, buff_to_recv.size(), command);
         LOG_ERROR("Failed to load_from_binary on command " << command);
         return false;
       }
       on_levin_traffic(context, true, false, false, buff_to_recv.size(), command);
-      return result_struct.load(stg_ret);
+      return true;
     }
 
     template<class t_result, class t_arg, class callback_t, class t_transport>
