@@ -37,8 +37,6 @@
 #include "net/enums.h"
 #include "net/error.h"
 
-namespace epee
-{
 namespace net
 {
     //! Tor onion address; internal format not condensed/decoded.

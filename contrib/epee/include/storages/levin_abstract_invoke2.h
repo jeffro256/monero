@@ -52,8 +52,7 @@ namespace epee
       const boost::uuids::uuid &conn_id = context.m_connection_id;
       levin::message_writer to_send{16 * 1024};
       std::string buff_to_recv;
-      serde::epee_binary::to_
-      stg.store_to_binary(to_send.buffer);
+      serde::epee_binary::to_byte_stream(out_struct, to_send.buffer);
 
       int res = transport.invoke(command, std::move(to_send), buff_to_recv, conn_id);
       if( res <=0 )
@@ -76,10 +75,8 @@ namespace epee
     bool async_invoke_remote_command2(const epee::net_utils::connection_context_base &context, int command, const t_arg& out_struct, t_transport& transport, const callback_t &cb, size_t inv_timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
     {
       const boost::uuids::uuid &conn_id = context.m_connection_id;
-      typename serialization::portable_storage stg;
-      const_cast<t_arg&>(out_struct).store(stg);//TODO: add true const support to searilzation
       levin::message_writer to_send{16 * 1024};
-      stg.store_to_binary(to_send.buffer);
+      serde::epee_binary::to_byte_stream(out_struct, to_send.buffer);
       int res = transport.invoke_async(command, std::move(to_send), conn_id, [cb, command](int code, const epee::span<const uint8_t> buff, typename t_transport::connection_context& context)->bool
       {
         t_result result_struct = AUTO_VAL_INIT(result_struct);
@@ -91,15 +88,7 @@ namespace epee
           cb(code, result_struct, context);
           return false;
         }
-        serialization::portable_storage stg_ret;
-        if(!stg_ret.load_from_binary(buff, &default_levin_limits))
-        {
-          on_levin_traffic(context, true, false, true, buff.size(), command);
-          LOG_ERROR("Failed to load_from_binary on command " << command);
-          cb(LEVIN_ERROR_FORMAT, result_struct, context);
-          return false;
-        }
-        if (!result_struct.load(stg_ret))
+        if (!serde::epee_binary::from_bytes(buff, result_struct))
         {
           on_levin_traffic(context, true, false, true, buff.size(), command);
           LOG_ERROR("Failed to load result struct on command " << command);
@@ -122,10 +111,8 @@ namespace epee
     bool notify_remote_command2(const typename t_transport::connection_context &context, int command, const t_arg& out_struct, t_transport& transport)
     {
       const boost::uuids::uuid &conn_id = context.m_connection_id;
-      serialization::portable_storage stg;
-      out_struct.store(stg);
       levin::message_writer to_send;
-      stg.store_to_binary(to_send.buffer);
+      serde::epee_binary::to_byte_stream(out_struct, to_send.buffer);
 
       int res = transport.send(to_send.finalize_notify(command), conn_id);
       if(res <=0 )
@@ -140,17 +127,10 @@ namespace epee
     template<class t_owner, class t_in_type, class t_out_type, class t_context, class callback_t>
     int buff_to_t_adapter(int command, const epee::span<const uint8_t> in_buff, byte_stream& buff_out, callback_t cb, t_context& context )
     {
-      serialization::portable_storage strg;
-      if(!strg.load_from_binary(in_buff, &default_levin_limits))
-      {
-        on_levin_traffic(context, false, false, true, in_buff.size(), command);
-        LOG_ERROR("Failed to load_from_binary in command " << command);
-        return -1;
-      }
       boost::value_initialized<t_in_type> in_struct;
       boost::value_initialized<t_out_type> out_struct;
 
-      if (!static_cast<t_in_type&>(in_struct).load(strg))
+      if (!serde::epee_binary::from_bytes(in_buff, static_cast<t_in_type&>(in_struct)))
       {
         on_levin_traffic(context, false, false, true, in_buff.size(), command);
         LOG_ERROR("Failed to load in_struct in command " << command);
@@ -158,12 +138,10 @@ namespace epee
       }
       on_levin_traffic(context, false, false, false, in_buff.size(), command);
       int res = cb(command, static_cast<t_in_type&>(in_struct), static_cast<t_out_type&>(out_struct), context);
-      serialization::portable_storage strg_out;
-      static_cast<t_out_type&>(out_struct).store(strg_out);
 
-      if(!strg_out.store_to_binary(buff_out))
+      if (!serde::epee_binary::to_byte_stream(out_struct, buff_out))
       {
-        LOG_ERROR("Failed to store_to_binary in command" << command);
+        LOG_ERROR("Failed to store out_struct to epee binary bytes in command" << command);
         return -1;
       }
 
@@ -173,15 +151,8 @@ namespace epee
     template<class t_owner, class t_in_type, class t_context, class callback_t>
     int buff_to_t_adapter(t_owner* powner, int command, const epee::span<const uint8_t> in_buff, callback_t cb, t_context& context)
     {
-      serialization::portable_storage strg;
-      if(!strg.load_from_binary(in_buff, &default_levin_limits))
-      {
-        on_levin_traffic(context, false, false, true, in_buff.size(), command);
-        LOG_ERROR("Failed to load_from_binary in notify " << command);
-        return -1;
-      }
       boost::value_initialized<t_in_type> in_struct;
-      if (!static_cast<t_in_type&>(in_struct).load(strg))
+      if (!serde::epee_binary::from_bytes(in_buff, static_cast<t_in_type&>(in_struct)))
       {
         on_levin_traffic(context, false, false, true, in_buff.size(), command);
         LOG_ERROR("Failed to load in_struct in notify " << command);

@@ -36,15 +36,6 @@
 #include "net/enums.h"
 #include "net/error.h"
 
-namespace epee
-{
-namespace serialization
-{
-    class portable_storage;
-    struct section;
-}
-}
-
 namespace net
 {
     //! b32 i2p address; internal format not condensed/decoded.
