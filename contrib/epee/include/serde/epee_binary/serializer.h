@@ -35,6 +35,7 @@
 #include "constants.h"
 #include "../internal/deps.h"
 #include "../internal/endianness.h"
+#include "../model/constants.h"
 #include "../model/operator_serialize.h"
 #include "../model/serializer.h"
 
