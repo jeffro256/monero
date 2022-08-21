@@ -32,6 +32,8 @@
 #include "byte_slice.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
+#include "serde/json/deserializer.h"
+#include "serde/json/serializer.h"
 
 namespace epee
 {
@@ -41,8 +43,7 @@ namespace epee
     bool invoke_http_json(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
       std::string req_param;
-      if(!serialization::store_t_to_json(out_struct, req_param))
-        return false;
+      serde::json::to_string(out_struct, req_param);
 
       http::fields_list additional_params;
       additional_params.push_back(std::make_pair("Content-Type","application/json; charset=utf-8"));
@@ -66,7 +67,8 @@ namespace epee
         return false;
       }
 
-      return serialization::load_t_from_json(result_struct, pri->m_body);
+      serde::json::from_cstr(pri->m_body.c_str(), result_struct);
+      return true;
     }
 
 
