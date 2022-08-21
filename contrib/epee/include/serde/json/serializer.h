@@ -229,6 +229,14 @@ namespace serde::json {
     }
 
     template <typename T>
+    void to_string(const T& value, std::string& contents)
+    {
+        Serializer<std::stringstream> serializer{std::stringstream()};
+        serialize_default(value, serializer);
+        contents = serializer.move_inner_stream().str();
+    }
+
+    template <typename T>
     void to_file(const T& value, const std::string file_path)
     {
         std::ofstream ofs(file_path);
