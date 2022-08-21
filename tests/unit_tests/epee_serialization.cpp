@@ -31,8 +31,8 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-#include "serde/epee/deserializer.h"
-#include "serde/epee/serializer.h"
+#include "serde/epee_binary/deserializer.h"
+#include "serde/epee_binary/serializer.h"
 #include "serde/model/operator_deserialize.h"
 #include "serde/model/operator_serialize.h"
 #include "serde/model/struct.h"
@@ -75,7 +75,7 @@ namespace {
 
 TEST(epee_serialization, bin_serialize_1)
 {
-  using namespace serde::epee;
+  using namespace serde::epee_binary;
 
   static constexpr const std::uint8_t expected_binary[] =
   {
@@ -88,12 +88,13 @@ TEST(epee_serialization, bin_serialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  Data1 data = { 2023 };
-  Serializer<std::stringstream> bs = {std::stringstream()};
-  serialize_default(data, bs);
-  std::string result = bs.move_inner_stream().str();
+  const Data1 data = { 2023 };
+  epee::byte_slice actual_slice;
+  to_byte_slice(data, actual_slice);
+  const std::string expected = ARRAY_STR(expected_binary);
+  const std::string actual{reinterpret_cast<const char*>(actual_slice.data()), actual_slice.size()};
 
-  EXPECT_EQ(ARRAY_STR(expected_binary), result);
+  EXPECT_EQ(expected, actual);
 }
 
 TEST (epee_serialization, json_serialize_1)
@@ -136,7 +137,7 @@ TEST(epee_serialization, json_escape)
 
 TEST(epee_serialization, bin_deserialize_1)
 {
-  using namespace serde::epee;
+  using namespace serde::epee_binary;
 
   static constexpr const std::uint8_t source_binary[] =
   {

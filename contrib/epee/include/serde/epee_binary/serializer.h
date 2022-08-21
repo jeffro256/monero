@@ -33,7 +33,9 @@
 #include <utility>
 
 #include "constants.h"
+#include "../internal/deps.h"
 #include "../internal/endianness.h"
+#include "../model/operator_serialize.h"
 #include "../model/serializer.h"
 
 #define VARINT_VAL_FITS_BYTE(val) (val < 63)
@@ -42,7 +44,7 @@
 // Below is same as checking val <= 4611686018427387903 but portable for 32-bit size_t
 #define VARINT_VAL_FITS_QWORD(val) (!(val >> 31 >> 31))
 
-namespace serde::epee
+namespace serde::epee_binary
 {
     template<class t_ostream>
     class Serializer: public serde::model::Serializer
@@ -360,4 +362,12 @@ namespace serde::epee
 
         m_stack.back().remaining--;
     }
-} // namespace serde::epee
+
+    template <typename T>
+    void to_byte_slice(const T& value, ::epee::byte_slice& slice)
+    {
+        Serializer<epee::byte_stream> serializer{epee::byte_stream()};
+        serialize_default(value, serializer);
+        slice = epee::byte_slice(serializer.move_inner_stream());
+    }
+} // namespace serde::binary_epee
