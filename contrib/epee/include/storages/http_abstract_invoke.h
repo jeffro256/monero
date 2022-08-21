@@ -32,6 +32,7 @@
 #include "byte_slice.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
+#include "serde/epee_binary/serializer.h"
 #include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
 
@@ -77,8 +78,7 @@ namespace epee
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
       byte_slice req_param;
-      if(!serialization::store_t_to_binary(out_struct, req_param, 16 * 1024))
-        return false;
+      serde::epee_binary::to_byte_slice(out_struct, req_param);
 
       const http::http_response_info* pri = NULL;
       if(!transport.invoke(uri, method, boost::string_ref{reinterpret_cast<const char*>(req_param.data()), req_param.size()}, timeout, std::addressof(pri)))
