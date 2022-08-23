@@ -63,7 +63,7 @@ namespace serde::json
 
         rapidjson::Reader m_json_reader;
         // Non-owning stream so buffer must remain valid the entire lifetime of the Deserializer.
-        rapidjson::InsituStringStream m_istream; 
+        rapidjson::InsituStringStream m_istream;
     }; // class Deserializer
 
     template <typename T>
@@ -78,6 +78,7 @@ namespace serde::json
     {
         std::string file_contents;
         // @TODO: maybe put a file size limit
+        // @TODO: stream file contents into deserializer, not load entire file into memory
         CHECK_AND_ASSERT_THROW_MES(
             ::epee::file_io_utils::load_file_to_string(file_path, file_contents),
             "Could not read file contents from path '" << file_path << "'"

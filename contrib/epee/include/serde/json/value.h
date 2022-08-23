@@ -26,8 +26,24 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <rapidjson/document.h>
-#include <rapidjson/reader.h>
-#include <rapidjson/stream.h>
+#pragma once
 
-#include "file_io_utils.h" // from epee
+#include "./deps.h"
+#include "../internal/deps.h"
+
+namespace serde::json
+{
+    using Document = rapidjson::Document;
+    using Value = rapidjson::Value;
+
+    class ValueDeserializer;
+
+    Document borrowed_document_from_cstr(char* str)
+    {
+        Document doc;
+        doc.ParseInsitu(str);
+        return doc;
+    }
+} // namespace serde::json
+
+#include "value.inl"

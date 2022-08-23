@@ -33,12 +33,15 @@
 
 namespace serde::json
 {
-    struct JsonVisitorHandler:
-        public rapidjson::BaseReaderHandler<rapidjson::UTF8<>>
+    class JsonVisitorHandler: public rapidjson::BaseReaderHandler<rapidjson::UTF8<>>
     {
         typedef rapidjson::SizeType SizeType;
         static_assert(std::is_same<int, int32_t>::value); // @TODO: provide contigencies
         static_assert(std::is_same<unsigned int, uint32_t>::value); // @TODO: provide contigencies
+
+    public:
+
+        constexpr JsonVisitorHandler(model::BasicVisitor& vis): m_visitor(vis) {}
 
         bool Null() { ASSERT_MES_AND_THROW("null is not supported in the data model"); }
         bool Bool(bool b) { m_visitor.visit_boolean(b); return true; }
@@ -62,7 +65,7 @@ namespace serde::json
         bool StartArray() { m_visitor.visit_array({}); return true; }
         bool EndArray(SizeType elementCount) { m_visitor.visit_end_array(); return true; }
 
-        constexpr JsonVisitorHandler(model::BasicVisitor& vis): m_visitor(vis) {}
+    private:
 
         model::BasicVisitor& m_visitor;
     };

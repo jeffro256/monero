@@ -38,6 +38,7 @@
 #include "serde/model/struct.h"
 #include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
+#include "serde/json/value.h"
 #include "span.h"
 
 namespace {
@@ -52,10 +53,7 @@ namespace {
       KV_SERIALIZE(val)
     END_KV_SERIALIZE_MAP()
 
-    bool operator==(const Data1& other) const
-    {
-      return val == other.val;
-    }
+    bool operator==(const Data1& other) const { return val == other.val; }
   };
 
   struct StringData
@@ -68,8 +66,130 @@ namespace {
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(str)
     END_KV_SERIALIZE_MAP()
+
+    bool operator==(const StringData& other) const { return str == other.str; }
   };
-}
+
+  struct UnsignedData
+  {
+    uint64_t u64;
+    uint32_t u32;
+    uint16_t u16;
+    uint8_t u8;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(u64)
+      KV_SERIALIZE(u32)
+      KV_SERIALIZE(u16)
+      KV_SERIALIZE(u8)
+    END_KV_SERIALIZE_MAP()
+
+    bool operator==(const UnsignedData& other) const
+    {
+      return u64 == other.u64 && u32 == other.u32 && u16 == other.u16 && u8 == other.u8;
+    }
+  };
+
+  struct Data2
+  {
+    int64_t i64;
+    int32_t i32;
+    int16_t i16;
+    int8_t i8;
+    UnsignedData unsign;
+    double triple;
+    StringData sd;
+    std::vector<bool> booleans;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(i64)
+      KV_SERIALIZE(i32)
+      KV_SERIALIZE(i16)
+      KV_SERIALIZE(i8)
+      KV_SERIALIZE(unsign)
+      KV_SERIALIZE(triple)
+      KV_SERIALIZE(sd)
+      KV_SERIALIZE(booleans)
+    END_KV_SERIALIZE_MAP()
+
+    bool operator==(const Data2& other) const {
+      return i64 == other.i64 && i32 == other.i32 && i16 == other.i16 && i8 == other.i8 &&
+        unsign == other.unsign && triple == other.triple && sd == other.sd && booleans == other.booleans;
+    }
+  };
+
+  struct DumpVisitor: serde::model::BasicVisitor
+  {
+    DumpVisitor(): serde::model::BasicVisitor(), depth() {}
+
+    std::string expecting() const override final
+    {
+      return "anything, i'll dump it";
+    }
+
+    #define DEF_DUMP_VISITOR_METHOD(mname, tyname)                    \
+      void visit_##mname(tyname value) override final                 \
+      { std::cout << "visit_" #mname "(): " << value << std::endl; } \
+
+    DEF_DUMP_VISITOR_METHOD(int64, int64_t)
+    DEF_DUMP_VISITOR_METHOD(int32, int32_t)
+    DEF_DUMP_VISITOR_METHOD(int16, int16_t)
+    DEF_DUMP_VISITOR_METHOD(int8, int8_t)
+    DEF_DUMP_VISITOR_METHOD(uint64, uint64_t)
+    DEF_DUMP_VISITOR_METHOD(uint32, uint32_t)
+    DEF_DUMP_VISITOR_METHOD(uint16, uint16_t)
+    DEF_DUMP_VISITOR_METHOD(uint8, uint8_t)
+    DEF_DUMP_VISITOR_METHOD(float64, double)
+    DEF_DUMP_VISITOR_METHOD(boolean, bool)
+
+    void visit_bytes(const serde::const_byte_span& value) override final
+    {
+      std::cout << "visit_bytes(): " << serde::internal::byte_span_to_string(value) << std::endl;
+    }
+
+    void visit_array(serde::optional<size_t> size_hint) override final
+    {
+      if (size_hint) { std::cout << "visit_array(): " << *size_hint << std::endl; }
+      else { std::cout << "visit_array(): no size hint" << std::endl; }
+      depth++;
+    }
+
+    void visit_end_array() override final
+    {
+      std::cout << "visit_end_array()" << std::endl;
+      depth--;
+    }
+
+    void visit_object(serde::optional<size_t> size_hint) override final
+    {
+      if (size_hint) { std::cout << "visit_object(): " << *size_hint << std::endl; }
+      else { std::cout << "visit_object(): no size hint" << std::endl; }
+      depth++;
+    }
+
+    void visit_key(const serde::const_byte_span& value) override final
+    {
+      std::cout << "visit_key(): " << serde::internal::byte_span_to_string(value) << std::endl;
+    }
+
+    void visit_end_object() override final
+    {
+      std::cout << "visit_end_object()" << std::endl;
+      depth--;
+    }
+
+    size_t depth;
+  }; // struct DumpVisitor
+
+  void dump_deserializer(serde::model::Deserializer& deserializer)
+  {
+    DumpVisitor dv;
+    do
+    {
+      deserializer.deserialize_any(dv);
+    } while (dv.depth != 0);
+  }
+} // anonymous namespace 
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
 
@@ -164,4 +284,49 @@ TEST(epee_serialization, json_deserialize_1)
   EXPECT_TRUE(from_cstr("{\"val\":7777}", deserialized_data));
   const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
+}
+
+TEST(epee_serialization, json_deserialize_2)
+{
+  using namespace serde::json;
+
+  std::string json_data = R"({
+    "i8": -5, "i16": -6, "i32": -7, "i64": -8,
+    "unsign": { "u64": 1, "u32": 2, "u16": 3, "u8": 4 },
+    "triple": 20.23,
+    "sd": { "str": "meep meep"},
+    "booleans": [true, false, true, true, false, true, false, false]
+  })";
+
+  const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
+
+  Data2 actual;
+  from_cstr(json_data.c_str(), actual);
+  EXPECT_EQ(expected, actual);
+}
+
+TEST(epee_serialization, json_value_deserializer)
+{
+  using namespace serde::json;
+
+  std::string json_data = R"({
+    "i8": -5, "i16": -6, "i32": -7, "i64": -8,
+    "unsign": { "u64": 1, "u32": 2, "u16": 3, "u8": 4 },
+    "triple": 20.23,
+    "sd": { "str": "meep meep"},
+    "booleans": [true, false, true, true, false, true, false, false]
+  })";
+
+  const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
+
+  const Document d = borrowed_document_from_cstr(&json_data.front());
+  
+  // dump ValueDeserializer trace
+  //ValueDeserializer vd1(d);
+  //dump_deserializer(vd1);
+
+  Data2 actual;
+  ValueDeserializer vd2(d);
+  deserialize_default(vd2, actual);
+  EXPECT_EQ(expected, actual);
 }
