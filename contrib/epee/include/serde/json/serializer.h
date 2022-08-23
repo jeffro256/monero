@@ -38,10 +38,8 @@ namespace serde::json {
     template<class t_ostream>
     class Serializer: public serde::model::Serializer {
     public:
-        Serializer(t_ostream stream);
+        Serializer(t_ostream& stream);
         virtual ~Serializer() override final {};
-
-        t_ostream move_inner_stream() { return std::move(m_stream); }
 
     private:
         void write_string(const const_byte_span& bytes, bool escape = true);
@@ -51,7 +49,7 @@ namespace serde::json {
         // Controls the serialization of entry / element delimination
         inline void comma();
 
-        t_ostream m_stream;
+        t_ostream& m_stream;
 
         // True after start_array() or start_object(), false after an element / entry is serialized
         bool m_first;
@@ -81,8 +79,8 @@ namespace serde::json {
     };
 
     template<class t_ostream>
-    Serializer<t_ostream>::Serializer(t_ostream stream):
-        m_stream(std::move(stream)),
+    Serializer<t_ostream>::Serializer(t_ostream& stream):
+        m_stream(stream),
         m_first(true)
     {}
 
@@ -229,18 +227,24 @@ namespace serde::json {
     }
 
     template <typename T>
-    void to_string(const T& value, std::string& contents)
+    std::string to_string(const T& value)
     {
-        Serializer<std::stringstream> serializer{std::stringstream()};
+        std::stringstream ss;
+        Serializer<std::stringstream> serializer(ss);
         serialize_default(value, serializer);
-        contents = serializer.move_inner_stream().str();
+        return ss.str();
     }
 
     template <typename T>
-    void to_file(const T& value, const std::string file_path)
+    void to_file(const T& value, const std::string& file_path)
     {
         std::ofstream ofs(file_path);
-        Serializer<std::ofstream> serializer(std::move(ofs));
+        Serializer<std::ofstream> serializer(ofs);
         serialize_default(value, serializer);
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            ofs.good(),
+            "There was a std::ofstream error while serializing"
+        );
     }
 } // namespace serde::epee

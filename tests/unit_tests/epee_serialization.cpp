@@ -209,8 +209,7 @@ TEST(epee_serialization, bin_serialize_1)
   };
 
   const Data1 data = { 2023 };
-  epee::byte_slice actual_slice;
-  to_byte_slice(data, actual_slice);
+  const epee::byte_slice actual_slice = to_byte_slice(data);
   const std::string expected = ARRAY_STR(expected_binary);
   const std::string actual{reinterpret_cast<const char*>(actual_slice.data()), actual_slice.size()};
 
@@ -224,9 +223,7 @@ TEST (epee_serialization, json_serialize_1)
   const std::string expected_json("{\"val\":2023}");
 
   const Data1 data = { 2023 };
-  Serializer<std::stringstream> js = {std::stringstream()};
-  serialize_default(data, js);
-  std::string result = js.move_inner_stream().str();
+  const std::string result = to_string(data);
 
   EXPECT_EQ(expected_json, result);
 }
@@ -247,9 +244,7 @@ TEST(epee_serialization, json_escape)
     const auto& input_instance = test_case.first;
     const auto& expected_json = test_case.second;
 
-    Serializer<std::stringstream> js = {std::stringstream()};
-    serialize_default(input_instance, js);
-    const auto actual_json = js.move_inner_stream().str();
+    const std::string actual_json = to_string(input_instance);
 
     EXPECT_EQ(expected_json, actual_json);
   }
@@ -270,8 +265,7 @@ TEST(epee_serialization, bin_deserialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  Data1 deserialized_data;
-  EXPECT_TRUE(from_bytes(source_binary, deserialized_data));
+  const Data1 deserialized_data = from_bytes<Data1>(source_binary);
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
@@ -280,8 +274,7 @@ TEST(epee_serialization, json_deserialize_1)
 {
   using namespace serde::json;
 
-  Data1 deserialized_data;
-  EXPECT_TRUE(from_cstr("{\"val\":7777}", deserialized_data));
+  const Data1 deserialized_data = from_cstr<Data1>("{\"val\":7777}");
   const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
@@ -300,8 +293,7 @@ TEST(epee_serialization, json_deserialize_2)
 
   const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
 
-  Data2 actual;
-  from_cstr(json_data.c_str(), actual);
+  const Data2 actual = from_cstr<Data2>(json_data.c_str());
   EXPECT_EQ(expected, actual);
 }
 
@@ -319,7 +311,7 @@ TEST(epee_serialization, json_value_deserializer)
 
   const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
 
-  const Document d = borrowed_document_from_cstr(&json_data.front());
+  const Document d = parse_borrowed_document_from_cstr(&json_data.front());
   
   // dump ValueDeserializer trace
   //ValueDeserializer vd1(d);

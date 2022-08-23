@@ -370,10 +370,11 @@ namespace serde::epee_binary
     }
 
     template <typename T>
-    void to_byte_slice(const T& value, byte_slice& slice)
+    byte_slice to_byte_slice(const T& value)
     {
         byte_stream bystream; // @TODO: byte length limits
         to_byte_stream(value, bystream);
-        slice = byte_slice(std::move(bystream));
+        byte_slice slice = byte_slice(std::move(bystream));
+        return slice;
     }
 } // namespace serde::binary_epee

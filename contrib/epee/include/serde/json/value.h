@@ -38,10 +38,15 @@ namespace serde::json
 
     class ValueDeserializer;
 
-    Document borrowed_document_from_cstr(char* str)
+    Document parse_borrowed_document_from_cstr(char* str)
     {
         Document doc;
-        doc.ParseInsitu(str);
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            !doc.ParseInsitu(str).HasParseError(),
+            "JSON parse error at offset " << doc.GetErrorOffset() << ": " <<
+                rapidjson::GetParseError_En(doc.GetParseError())
+        );
         return doc;
     }
 } // namespace serde::json

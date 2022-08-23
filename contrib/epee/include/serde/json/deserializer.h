@@ -67,14 +67,20 @@ namespace serde::json
     }; // class Deserializer
 
     template <typename T>
-    bool from_cstr(const char* src, T& value)
+    T from_cstr(const char* src)
     {
+        T value;
         Deserializer deserializer(src);
-        return deserialize_default(deserializer, value);
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            deserialize_default(deserializer, value),
+            "JSON deserializer returned no data"
+        );
+        return value;
     }
 
     template <typename T>
-    bool from_file(const std::string& file_path, T& value)
+    T from_file(const std::string& file_path)
     {
         std::string file_contents;
         // @TODO: maybe put a file size limit
@@ -84,7 +90,7 @@ namespace serde::json
             "Could not read file contents from path '" << file_path << "'"
         );
 
-        return from_cstr(file_contents.c_str(), value);
+        return from_cstr<T>(file_contents.c_str());
     }
 } // namespace serde::json
 
