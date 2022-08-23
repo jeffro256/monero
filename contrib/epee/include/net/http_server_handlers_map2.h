@@ -142,14 +142,15 @@
     uint64_t ticks = epee::misc_utils::get_tick_count(); \
     response_info.m_mime_tipe = "application/json"; \
     epee::serialization::portable_storage ps; \
+    serde::json::Document request_document = 
     if(!ps.load_from_json(query_info.m_body)) \
     { \
-       boost::value_initialized<epee::json_rpc::error_response> rsp; \
-       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
-       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-       return true; \
+      epee::json_rpc::error_response rsp; \
+      rsp.jsonrpc = "2.0"; \
+      rsp.error.code = -32700; \
+      rsp.error.message = "Parse error"; \
+      serde::json::to_string(rsp, response_info.m_body); \
+      return true; \
     } \
     epee::serialization::storage_entry id_; \
     id_ = epee::serialization::storage_entry(std::string()); \
