@@ -61,10 +61,14 @@ namespace epee
         return false;
       }
       const span<const uint8_t> recv_span = serde::internal::string_to_byte_span(buff_to_recv);
-      if (!serde::epee_binary::from_bytes(recv_span, result_struct))
+      try
+      {
+        result_struct = serde::epee_binary::from_bytes<t_result>(recv_span);
+      }
+      catch (const std::exception& e)
       {
         on_levin_traffic(context, true, false, true, buff_to_recv.size(), command);
-        LOG_ERROR("Failed to load_from_binary on command " << command);
+        LOG_ERROR("Failed to load_from_binary on command " << command << ": " << e.what());
         return false;
       }
       on_levin_traffic(context, true, false, false, buff_to_recv.size(), command);
@@ -88,10 +92,14 @@ namespace epee
           cb(code, result_struct, context);
           return false;
         }
-        if (!serde::epee_binary::from_bytes(buff, result_struct))
+        try
+        {
+          result_struct = serde::epee_binary::from_bytes<t_result>(buff);
+        }
+        catch (const std::exception& e)
         {
           on_levin_traffic(context, true, false, true, buff.size(), command);
-          LOG_ERROR("Failed to load result struct on command " << command);
+          LOG_ERROR("Failed to load result struct on command " << command << ": " << e.what());
           cb(LEVIN_ERROR_FORMAT, result_struct, context);
           return false;
         }
@@ -130,18 +138,26 @@ namespace epee
       boost::value_initialized<t_in_type> in_struct;
       boost::value_initialized<t_out_type> out_struct;
 
-      if (!serde::epee_binary::from_bytes(in_buff, static_cast<t_in_type&>(in_struct)))
+      try
+      {
+        in_struct = serde::epee_binary::from_bytes<t_in_type>(in_buff);
+      }
+      catch (const std::exception& e)
       {
         on_levin_traffic(context, false, false, true, in_buff.size(), command);
-        LOG_ERROR("Failed to load in_struct in command " << command);
+        LOG_ERROR("Failed to load in_struct in command " << command << ": " << e.what());
         return -1;
       }
       on_levin_traffic(context, false, false, false, in_buff.size(), command);
       int res = cb(command, static_cast<t_in_type&>(in_struct), static_cast<t_out_type&>(out_struct), context);
 
-      if (!serde::epee_binary::to_byte_stream(out_struct, buff_out))
+      try
       {
-        LOG_ERROR("Failed to store out_struct to epee binary bytes in command" << command);
+        serde::epee_binary::to_byte_stream(out_struct, buff_out);
+      }
+      catch (const std::exception& e)
+      {
+        LOG_ERROR("Failed to store out_struct to epee binary bytes in command" << command << ": " << e.what());
         return -1;
       }
 
@@ -152,10 +168,15 @@ namespace epee
     int buff_to_t_adapter(t_owner* powner, int command, const epee::span<const uint8_t> in_buff, callback_t cb, t_context& context)
     {
       boost::value_initialized<t_in_type> in_struct;
-      if (!serde::epee_binary::from_bytes(in_buff, static_cast<t_in_type&>(in_struct)))
+
+      try
+      {
+        in_struct = serde::epee_binary::from_bytes<t_in_type>(in_buff);
+      }
+      catch (const std::exception& e)
       {
         on_levin_traffic(context, false, false, true, in_buff.size(), command);
-        LOG_ERROR("Failed to load in_struct in notify " << command);
+        LOG_ERROR("Failed to load in_struct in notify " << command << ": " << e.what());
         return -1;
       }
       on_levin_traffic(context, false, false, false, in_buff.size(), command);

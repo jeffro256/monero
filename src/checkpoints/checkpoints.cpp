@@ -257,7 +257,11 @@ namespace cryptonote
     uint64_t prev_max_height = get_max_height();
     LOG_PRINT_L1("Hard-coded max checkpoint height is " << prev_max_height);
     t_hash_json hashes;
-    if (!serde::json::from_file(json_hashfile_fullpath, hashes))
+    try
+    {
+      hashes = serde::json::from_file<t_hash_json>(json_hashfile_fullpath);
+    }
+    catch (...)
     {
       MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
       return false;

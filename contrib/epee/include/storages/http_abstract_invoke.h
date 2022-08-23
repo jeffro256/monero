@@ -44,8 +44,7 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_json(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      std::string req_param;
-      serde::json::to_string(out_struct, req_param);
+      const std::string req_param = serde::json::to_string(out_struct);
 
       http::fields_list additional_params;
       additional_params.push_back(std::make_pair("Content-Type","application/json; charset=utf-8"));
@@ -69,8 +68,16 @@ namespace epee
         return false;
       }
 
-      serde::json::from_cstr(pri->m_body.c_str(), result_struct);
-      return true;
+      try
+      {
+        result_struct = serde::json::from_cstr<t_response>(pri->m_body.c_str());
+        return true;
+      }
+      catch (const std::exception& e)
+      {
+        LOG_PRINT_L1("Failed to invoke http request to \"" << uri << "\": " << e.what());
+        return false;
+      }
     }
 
 
@@ -78,8 +85,7 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      byte_slice req_param;
-      serde::epee_binary::to_byte_slice(out_struct, req_param);
+      const byte_slice req_param = serde::epee_binary::to_byte_slice(out_struct);
 
       const http::http_response_info* pri = NULL;
       if(!transport.invoke(uri, method, boost::string_ref{reinterpret_cast<const char*>(req_param.data()), req_param.size()}, timeout, std::addressof(pri)))
@@ -100,7 +106,15 @@ namespace epee
         return false;
       }
 
-      return serde::epee_binary::from_bytes(epee::strspan<const uint8_t>(pri->m_body), result_struct);
+      try {
+        result_struct = serde::epee_binary::from_bytes<t_response>(epee::strspan<const uint8_t>(pri->m_body));
+        return true;
+      }
+      catch (const std::exception& e)
+      {
+        LOG_PRINT_L1("Failed to invoke http request to \"" << uri << "\": " << e.what());
+        return false;
+      }
     }
 
     template<class t_request, class t_response, class t_transport>

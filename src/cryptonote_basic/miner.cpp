@@ -316,7 +316,7 @@ namespace cryptonote
       m_config_folder_path = boost::filesystem::path(command_line::get_arg(vm, arg_extra_messages)).parent_path().string();
       m_config = AUTO_VAL_INIT(m_config);
       const std::string filename = m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME;
-      CHECK_AND_ASSERT_MES(serde::json::from_file(filename, m_config), false, "Failed to load data from " << filename);
+      m_config = serde::json::from_file<decltype(m_config)>(filename);
       MINFO("Loaded " << m_extra_messages.size() << " extra messages, current index " << m_config.current_extra_message_index);
     }
 

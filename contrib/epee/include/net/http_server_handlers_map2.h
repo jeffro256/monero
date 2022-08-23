@@ -142,7 +142,6 @@
     uint64_t ticks = epee::misc_utils::get_tick_count(); \
     response_info.m_mime_tipe = "application/json"; \
     epee::serialization::portable_storage ps; \
-    serde::json::Document request_document = 
     if(!ps.load_from_json(query_info.m_body)) \
     { \
       epee::json_rpc::error_response rsp; \
