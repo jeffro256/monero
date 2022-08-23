@@ -178,17 +178,17 @@ namespace {
       depth--;
     }
 
+    static void dump_deserializer(serde::model::Deserializer& deserializer)
+    {
+      DumpVisitor dv;
+      do
+      {
+        deserializer.deserialize_any(dv);
+      } while (dv.depth != 0);
+    }
+
     size_t depth;
   }; // struct DumpVisitor
-
-  void dump_deserializer(serde::model::Deserializer& deserializer)
-  {
-    DumpVisitor dv;
-    do
-    {
-      deserializer.deserialize_any(dv);
-    } while (dv.depth != 0);
-  }
 } // anonymous namespace 
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
