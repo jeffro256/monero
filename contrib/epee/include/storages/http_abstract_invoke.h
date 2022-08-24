@@ -107,7 +107,7 @@ namespace epee
       }
 
       try {
-        result_struct = serde::epee_binary::from_bytes<t_response>(epee::strspan<const uint8_t>(pri->m_body));
+        result_struct = serde::epee_binary::from_bytes<t_response>(serde::internal::string_to_byte_span(pri->m_body));
         return true;
       }
       catch (const std::exception& e)

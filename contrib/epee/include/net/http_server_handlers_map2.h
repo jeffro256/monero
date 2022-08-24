@@ -34,7 +34,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
 
 
-#define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(const epee::net_utils::http::http_request_info& query_info, \
+#define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(epee::net_utils::http::http_request_info& query_info, \
               epee::net_utils::http::http_response_info& response, \
               context_type& m_conn_context) \
 {\
@@ -56,7 +56,7 @@
 }
 
 
-#define BEGIN_URI_MAP2()   template<class t_context> bool handle_http_request_map(const epee::net_utils::http::http_request_info& query_info, \
+#define BEGIN_URI_MAP2()   template<class t_context> bool handle_http_request_map(epee::net_utils::http::http_request_info& query_info, \
   epee::net_utils::http::http_response_info& response_info, \
   t_context& m_conn_context) { \
   bool handled = false; \
@@ -67,7 +67,7 @@
     { \
       handled = true; \
       uint64_t ticks = misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::request> req; \
+      command_type::request req; \
       try \
       { \
         req = serde::json::from_cstr<command_type::request>(query_info.m_body.c_str()); \
@@ -106,11 +106,11 @@
     { \
       handled = true; \
       uint64_t ticks = misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::request> req; \
+      command_type::request req; \
       try \
       { \
         const auto body_span = serde::internal::string_to_byte_span(query_info.m_body); \
-        req = serde::epee_binary::from_bytes<decltype(req)>(body_span); \
+        req = serde::epee_binary::from_bytes<command_type::request>(body_span); \
       } \
       catch (const std::exception& e) \
       { \
@@ -157,7 +157,7 @@
       rsp.jsonrpc = "2.0"; \
       rsp.error.code = -32700; \
       rsp.error.message = std::string("Parse error: ") + std::string(e.what()); \
-      serde::json::to_string(rsp, response_info.m_body); \
+      response_info.m_body = serde::json::to_string(rsp); \
       return true; \
     } \
     std::string id_ = "0"; \
@@ -166,7 +166,7 @@
       id_ = req_doc["id"].GetString(); \
     } \
     std::string callback_name; \
-    if (req_doc.hasMember("method") && req_doc["method"].IsString()) \
+    if (req_doc.HasMember("method") && req_doc["method"].IsString()) \
     { \
       callback_name = req_doc["method"].GetString(); \
     } \
@@ -187,13 +187,27 @@
   response_info.m_mime_tipe = "application/json"; \
   boost::value_initialized<epee::json_rpc::request<command_type::request> > req_; \
   epee::json_rpc::request<command_type::request>& req = static_cast<epee::json_rpc::request<command_type::request>&>(req_);\
-  if(!req.load(ps)) \
+  if (!req_doc.HasMember("params") || !req_doc["params"].IsObject()) \
   { \
     epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
     fail_resp.jsonrpc = "2.0"; \
     fail_resp.id = req.id; \
     fail_resp.error.code = -32602; \
-    fail_resp.error.message = "Invalid params"; \
+    fail_resp.error.message = "Invalid params: no params object provided"; \
+    response_info.m_body = serde::json::to_string(fail_resp); \
+  } \
+  try \
+  { \
+    serde::json::ValueDeserializer params_deserializer(req_doc["params"]); \
+    deserialize_default(params_deserializer, req); \
+  } \
+  catch (const std::exception& e)\
+  { \
+    epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
+    fail_resp.jsonrpc = "2.0"; \
+    fail_resp.id = req.id; \
+    fail_resp.error.code = -32602; \
+    fail_resp.error.message = std::string("Invalid params: ") + std::string(e.what()); \
     response_info.m_body = serde::json::to_string(fail_resp); \
     return true; \
   } \
