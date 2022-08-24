@@ -29,9 +29,12 @@
 #include <boost/utility/string_ref.hpp>
 #include <boost/utility/value_init.hpp>
 #include <functional>
+
 #include "byte_slice.h"
-#include "span.h"
 #include "net/levin_base.h"
+#include "serde/epee_binary/deserializer.h"
+#include "serde/epee_binary/serializer.h"
+#include "span.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"

@@ -28,6 +28,7 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
+#include "serde/json/value.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
@@ -131,10 +132,8 @@
         return true; \
       } \
       uint64_t ticks2 = misc_utils::get_tick_count(); \
-      epee::byte_slice buffer; \
-      serde::epee_binary::to_byte_stream(static_cast<command_type::response&>(resp), buffer); \
+      response_info.m_body = serde::epee_binary::to_string(static_cast<command_type::response&>(resp)); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
-      response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
       response_info.m_mime_tipe = " application/octet-stream"; \
       response_info.m_header_info.m_content_type = " application/octet-stream"; \
       MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
@@ -157,7 +156,7 @@
       epee::json_rpc::error_response rsp; \
       rsp.jsonrpc = "2.0"; \
       rsp.error.code = -32700; \
-      rsp.error.message = "Parse error: " << e.what(); \
+      rsp.error.message = std::string("Parse error: ") + std::string(e.what()); \
       serde::json::to_string(rsp, response_info.m_body); \
       return true; \
     } \
