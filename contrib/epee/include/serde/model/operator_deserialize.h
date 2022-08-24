@@ -36,6 +36,9 @@
 #include "deserializer.h"
 #include "../internal/enable_if.h"
 
+#define DESERIALIZE_OPERATOR_FRIEND(thisname)                               \
+    friend bool deserialize_default(serde::model::Deserializer&, thisname&) \
+
 namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////

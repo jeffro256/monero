@@ -35,6 +35,9 @@
 #include "serializer.h"
 #include "../internal/enable_if.h"
 
+#define SERIALIZE_OPERATOR_FRIEND(thisname)                                   \
+    friend void serialize_default(const thisname&, serde::model::Serializer&) \
+
 namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
