@@ -60,7 +60,7 @@ namespace serde::model
             static_assert(std::is_pod<Element>::value);                                 \
             const size_t blob_size = cont.size() * sizeof(Element);                     \
             std::string blob(blob_size, '\0');                                          \
-            Element* blob_ptr = reinterpret_cast<Element*>(blob.data());                \
+            Element* blob_ptr = reinterpret_cast<Element*>(&blob.front());              \
             for (const auto& elem: cont) {                                              \
                 *(blob_ptr++) = CONVERT_POD(elem);                                      \
             }                                                                           \

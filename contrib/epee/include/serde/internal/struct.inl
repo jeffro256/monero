@@ -79,6 +79,27 @@ namespace serde::internal
         bool did_deser;
     }; // struct StructDeserializeField
 
+    // Two specializations for serializing StructFields with AsBlob = true/false
+    template <typename V>
+    void serialize_field_value
+    (
+        const StructField<const V&, true>& blob_field,
+        model::Serializer& serializer
+    )
+    {
+        serialize_as_blob(blob_field.value, serializer);
+    }
+
+    template <typename V>
+    void serialize_field_value
+    (
+        const StructField<const V&, false>& default_field,
+        model::Serializer& serializer
+    )
+    {
+        serialize_default(default_field.value, serializer);
+    }
+
     // Two specializations for deserializing StructDeserializeFields with AsBlob = true/false
     template <typename V, bool Required>
     bool deserialize_field_value
@@ -114,11 +135,10 @@ namespace serde::internal
         constexpr serialize_field(model::Serializer& serializer): serializer(serializer) {}
 
         template <class Field>
-        bool operator()(Field& field)
+        bool operator()(const Field& field)
         {
             serializer.serialize_key(field.key);
-            if (Field::do_as_blob) model::serialize_as_blob(field.value, serializer);
-            else model::serialize_default(field.value, serializer);
+            serialize_field_value(field, serializer);
             return true;
         }
 
