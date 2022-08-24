@@ -29,6 +29,7 @@
 #pragma once
 
 #include <list>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -376,5 +377,14 @@ namespace serde::epee_binary
         to_byte_stream(value, bystream);
         byte_slice slice = byte_slice(std::move(bystream));
         return slice;
+    }
+
+    template <typename T>
+    std::string to_string(const T& value)
+    {
+        std::stringstream ss;
+        Serializer<std::stringstream> serializer(ss);
+        serialize_default(value, serializer);
+        return ss.str();
     }
 } // namespace serde::binary_epee
