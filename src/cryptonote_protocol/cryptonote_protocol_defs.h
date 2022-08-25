@@ -136,6 +136,9 @@ namespace cryptonote
     uint64_t block_weight;
     std::vector<tx_blob_entry> txs;
 
+    SERIALIZE_OPERATOR_FRIEND(block_complete_entry)
+    DESERIALIZE_OPERATOR_FRIEND(block_complete_entry)
+
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
 

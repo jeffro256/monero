@@ -355,6 +355,9 @@ namespace cryptonote
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
       bool relayed;
+
+      SERIALIZE_OPERATOR_FRIEND(entry)
+      DESERIALIZE_OPERATOR_FRIEND(entry)
     };
 
     struct response_t: public rpc_access_response_base
@@ -2376,6 +2379,9 @@ namespace cryptonote
       std::string compressed_data;
       bool binary;
       bool compress;
+
+      SERIALIZE_OPERATOR_FRIEND(distribution)
+      DESERIALIZE_OPERATOR_FRIEND(distribution)
     };
 
     struct response_t: public rpc_access_response_base

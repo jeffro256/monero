@@ -290,7 +290,8 @@ namespace net_utils
 		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
-		// @TODO: @jeffro256 needs to replace serialization 
+		SERIALIZE_OPERATOR_FRIEND(network_address)
+		DESERIALIZE_OPERATOR_FRIEND(network_address)
 	};
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)

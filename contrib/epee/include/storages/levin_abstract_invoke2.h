@@ -26,8 +26,6 @@
 
 #pragma once
 
-#include <boost/utility/string_ref.hpp>
-#include <boost/utility/value_init.hpp>
 #include <functional>
 
 #include "byte_slice.h"
@@ -138,8 +136,8 @@ namespace epee
     template<class t_owner, class t_in_type, class t_out_type, class t_context, class callback_t>
     int buff_to_t_adapter(int command, const epee::span<const uint8_t> in_buff, byte_stream& buff_out, callback_t cb, t_context& context )
     {
-      boost::value_initialized<t_in_type> in_struct;
-      boost::value_initialized<t_out_type> out_struct;
+      t_in_type in_struct;
+      t_out_type out_struct;
 
       try
       {
@@ -170,7 +168,7 @@ namespace epee
     template<class t_owner, class t_in_type, class t_context, class callback_t>
     int buff_to_t_adapter(t_owner* powner, int command, const epee::span<const uint8_t> in_buff, callback_t cb, t_context& context)
     {
-      boost::value_initialized<t_in_type> in_struct;
+      t_in_type in_struct;
 
       try
       {

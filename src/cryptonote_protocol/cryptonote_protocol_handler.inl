@@ -43,6 +43,7 @@
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
 #include "common/util.h"
+#include "serde/epee_binary/serializer.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -462,7 +463,7 @@ namespace cryptonote
   {
     CORE_SYNC_DATA hsd = {};
     get_payload_sync_data(hsd);
-    epee::serialization::store_t_to_binary(hsd, data);
+    data = serde::epee_binary::to_byte_slice(hsd);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2416,11 +2417,6 @@ skip:
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
 
-      //std::string blob; // for calculate size of request
-      //epee::serialization::store_t_to_binary(r, blob);
-      //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
-      //LOG_PRINT_CCONTEXT_L1("r = " << 200);
-
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() << ", start_from_current_chain " << start_from_current_chain);
@@ -2733,13 +2729,13 @@ skip:
     if (!fluffyConnections.empty())
     {
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob.buffer);
+      serde::epee_binary::to_byte_stream(fluffy_arg, fluffyBlob.buffer);
       m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
       epee::levin::message_writer fullBlob{128 * 1024};
-      epee::serialization::store_t_to_binary(arg, fullBlob.buffer);
+      serde::epee_binary::to_byte_stream(arg, fullBlob.buffer);
       m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
     }
 
