@@ -225,26 +225,4 @@ namespace serde::json {
             m_stream.put(',');
         }
     }
-
-    template <typename T>
-    std::string to_string(const T& value)
-    {
-        std::stringstream ss;
-        Serializer<std::stringstream> serializer(ss);
-        serialize_default(value, serializer);
-        return ss.str();
-    }
-
-    template <typename T>
-    void to_file(const T& value, const std::string& file_path)
-    {
-        std::ofstream ofs(file_path);
-        Serializer<std::ofstream> serializer(ofs);
-        serialize_default(value, serializer);
-        CHECK_AND_ASSERT_THROW_MES
-        (
-            ofs.good(),
-            "There was a std::ofstream error while serializing"
-        );
-    }
 } // namespace serde::epee

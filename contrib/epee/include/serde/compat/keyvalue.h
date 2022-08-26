@@ -31,10 +31,10 @@
 #include <cstring>
 #include <tuple>
 
-#include "operator_deserialize.h"
-#include "operator_serialize.h"
 #include "../internal/container.h"
 #include "../internal/deps.h"
+#include "../model/operator_deserialize.h"
+#include "../model/operator_serialize.h"
 
 #define BEGIN_KV_SERIALIZE_MAP()                                 \
     using serde_struct_enabled = void;                           \
@@ -94,4 +94,4 @@ namespace serde::model
     bool deserialize_default(Deserializer& deserializer, Struct& struct_ref);
 }
 
-#include "../internal/struct.inl"
+#include "./keyvalue.inl"

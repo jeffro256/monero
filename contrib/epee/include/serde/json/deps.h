@@ -30,6 +30,3 @@
 #include <rapidjson/error/en.h>
 #include <rapidjson/reader.h>
 #include <rapidjson/stream.h>
-
-// @TODO: use streams to deserializer JSON from file
-#include "file_io_utils.h" // from epee

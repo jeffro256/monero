@@ -31,15 +31,10 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-#include "serde/epee_binary/deserializer.h"
-#include "serde/epee_binary/serializer.h"
-#include "serde/model/operator_deserialize.h"
-#include "serde/model/operator_serialize.h"
-#include "serde/model/struct.h"
-#include "serde/json/deserializer.h"
-#include "serde/json/serializer.h"
+#include "serde/compat/keyvalue.h"
 #include "serde/json/value.h"
 #include "span.h"
+#include "storages/serde_template_helper.h"
 
 namespace {
   struct Data1
@@ -209,7 +204,7 @@ TEST(epee_serialization, bin_serialize_1)
   };
 
   const Data1 data = { 2023 };
-  const epee::byte_slice actual_slice = to_byte_slice(data);
+  const epee::byte_slice actual_slice = epee::serialization::store_t_to_binary(data);
   const std::string expected = ARRAY_STR(expected_binary);
   const std::string actual{reinterpret_cast<const char*>(actual_slice.data()), actual_slice.size()};
 
@@ -223,15 +218,13 @@ TEST (epee_serialization, json_serialize_1)
   const std::string expected_json("{\"val\":2023}");
 
   const Data1 data = { 2023 };
-  const std::string result = to_string(data);
+  const std::string result = epee::serialization::store_t_to_json(data);
 
   EXPECT_EQ(expected_json, result);
 }
 
 TEST(epee_serialization, json_escape)
 {
-  using namespace serde::json;
-
   static const std::pair<StringData, std::string> test_cases[] =
   {
     { { "Howdy, World!" }, R"({"str":"Howdy, World!"})" },
@@ -244,7 +237,7 @@ TEST(epee_serialization, json_escape)
     const auto& input_instance = test_case.first;
     const auto& expected_json = test_case.second;
 
-    const std::string actual_json = to_string(input_instance);
+    const std::string actual_json = epee::serialization::store_t_to_json(input_instance);
 
     EXPECT_EQ(expected_json, actual_json);
   }
@@ -252,8 +245,6 @@ TEST(epee_serialization, json_escape)
 
 TEST(epee_serialization, bin_deserialize_1)
 {
-  using namespace serde::epee_binary;
-
   static constexpr const std::uint8_t source_binary[] =
   {
     0x01, 0x11, 0x01, 0x01, // Signature A
@@ -265,7 +256,8 @@ TEST(epee_serialization, bin_deserialize_1)
     0xe7, 0x07              // INT16 value of 'val'
   };
 
-  const Data1 deserialized_data = from_bytes<Data1>(source_binary);
+  Data1 deserialized_data;
+  EXPECT_TRUE(epee::serialization::load_t_from_binary(deserialized_data, source_binary));
   const Data1 expected_data = { 2023 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
@@ -274,15 +266,15 @@ TEST(epee_serialization, json_deserialize_1)
 {
   using namespace serde::json;
 
-  const Data1 deserialized_data = from_cstr<Data1>("{\"val\":7777}");
+  Data1 deserialized_data;
+  std::string json_src = "{\"val\":7777}";
+  EXPECT_TRUE(epee::serialization::load_t_from_json(deserialized_data, json_src));
   const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
 
 TEST(epee_serialization, json_deserialize_2)
 {
-  using namespace serde::json;
-
   std::string json_data = R"({
     "i8": -5, "i16": -6, "i32": -7, "i64": -8,
     "unsign": { "u64": 1, "u32": 2, "u16": 3, "u8": 4 },
@@ -293,7 +285,8 @@ TEST(epee_serialization, json_deserialize_2)
 
   const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
 
-  const Data2 actual = from_cstr<Data2>(json_data.c_str());
+  Data2 actual;
+  EXPECT_TRUE(epee::serialization::load_t_from_binary(actual, json_data));
   EXPECT_EQ(expected, actual);
 }
 

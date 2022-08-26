@@ -62,7 +62,6 @@ namespace serde::internal
     std::string byte_span_to_string(const const_byte_span& bytes);
 } // namespace serde::internal
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // SWAP64LE, SWAP32LE, BIG_ENDIAN, ...                                       //
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,17 +134,4 @@ namespace serde
     template <typename T>
     using optional = boost::optional<T>;
 #endif
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// byte_slice and byte_stream                                                //
-///////////////////////////////////////////////////////////////////////////////
-
-#include "byte_slice.h" // from epee
-#include "byte_stream.h" // from epee
-
-namespace serde
-{
-    using byte_slice = epee::byte_slice;
-    using byte_stream = epee::byte_stream;
 }
