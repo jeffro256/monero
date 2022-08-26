@@ -31,9 +31,9 @@
 #include "checkpoints.h"
 
 #include "common/dns_utils.h"
+#include "serde/compat/keyvalue.h"
+#include "storages/serde_template_helper.h"
 #include "string_tools.h"
-#include "serde/json/deserializer.h" // epee json include
-#include "serde/model/struct.h"
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include <functional>
@@ -257,11 +257,7 @@ namespace cryptonote
     uint64_t prev_max_height = get_max_height();
     LOG_PRINT_L1("Hard-coded max checkpoint height is " << prev_max_height);
     t_hash_json hashes;
-    try
-    {
-      hashes = serde::json::from_file<t_hash_json>(json_hashfile_fullpath);
-    }
-    catch (...)
+    if (!epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath))
     {
       MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
       return false;

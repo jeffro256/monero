@@ -31,7 +31,7 @@
 #pragma once
 
 #include <list>
-#include "serde/model/struct.h"
+#include "serde/compat/keyvalue.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
 

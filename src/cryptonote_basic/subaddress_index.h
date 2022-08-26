@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "serde/model/struct.h"
+#include "serde/compat/keyvalue.h"
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/version.hpp>
 #include <ostream>
