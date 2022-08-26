@@ -31,10 +31,10 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-#include "serde/compat/keyvalue.h"
+#include "serde/epee_compat/keyvalue.h"
+#include "serde/epee_compat/template_helper.h"
 #include "serde/json/value.h"
 #include "span.h"
-#include "storages/serde_template_helper.h"
 
 namespace {
   struct Data1
@@ -286,7 +286,7 @@ TEST(epee_serialization, json_deserialize_2)
   const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
 
   Data2 actual;
-  EXPECT_TRUE(epee::serialization::load_t_from_binary(actual, json_data));
+  EXPECT_TRUE(epee::serialization::load_t_from_json(actual, json_data));
   EXPECT_EQ(expected, actual);
 }
 

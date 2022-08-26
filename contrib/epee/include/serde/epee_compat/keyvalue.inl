@@ -28,6 +28,12 @@
 
 #pragma once
 
+#include <cstring>
+#include <tuple>
+
+#include "../internal/container.h"
+#include "../internal/deps.h"
+
 namespace serde::internal
 {
     ///////////////////////////////////////////////////////////////////////////

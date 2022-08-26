@@ -28,9 +28,9 @@
 
 #pragma once
 
-#include "byte_slice.h"
-#include "byte_stream.h"
-#include "file_io_utils.h"
+#include "byte_slice.h" // from epee
+#include "byte_stream.h" // from epee
+#include "file_io_utils.h" // from epee
 #include "serde/epee_binary/deserializer.h"
 #include "serde/epee_binary/serializer.h"
 #include "serde/json/deserializer.h"
