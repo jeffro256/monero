@@ -43,7 +43,7 @@
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
 #include "common/util.h"
-#include "serde/epee_binary/serializer.h"
+#include "serde/epee_compat/template_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -463,7 +463,7 @@ namespace cryptonote
   {
     CORE_SYNC_DATA hsd = {};
     get_payload_sync_data(hsd);
-    data = serde::epee_binary::to_byte_slice(hsd);
+    epee::serialization::store_t_to_binary(hsd, data);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2729,13 +2729,13 @@ skip:
     if (!fluffyConnections.empty())
     {
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      serde::epee_binary::to_byte_stream(fluffy_arg, fluffyBlob.buffer);
+      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob.buffer);
       m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
       epee::levin::message_writer fullBlob{128 * 1024};
-      serde::epee_binary::to_byte_stream(arg, fullBlob.buffer);
+      epee::serialization::store_t_to_binary(arg, fullBlob.buffer);
       m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
     }
 

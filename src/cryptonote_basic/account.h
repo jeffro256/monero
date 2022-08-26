@@ -32,7 +32,7 @@
 
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
-#include "serde/compat/keyvalue.h"
+#include "serde/epee_compat/keyvalue.h"
 
 namespace cryptonote
 {

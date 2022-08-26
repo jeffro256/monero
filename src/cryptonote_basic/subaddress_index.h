@@ -28,10 +28,11 @@
 
 #pragma once
 
-#include "serde/compat/keyvalue.h"
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/version.hpp>
 #include <ostream>
+
+#include "serde/epee_compat/keyvalue.h"
 
 namespace cryptonote
 {

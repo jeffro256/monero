@@ -32,10 +32,7 @@
 #include "byte_slice.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
-#include "serde/epee_binary/deserializer.h"
-#include "serde/epee_binary/serializer.h"
-#include "serde/json/deserializer.h"
-#include "serde/json/serializer.h"
+#include "serde/epee_compat/template_helper.h"
 
 namespace epee
 {
@@ -44,7 +41,9 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_json(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      const std::string req_param = serde::json::to_string(out_struct);
+      std::string req_param;
+      if(!serialization::store_t_to_json(out_struct, req_param))
+        return false;
 
       http::fields_list additional_params;
       additional_params.push_back(std::make_pair("Content-Type","application/json; charset=utf-8"));
@@ -68,16 +67,7 @@ namespace epee
         return false;
       }
 
-      try
-      {
-        result_struct = serde::json::from_cstr<t_response>(pri->m_body.c_str());
-        return true;
-      }
-      catch (const std::exception& e)
-      {
-        LOG_PRINT_L1("Failed to invoke http request to \"" << uri << "\": " << e.what());
-        return false;
-      }
+      return serialization::load_t_from_json(result_struct, pri->m_body);
     }
 
 
@@ -85,7 +75,9 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      const byte_slice req_param = serde::epee_binary::to_byte_slice(out_struct);
+      byte_slice req_param;
+      if(!serialization::store_t_to_binary(out_struct, req_param, 16 * 1024))
+        return false;
 
       const http::http_response_info* pri = NULL;
       if(!transport.invoke(uri, method, boost::string_ref{reinterpret_cast<const char*>(req_param.data()), req_param.size()}, timeout, std::addressof(pri)))
@@ -106,15 +98,7 @@ namespace epee
         return false;
       }
 
-      try {
-        result_struct = serde::epee_binary::from_bytes<t_response>(serde::internal::string_to_byte_span(pri->m_body));
-        return true;
-      }
-      catch (const std::exception& e)
-      {
-        LOG_PRINT_L1("Failed to invoke http request to \"" << uri << "\": " << e.what());
-        return false;
-      }
+      return serialization::load_t_from_binary(result_struct, serde::internal::string_to_byte_span(pri->m_body));
     }
 
     template<class t_request, class t_response, class t_transport>

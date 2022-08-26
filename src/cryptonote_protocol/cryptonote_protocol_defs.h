@@ -31,9 +31,10 @@
 #pragma once
 
 #include <list>
-#include "serde/compat/keyvalue.h"
+
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "serde/epee_compat/keyvalue.h"
 
 namespace cryptonote
 {

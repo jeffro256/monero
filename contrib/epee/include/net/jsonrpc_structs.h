@@ -3,7 +3,7 @@
 
 #include <string>
 #include <cstdint>
-#include "serde/compat/keyvalue.h"
+#include "serde/epee_compat/keyvalue.h"
 
 namespace epee 
 {

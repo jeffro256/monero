@@ -181,7 +181,8 @@ namespace levin
           padding -= overhead;
         request._ = std::string(padding, ' ');
 
-        const epee::byte_slice arg_buff = serde::epee_binary::to_byte_slice(request);
+        epee::byte_slice arg_buff;
+        epee::serialization::store_t_to_binary(request, arg_buff);
 
         // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
         size_t remove = arg_buff.size() % granularity;
@@ -193,7 +194,8 @@ namespace levin
       }
 
       epee::levin::message_writer out;
-      serde::epee_binary::to_byte_stream(request, out.buffer);
+      if (!epee::serialization::store_t_to_binary(request, out.buffer))
+        throw std::runtime_error{"Failed to serialize to epee binary format"};
 
       return out;
     }

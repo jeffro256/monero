@@ -28,6 +28,7 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
+#include "serde/epee_compat/template_helper.h"
 #include "serde/json/value.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -67,12 +68,9 @@
     { \
       handled = true; \
       uint64_t ticks = misc_utils::get_tick_count(); \
-      command_type::request req; \
-      try \
-      { \
-        req = serde::json::from_cstr<command_type::request>(query_info.m_body.c_str()); \
-      } \
-      catch (const std::exception& e) \
+      boost::value_initialized<command_type::request> req; \
+      bool parse_res = epee::serialization::load_t_from_json(static_cast<command_type::request&>(req), query_info.m_body); \
+      if (!parse_res) \
       { \
          MERROR("Failed to parse json: \r\n" << query_info.m_body); \
          response_info.m_response_code = 400; \
@@ -92,7 +90,7 @@
         return true; \
       } \
       uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
-      response_info.m_body = serde::json::to_string(static_cast<const command_type::response&>(resp)); \
+      epee::serialization::store_t_to_json(static_cast<command_type::response&>(resp), response_info.m_body); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
       response_info.m_mime_tipe = "application/json"; \
       response_info.m_header_info.m_content_type = " application/json"; \
@@ -106,17 +104,13 @@
     { \
       handled = true; \
       uint64_t ticks = misc_utils::get_tick_count(); \
-      command_type::request req; \
-      try \
-      { \
-        const auto body_span = serde::internal::string_to_byte_span(query_info.m_body); \
-        req = serde::epee_binary::from_bytes<command_type::request>(body_span); \
-      } \
-      catch (const std::exception& e) \
+      boost::value_initialized<command_type::request> req; \
+      bool parse_res = epee::serialization::load_t_from_binary(static_cast<command_type::request&>(req), epee::strspan<uint8_t>(query_info.m_body)); \
+      if (!parse_res) \
       { \
          MERROR("Failed to parse bin body data, body size=" << query_info.m_body.size()); \
          response_info.m_response_code = 400; \
-         response_info.m_response_comment = std::string("Bad request: ") + std::string(e.what()); \
+         response_info.m_response_comment = "Bad request"; \
          return true; \
       } \
       uint64_t ticks1 = misc_utils::get_tick_count(); \
@@ -132,8 +126,10 @@
         return true; \
       } \
       uint64_t ticks2 = misc_utils::get_tick_count(); \
-      response_info.m_body = serde::epee_binary::to_string(static_cast<command_type::response&>(resp)); \
+      epee::byte_slice buffer; \
+      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer, 64 * 1024); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
+      response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
       response_info.m_mime_tipe = " application/octet-stream"; \
       response_info.m_header_info.m_content_type = " application/octet-stream"; \
       MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
@@ -153,12 +149,12 @@
     } \
     catch (const std::exception& e) \
     { \
-      epee::json_rpc::error_response rsp; \
-      rsp.jsonrpc = "2.0"; \
-      rsp.error.code = -32700; \
-      rsp.error.message = std::string("Parse error: ") + std::string(e.what()); \
-      response_info.m_body = serde::json::to_string(rsp); \
-      return true; \
+       boost::value_initialized<epee::json_rpc::error_response> rsp; \
+       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
+       static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
+       static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
+       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+       return true; \
     } \
     std::string id_ = "0"; \
     if (req_doc.HasMember("id") && req_doc["id"].IsString()) \
@@ -175,8 +171,8 @@
       epee::json_rpc::error_response rsp; \
       rsp.jsonrpc = "2.0"; \
       rsp.error.code = -32600; \
-      rsp.error.message = "Invalid Request: no method provided"; \
-      response_info.m_body = serde::json::to_string(rsp); \
+      rsp.error.message = "Invalid Request"; \
+      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
       return true; \
     } \
     if(false) return true; //just a stub to have "else if"
@@ -193,8 +189,8 @@
     fail_resp.jsonrpc = "2.0"; \
     fail_resp.id = req.id; \
     fail_resp.error.code = -32602; \
-    fail_resp.error.message = "Invalid params: no params object provided"; \
-    response_info.m_body = serde::json::to_string(fail_resp); \
+    fail_resp.error.message = "Invalid params"; \
+    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
   } \
   try \
   { \
@@ -208,7 +204,7 @@
     fail_resp.id = req.id; \
     fail_resp.error.code = -32602; \
     fail_resp.error.message = std::string("Invalid params: ") + std::string(e.what()); \
-    response_info.m_body = serde::json::to_string(fail_resp); \
+    epee::serialization::store_t_to_json(fail_resp, response_info.m_body); \
     return true; \
   } \
   uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
@@ -219,7 +215,7 @@
 
 #define FINALIZE_OBJECTS_TO_JSON(method_name) \
   uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
-  response_info.m_body = serde::json::to_string(resp); \
+  epee::serialization::store_t_to_json(resp, response_info.m_body); \
   uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
   response_info.m_mime_tipe = "application/json"; \
   response_info.m_header_info.m_content_type = " application/json"; \
@@ -238,7 +234,7 @@
   catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
   if (!res) \
   { \
-    response_info.m_body = serde::json::to_string(fail_resp); \
+    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
     return true; \
   } \
   FINALIZE_OBJECTS_TO_JSON(method_name) \
@@ -262,7 +258,7 @@
     fail_resp.id = req.id; \
     fail_resp.error.code = -32603; \
     fail_resp.error.message = "Internal error"; \
-    response_info.m_body = serde::json::to_string(fail_resp); \
+    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
     return true; \
   } \
   FINALIZE_OBJECTS_TO_JSON(method_name) \
@@ -275,6 +271,6 @@
   rsp.jsonrpc = "2.0"; \
   rsp.error.code = -32601; \
   rsp.error.message = "Method not found"; \
-  response_info.m_body = serde::json::to_string(rsp); \
+  epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
   return true; \
 }

@@ -91,8 +91,6 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
-#include "serde/epee_binary/deserializer.h"
-#include "serde/epee_binary/serializer.h"
 
 extern "C"
 {
@@ -3854,7 +3852,8 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
 
   account.encrypt_keys(key);
 
-  account_data = serde::epee_binary::to_byte_slice(account);
+  bool r = epee::serialization::store_t_to_binary(account, account_data);
+  CHECK_AND_ASSERT_MES(r, boost::none, "failed to serialize wallet keys");
   boost::optional<wallet2::keys_file_data> keys_file_data = (wallet2::keys_file_data) {};
 
   // Create a JSON object with "key_data" and "seed_language" as keys.
@@ -4427,15 +4426,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     return false;
   }
 
-  try
-  {
-    m_account = serde::epee_binary::from_bytes(serde::internal::string_to_byte_span(account_data));
-  }
-  catch (const std::exception& e)
-  {
-    THROW_WALLET_EXCEPTION_IF(true, error::invalid_password);
-  }
-
+  r = epee::serialization::load_t_from_binary(m_account, account_data);
+  THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
   if (m_key_device_type == hw::device::device_type::LEDGER || m_key_device_type == hw::device::device_type::TREZOR) {
     LOG_PRINT_L0("Account on device. Initing device...");
     hw::device &hwdev = lookup_device(m_device_name);
@@ -4567,15 +4559,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
 
   cryptonote::account_base account_data_check;
 
-  try
-  {
-    account_data_check = serde::epee_binary::from_bytes(serde::internal::string_to_byte_span(account_data));
-    r = true;
-  }
-  catch (const std::exception& e)
-  {
-    r = false;
-  }
+  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
 
   if (encrypted_secret_keys)
     account_data_check.decrypt_keys(key);
@@ -4687,14 +4671,8 @@ bool wallet2::query_device(hw::device::device_type& device_type, const std::stri
 
   cryptonote::account_base account_data_check;
 
-  try {
-    account_data_check = serde::epee_binary::from(account_data);
-  }
-  catch (const std::exception& e)
-  {
-    return false;
-  }
-
+  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
+  if (!r) return false;
   return true;
 }
 

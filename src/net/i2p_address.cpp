@@ -36,7 +36,7 @@
 #include <limits>
 
 #include "net/error.h"
-#include "serde/compat/keyvalue.h"
+#include "serde/epee_compat/keyvalue.h"
 #include "string_tools_lexical.h"
 
 namespace net
