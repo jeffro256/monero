@@ -45,5 +45,6 @@ namespace serde::model
         }                                                                       \
 
     DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(std::list)
+    DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(std::set)
     DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(std::vector)
 } // namespace serde::model

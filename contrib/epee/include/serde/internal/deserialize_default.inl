@@ -46,5 +46,6 @@ namespace serde::model {
         }                                                                               \
     
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::list)
+    DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::set)
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::vector)
 } // namespace serde::model

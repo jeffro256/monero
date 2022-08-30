@@ -29,6 +29,7 @@
 #pragma once
 
 #include <list>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -63,6 +64,9 @@ namespace serde::model
 
     template <typename Element>
     void serialize_default(const std::list<Element>& cont, Serializer& serializer);
+
+    template <typename Element>
+    void serialize_default(const std::set<Element>& cont, Serializer& serializer);
 
     template <typename Element>
     void serialize_default(const std::vector<Element>& cont, Serializer& serializer);

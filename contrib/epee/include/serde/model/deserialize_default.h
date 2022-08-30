@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <list>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,8 @@ namespace serde::model
 
     template <typename T>
     bool deserialize_default(Deserializer& deserializer, std::list<T>& values);
+    template <typename T>
+    bool deserialize_default(Deserializer& deserializer, std::set<T>& values);
     template <typename T>
     bool deserialize_default(Deserializer& deserializer, std::vector<T>& values);
 }
