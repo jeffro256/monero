@@ -29,6 +29,7 @@
 #pragma once
 
 #include <list>
+#include <set>
 #include <vector>
 
 #include "./blobbable.h"
@@ -68,6 +69,7 @@ namespace serde::model
         }                                                                            \
     
     DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(std::list)
+    DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(std::set)
     DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(std::vector)
 
     // @TODO: specialization for contiguous containers (remember vector<bool> evilness)

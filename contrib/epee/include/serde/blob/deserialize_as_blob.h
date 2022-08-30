@@ -28,6 +28,10 @@
 
 #pragma once
 
+#include <list>
+#include <set>
+#include <vector>
+
 #include "./blob_visitors.h"
 #include "../model/deserializer.h"
 
@@ -53,6 +57,7 @@ namespace serde::model
         }                                                                               \
 
     DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::list)
+    DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::set)
     DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::vector)
 
     // @TODO: contiguous specializations
