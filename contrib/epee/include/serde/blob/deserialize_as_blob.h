@@ -43,23 +43,8 @@ namespace serde::model
         return blob_visitor.was_visited();
     }
 
-    template <typename T>
-    ENABLE_IF_T(IS_POD(T), bool) deserialize_as_blob(Deserializer& deserializer, T& value)
-    {
-        internal::BlobVisitor<T> blob_visitor(value);
-        deserializer.deserialize_bytes(blob_visitor);
-        return blob_visitor.was_visited();
-    }
-
-    template <typename T, typename B = typename T::serde_blob_delegate_type>
-    ENABLE_IF_T(!IS_POD(T), bool) deserialize_as_blob(Deserializer& deserializer, T& value)
-    {
-        static_assert(sizeof(T) == sizeof(B)); // otherwise we will not initialize all bytes of T
-        return deserialize_as_blob(deserializer, static_cast<B&>(value));
-    }
-
     #define DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(contname)                                \
-        template <typename Element>                                                     \
+        template <typename Element, ENABLE_TPARAM_IF(IS_BLOBBABLE(Element))>            \
         bool deserialize_as_blob(Deserializer& deserializer, contname<Element>& values) \
         {                                                                               \
             internal::BlobContainerVisitor<contname<Element>> blob_visitor(values);     \

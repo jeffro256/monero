@@ -36,7 +36,7 @@
 #define BLOBBABLE_BASE(basename) using blobbable_base_type = basename;
 
 #define IS_POD(ty) std::is_pod<ty>::value
-#define IS_BLOBBABLE(ty) IS_POD(ty) || has_blobbable_base<ty>::value
+#define IS_BLOBBABLE(ty) IS_POD(ty) || serde::internal::has_blobbable_base<ty>::value
 #define BLOB_TYPE(ty) typename serde::internal::blobbable<ty>::blob_type
 
 namespace serde::internal
@@ -60,7 +60,7 @@ namespace serde::internal
     /*
      * @brief creates reference type to a base of U which is POD and shares some properties with U
      */
-    template <typename U>
+    template <typename U, ENABLE_TPARAM_IF(IS_BLOBBABLE(U))>
     class blobbable
     {
     private:
