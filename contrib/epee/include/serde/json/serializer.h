@@ -31,7 +31,6 @@
 #include <fstream>
 #include <string>
 
-#include "../model/operator_serialize.h"
 #include "../model/serializer.h"
 
 namespace serde::json {

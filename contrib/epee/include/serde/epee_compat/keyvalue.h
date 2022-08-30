@@ -28,8 +28,8 @@
 
 #pragma once
 
-#include "../model/operator_deserialize.h"
-#include "../model/operator_serialize.h"
+#include "../model/deserializer.h"
+#include "../model/serializer.h"
 
 #define BEGIN_KV_SERIALIZE_MAP()                                 \
     using serde_struct_enabled = void;                           \

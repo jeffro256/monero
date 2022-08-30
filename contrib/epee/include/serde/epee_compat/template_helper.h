@@ -40,7 +40,7 @@ namespace epee::serialization
 {
     // json_buff reference must be non-const since ParseInsitu mutates buffer in place
     template<class t_struct>
-    bool load_t_from_json(t_struct& out, std::string& json_buff) noexcept
+    bool load_t_from_json(t_struct& out, const std::string& json_buff) noexcept
     {
         serde::json::Deserializer deserializer(&json_buff.front());
         try
@@ -108,7 +108,7 @@ namespace epee::serialization
     }
 
     template<class t_struct>
-    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t> binary_buff) noexcept
+    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t>& binary_buff) noexcept
     {
         serde::epee_binary::Deserializer deserializer{binary_buff};
         try

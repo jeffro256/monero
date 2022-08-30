@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "visitor_specializations.h"
+#include "./visitor_specializations.h"
 
 namespace serde::model {
     #define DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(contname)              \
@@ -47,18 +47,4 @@ namespace serde::model {
     
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::list)
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::vector)
-
-    #define DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(contname)                                \
-        template <typename Element, ENABLE_TPARAM_IF_POD(Element)>                      \
-        bool deserialize_as_blob(Deserializer& deserializer, contname<Element>& values) \
-        {                                                                               \
-            internal::BlobContainerVisitor<contname<Element>> blob_visitor(values);     \
-            deserializer.deserialize_bytes(blob_visitor);                               \
-            return blob_visitor.was_visited();                                          \
-        }                                                                               \
-
-    DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::list)
-    DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::vector)
-
-    // @TODO: contiguous specializations
 } // namespace serde::model

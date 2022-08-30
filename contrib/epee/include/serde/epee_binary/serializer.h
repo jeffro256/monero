@@ -37,7 +37,6 @@
 #include "../internal/deps.h"
 #include "../internal/endianness.h"
 #include "../model/constants.h"
-#include "../model/operator_serialize.h"
 #include "../model/serializer.h"
 
 #define VARINT_VAL_FITS_BYTE(val) (val < 63)

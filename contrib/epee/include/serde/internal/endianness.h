@@ -32,20 +32,18 @@
 
 #include "deps.h"
 
-// SWAP8LE is a NOOP but makes code more uniform below
-#ifndef SWAP8LE
-#define SWAP8LE(x) x
-#endif
-
-namespace serde::internal {
+namespace serde::internal
+{
     template <typename T>
-    struct le_conversion {
+    struct le_conversion 
+    {
         static constexpr bool needed_for_type() { return false; }
         inline static constexpr T convert(T value) { return value; }
     };
 
     template <typename T>
-    constexpr bool should_convert_pod() {
+    constexpr bool should_convert_pod()
+    {
         #if BYTE_ORDER == BIG_ENDIAN
             constexpr bool is_big_endian = true;
         #else
@@ -71,7 +69,6 @@ namespace serde::internal {
     SPECIALIZE_INT_CONVERSION(64)
     SPECIALIZE_INT_CONVERSION(32)
     SPECIALIZE_INT_CONVERSION(16)
-    SPECIALIZE_INT_CONVERSION(8)
     // @TODO: double endianness
 } // namespace serde::internal
 

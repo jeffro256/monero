@@ -31,8 +31,13 @@
 #include <cstring>
 #include <tuple>
 
+#include "../blob/deserialize_as_blob.h"
+#include "../blob/serialize_as_blob.h"
 #include "../internal/container.h"
 #include "../internal/deps.h"
+#include "../internal/visitor_specializations.h"
+#include "../model/deserialize_default.h"
+#include "../model/serialize_default.h"
 
 namespace serde::internal
 {
@@ -49,7 +54,7 @@ namespace serde::internal
 
         // StructDeserializeFields are passed an optional value while deserializing.
         // It is not needed for serialization, so just ignore that parameter
-        StructField(const const_byte_span& key, ValRef value, int ignored):
+        StructField(const const_byte_span& key, ValRef value, ValRef ignored):
             StructField(key, value)
         {}
 

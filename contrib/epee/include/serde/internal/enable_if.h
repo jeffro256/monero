@@ -30,10 +30,6 @@
 
 #include <type_traits>
 
-#define ENABLE_IF_T(cond, out) typename std::enable_if<cond>::type
+#define ENABLE_IF_T(cond, out) typename std::enable_if<cond, out>::type
 #define ENABLE_IF(cond) ENABLE_IF_T(cond, void)
 #define ENABLE_TPARAM_IF(cond) typename = ENABLE_IF(cond)
-
-#define ENABLE_IF_POD_T(tryt, out) ENABLE_IF_T(std::is_pod<tryt>::value, out)
-#define ENABLE_IF_POD(tryt) ENABLE_IF_POD_T(tryt, void)
-#define ENABLE_TPARAM_IF_POD(tryt) typename = ENABLE_IF_POD(tryt)

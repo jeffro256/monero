@@ -28,17 +28,10 @@
 
 #pragma once
 
-#include "../internal/endianness.h"
+#include "./endianness.h"
 
 namespace serde::model
 {
-    template <typename T> ENABLE_IF_POD(T)
-    serialize_as_blob(const T& value, Serializer& serializer)
-    {
-        const T conv_val = CONVERT_POD(value);
-        serializer.serialize_bytes({reinterpret_cast<const_byte_iterator>(&conv_val), sizeof(T)});
-    }
-
     #define DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(contname)                       \
         template <typename T>                                                   \
         void serialize_default(const contname<T>& cont, Serializer& serializer) \
@@ -53,22 +46,4 @@ namespace serde::model
 
     DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(std::list)
     DEF_SERIALIZE_DEFAULT_FOR_CONTAINER(std::vector)
-
-    #define DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(contname)                               \
-        template <typename Element>                                                     \
-        void serialize_as_blob(const contname<Element>& cont, Serializer& serializer) { \
-            static_assert(std::is_pod<Element>::value);                                 \
-            const size_t blob_size = cont.size() * sizeof(Element);                     \
-            std::string blob(blob_size, '\0');                                          \
-            Element* blob_ptr = reinterpret_cast<Element*>(&blob.front());              \
-            for (const auto& elem: cont) {                                              \
-                *(blob_ptr++) = CONVERT_POD(elem);                                      \
-            }                                                                           \
-            serializer.serialize_string(blob);                                          \
-        }                                                                               \
-    
-    DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(std::list)
-    DEF_SERIALIZE_AS_BLOB_FOR_CONTAINER(std::vector)
-
-    // @TODO: specialization for contiguous containers (remember vector<bool> evilness)
 } // namespace serde::model

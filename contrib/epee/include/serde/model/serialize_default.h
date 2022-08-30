@@ -34,6 +34,7 @@
 
 #include "serializer.h"
 #include "../internal/enable_if.h"
+#include "../internal/endianness.h"
 
 #define SERIALIZE_OPERATOR_FRIEND(thisname)                                    \
     friend void serialize_default(const thisname&, serde::model::Serializer&); \
@@ -41,7 +42,7 @@
 namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
-    // Main serialization interface                                          //
+    // Default serialization interface                                       //
     ///////////////////////////////////////////////////////////////////////////
 
     void serialize_default(int64_t, Serializer&);
@@ -56,23 +57,15 @@ namespace serde::model
     void serialize_default(const std::string&, Serializer&);
     void serialize_default(bool, Serializer&);
 
-    template <typename T> ENABLE_IF_POD(T)
-    serialize_as_blob(const T& value, Serializer& serializer);
-    void serialize_as_blob(const std::string&, Serializer&);
-
     ///////////////////////////////////////////////////////////////////////////
     // container overloads                                                   //
     ///////////////////////////////////////////////////////////////////////////
 
     template <typename Element>
     void serialize_default(const std::list<Element>& cont, Serializer& serializer);
-    template <typename Element>
-    void serialize_as_blob(const std::list<Element>& cont, Serializer& serializer);
 
     template <typename Element>
     void serialize_default(const std::vector<Element>& cont, Serializer& serializer);
-    template <typename Element>
-    void serialize_as_blob(const std::vector<Element>& cont, Serializer& serializer);
 }
 
-#include "../internal/operator_serialize.inl"
+#include "../internal/serialize_default.inl"

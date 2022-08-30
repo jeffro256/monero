@@ -32,7 +32,7 @@
 
 #include "./deps.h"
 #include "../internal/deps.h"
-#include "../model/operator_deserialize.h"
+#include "../model/deserializer.h"
 
 namespace serde::json
 {

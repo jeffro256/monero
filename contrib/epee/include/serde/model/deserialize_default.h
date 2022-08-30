@@ -42,7 +42,7 @@
 namespace serde::model
 {
     ///////////////////////////////////////////////////////////////////////////
-    // Main Deserialize interface                                            //
+    // deserialize_default() interface                                       //
     ///////////////////////////////////////////////////////////////////////////
 
     bool deserialize_default(Deserializer& deserializer, int64_t& value);
@@ -57,23 +57,10 @@ namespace serde::model
     bool deserialize_default(Deserializer& deserializer, std::string& value);
     bool deserialize_default(Deserializer& deserializer, bool& value);
 
-    template <typename T, ENABLE_TPARAM_IF_POD(T)>
-    bool deserialize_as_blob(Deserializer& deserializer, T& value);
-    bool deserialize_as_blob(Deserializer& deserializer, std::string& value);
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Deserialize container specializations                                 //
-    ///////////////////////////////////////////////////////////////////////////
-
     template <typename T>
     bool deserialize_default(Deserializer& deserializer, std::list<T>& values);
     template <typename T>
     bool deserialize_default(Deserializer& deserializer, std::vector<T>& values);
-
-    template <typename T, ENABLE_TPARAM_IF_POD(T)>
-    bool deserialize_as_blob(Deserializer& deserializer, std::list<T>& values);
-    template <typename T, ENABLE_TPARAM_IF_POD(T)>
-    bool deserialize_as_blob(Deserializer& deserializer, std::vector<T>& values);
 }
 
-#include "../internal/operator_deserialize.inl"
+#include "../internal/deserialize_default.inl"

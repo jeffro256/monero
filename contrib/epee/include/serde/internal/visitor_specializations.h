@@ -31,7 +31,6 @@
 #include "./container.h"
 #include "./deps.h"
 #include "./enable_if.h"
-#include "./endianness.h"
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
 
@@ -155,83 +154,4 @@ namespace serde::internal
         BoundStatus bound_status;
         SizeHint size_hint;
     };
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Blob Visitor                                                          //
-    //                                                                       //
-    // Acts as a selector for visiting all primitive suported types as blobs //
-    ///////////////////////////////////////////////////////////////////////////
-
-    template <typename PodValue, ENABLE_TPARAM_IF_POD(PodValue)>
-    struct BlobVisitor: public model::RefVisitor<PodValue>
-    {
-        BlobVisitor(PodValue& val_ref): model::RefVisitor<PodValue>(val_ref) {}
-
-        std::string expecting() const override final
-        {
-            return "blob string";
-        }
-
-        void visit_bytes(const const_byte_span& blob) override final
-        {
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                blob.size() == sizeof(PodValue),
-                "trying to visit blob of incorrect lenngth"
-            );
-
-            PodValue val = *reinterpret_cast<const PodValue*>(blob.begin());
-            val = CONVERT_POD(val);
-            this->visit(std::move(val));
-        }
-    };
-
-    struct BlobStringVisitor: public model::RefVisitor<std::string>
-    {
-        BlobStringVisitor(std::string& str_ref): model::RefVisitor<std::string>(str_ref) {}
-
-        std::string expecting() const override final
-        {
-            return "blob string";
-        }
-
-        void visit_bytes(const const_byte_span& blob) override final
-        {
-            this->visit(internal::byte_span_to_string(blob));
-        }
-    };
-
-    template <typename Container, ENABLE_TPARAM_IF_POD(typename Container::value_type)>
-    struct BlobContainerVisitor: public model::RefVisitor<Container>
-    {
-        typedef typename Container::value_type value_type;
-
-        BlobContainerVisitor(Container& cont_ref): model::RefVisitor<Container>(cont_ref) {}
-
-        std::string expecting() const override final
-        {
-            return "container blob string";
-        }
-
-        void visit_bytes(const const_byte_span& blob) override final
-        {
-            constexpr size_t elem_size = sizeof(value_type);
-
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                blob.size() % elem_size == 0,
-                "blob length " << blob.size() << " not a multiple of element size " << elem_size
-            );
-
-            Container container; // @TODO: we can speed up by using underlying reference
-            const value_type* const value_ptr = reinterpret_cast<const value_type*>(blob.begin());
-            const size_t num_elements = blob.size() / elem_size;
-            for (size_t i = 0; i < num_elements; i++)
-            {
-                container.push_back(CONVERT_POD(value_ptr[i]));
-            }
-
-            this->visit(std::move(container));
-        }
-    }; // struct BlobContainerVisitor
 } // namespace serde::model

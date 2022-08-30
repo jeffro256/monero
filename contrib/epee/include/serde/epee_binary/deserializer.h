@@ -33,7 +33,6 @@
 #include "constants.h"
 #include "../internal/endianness.h"
 #include "../model/constants.h"
-#include "../model/operator_deserialize.h"
 #include "../model/visitor.h"
 
 namespace serde::epee_binary
