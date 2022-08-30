@@ -28,11 +28,12 @@
 
 #include "include_base_utils.h"
 #include "fuzzer.h"
+#include "serde/epee_compat/keyvalue.h"
+#include "serde/epee_compat/template_helper.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  epee::serialization::portable_storage ps;
-  ps.load_from_binary(std::string((const char*)buf, len));
+  // @TODO: fuzz test
 END_SIMPLE_FUZZER()
