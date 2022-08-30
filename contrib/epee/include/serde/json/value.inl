@@ -30,6 +30,8 @@
 
 #include <vector>
 
+#include "../model/visitor.h"
+
 namespace serde::json::internal
 {
     struct ValueObjectPair

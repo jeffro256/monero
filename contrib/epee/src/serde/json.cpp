@@ -29,6 +29,7 @@
 #include <rapidjson/reader.h>
 
 #include "serde/json/deserializer.h"
+#include "serde/json/value.h"
 #include "serde/model/visitor.h"
 
 namespace serde::json
@@ -94,5 +95,17 @@ namespace serde::json
     bool Deserializer::is_human_readable() const noexcept
     {
         return true;
+    }
+
+    Document parse_borrowed_document_from_cstr(char* str)
+    {
+        Document doc;
+        CHECK_AND_ASSERT_THROW_MES
+        (
+            !doc.ParseInsitu(str).HasParseError(),
+            "JSON parse error at offset " << doc.GetErrorOffset() << ": " <<
+                rapidjson::GetParseError_En(doc.GetParseError())
+        );
+        return doc;
     }
 }

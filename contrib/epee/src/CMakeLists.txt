@@ -38,7 +38,7 @@ monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     file_io_utils.cpp
     net_parse_helpers.cpp
     http_base.cpp
-    serde/deps.cpp serde/deserializer.cpp serde/epee_deserializer.cpp serde/json_deserializer.cpp serde/operator_deserialize.cpp serde/operator_serialize.cpp serde/serializer.cpp serde/visitor.cpp
+    serde/deps.cpp serde/deserializer.cpp serde/epee_deserializer.cpp serde/json.cpp serde/operator_deserialize.cpp serde/operator_serialize.cpp serde/serializer.cpp serde/visitor.cpp
     ${EPEE_HEADERS_PUBLIC}
     )
 
