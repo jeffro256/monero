@@ -66,15 +66,18 @@ namespace serde::internal
     private:
         // This gets instantiated if U is a POD type. return type = U
         template <typename T, ENABLE_TPARAM_IF(IS_POD(T))>
-        static T blobty();
+        static T& blobty();
         
         // This gets instantiated if U has member type blobbable_base_type and
         // sizeof(blobbable_base_type) == sizeof(U). return type = blobbable_base_type
         template <typename T, typename B = typename T::blobbable_base_type>
-        static BLOB_TYPE(B) blobty();
+        static BLOB_TYPE(B)& blobty();
 
     public:
-        using blob_type = decltype(blobty<U>());
+
+        // We add a reference to the return type then remove it here since functions cannot return
+        // arrays, but they can return references to arrays.
+        using blob_type = typename std::remove_reference<decltype(blobty<U>())>::type;
         using ref_type = blob_type&;
         using const_ref_type = const blob_type&;
         using ptr_type = blob_type*;

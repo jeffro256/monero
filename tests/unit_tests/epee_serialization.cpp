@@ -31,6 +31,8 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
+#include "memwipe.h"
+#include "mlocker.h"
 #include "serde/epee_compat/keyvalue.h"
 #include "serde/epee_compat/template_helper.h"
 #include "serde/json/value.h"
@@ -49,7 +51,7 @@ namespace {
     END_KV_SERIALIZE_MAP()
 
     bool operator==(const Data1& other) const { return val == other.val; }
-  };
+  }; // struct Data1
 
   struct StringData
   {
@@ -63,7 +65,7 @@ namespace {
     END_KV_SERIALIZE_MAP()
 
     bool operator==(const StringData& other) const { return str == other.str; }
-  };
+  }; // struct StringData
 
   struct UnsignedData
   {
@@ -83,7 +85,7 @@ namespace {
     {
       return u64 == other.u64 && u32 == other.u32 && u16 == other.u16 && u8 == other.u8;
     }
-  };
+  }; // struct UnsignedData
 
   struct Data2
   {
@@ -111,6 +113,42 @@ namespace {
       return i64 == other.i64 && i32 == other.i32 && i16 == other.i16 && i8 == other.i8 &&
         unsign == other.unsign && triple == other.triple && sd == other.sd && booleans == other.booleans;
     }
+  }; // struct Data2
+
+  struct int_blob
+  {
+    int16_t v;
+
+    bool operator==(const int_blob& other) const {
+      return v == other.v;
+    }
+  };
+
+  template <size_t N>
+  struct byte_blob
+  {
+    char buf[N];
+
+    bool operator==(const byte_blob& other) const {
+      return buf == other.buf;
+    }
+  };
+
+  struct BlobData
+  {
+    std::string s;
+    byte_blob<16> buf;
+    epee::mlocked<tools::scrubbed<int_blob>> delegated;
+
+    bool operator==(const BlobData& other) const {
+      return s == other.s && buf == other.buf && (const int_blob&) delegated == (const int_blob&) other.delegated;
+    }
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_VAL_POD_AS_BLOB(s)
+      KV_SERIALIZE_VAL_POD_AS_BLOB(buf)
+      KV_SERIALIZE_VAL_POD_AS_BLOB(delegated)
+    END_KV_SERIALIZE_MAP()
   };
 
   struct DumpVisitor: serde::model::BasicVisitor
@@ -313,5 +351,41 @@ TEST(epee_serialization, json_value_deserializer)
   Data2 actual;
   ValueDeserializer vd2(d);
   deserialize_default(vd2, actual);
+  EXPECT_EQ(expected, actual);
+}
+
+TEST(epee_serialization, blob_binary_serialize)
+{
+  tools::scrubbed<int_blob> scrubbed_data;
+  ((int_blob&) scrubbed_data) = { 7784 };
+
+  const BlobData blob_src =
+  {
+    "Jeffro",
+    { "123456789ABCDEF" },
+    { scrubbed_data }
+  };
+
+  static constexpr uint8_t expected_binary[] =
+  {
+    0x01, 0x11, 0x01, 0x01,
+    0x01, 0x01, 0x02, 0x01,
+    0x01,
+    0x0C,
+    0x01, 's',
+    0X0A,
+    0x18, 'J', 'e', 'f', 'f', 'r', 'o',
+    0x03, 'b', 'u', 'f',
+    0x0A, 
+    0x40, '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', '\0',
+    0x09, 'd', 'e', 'l', 'e', 'g', 'a', 't', 'e', 'd',
+    0x0A,
+    0x08, 0x68, 0x1E
+  };
+  const std::string expected{reinterpret_cast<const char*>(expected_binary), sizeof(expected_binary)};
+
+  const epee::byte_slice actual_slice = epee::serialization::store_t_to_binary(blob_src);
+  std::string actual;
+  actual.assign(reinterpret_cast<const char*>(actual_slice.begin()), actual_slice.size());
   EXPECT_EQ(expected, actual);
 }
