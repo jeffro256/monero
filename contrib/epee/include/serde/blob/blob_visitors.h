@@ -127,7 +127,7 @@ namespace serde::internal
             const value_type* const value_ptr = reinterpret_cast<const value_type*>(blob.begin());
             for (size_t i = 0; i < num_elements; i++)
             {
-                container.push_back(CONVERT_POD(value_ptr[i]));
+                container_put(container, CONVERT_POD(value_ptr[i]));
             }
 
             this->visit(std::move(container));

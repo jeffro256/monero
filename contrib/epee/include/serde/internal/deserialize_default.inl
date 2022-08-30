@@ -39,7 +39,7 @@ namespace serde::model {
             do {                                                                        \
                 Element elem;                                                           \
                 const bool did_deser = deserialize_default(deserializer, elem);         \
-                if (did_deser) values.push_back(elem);                                  \
+                if (did_deser) internal::container_put(values, elem);                   \
                 else break;                                                             \
             } while (true);                                                             \
             return true;                                                                \

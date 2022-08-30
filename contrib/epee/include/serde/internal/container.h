@@ -45,6 +45,16 @@ namespace serde::internal {
         vec.reserve(new_capacity);
     }
 
+    template <class Container> inline
+    void container_put(Container& container, const typename Container::value_type& element) {
+        container.push_back(element);
+    }
+
+    template<typename T> inline
+    void container_put(std::set<T>& s, const T& element) {
+        s.insert(element);
+    }
+
     #define TUPLE_SIZE(tup) std::tuple_size<typename std::remove_reference<tup>::type>::value
 
     template <class Tuple, class Functor, size_t I = 0, size_t J = TUPLE_SIZE(Tuple)>
