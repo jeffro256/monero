@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <sstream>
+
 #include "./container.h"
 #include "./deps.h"
 #include "./enable_if.h"
@@ -63,7 +65,43 @@ namespace serde::internal
         DEF_NUM_VISIT_METHOD(uint8, uint8_t)
         DEF_NUM_VISIT_METHOD(float64, double)
         DEF_NUM_VISIT_METHOD(boolean, bool)
+
+        void visit_bytes(const const_byte_span& bytes) override final
+        {
+            ASSERT_MES_AND_THROW("no lexical cast provided to parse this numeric type");
+        }
     };
+
+    #define DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(numtype)                     \
+        template<>                                                                               \
+        void NumericVisitor<numtype>::visit_bytes(const const_byte_span& bytes)                  \
+        {                                                                                        \
+            constexpr size_t MAX_NUMERIC_STRING_SIZE = 50;                                       \
+            CHECK_AND_ASSERT_THROW_MES                                                           \
+            (                                                                                    \
+                bytes.size() < MAX_NUMERIC_STRING_SIZE,                                          \
+                "potential numeric string is too long: " << internal::byte_span_to_string(bytes) \
+            );                                                                                   \
+            numtype value;                                                                       \
+            std::istringstream ss(internal::byte_span_to_string(bytes));                         \
+            ss >> value;                                                                         \
+            CHECK_AND_ASSERT_THROW_MES                                                           \
+            (                                                                                    \
+                !ss.fail(),                                                                      \
+                "could not parse numeric string: " << internal::byte_span_to_string(bytes)       \
+            );                                                                                   \
+            this->visit(std::move(value));                                                       \
+        }                                                                                        \
+
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(int64_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(int32_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(int16_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(int8_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint64_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint32_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint16_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint8_t)
+    DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(double)
 
     struct StringVisitor: public model::RefVisitor<std::string>
     {
