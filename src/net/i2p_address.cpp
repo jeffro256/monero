@@ -36,7 +36,6 @@
 #include <limits>
 
 #include "net/error.h"
-#include "serde/epee_compat/keyvalue.h"
 #include "string_tools_lexical.h"
 
 namespace net
@@ -66,17 +65,6 @@ namespace net
 
             return success();
         }
-
-        struct i2p_serialized
-        {
-            std::string host;
-            std::uint16_t port;
-
-            BEGIN_KV_SERIALIZE_MAP()
-                KV_SERIALIZE(host)
-                KV_SERIALIZE(port)
-            END_KV_SERIALIZE_MAP()
-        };
     }
 
     i2p_address::i2p_address(const boost::string_ref host, const std::uint16_t port) noexcept
@@ -117,6 +105,18 @@ namespace net
 
         static_assert(b32_length + sizeof(tld) == sizeof(i2p_address::host_), "bad internal host size");
         return i2p_address{host, porti};
+    }
+
+    void serialize_default(const i2p_address& value, serde::model::Serializer& serializer)
+    {
+        const auto host_byte_ptr = reinterpret_cast<serde::const_byte_iterator>(value.host_);
+        const size_t host_len = std::strnlen_s(value.host_, sizeof(value.host_));
+        serializer.serialize_start_object(2); // host and port
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("host"));
+        serializer.serialize_bytes({host_byte_ptr, host_len});
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("port"));
+        serializer.serialize_uint16(value.port_);
+        serializer.serialize_end_object();
     }
 
     i2p_address::i2p_address(const i2p_address& rhs) noexcept

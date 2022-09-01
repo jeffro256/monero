@@ -95,6 +95,10 @@ namespace net_utils
 			KV_SERIALIZE(m_ip)
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
+
+		template <class AddrVariant>
+		static ipv4_network_address make_addr_from_variant(AddrVariant&& v)
+		{ return {v.m_ip, v.m_port}; }
 	};
 
 	inline bool operator==(const ipv4_network_address& lhs, const ipv4_network_address& rhs) noexcept
@@ -193,6 +197,10 @@ namespace net_utils
 			KV_SERIALIZE_N(m_address, "addr")
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
+
+		template <class AddrVariant>
+		static ipv6_network_address make_addr_from_variant(AddrVariant&& v)
+		{ return {{v.addr}, v.m_port}; }
 	};
 
 	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept

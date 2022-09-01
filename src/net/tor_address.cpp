@@ -68,17 +68,6 @@ namespace net
 
             return success();
         }
-
-        struct tor_serialized
-        {
-            std::string host;
-            std::uint16_t port;
-
-            BEGIN_KV_SERIALIZE_MAP()
-                KV_SERIALIZE(host)
-                KV_SERIALIZE(port)
-            END_KV_SERIALIZE_MAP()
-        };
     }
 
     tor_address::tor_address(const boost::string_ref host, const std::uint16_t port) noexcept
@@ -120,6 +109,18 @@ namespace net
         static_assert(v2_length <= v3_length, "bad internal host size");
         static_assert(v3_length + sizeof(tld) == sizeof(tor_address::host_), "bad internal host size");
         return tor_address{host, porti};
+    }
+
+    void serialize_default(const tor_address& value, serde::model::Serializer& serializer)
+    {
+        const auto host_byte_ptr = reinterpret_cast<serde::const_byte_iterator>(value.host_);
+        const size_t host_len = std::strnlen_s(value.host_, sizeof(value.host_));
+        serializer.serialize_start_object(2); // host and port
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("host"));
+        serializer.serialize_bytes({host_byte_ptr, host_len});
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("port"));
+        serializer.serialize_uint16(value.port_);
+        serializer.serialize_end_object();
     }
 
     tor_address::tor_address(const tor_address& rhs) noexcept
