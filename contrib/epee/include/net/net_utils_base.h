@@ -37,6 +37,7 @@
 #include "byte_slice.h"
 #include "enums.h"
 #include "misc_log_ex.h"
+#include "serde/epee_compat/boost_operators.h" // serialize_default() boost's address_v6
 #include "serde/epee_compat/keyvalue.h"
 #include "int-util.h"
 
@@ -97,7 +98,7 @@ namespace net_utils
 		END_KV_SERIALIZE_MAP()
 
 		template <class AddrVariant>
-		static ipv4_network_address make_addr_from_variant(AddrVariant&& v)
+		static ipv4_network_address make_from_addr_variant(AddrVariant&& v)
 		{ return {v.m_ip, v.m_port}; }
 	};
 
@@ -199,7 +200,7 @@ namespace net_utils
 		END_KV_SERIALIZE_MAP()
 
 		template <class AddrVariant>
-		static ipv6_network_address make_addr_from_variant(AddrVariant&& v)
+		static ipv6_network_address make_from_addr_variant(AddrVariant&& v)
 		{ return {{v.addr}, v.m_port}; }
 	};
 
@@ -280,6 +281,34 @@ namespace net_utils
 			return static_cast<implementation<Type_>*>(self_)->value;
 		}
 
+		struct addr_variant
+		{
+			std::string host; // tor/i2p
+			uint16_t port; // tor/i2p. when serialized is lexical string
+			uint32_t m_ip; // ipv4
+			uint16_t m_port; // ipv4/ipv6
+			boost::asio::ip::address_v6 addr; // ipv6
+
+			BEGIN_KV_SERIALIZE_MAP()
+				KV_SERIALIZE_OPT(host, {})
+				KV_SERIALIZE_OPT(port, {})
+				KV_SERIALIZE_OPT(m_ip, {})
+				KV_SERIALIZE_OPT(m_port, {})
+				KV_SERIALIZE_OPT(addr, {})
+			END_KV_SERIALIZE_MAP()
+		};
+
+		struct deserialized
+		{
+			uint8_t type;
+			addr_variant addr;
+
+			BEGIN_KV_SERIALIZE_MAP()
+				KV_SERIALIZE(type)
+				KV_SERIALIZE(addr)
+			END_KV_SERIALIZE_MAP()
+		};
+
 	public:
 		network_address() : self(nullptr) {}
 		template<typename T>
@@ -298,9 +327,70 @@ namespace net_utils
 		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
-		SERIALIZE_OPERATOR_FRIEND(network_address)
-		DESERIALIZE_OPERATOR_FRIEND(network_address)
+		template <class Serializer> friend void serialize_default(const network_address&, Serializer&);
+		template <class Deserializer> friend bool deserialize_default(Deserializer&, network_address&);
 	};
+
+	template <class Serializer> // templated since incomplete types net::(tor/i2p)_address are used
+	void serialize_default(const network_address& value, Serializer& serializer)
+	{
+		serializer.serialize_start_object(2); // number of fields is 2: type and addr
+		serializer.serialize_key(serde::internal::cstr_to_byte_span("type"));
+		serializer.serialize_uint8(static_cast<uint8_t>(value.get_type_id()));
+		serializer.serialize_key(serde::internal::cstr_to_byte_span("addr"));
+
+		switch (value.get_type_id())
+		{
+		case address_type::ipv4:
+			serialize_default(value.as<ipv4_network_address>(), serializer);
+			break;
+		case address_type::ipv6:
+			serialize_default(value.as<ipv6_network_address>(), serializer);
+			break;
+		case address_type::tor:
+			serialize_default(value.as<net::tor_address>(), serializer);
+			break;
+		case address_type::i2p:
+			serialize_default(value.as<net::tor_address>(), serializer);
+			break;
+		default:
+			MERROR("invalid address type while serializing: " << (int) value.get_type_id());
+			return;
+		}
+
+		serializer.serialize_end_object();
+	}
+
+	template <class Deserializer>
+	bool deserialize_default(Deserializer& deserializer, network_address& value)
+	{
+		network_address::deserialized net_addr;
+		if (!deserialize_default(deserializer, net_addr))
+		{
+			return false;
+		}
+
+		const address_type net_addr_type_as_enum = static_cast<address_type>(net_addr.type);
+		switch (net_addr_type_as_enum)
+		{
+		case address_type::ipv4:
+			value = ipv4_network_address::make_from_addr_variant(std::move(net_addr.addr));
+			break;
+		case address_type::ipv6:
+			value = ipv4_network_address::make_from_addr_variant(std::move(net_addr.addr));
+			break;
+		case address_type::tor:
+			value = ipv4_network_address::make_from_addr_variant(std::move(net_addr.addr));
+			break;
+		case address_type::i2p:
+			value = ipv4_network_address::make_from_addr_variant(std::move(net_addr.addr));
+			break;
+		default:
+			ASSERT_MES_AND_THROW("invalid address type while deserializing: " << (int) net_addr.type);
+		}
+
+		return true;
+	}
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)
 	{ return lhs.equal(rhs); }

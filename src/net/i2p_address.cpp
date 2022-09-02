@@ -110,7 +110,7 @@ namespace net
     void serialize_default(const i2p_address& value, serde::model::Serializer& serializer)
     {
         const auto host_byte_ptr = reinterpret_cast<serde::const_byte_iterator>(value.host_);
-        const size_t host_len = std::strnlen_s(value.host_, sizeof(value.host_));
+        const size_t host_len = std::strlen(value.host_);
         serializer.serialize_start_object(2); // host and port
         serializer.serialize_key(serde::internal::cstr_to_byte_span("host"));
         serializer.serialize_bytes({host_byte_ptr, host_len});

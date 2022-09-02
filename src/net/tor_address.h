@@ -49,6 +49,9 @@ namespace net
         //! Keep in private, `host.size()` has no runtime check
         tor_address(boost::string_ref host, std::uint16_t port) noexcept;
 
+        //! if string contains valid host, assign to host_, otherwise throw exception
+        void host_assert_and_assign(const std::string& host_str);
+
     public:
         //! \return Size of internal buffer for host.
         static constexpr std::size_t buffer_size() noexcept { return sizeof(host_); }
@@ -72,21 +75,8 @@ namespace net
         SERIALIZE_OPERATOR_FRIEND(tor_address)
 
         template <class AddrVariant>
-        static tor_address make_addr_from_variant(AddrVariant&& v)
-        {
-            const size_t is_good_size = v.host.size() < sizeof(host_);
-            const size_t is_valid_addr = v.host == unknown_host || !host_check(v.host).has_error();
-            CHECK_AND_ASSERT_THROW_MES
-            (
-                is_good_size && is_valid_addr,
-                "bad i2p address string: " << v.host()
-            );
-            i2p_address addr;
-            addr.port_ = v.port;
-            std::memcpy(addr.host_, v.host.data(), v.host.size());
-            std::memset(addr.host_ + v.host.size(), 0, sizeof(host_) - v.host.size());
-            return addr;
-        }
+		static tor_address make_from_addr_variant(AddrVariant&& v)
+		{ return make(v.host, v.port); }
 
         // Moves and  copies are currently identical
 
