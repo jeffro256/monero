@@ -29,6 +29,7 @@
 #pragma once
 
 #include <cstddef>
+#include <set>
 #include <tuple>
 #include <vector>
 

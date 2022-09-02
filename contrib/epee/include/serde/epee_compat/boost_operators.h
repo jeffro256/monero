@@ -67,13 +67,13 @@ namespace serde::internal
 
 namespace serde::model
 {
-    void serialize_default(const boost::asio::ip::address_v6& value, Serializer& serializer)
+    inline void serialize_default(const boost::asio::ip::address_v6& value, Serializer& serializer)
     {
         boost::asio::ip::address_v6::bytes_type ip_bytes = value.to_bytes();
         serializer.serialize_bytes({ip_bytes.begin(), ip_bytes.size()});
     }
 
-    bool deserialize_default(Deserializer& deserializer, boost::asio::ip::address_v6& value)
+    inline bool deserialize_default(Deserializer& deserializer, boost::asio::ip::address_v6& value)
     {
         internal::BoostIpv6AddressVisitor addr_visitor(value);
         deserializer.deserialize_bytes(addr_visitor);
