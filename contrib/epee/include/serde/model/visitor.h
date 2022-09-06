@@ -32,7 +32,6 @@
 #include <list>
 
 #include "../internal/deps.h"
-#include "../internal/model_fwd.h"
 
 namespace serde::model
 {

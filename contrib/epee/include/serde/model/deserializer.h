@@ -28,10 +28,14 @@
 
 #pragma once
 
+#include <vector>
+
+#include "./limits.h"
 #include "../internal/deps.h"
-#include "../internal/model_fwd.h"
 
 namespace serde::model {
+    struct BasicVisitor;
+
     struct Deserializer
     {
         Deserializer();
@@ -84,5 +88,4 @@ namespace serde::model {
         void deserialize_key(BasicVisitor&) override final;
         void deserialize_end_object(BasicVisitor&) override final;
     };
-} // namespace serde::binary
-
+} // namespace serde::model

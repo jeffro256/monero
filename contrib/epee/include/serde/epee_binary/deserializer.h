@@ -32,7 +32,7 @@
 
 #include "constants.h"
 #include "../internal/endianness.h"
-#include "../model/constants.h"
+#include "../model/deserializer.h"
 #include "../model/visitor.h"
 
 namespace serde::epee_binary
@@ -50,7 +50,7 @@ namespace serde::epee_binary
             m_stack(),
             m_finished(false)
         {
-            m_stack.reserve(PS_MAX_OBJECT_DEPTH);
+            m_stack.reserve(limits::DEFAULT_MAX_DEPTH); // @TODO: limits in constructor
         }
 
         ~Deserializer() = default;
@@ -257,7 +257,7 @@ namespace serde::epee_binary
         {
             CHECK_AND_ASSERT_THROW_MES
             (
-                m_stack.size() < PS_MAX_OBJECT_DEPTH,
+                m_stack.size() < limits::DEFAULT_MAX_DEPTH, // @TODO: per object limit
                 "Maximum object depth exceeded! Possibly parsing a DoS message"
             );
 

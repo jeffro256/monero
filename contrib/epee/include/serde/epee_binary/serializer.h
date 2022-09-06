@@ -36,7 +36,6 @@
 #include "constants.h"
 #include "../internal/deps.h"
 #include "../internal/endianness.h"
-#include "../model/constants.h"
 #include "../model/serializer.h"
 
 #define VARINT_VAL_FITS_BYTE(val) (val < 63)
@@ -200,8 +199,8 @@ namespace serde::epee_binary
 
         CHECK_AND_ASSERT_THROW_MES
         (
-            key_size <= PS_MAX_KEY_LEN,
-            "key with length " << key_size << " exceeds maximum key size of " << PS_MAX_KEY_LEN
+            key_size <= MAX_KEY_LENGTH,
+            "key with length " << key_size << " exceeds maximum key size of " << MAX_KEY_LENGTH
         );
 
         m_stream.put(key_size);
