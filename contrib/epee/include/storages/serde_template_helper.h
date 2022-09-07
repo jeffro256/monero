@@ -138,6 +138,12 @@ namespace epee::serialization
     }
 
     template<class t_struct>
+    bool load_t_from_binary_file(t_struct& target_value, const byte_slice& binary_buff) noexcept
+    {
+        return load_t_from_binary(target_value, to_span(binary_buff));
+    }
+
+    template<class t_struct>
     bool store_t_to_binary(const t_struct& src_value, byte_stream& bystream) noexcept
     {
         serde::epee_binary::Serializer<byte_stream> serializer(bystream);
