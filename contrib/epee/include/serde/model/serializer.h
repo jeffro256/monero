@@ -59,8 +59,6 @@ namespace serde::model
         virtual void serialize_start_object(size_t)               = 0;
         virtual void serialize_key(const const_byte_span&)        = 0;
         virtual void serialize_end_object()                       = 0;
-
-        virtual bool is_human_readable() const noexcept = 0;
     };
 } // namespace serde::binary
 

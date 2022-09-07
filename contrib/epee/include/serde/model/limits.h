@@ -35,12 +35,44 @@
 
 namespace serde::limits
 {
+    constexpr size_t DEFAULT_MAX_PACKET_SIZE = 100000000; // 100 MB
+    constexpr size_t DEFAULT_MAX_TOTAL_CONTAINERS = 10000; // 10 thousand
+    constexpr size_t DEFAULT_MAX_DEPTH = 32;
+
+    /*
+     * @brief Rough resource limits which should be enforced by Deserializers
+     *
+     * Scalars (ints, double, bool, etc) can live on the stack, and they use a similar amount of
+     * memory serialized vs unserialized. On the other hand, containers require heap allocation
+     * and may consume much more memory when deserialized as compared to their serialized
+     * counterparts. The combination of max_packet_size and max_total_containers should construct
+     * a rough _portable_ ceiling on the amount of RAM/CPU a Deserializer can consume per packet.
+     *
+     * The max_depth_sanity limit prevents stack overflows and other DoS attacks.
+     */
+    struct ResourceLimits
+    {
+        size_t max_packet_size; // !< Max size (in raw bytes) of message allowed to be deserialized
+        size_t max_total_containers; // !< Max number of total visit_(array/object) calls allowed
+        size_t max_depth_sanity; // !< Max number of nested visit_(array/object) calls allowed
+
+        /*
+         * @brief Default constructor creates object with default limits specificied in limits.h
+         */
+        constexpr ResourceLimits():
+            max_packet_size(DEFAULT_MAX_PACKET_SIZE),
+            max_total_containers(DEFAULT_MAX_TOTAL_CONTAINERS),
+            max_depth_sanity(DEFAULT_MAX_DEPTH)
+        {}
+
+        constexpr ResourceLimits(const ResourceLimits& other) = default;
+    };
+
     constexpr size_t DEFAULT_MAX_STRING_LENGTH = std::numeric_limits<size_t>::max();
     constexpr size_t DEFAULT_MIN_KEY_LENGTH = 1;
     constexpr size_t DEFAULT_MAX_KEY_LENGTH = 255;
     constexpr size_t DEFAULT_MAX_ARRAY_WIDTH = std::numeric_limits<size_t>::max();
     constexpr size_t DEFAULT_MAX_OBJECT_WIDTH = std::numeric_limits<size_t>::max();
-    constexpr size_t DEFAULT_MAX_DEPTH = 32;
 
     struct TypedLimits
     {
@@ -85,24 +117,6 @@ namespace serde::limits
                 std::max(max_depth, other.max_depth)
             );
         }
-    };
-
-    constexpr size_t DEFAULT_MAX_PACKET_SIZE = 100000000; // 100 MB
-    constexpr size_t DEFAULT_MAX_TOTAL_CONTAINERS = 10000; // 10 thousand
-
-    struct ResourceLimits
-    {
-        size_t max_packet_size;
-        size_t max_depth_sanity;
-        size_t max_total_containers;
-
-        constexpr ResourceLimits():
-            max_packet_size(DEFAULT_MAX_PACKET_SIZE),
-            max_depth_sanity(DEFAULT_MAX_DEPTH),
-            max_total_containers(DEFAULT_MAX_TOTAL_CONTAINERS)
-        {}
-
-        constexpr ResourceLimits(const ResourceLimits& other) = default;
     };
     
     struct Limits

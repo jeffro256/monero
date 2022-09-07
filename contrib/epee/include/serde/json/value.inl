@@ -210,8 +210,6 @@ namespace serde::json
             }
         }
 
-        bool is_human_readable() const noexcept override final { return true; }
-
     private:
 
         void deserialize_json_value(const Value* val_ptr, model::BasicVisitor& visitor)

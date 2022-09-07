@@ -92,11 +92,6 @@ namespace serde::json
         }
     }
 
-    bool Deserializer::is_human_readable() const noexcept
-    {
-        return true;
-    }
-
     Document parse_borrowed_document_from_cstr(char* str)
     {
         Document doc;

@@ -34,7 +34,7 @@
 
 #include <string>
 
-#include "span.h" // from epee
+#include "span.h" // from epee, header only
 
 #define TO_CSTR(p) reinterpret_cast<const char*>(p)
 #define SPAN_TO_CSTR(span) reinterpret_cast<const char*>(span.begin())
@@ -66,20 +66,20 @@ namespace serde::internal
 // SWAP64LE, SWAP32LE, BIG_ENDIAN, ...                                       //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "int-util.h" // from epee
+#include "int-util.h" // from epee, header only
 
 ///////////////////////////////////////////////////////////////////////////////
 // CHECK_AND_ASSERT_THROW_MES, ...                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "misc_log_ex.h" // from epee
+#include "misc_log_ex.h" // from epee, header only (except easylogging.cc, but that isn't epee)
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
 ///////////////////////////////////////////////////////////////////////////////
 // safe_numeric_cast, safe_numeric_cast_exception                            //
 ///////////////////////////////////////////////////////////////////////////////
-
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
 #include <boost/numeric/conversion/cast.hpp>
 #include <sstream>

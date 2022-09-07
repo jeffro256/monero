@@ -31,7 +31,6 @@
 #include "serde/model/deserializer.h"
 
 namespace serde::model {
-    Deserializer::Deserializer() {}
     Deserializer::~Deserializer() {}
 
     #define DEFER_DESER_SIMPLE_TO_ANY(mname)                                               \

@@ -98,8 +98,6 @@ namespace serde::epee_binary
         void serialize_start_object(size_t) override final;
         void serialize_key(const const_byte_span&) override final;
         void serialize_end_object() override final;
-
-        bool is_human_readable() const noexcept override final { return true; }
     };
 
     template<class t_ostream>

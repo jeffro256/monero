@@ -347,10 +347,5 @@ namespace serde::epee_binary
                 this->deserialize_scalar(this->current_array_type(), visitor);
             }
         }
-
-        bool is_human_readable() const noexcept override final
-        {
-            return false;
-        }
     }; // class Deserializer
 } // namespace serde::epee_binary

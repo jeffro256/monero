@@ -38,7 +38,6 @@ namespace serde::model {
 
     struct Deserializer
     {
-        Deserializer();
         virtual ~Deserializer();
 
         virtual void deserialize_any(BasicVisitor&) = 0;
@@ -61,8 +60,34 @@ namespace serde::model {
         virtual void deserialize_object(optional<size_t>, BasicVisitor&) = 0;
         virtual void deserialize_key(BasicVisitor&) = 0;
         virtual void deserialize_end_object(BasicVisitor&) = 0;
+    };
 
-        virtual bool is_human_readable() const noexcept = 0;
+    class StatedDeserializer: public Deserializer
+    {
+    protected:
+
+        void previsit_int64  (               int64_t, BasicVisitor&);
+        void previsit_int32  (               int32_t, BasicVisitor&);
+        void previsit_int16  (               int16_t, BasicVisitor&);
+        void previsit_int8   (                int8_t, BasicVisitor&);
+        void previsit_uint64 (              uint64_t, BasicVisitor&);
+        void previsit_uint32 (              uint32_t, BasicVisitor&);
+        void previsit_uint16 (              uint16_t, BasicVisitor&);
+        void previsit_uint8  (               uint8_t, BasicVisitor&);
+        void previsit_float64(                double, BasicVisitor&);
+        void previsit_bytes  (const const_byte_span&, BasicVisitor&);
+        void previsit_boolean(                  bool, BasicVisitor&);
+
+        void previsit_array(optional<size_t>, BasicVisitor&);
+        void previsit_end_array(BasicVisitor&);
+
+        void previsit_object(optional<size_t>, BasicVisitor&);
+        void previsit_key(const const_byte_span&, BasicVisitor&);
+        void previsit_end_object(BasicVisitor&);
+    
+    private:
+
+
     };
 
     // All deserialize_* methods defer to deserialize_any, so base classes only have to define that

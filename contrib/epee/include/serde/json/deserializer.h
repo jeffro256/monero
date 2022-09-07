@@ -52,8 +52,6 @@ namespace serde::json
 
         void deserialize_any(model::BasicVisitor& visitor) override final;
 
-        bool is_human_readable() const noexcept override final;
-
     ///////////////////////////////////////////////////////////////////////////
     // private helper methods / fields                                       //
     ///////////////////////////////////////////////////////////////////////////
