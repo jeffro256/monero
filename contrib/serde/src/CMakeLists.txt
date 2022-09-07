@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2022, The Monero Project
+# Copyright (c) 2022, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -26,6 +26,25 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-monero_enable_coverage()
-add_subdirectory(epee)
-add_subdirectory(serde)
+# Add headers to the file list, to be able to search for them and autosave in IDEs.
+set(SERDE_INCLUDE_DIR_BASE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+monero_find_all_headers(SERDE_HEADERS_PUBLIC "${SERDE_INCLUDE_DIR_BASE}")
+
+monero_add_library(
+    serde
+    blob.cpp epee_binary.cpp internal.cpp json.cpp model.cpp serializer.cpp
+    ${EPEE_HEADERS_PUBLIC}
+)
+
+target_link_libraries(serde
+  PUBLIC
+    easylogging
+  PRIVATE
+    ${EXTRA_LIBRARIES}
+)
+
+target_include_directories(serde
+  PUBLIC
+    "${SERDE_INCLUDE_DIR_BASE}"
+)
+

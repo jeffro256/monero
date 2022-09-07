@@ -26,35 +26,28 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <string>
+#include "serde/blob/deserialize_as_blob.h"
+#include "serde/blob/serialize_as_blob.h"
 
-#include "serde/model/deserializer.h"
+namespace serde::model
+{
+    ///////////////////////////////////////////////////////////////////////////
+    // deserialize_as_blob.h                                                   //
+    ///////////////////////////////////////////////////////////////////////////
 
-namespace serde::model {
-    Deserializer::~Deserializer() {}
+    bool deserialize_as_blob(Deserializer& deserializer, std::string& blob_value)
+    {
+        internal::BlobStringVisitor blob_string_visitor(blob_value);
+        deserializer.deserialize_bytes(blob_string_visitor);
+        return blob_string_visitor.was_visited();
+    }
 
-    #define DEFER_DESER_SIMPLE_TO_ANY(mname)                                               \
-        void SelfDescribingDeserializer::deserialize_##mname(model::BasicVisitor& visitor) \
-            { return this->deserialize_any(visitor); }
+    ///////////////////////////////////////////////////////////////////////////
+    // serialize_as_blob.h                                                   //
+    ///////////////////////////////////////////////////////////////////////////
 
-    DEFER_DESER_SIMPLE_TO_ANY(int64)
-    DEFER_DESER_SIMPLE_TO_ANY(int32)
-    DEFER_DESER_SIMPLE_TO_ANY(int16)
-    DEFER_DESER_SIMPLE_TO_ANY(int8)
-    DEFER_DESER_SIMPLE_TO_ANY(uint64)
-    DEFER_DESER_SIMPLE_TO_ANY(uint32)
-    DEFER_DESER_SIMPLE_TO_ANY(uint16)
-    DEFER_DESER_SIMPLE_TO_ANY(uint8)
-    DEFER_DESER_SIMPLE_TO_ANY(float64)
-    DEFER_DESER_SIMPLE_TO_ANY(bytes)
-    DEFER_DESER_SIMPLE_TO_ANY(boolean)
-    DEFER_DESER_SIMPLE_TO_ANY(key)
-    DEFER_DESER_SIMPLE_TO_ANY(end_array)
-    DEFER_DESER_SIMPLE_TO_ANY(end_object)
-
-    void SelfDescribingDeserializer::deserialize_array(optional<size_t>, BasicVisitor& visitor)
-    { this->deserialize_any(visitor); }
-
-    void SelfDescribingDeserializer::deserialize_object(optional<size_t>, BasicVisitor& visitor)
-    { this->deserialize_any(visitor); }
+    void serialize_as_blob(const std::string& value, Serializer& serializer)
+    {
+        serializer.serialize_bytes(internal::string_to_byte_span(value));
+    }
 }
