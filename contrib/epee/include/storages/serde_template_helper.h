@@ -167,7 +167,7 @@ namespace epee::serialization
         {
             return false;
         }
-        binary_buff = byte_slice{std::move(bystream)};
+        binary_buff = byte_slice{std::move(bystream), false}; // false says to not shrink byte_slice
         return true;
     }
 
