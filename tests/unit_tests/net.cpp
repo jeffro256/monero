@@ -65,6 +65,7 @@
 #include "net/tor_address.h"
 #include "net/zmq.h"
 #include "p2p/net_peerlist_boost_serialization.h"
+#include "storages/serde_template_helper.h"
 
 namespace
 {
@@ -262,7 +263,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
         EXPECT_EQ(0u, command.tor.port());
 
-        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer))
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer));
     }
     EXPECT_FALSE(command.tor.is_unknown());
     EXPECT_NE(net::tor_address{}, command.tor);
@@ -299,9 +300,7 @@ TEST(tor_address, epee_serializev_v3)
         EXPECT_STREQ(v3_onion, command.tor.host_str());
         EXPECT_EQ(10u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
+        EXPECT_TRUE(epee::serialization::store_t_to_binary(command, buffer));
     }
 
     test_command_tor command{};
@@ -311,9 +310,7 @@ TEST(tor_address, epee_serializev_v3)
         EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
         EXPECT_EQ(0u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer));
     }
     EXPECT_FALSE(command.tor.is_unknown());
     EXPECT_NE(net::tor_address{}, command.tor);

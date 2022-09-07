@@ -143,6 +143,37 @@ namespace cryptonote
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
 
+  inline
+  void serialize_default(const block_complete_entry& entry, serde::model::Serializer& serializer)
+  {
+    serializer.serialize_start_object(4); // pruned, block, block_weight, & txs
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("pruned"));
+      serializer.serialize_boolean(entry.pruned);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("block"));
+      serializer.serialize_string(entry.block);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("block_weight"));
+      serializer.serialize_uint64(entry.block_weight);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("txs"));
+      if (entry.pruned)
+      {
+        serialize_default(entry.txs, serializer);
+      }
+      else
+      {
+        for (const auto& tx : entry.txs) // doesn't copy blobs like old code does! :)
+        {
+          serializer.serialize_string(tx.blob);
+        }
+      }
+      serializer.serialize_end_array();
+    serializer.serialize_end_object();
+  }
+
+  inline
+  bool deserialize_default(serde::model::Deserializer& deserializer, block_complete_entry& entry)
+  {
+    return false; // @TODO: fill in
+  }
 
   /************************************************************************/
   /*                                                                      */

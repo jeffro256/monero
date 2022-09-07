@@ -39,6 +39,7 @@
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"
+#include "serde/model/field.h"
 
 namespace
 {
@@ -341,6 +342,8 @@ namespace cryptonote
 
     struct entry
     {
+      static constexpr uint64_t UNSET64 = std::numeric_limits<uint64_t>::max();
+
       std::string tx_hash;
       std::string as_hex;
       std::string pruned_as_hex;
@@ -356,8 +359,23 @@ namespace cryptonote
       std::vector<uint64_t> output_indices;
       bool relayed;
 
-      SERIALIZE_OPERATOR_FRIEND(entry)
-      DESERIALIZE_OPERATOR_FRIEND(entry)
+      // @TODO: shrink serialized packets by not including certain fields based on `in_pool`
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(as_hex)
+        KV_SERIALIZE(pruned_as_hex)
+        KV_SERIALIZE(prunable_as_hex)
+        KV_SERIALIZE(prunable_hash)
+        KV_SERIALIZE(as_json)
+        KV_SERIALIZE(in_pool)
+        KV_SERIALIZE(double_spend_seen)
+        KV_SERIALIZE_OPT(block_height, UNSET64)
+        KV_SERIALIZE_OPT(confirmations, UNSET64)
+        KV_SERIALIZE_OPT(block_timestamp, UNSET64)
+        KV_SERIALIZE_OPT(output_indices, {})
+        KV_SERIALIZE_OPT(relayed, false)
+        KV_SERIALIZE_OPT(received_timestamp, UNSET64)
+      END_KV_SERIALIZE_MAP()
     };
 
     struct response_t: public rpc_access_response_base
@@ -2376,7 +2394,7 @@ namespace cryptonote
     {
       rpc::output_distribution_data data;
       uint64_t amount;
-      std::string compressed_data;
+      mutable std::string compressed_data;
       bool binary;
       bool compress;
 
@@ -2395,6 +2413,53 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+
+  inline void serialize_default
+  (
+    const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::distribution& dist,
+    serde::model::Serializer& serializer
+  )
+  {
+    // 6 fields: data.base, data.start_height, amount, binary, compress, "distribution"
+    serializer.serialize_start_object(6);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("amount"));
+      serializer.serialize_uint64(dist.amount);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("start_height"));
+      serializer.serialize_uint64(dist.data.start_height);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("binary"));
+      serializer.serialize_boolean(dist.binary);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("compress"));
+      serializer.serialize_boolean(dist.compress);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("base"));
+      serializer.serialize_uint64(dist.data.base);
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("distribution"));
+      if (dist.binary)
+      {
+        if (dist.compress)
+        {
+          dist.compressed_data = compress_integer_array(dist.data.distribution);
+          serializer.serialize_string(dist.compressed_data);
+        }
+        else // binary but not compressed
+        {
+          serialize_as_blob(dist.data.distribution, serializer);
+        }
+      }
+      else // not binary
+      {
+        serialize_default(dist.data.distribution, serializer);
+      }
+    serializer.serialize_end_object();
+  }
+
+  inline bool deserialize_default
+  (
+    serde::model::Deserializer& deserializer,
+    COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::distribution& dist
+  )
+  {
+    return false; // @TODO: fill in
+  }
 
   struct COMMAND_RPC_ACCESS_INFO
   {
