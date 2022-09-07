@@ -29,7 +29,7 @@
 #include "include_base_utils.h"
 #include "fuzzer.h"
 #include "serde/epee_compat/keyvalue.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()

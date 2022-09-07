@@ -65,8 +65,6 @@
 #include "net/tor_address.h"
 #include "net/zmq.h"
 #include "p2p/net_peerlist_boost_serialization.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage.h"
 
 namespace
 {
@@ -239,7 +237,7 @@ namespace
         net::tor_address tor;
 
         BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(tor);
+            KV_SERIALIZE(tor)
         END_KV_SERIALIZE_MAP()
     };
 }
@@ -254,9 +252,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_STREQ(v2_onion, command.tor.host_str());
         EXPECT_EQ(10u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
+        epee::serialization::store_t_to_binary(command, buffer);
     }
 
     test_command_tor command{};
@@ -266,9 +262,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
         EXPECT_EQ(0u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer))
     }
     EXPECT_FALSE(command.tor.is_unknown());
     EXPECT_NE(net::tor_address{}, command.tor);
@@ -694,7 +688,7 @@ namespace
         net::i2p_address i2p;
 
         BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(i2p);
+            KV_SERIALIZE(i2p)
         END_KV_SERIALIZE_MAP()
     };
 }

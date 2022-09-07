@@ -28,7 +28,7 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 #include "serde/json/value.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

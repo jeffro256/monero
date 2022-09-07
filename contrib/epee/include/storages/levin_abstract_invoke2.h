@@ -32,7 +32,7 @@
 #include "byte_slice.h"
 #include "misc_language.h"
 #include "net/levin_base.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 #include "span.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

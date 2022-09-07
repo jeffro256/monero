@@ -32,7 +32,7 @@
 #include "byte_slice.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 
 namespace epee
 {

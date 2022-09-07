@@ -41,7 +41,7 @@
 #include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 #include "boost/logic/tribool.hpp"
 #include <boost/filesystem.hpp>
 

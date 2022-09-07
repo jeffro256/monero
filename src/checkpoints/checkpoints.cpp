@@ -32,7 +32,7 @@
 
 #include "common/dns_utils.h"
 #include "serde/epee_compat/keyvalue.h"
-#include "serde/epee_compat/template_helper.h"
+#include "storages/serde_template_helper.h"
 #include "string_tools.h"
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
