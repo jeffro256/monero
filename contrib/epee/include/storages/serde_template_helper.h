@@ -128,6 +128,12 @@ namespace epee::serialization
     }
 
     template<class t_struct>
+    bool load_t_from_binary(t_struct& target_value, const byte_slice& binary_buff) noexcept
+    {
+        return load_t_from_binary(target_value, to_span(binary_buff));
+    }
+
+    template<class t_struct>
     bool load_t_from_binary_file(t_struct& target_value, const std::string& binary_file_path) noexcept
     {
         std::string file_contents;
@@ -135,12 +141,6 @@ namespace epee::serialization
             return false;
 
         return load_t_from_binary(target_value, file_contents);
-    }
-
-    template<class t_struct>
-    bool load_t_from_binary_file(t_struct& target_value, const byte_slice& binary_buff) noexcept
-    {
-        return load_t_from_binary(target_value, to_span(binary_buff));
     }
 
     template<class t_struct>
