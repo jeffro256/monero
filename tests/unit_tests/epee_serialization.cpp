@@ -34,8 +34,8 @@
 #include "memwipe.h"
 #include "mlocker.h"
 #include "serde/epee_compat/keyvalue.h"
-#include "serde/epee_compat/template_helper.h"
 #include "serde/json/value.h"
+#include "storages/serde_template_helper.h"
 #include "span.h"
 
 namespace {

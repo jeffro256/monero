@@ -47,4 +47,3 @@ target_include_directories(serde
   PUBLIC
     "${SERDE_INCLUDE_DIR_BASE}"
 )
-
