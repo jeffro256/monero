@@ -269,25 +269,6 @@ TEST(tor_address, epee_serializev_v2)
     EXPECT_NE(net::tor_address{}, command.tor);
     EXPECT_STREQ(v2_onion, command.tor.host_str());
     EXPECT_EQ(10u, command.tor.port());
-
-    // make sure that exceeding max buffer doesn't destroy tor_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
-        EXPECT_EQ(std::strlen(v2_onion), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.tor.is_unknown());
-    EXPECT_EQ(net::tor_address{}, command.tor);
-    EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
-    EXPECT_EQ(0u, command.tor.port());
 }
 
 TEST(tor_address, epee_serializev_v3)
@@ -316,25 +297,6 @@ TEST(tor_address, epee_serializev_v3)
     EXPECT_NE(net::tor_address{}, command.tor);
     EXPECT_STREQ(v3_onion, command.tor.host_str());
     EXPECT_EQ(10u, command.tor.port());
-
-    // make sure that exceeding max buffer doesn't destroy tor_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
-        EXPECT_EQ(std::strlen(v3_onion), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.tor.is_unknown());
-    EXPECT_EQ(net::tor_address{}, command.tor);
-    EXPECT_STRNE(v3_onion, command.tor.host_str());
-    EXPECT_EQ(0u, command.tor.port());
 }
 
 TEST(tor_address, epee_serialize_unknown)
@@ -347,9 +309,7 @@ TEST(tor_address, epee_serialize_unknown)
         EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
         EXPECT_EQ(0u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
+        EXPECT_TRUE(epee::serialization::store_t_to_binary(command, buffer));
     }
 
     test_command_tor command{};
@@ -359,32 +319,11 @@ TEST(tor_address, epee_serialize_unknown)
         EXPECT_STRNE(v3_onion, command.tor.host_str());
         EXPECT_EQ(0u, command.tor.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer));
     }
     EXPECT_TRUE(command.tor.is_unknown());
     EXPECT_EQ(net::tor_address{}, command.tor);
     EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
-    EXPECT_EQ(0u, command.tor.port());
-
-    // make sure that exceeding max buffer doesn't destroy tor_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
-        EXPECT_EQ(std::strlen(net::tor_address::unknown_str()), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.tor.is_unknown());
-    EXPECT_EQ(net::tor_address{}, command.tor);
-    EXPECT_STRNE(v3_onion, command.tor.host_str());
     EXPECT_EQ(0u, command.tor.port());
 }
 
@@ -700,9 +639,7 @@ TEST(i2p_address, epee_serializev_b32)
         EXPECT_STREQ(b32_i2p, command.i2p.host_str());
         EXPECT_EQ(10u, command.i2p.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
+        EXPECT_TRUE(epee::serialization::store_t_to_binary(command, buffer));
     }
 
     test_command_i2p command{};
@@ -712,33 +649,12 @@ TEST(i2p_address, epee_serializev_b32)
         EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
         EXPECT_EQ(0u, command.i2p.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer));
     }
     EXPECT_FALSE(command.i2p.is_unknown());
     EXPECT_NE(net::i2p_address{}, command.i2p);
     EXPECT_STREQ(b32_i2p, command.i2p.host_str());
     EXPECT_EQ(10u, command.i2p.port());
-
-    // make sure that exceeding max buffer doesn't destroy i2p_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
-        EXPECT_EQ(std::strlen(b32_i2p), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::string{host}, stg.open_section("i2p", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.i2p.is_unknown());
-    EXPECT_EQ(net::i2p_address{}, command.i2p);
-    EXPECT_STRNE(b32_i2p, command.i2p.host_str());
-    EXPECT_EQ(0u, command.i2p.port());
 }
 
 TEST(i2p_address, epee_serialize_unknown)
@@ -751,9 +667,7 @@ TEST(i2p_address, epee_serialize_unknown)
         EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
         EXPECT_EQ(0u, command.i2p.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
+        EXPECT_TRUE(epee::serialization::store_t_to_binary(command, buffer));
     }
 
     test_command_i2p command{};
@@ -763,32 +677,11 @@ TEST(i2p_address, epee_serialize_unknown)
         EXPECT_STRNE(b32_i2p, command.i2p.host_str());
         EXPECT_EQ(0u, command.i2p.port());
 
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
+        EXPECT_TRUE(epee::serialization::load_t_from_binary(command, buffer));
     }
     EXPECT_TRUE(command.i2p.is_unknown());
     EXPECT_EQ(net::i2p_address{}, command.i2p);
     EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
-    EXPECT_EQ(0u, command.i2p.port());
-
-    // make sure that exceeding max buffer doesn't destroy i2p_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
-        EXPECT_EQ(std::strlen(net::i2p_address::unknown_str()), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::string{host}, stg.open_section("i2p", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.i2p.is_unknown());
-    EXPECT_EQ(net::i2p_address{}, command.i2p);
-    EXPECT_STRNE(b32_i2p, command.i2p.host_str());
     EXPECT_EQ(0u, command.i2p.port());
 }
 
