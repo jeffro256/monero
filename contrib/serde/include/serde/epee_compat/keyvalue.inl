@@ -290,10 +290,14 @@ namespace serde::internal
         }; // class deserialize_nth_field
 
         template <typename... SF>
-        static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer)
+        static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer, bool partial)
         {
             // @TODO: support object in arrays by return false instead of throwing
-            internal::CollectionBoundVisitor::expect_object({}, deserializer);
+            if (!partial)
+            {
+                internal::CollectionBoundVisitor::expect_object({}, deserializer);
+            }
+
             while (true) {
                 StructKeysVisitor<SF...> keys_visitor(fields); // @TODO: construct outside while
                 deserializer.deserialize_key(keys_visitor);
@@ -322,11 +326,11 @@ namespace serde::model
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref)
+    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref, bool partial)
     {
         using serde_struct_map = typename Struct::make_serde_fields<false>;
         auto fields = serde_struct_map()(struct_ref);
-        internal::struct_serde<false>::call(fields, deserializer);
+        internal::struct_serde<false>::call(fields, deserializer, partial);
         return true; // @TODO: more robust error propogation
     }
 }

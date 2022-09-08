@@ -86,7 +86,7 @@ namespace serde::model
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
-    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref);
+    bool deserialize_default(Deserializer& deserializer, Struct& struct_ref, bool partial = false); // @TODO: generalize partial deserialization
 }
 
 #include "./keyvalue.inl"
