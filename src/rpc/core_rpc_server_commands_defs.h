@@ -40,6 +40,7 @@
 #include "common/varint.h"
 #include "common/perf_timer.h"
 #include "serde/model/field.h"
+#include "serde/model/field.h"
 
 namespace
 {
@@ -2422,16 +2423,12 @@ namespace cryptonote
   {
     // 6 fields: data.base, data.start_height, amount, binary, compress, "distribution"
     serializer.serialize_start_object(6);
-      serializer.serialize_key(serde::internal::cstr_to_byte_span("amount"));
-      serializer.serialize_uint64(dist.amount);
-      serializer.serialize_key(serde::internal::cstr_to_byte_span("start_height"));
-      serializer.serialize_uint64(dist.data.start_height);
-      serializer.serialize_key(serde::internal::cstr_to_byte_span("binary"));
-      serializer.serialize_boolean(dist.binary);
-      serializer.serialize_key(serde::internal::cstr_to_byte_span("compress"));
-      serializer.serialize_boolean(dist.compress);
-      serializer.serialize_key(serde::internal::cstr_to_byte_span("base"));
-      serializer.serialize_uint64(dist.data.base);
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, amount)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, binary)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, compress)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, amount)
+      SERDE_FIELD_DIRECT_SERIALIZE_N(dist.data.base, "base")
+      SERDE_FIELD_DIRECT_SERIALIZE_N(dist.data.start_height, "start_height")
       serializer.serialize_key(serde::internal::cstr_to_byte_span("distribution"));
       if (dist.binary)
       {
