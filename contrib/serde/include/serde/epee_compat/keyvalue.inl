@@ -290,16 +290,12 @@ namespace serde::internal
         }; // class deserialize_nth_field
 
         template <typename... SF>
-        static void call(std::tuple<SF...>& fields, model::Deserializer& deserializer, bool partial)
+        static bool call(std::tuple<SF...>& fields, model::Deserializer& deserializer, bool partial)
         {
-            // @TODO: support object in arrays by return false instead of throwing
-            if (!partial)
-            {
-                internal::CollectionBoundVisitor::expect_object({}, deserializer);
-            }
+            if (!partial && !model::ProbeVisitor::assert_object_begin(deserializer)) return false;
 
             while (true) {
-                StructKeysVisitor<SF...> keys_visitor(fields); // @TODO: construct outside while
+                StructKeysVisitor<SF...> keys_visitor(fields);
                 deserializer.deserialize_key(keys_visitor);
 
                 if (keys_visitor.object_ended) break;
@@ -307,6 +303,8 @@ namespace serde::internal
                 deserialize_nth_field dnf(keys_visitor.match_index, deserializer);
                 tuple_for_each(fields, dnf);
             }
+
+            return true;
 
             // @TODO: required check up etc 
         }
@@ -330,7 +328,6 @@ namespace serde::model
     {
         using serde_struct_map = typename Struct::make_serde_fields<false>;
         auto fields = serde_struct_map()(struct_ref);
-        internal::struct_serde<false>::call(fields, deserializer, partial);
-        return true; // @TODO: more robust error propogation
+        return internal::struct_serde<false>::call(fields, deserializer, partial);
     }
 }

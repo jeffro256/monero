@@ -32,3 +32,7 @@
     serializer.serialize_key(serde::internal::cstr_to_byte_span( #fieldname )); \
     serialize_default(thisref.fieldname, serializer);                           \
 
+#define SERDE_FIELD_DIRECT_SERIALIZE_N(fieldref, fieldkey)                    \
+    serializer.serialize_key(serde::internal::cstr_to_byte_span( fieldkey )); \
+    serialize_default(fieldref, serializer);                                  \
+

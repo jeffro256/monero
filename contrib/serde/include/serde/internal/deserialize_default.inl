@@ -35,7 +35,7 @@ namespace serde::model {
         template <typename Element>                                                     \
         bool deserialize_default(Deserializer& deserializer, contname<Element>& values) \
         {                                                                               \
-            internal::CollectionBoundVisitor::expect_array({}, deserializer);           \
+            if (!ProbeVisitor::assert_array_begin(deserializer)) return false;          \
             do {                                                                        \
                 Element elem;                                                           \
                 const bool did_deser = deserialize_default(deserializer, elem);         \

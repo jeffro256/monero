@@ -163,5 +163,102 @@ namespace serde::model
     DEF_BASIC_VISITOR_FALLBACK_METHOD(const const_byte_span&, key)
     DEF_BASIC_VISITOR_FALLBACK_METHOD(void, end_object)
 
+    // Static Probe Interface
+    ProbeVisitor::Event ProbeVisitor::probe(Deserializer& deserializer)
+    {
+        ProbeVisitor pv;
+        deserializer.deserialize_any(pv);
+        return pv.take_event();
+    }
 
+    bool ProbeVisitor::assert_array_begin(Deserializer& deserializer, optional<size_t> size_hint)
+    {
+        ProbeVisitor pv;
+        deserializer.deserialize_array(size_hint, pv);
+        ProbeVisitor::EventType vis_event = pv.take_event().get_type();
+        switch (vis_event)
+        {
+        case ProbeVisitor::EventType::StartArray:
+            return true;
+        case ProbeVisitor::EventType::EndArray:
+        case ProbeVisitor::EventType::EndObject:
+            return false;
+        default:
+            ASSERT_MES_AND_THROW("Got data from deserializer that was not the start of an array");
+        }
+    }
+
+    bool ProbeVisitor::assert_object_begin(Deserializer& deserializer, optional<size_t> size_hint)
+    {
+        ProbeVisitor pv;
+        deserializer.deserialize_object(size_hint, pv);
+        ProbeVisitor::EventType vis_event = pv.take_event().get_type();
+        switch (vis_event)
+        {
+        case ProbeVisitor::EventType::StartObject:
+            return true;
+        case ProbeVisitor::EventType::EndArray:
+        case ProbeVisitor::EventType::EndObject:
+            return false;
+        default:
+            ASSERT_MES_AND_THROW("Got data from deserializer that was not the start of an object");
+        }
+    }
+
+    std::string ProbeVisitor::expecting() const
+    {
+        return "anything :)";
+    }
+
+    #define DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(mname, tyname, ename) \
+        void ProbeVisitor::visit_##mname(tyname value)                  \
+        {                                                               \
+            m_event.m_type = ProbeVisitor::EventType::ename;            \
+            m_event.m_##mname = value;                                  \
+        }                                                               \
+
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(int64, int64_t, Int64)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(int32, int32_t, Int32)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(int16, int16_t, Int16)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(int8, int8_t, Int8)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(uint64, uint64_t, UInt64)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(uint32, uint32_t, UInt32)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(uint16, uint16_t, UInt16)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(uint8, uint8_t, UInt8)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(float64, double, Float64)
+    DEFINE_PROBE_VISITOR_VISIT_POD_METHOD(boolean, bool, Boolean)
+
+    void ProbeVisitor::visit_bytes(const const_byte_span& bytes)
+    {
+        m_event.m_type = ProbeVisitor::EventType::String;
+        m_event.m_string = internal::byte_span_to_string(bytes);
+    }
+
+    void ProbeVisitor::visit_array(optional<size_t> size_hint)
+    {
+        m_event.m_type = ProbeVisitor::EventType::StartArray;
+        m_event.m_size_hint = size_hint ? *size_hint : ProbeVisitor::Event::NO_SIZE;
+    }
+
+    void ProbeVisitor::visit_end_array()
+    {
+        m_event.m_type = ProbeVisitor::EventType::EndArray;
+    }
+
+    void ProbeVisitor::visit_object(optional<size_t> size_hint)
+    {
+        m_event.m_type = ProbeVisitor::EventType::StartObject;
+        m_event.m_size_hint = size_hint ? *size_hint : ProbeVisitor::Event::NO_SIZE;
+    }
+
+    void ProbeVisitor::visit_end_object()
+    {
+        m_event.m_type = ProbeVisitor::EventType::EndObject;
+    }
+
+    void ProbeVisitor::visit_key(const const_byte_span& bytes)
+    {
+        m_event.m_type = ProbeVisitor::EventType::Key;
+        m_event.m_string = internal::byte_span_to_string(bytes);
+    }
 } // namespace serde::model

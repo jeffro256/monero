@@ -29,12 +29,15 @@
 #pragma once
 
 #include <string>
+#include <limits>
 #include <list>
 
 #include "../internal/deps.h"
 
 namespace serde::model
 {
+    struct Deserializer;
+
     struct BasicVisitor
     {
         BasicVisitor();
@@ -84,4 +87,99 @@ namespace serde::model
         Value& m_value_ref;
         bool m_was_visited;
     }; // class GetSetVisitor
+
+    class ProbeVisitor: public BasicVisitor
+    {
+    public:
+
+        enum class EventType
+        {
+            Int64, Int32, Int16, Int8,
+            UInt64, UInt32, UInt16, UInt8,
+            Float64, String, Boolean,
+            StartArray, EndArray, StartObject, Key, EndObject,
+            Unvisited
+        };
+
+        class Event
+        {
+        public:
+
+            static constexpr size_t NO_SIZE = std::numeric_limits<size_t>::max();
+
+            constexpr EventType get_type() const { return m_type; }
+            constexpr bool has_size_hint() const { return m_size_hint != NO_SIZE; }
+
+            constexpr int64_t get_int64() const { return m_int64; }
+            constexpr int32_t get_int32() const { return m_int32; }
+            constexpr int16_t get_int16() const { return m_int16; }
+            constexpr int8_t get_int8() const { return m_int8; }
+            constexpr uint64_t get_uint64() const { return m_uint64; }
+            constexpr uint32_t get_uint32() const { return m_uint32; }
+            constexpr uint16_t get_uint16() const { return m_uint16; }
+            constexpr uint8_t get_uint8() const { return m_uint8; }
+            constexpr double get_float64() const { return m_float64; }
+            constexpr bool get_boolean() const { return m_boolean; }
+
+            std::string get_string_copy() const { return m_string; }
+            std::string take_string() { return std::move(m_string); }
+ 
+        private:
+
+            Event(): m_type(EventType::Unvisited), m_string() {}
+
+            EventType m_type;
+
+            union
+            {
+                int64_t m_int64;
+                int32_t m_int32;
+                int16_t m_int16;
+                int8_t m_int8;
+                uint64_t m_uint64;
+                uint32_t m_uint32;
+                uint16_t m_uint16;
+                uint8_t m_uint8;
+                double m_float64;
+                bool m_boolean;
+                size_t m_size_hint;
+            };
+
+            std::string m_string;
+
+            friend class ProbeVisitor;
+        }; // class Event
+
+        // Static Probe Interface
+        static Event probe(Deserializer& deserializer);
+        static bool assert_array_begin(Deserializer& deserializer, optional<size_t> size_hint = {});
+        static bool assert_object_begin(Deserializer& deserializer, optional<size_t> size_hint = {});
+
+        ProbeVisitor(): m_event() {}
+
+        Event take_event() { return std::move(m_event); }
+
+        // Implement BasicVisitor interface
+        std::string expecting() const override final;
+        void visit_int64(int64_t value) override final;
+        void visit_int32(int32_t value) override final;
+        void visit_int16 (int16_t value) override final;
+        void visit_int8(int8_t value) override final;
+        void visit_uint64(uint64_t value) override final;
+        void visit_uint32(uint32_t value) override final;
+        void visit_uint16(uint16_t value) override final;
+        void visit_uint8(uint8_t value) override final;
+        void visit_float64(double value) override final;
+        void visit_bytes(const const_byte_span& value) override final;
+        void visit_boolean(bool value) override final;
+        void visit_array(optional<size_t> size_hint) override final;
+        void visit_end_array() override final;
+        void visit_object(optional<size_t> size_hint) override final;
+        void visit_key(const const_byte_span& value) override final;
+        void visit_end_object() override final;
+
+    private:
+
+        Event m_event;
+    }; // class ProbeVisitor
 } // namespace serde::model
