@@ -31,6 +31,7 @@
 #include <boost/scope_exit.hpp>
 #include "log.hpp"
 #include "device_io_hid.hpp"
+#include "misc_log_ex.h"
 
 namespace hw {
   namespace io {
