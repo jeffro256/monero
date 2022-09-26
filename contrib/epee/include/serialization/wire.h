@@ -51,4 +51,3 @@
   template<typename W, typename T>                                      \
   std::error_code to_bytes(T& dest) const                               \
   { return ::wire_write::to_bytes<W>(dest, *this); }
-
