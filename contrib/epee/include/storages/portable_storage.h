@@ -27,7 +27,6 @@
 #pragma once 
 
 #include "portable_storage_base.h"
-#include "portable_storage_val_converters.h"
 #include "misc_log_ex.h"
 #include "span.h"
 
@@ -84,20 +83,6 @@ namespace epee
       //delete entry (section, value or array)
       bool        delete_entry(const std::string& pentry_name, hsection hparent_section = nullptr);
 
-      //-------------------------------------------------------------------------------
-      bool		store_to_binary(byte_slice& target, std::size_t initial_buffer_size = 8192);
-      bool		store_to_binary(byte_stream& ss);
-      bool		load_from_binary(const epee::span<const uint8_t> target, const limits_t *limits = nullptr);
-      bool		load_from_binary(const std::string& target, const limits_t *limits = nullptr)
-      {
-        return load_from_binary(epee::strspan<uint8_t>(target), limits);
-      }
-
-      template<class trace_policy>
-      bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
-      bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
-      bool		  load_from_json(const std::string& source);
-
     private:
       section m_root;
       hsection	get_root_section() {return &m_root;}
@@ -106,13 +91,7 @@ namespace epee
       storage_entry* insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, entry_type&& entry);
 
       hsection    insert_new_section(const std::string& pentry_name, hsection psection);
-    };
-    
-    template<class trace_policy>
-    bool portable_storage::dump_as_xml(std::string& targetObj, const std::string& root_name)
-    {
-      return false;//TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
-    }    
+    };   
 
     template<class to_type>
     struct get_value_visitor: boost::static_visitor<void>

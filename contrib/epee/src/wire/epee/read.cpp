@@ -33,10 +33,8 @@
 
 #include "serialization/wire/basic_value.h"
 #include "serialization/wire/error.h"
+#include "serialization/wire/epee/common.h"
 #include "serialization/wire/epee/error.h"
-#include "storages/portable_storage.h"
-#include "storages/portable_storage_base.h"
-#include "storages/portable_storage_bin_utils.h"
 
 namespace
 {
@@ -49,19 +47,19 @@ namespace
     // never return 0 -> see `skip_fixed(...) and `start_array()`
     switch (tag)
     {
-    case SERIALIZE_TYPE_ARRAY:  return min_array_size;
-    case SERIALIZE_TYPE_BOOL:   return sizeof(bool);
-    case SERIALIZE_TYPE_DOUBLE: return sizeof(double);
-    case SERIALIZE_TYPE_INT8:   return sizeof(std::int8_t);
-    case SERIALIZE_TYPE_INT16:  return sizeof(std::int64_t);
-    case SERIALIZE_TYPE_INT32:  return sizeof(std::int32_t);
-    case SERIALIZE_TYPE_INT64:  return sizeof(std::int64_t);
-    case SERIALIZE_TYPE_OBJECT: return min_object_size;
-    case SERIALIZE_TYPE_STRING: return min_string_size;
-    case SERIALIZE_TYPE_UINT8:  return sizeof(std::uint8_t);
-    case SERIALIZE_TYPE_UINT16: return sizeof(std::uint16_t);
-    case SERIALIZE_TYPE_UINT32: return sizeof(std::uint32_t);
-    case SERIALIZE_TYPE_UINT64: return sizeof(std::uint64_t);
+    case wire::SERIALIZE_TYPE_ARRAY:  return min_array_size;
+    case wire::SERIALIZE_TYPE_BOOL:   return sizeof(bool);
+    case wire::SERIALIZE_TYPE_DOUBLE: return sizeof(double);
+    case wire::SERIALIZE_TYPE_INT8:   return sizeof(std::int8_t);
+    case wire::SERIALIZE_TYPE_INT16:  return sizeof(std::int64_t);
+    case wire::SERIALIZE_TYPE_INT32:  return sizeof(std::int32_t);
+    case wire::SERIALIZE_TYPE_INT64:  return sizeof(std::int64_t);
+    case wire::SERIALIZE_TYPE_OBJECT: return min_object_size;
+    case wire::SERIALIZE_TYPE_STRING: return min_string_size;
+    case wire::SERIALIZE_TYPE_UINT8:  return sizeof(std::uint8_t);
+    case wire::SERIALIZE_TYPE_UINT16: return sizeof(std::uint16_t);
+    case wire::SERIALIZE_TYPE_UINT32: return sizeof(std::uint32_t);
+    case wire::SERIALIZE_TYPE_UINT64: return sizeof(std::uint64_t);
     default:
       break;
     }
@@ -203,7 +201,7 @@ namespace wire
       array_space_(source.size()),
       last_tag_(SERIALIZE_TYPE_OBJECT)
   {
-    const auto sbh = read<epee::serialization::storage_block_header>();
+    const auto sbh = read<storage_block_header>();
     if (sbh.m_signature_a != SWAP32LE(PORTABLE_STORAGE_SIGNATUREA) ||
         sbh.m_signature_b != SWAP32LE(PORTABLE_STORAGE_SIGNATUREB))
       WIRE_DLOG_THROW_(error::epee::signature);

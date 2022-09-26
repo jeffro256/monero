@@ -36,7 +36,6 @@
 #include "serialization/wire/write.h"
 #include "serialization/wire/wrapper/array.h"
 #include "serialization/wire/wrapper/array_blob.h"
-#include "storages/portable_storage_bin_utils.h"
 #include "span.h"
 
 namespace wire

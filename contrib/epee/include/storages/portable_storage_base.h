@@ -34,53 +34,15 @@
 #include <deque>
 #include <map>
 
-#define PORTABLE_STORAGE_SIGNATUREA 0x01011101
-#define PORTABLE_STORAGE_SIGNATUREB 0x01020101 // bender's nightmare 
-#define PORTABLE_STORAGE_FORMAT_VER 1
-
-#define PORTABLE_RAW_SIZE_MARK_MASK   0x03 
-#define PORTABLE_RAW_SIZE_MARK_BYTE   0
-#define PORTABLE_RAW_SIZE_MARK_WORD   1
-#define PORTABLE_RAW_SIZE_MARK_DWORD  2
-#define PORTABLE_RAW_SIZE_MARK_INT64  3
-
 #ifndef MAX_STRING_LEN_POSSIBLE       
 #define MAX_STRING_LEN_POSSIBLE       2000000000 //do not let string be so big
 #endif
-
-//data types 
-#define SERIALIZE_TYPE_INT64                1
-#define SERIALIZE_TYPE_INT32                2
-#define SERIALIZE_TYPE_INT16                3
-#define SERIALIZE_TYPE_INT8                 4
-#define SERIALIZE_TYPE_UINT64               5
-#define SERIALIZE_TYPE_UINT32               6
-#define SERIALIZE_TYPE_UINT16               7
-#define SERIALIZE_TYPE_UINT8                8
-#define SERIALIZE_TYPE_DOUBLE               9
-#define SERIALIZE_TYPE_STRING               10
-#define SERIALIZE_TYPE_BOOL                 11
-#define SERIALIZE_TYPE_OBJECT               12
-#define SERIALIZE_TYPE_ARRAY                13
-
-#define SERIALIZE_FLAG_ARRAY              0x80
-
 
 namespace epee
 {
   namespace serialization
   {
     struct section;
-
-#pragma pack(push)
-#pragma pack(1)
-    struct storage_block_header
-    {
-      uint32_t m_signature_a;
-      uint32_t m_signature_b;
-      uint8_t  m_ver;
-    };
-#pragma pack(pop)
 
     template<typename T> struct entry_container { typedef std::vector<T> type; static void reserve(type &t, size_t n) { t.reserve(n); } };
     template<> struct entry_container<bool> { typedef std::deque<bool> type; static void reserve(type &t, size_t n) {} };

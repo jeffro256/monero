@@ -34,10 +34,9 @@
 #include <utility>
 
 #include "byte_stream.h"
+#include "common.h"
 #include "serialization/wire/write.h"
 #include "span.h"
-#include "storages/portable_storage_base.h"
-#include "storages/portable_storage_bin_utils.h"
 
 namespace wire
 {

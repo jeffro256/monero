@@ -121,7 +121,7 @@ namespace cryptonote
     }
     void read_bytes(wire::epee_reader& source, std::pair<std::vector<std::uint64_t>, is_blob>& dest)
     {
-      if (source.last_tag() == SERIALIZE_TYPE_STRING)
+      if (source.last_tag() == wire::SERIALIZE_TYPE_STRING)
       {
         wire_read::bytes(source, wire::array_as_blob(std::ref(dest.first)));
         dest.second = is_blob::true_;
