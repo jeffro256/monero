@@ -43,8 +43,8 @@
 /*
   Custom types (e.g. `type` in namespace `ns`) can define an input function by:
     * `namespace wire { template<> struct is_blob<ns::type> : std::true_type {}; }`
-    * `namespace wire { void read_bytes(writer&, ns::type&); }`
-    * `namespace ns { void read_bytes(wire::writer&, type&); }`
+    * `namespace wire { void read_bytes(reader&, ns::type&); }`
+    * `namespace ns { void read_bytes(wire::reader&, type&); }`
 
   See `traits.h` for `is_blob` requirements. `read_bytes` function can also
   specify derived type for faster output (i.e.
