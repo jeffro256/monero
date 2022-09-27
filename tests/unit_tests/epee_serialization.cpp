@@ -99,7 +99,6 @@ namespace {
   WIRE_EPEE_DEFINE_CONVERSION(UnsignedData);
   WIRE_JSON_DEFINE_CONVERSION(UnsignedData);
 
-  /*
   struct Data2
   {
     static_assert(wire::is_array<std::vector<bool>>::value, "vector<bool> can not be serialized as array");
@@ -111,7 +110,7 @@ namespace {
     UnsignedData unsign;
     double triple;
     StringData sd;
-    std::vector<bool> booleans;
+    std::vector<int> booleans;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(i64)
@@ -129,9 +128,7 @@ namespace {
         unsign == other.unsign && triple == other.triple && sd == other.sd && booleans == other.booleans;
     }
   }; // struct Data2
-  WIRE_EPEE_DEFINE_CONVERSION(Data2);
   WIRE_JSON_DEFINE_CONVERSION(Data2);
-  */
 
   struct int_blob
   {
@@ -152,30 +149,8 @@ namespace {
     }
   };
 
-  /*
-  // @TODO: Finish blob testing
-  struct BlobData
-  {
-    std::string s;
-    byte_blob<16> buf;
-    epee::mlocked<tools::scrubbed<int_blob>> delegated;
-
-    bool operator==(const BlobData& other) const {
-      return s == other.s && buf == other.buf && (const int_blob&) delegated == (const int_blob&) other.delegated;
-    }
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE_VAL_POD_AS_BLOB(s)
-      KV_SERIALIZE_VAL_POD_AS_BLOB(buf)
-      KV_SERIALIZE_VAL_POD_AS_BLOB(delegated)
-    END_KV_SERIALIZE_MAP()
-  };
-  WIRE_EPEE_DEFINE_CONVERSION(BlobData);
-  WIRE_JSON_DEFINE_CONVERSION(BlobData);
-  */
-
   template <typename T>
-  void load_t_from_hex_string_failable(const std::string& hex_src, T& val, bool dump_message = false)
+  void load_t_from_hex_string_failable(const std::string& hex_src, T& val)
   {
     // convert from hex to binary string
     std::string bin_src;
@@ -189,7 +164,17 @@ namespace {
     wire::epee_reader deserializer(bin_span);
     read_bytes(deserializer, val);
   }
-} // anonymous namespace 
+
+  template <typename T>
+  void load_t_from_json_string_failable(const std::string& json_src, T& val)
+  {
+    wire::json_reader deserializer({json_src.data(), json_src.size()});
+    read_bytes(deserializer, val);
+  }
+} // anonymous namespace
+
+namespace wire { template <> struct is_blob<int_blob>: std::true_type {}; }
+namespace wire { template <size_t N> struct is_blob<byte_blob<N>>: std::true_type {}; }
 
 #define ARRAY_STR(a) std::string(reinterpret_cast<const char*>(a), sizeof(a))
 
@@ -267,12 +252,12 @@ TEST(epee_serialization, json_deserialize_1)
 {
   Data1 deserialized_data;
   std::string json_src = "{\"val\":7777}";
-  EXPECT_TRUE(epee::serialization::load_t_from_json(deserialized_data, json_src));
+  //EXPECT_TRUE(epee::serialization::load_t_from_json(deserialized_data, json_src));
+  load_t_from_json_string_failable(json_src, deserialized_data);
   const Data1 expected_data = { 7777 };
   EXPECT_EQ(expected_data, deserialized_data);
 }
 
-/*
 TEST(epee_serialization, json_deserialize_2)
 {
   std::string json_data = R"({
@@ -280,54 +265,16 @@ TEST(epee_serialization, json_deserialize_2)
     "unsign": { "u64": 1, "u32": 2, "u16": 3, "u8": 4 },
     "triple": 20.23,
     "sd": { "str": "meep meep"},
-    "booleans": [true, false, true, true, false, true, false, false]
+    "booleans": [1, 0, 1, 1, 0, 1, 0, 0]
   })";
 
-  const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
+  //const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { true, false, true, true, false, true, false, false } };
+  const Data2 expected = { -8, -7, -6, -5, { 1, 2, 3, 4 }, 20.23, { "meep meep" }, { 1, 0, 1, 1, 0, 1, 0, 0 } };
 
   Data2 actual;
   EXPECT_TRUE(epee::serialization::load_t_from_json(actual, json_data));
   EXPECT_EQ(expected, actual);
 }
-*/
-
-/*
-TEST(epee_serialization, blob_binary_serialize)
-{
-  tools::scrubbed<int_blob> scrubbed_data;
-  ((int_blob&) scrubbed_data) = { 7784 };
-
-  const BlobData blob_src =
-  {
-    "Jeffro",
-    { "123456789ABCDEF" },
-    { scrubbed_data }
-  };
-
-  static constexpr uint8_t expected_binary[] =
-  {
-    0x01, 0x11, 0x01, 0x01,
-    0x01, 0x01, 0x02, 0x01,
-    0x01,
-    0x0C,
-    0x01, 's',
-    0X0A,
-    0x18, 'J', 'e', 'f', 'f', 'r', 'o',
-    0x03, 'b', 'u', 'f',
-    0x0A, 
-    0x40, '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', '\0',
-    0x09, 'd', 'e', 'l', 'e', 'g', 'a', 't', 'e', 'd',
-    0x0A,
-    0x08, 0x68, 0x1E
-  };
-  const std::string expected{reinterpret_cast<const char*>(expected_binary), sizeof(expected_binary)};
-
-  const epee::byte_slice actual_slice = epee::serialization::store_t_to_binary(blob_src);
-  std::string actual;
-  actual.assign(reinterpret_cast<const char*>(actual_slice.begin()), actual_slice.size());
-  EXPECT_EQ(expected, actual);
-}
-*/
 
 TEST(epee_serialization, binary_slam_dunks)
 {
@@ -375,5 +322,5 @@ TEST(epee_serialization, binary_slam_dunks)
     "06565726c6973745f6e6577";
 
   nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::response t_2;
-  load_t_from_hex_string_failable(hex_src_2, t_2, true);
+  load_t_from_hex_string_failable(hex_src_2, t_2);
 }
