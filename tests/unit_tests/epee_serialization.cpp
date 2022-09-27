@@ -309,8 +309,6 @@ TEST(epee_serialization, binary_slam_dunks)
   cryptonote::NOTIFY_NEW_TRANSACTIONS::request_t t_1;
   load_t_from_hex_string_failable(hex_src_1, t_1);
 
-  std::cout << "meep" << std::endl;
-
   const std::string hex_src_2 =
     "0111010101010201010c096e6f64655f646174610c180a6e6574776f726b5f69640a401230f171610441611731008"
     "216a1a11007706565725f6964055cec85ffed1e9a42076d795f706f727406d0bb0000087270635f706f7274070000"
@@ -323,4 +321,77 @@ TEST(epee_serialization, binary_slam_dunks)
 
   nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::response t_2;
   load_t_from_hex_string_failable(hex_src_2, t_2);
+}
+
+TEST(epee_serialization, integer_convert_to)
+{
+  #define INT_A 1876
+  #define ICONV(tgt, src, val) wire::integer::convert_to<tgt, src>(val)
+  #define ICONV_A(tgt, src) ICONV(tgt, src, INT_A)
+  #define ICONV_A_EQ_TEST(tgt, src) { tgt a = ICONV_A(tgt, src); EXPECT_EQ(INT_A, a); }
+  #define COMMA ,
+  #define ICONV_A_OVERFLOW_TEST(tgt, src)                                                       \
+    try {                                                                                       \
+      auto _ = ICONV_A(tgt, src);                                                               \
+      throw std::runtime_error("did not throw wire::exception_t");                              \
+    }                                                                                           \
+    catch (const wire::exception_t<wire::error::schema>& we) {                                  \
+      EXPECT_EQ(wire::error::make_error_code(wire::error::schema::smaller_integer), we.code()); \
+    }                                                                                           \
+
+  ICONV_A_EQ_TEST(int16_t, int64_t);
+  ICONV_A_EQ_TEST(int16_t, int32_t);
+  ICONV_A_EQ_TEST(int16_t, int16_t);
+  ICONV_A_EQ_TEST(int16_t, uint64_t);
+  ICONV_A_EQ_TEST(int16_t, uint32_t);
+  ICONV_A_EQ_TEST(int16_t, uint16_t);
+
+  ICONV_A_EQ_TEST(int32_t, int64_t);
+  ICONV_A_EQ_TEST(int32_t, int32_t);
+  ICONV_A_EQ_TEST(int32_t, int16_t);
+  ICONV_A_EQ_TEST(int32_t, uint64_t);
+  ICONV_A_EQ_TEST(int32_t, uint32_t);
+  ICONV_A_EQ_TEST(int32_t, uint16_t);
+
+  ICONV_A_EQ_TEST(int64_t, int64_t);
+  ICONV_A_EQ_TEST(int64_t, int32_t);
+  ICONV_A_EQ_TEST(int64_t, int16_t);
+  ICONV_A_EQ_TEST(int64_t, uint64_t);
+  ICONV_A_EQ_TEST(int64_t, uint32_t);
+  ICONV_A_EQ_TEST(int64_t, uint16_t);
+
+  ICONV_A_EQ_TEST(uint16_t, int64_t);
+  ICONV_A_EQ_TEST(uint16_t, int32_t);
+  ICONV_A_EQ_TEST(uint16_t, int16_t);
+  ICONV_A_EQ_TEST(uint16_t, uint64_t);
+  ICONV_A_EQ_TEST(uint16_t, uint32_t);
+  ICONV_A_EQ_TEST(uint16_t, uint16_t);
+
+  ICONV_A_EQ_TEST(uint32_t, int64_t);
+  ICONV_A_EQ_TEST(uint32_t, int32_t);
+  ICONV_A_EQ_TEST(uint32_t, int16_t);
+  ICONV_A_EQ_TEST(uint32_t, uint64_t);
+  ICONV_A_EQ_TEST(uint32_t, uint32_t);
+  ICONV_A_EQ_TEST(uint32_t, uint16_t);
+
+  ICONV_A_EQ_TEST(uint64_t, int64_t);
+  ICONV_A_EQ_TEST(uint64_t, int32_t);
+  ICONV_A_EQ_TEST(uint64_t, int16_t);
+  ICONV_A_EQ_TEST(uint64_t, uint64_t);
+  ICONV_A_EQ_TEST(uint64_t, uint32_t);
+  ICONV_A_EQ_TEST(uint64_t, uint16_t);
+
+  ICONV_A_OVERFLOW_TEST(int8_t, int64_t);
+  ICONV_A_OVERFLOW_TEST(int8_t, int32_t);
+  ICONV_A_OVERFLOW_TEST(int8_t, int16_t);
+  ICONV_A_OVERFLOW_TEST(int8_t, uint64_t);
+  ICONV_A_OVERFLOW_TEST(int8_t, uint32_t);
+  ICONV_A_OVERFLOW_TEST(int8_t, uint16_t);
+
+  ICONV_A_OVERFLOW_TEST(uint8_t, int64_t);
+  ICONV_A_OVERFLOW_TEST(uint8_t, int32_t);
+  ICONV_A_OVERFLOW_TEST(uint8_t, int16_t);
+  ICONV_A_OVERFLOW_TEST(uint8_t, uint64_t);
+  ICONV_A_OVERFLOW_TEST(uint8_t, uint32_t);
+  ICONV_A_OVERFLOW_TEST(uint8_t, uint16_t);
 }

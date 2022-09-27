@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <boost/numeric/conversion/cast.hpp>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -207,27 +208,23 @@ namespace wire
     template<typename Target, typename U>
     inline Target convert_to(const U source)
     {
-      using common = typename std::common_type<Target, U>::type;
-      static constexpr const Target target_min = std::numeric_limits<Target>::min();
-      static constexpr const Target target_max = std::numeric_limits<Target>::max();
+      static_assert(std::is_integral<Target>(), "target template type is not int-like");
+      static_assert(std::is_integral<U>(), "source template type is not int-like");
 
-      /* After optimizations, this is:
-           * 1 check for unsigned -> unsigned (uint, uint)
-           * 2 checks for signed -> signed (int, int)
-           * 2 checks for signed -> unsigned-- (
-           * 1 check for unsigned -> signed (uint, uint)
+      try
+      {
+        return boost::numeric_cast<Target>(source);
+      }
+      catch (const boost::numeric::positive_overflow&)
+      {
+        throw_exception(std::uintmax_t(source), std::uintmax_t(std::numeric_limits<Target>::max()));
+      }
+      catch (const boost::numeric::negative_overflow&)
+      {
+        throw_exception(std::intmax_t(source), std::intmax_t(std::numeric_limits<Target>::min()));
+      }
 
-         Put `WIRE_DLOG_THROW` in cpp to reduce code/ASM duplication. Do not
-         remove first check, signed values can be implicitly converted to
-         unsigned in some checks. */
-      if (!std::numeric_limits<Target>::is_signed && source < 0)
-        throw_exception(std::intmax_t(source), std::intmax_t(0));
-      else if (common(source) < common(target_min))
-        throw_exception(std::intmax_t(source), std::intmax_t(target_min));
-      else if (common(target_max) < common(source))
-        throw_exception(std::uintmax_t(source), std::uintmax_t(target_max));
-
-      return Target(source);
+      throw std::logic_error("We should never reach here");
     }
   }
 
