@@ -329,7 +329,6 @@ TEST(epee_serialization, integer_convert_to)
   #define ICONV(tgt, src, val) wire::integer::convert_to<tgt, src>(val)
   #define ICONV_A(tgt, src) ICONV(tgt, src, INT_A)
   #define ICONV_A_EQ_TEST(tgt, src) { tgt a = ICONV_A(tgt, src); EXPECT_EQ(INT_A, a); }
-  #define COMMA ,
   #define ICONV_A_OVERFLOW_TEST(tgt, src)                                                       \
     try {                                                                                       \
       auto _ = ICONV_A(tgt, src);                                                               \
@@ -394,4 +393,48 @@ TEST(epee_serialization, integer_convert_to)
   ICONV_A_OVERFLOW_TEST(uint8_t, uint64_t);
   ICONV_A_OVERFLOW_TEST(uint8_t, uint32_t);
   ICONV_A_OVERFLOW_TEST(uint8_t, uint16_t);
+
+  #define INT_B -INT_A
+  #define ICONV_B(tgt, src) ICONV(tgt, src, INT_B)
+  #define ICONV_B_EQ_TEST(tgt, src) { tgt b = ICONV_B(tgt, src); EXPECT_EQ(INT_B, b); }
+  #define ICONV_B_UNDERFLOW_TEST(tgt, src)                                                     \
+    try {                                                                                      \
+      auto _ = ICONV_B(tgt, src);                                                              \
+      throw std::runtime_error("did not throw wire::exception_t");                             \
+    }                                                                                          \
+    catch (const wire::exception_t<wire::error::schema>& we) {                                 \
+      EXPECT_EQ(wire::error::make_error_code(wire::error::schema::larger_integer), we.code()); \
+    }
+
+  ICONV_B_EQ_TEST(int16_t, int64_t);
+  ICONV_B_EQ_TEST(int16_t, int32_t);
+  ICONV_B_EQ_TEST(int16_t, int16_t);
+
+  ICONV_B_EQ_TEST(int32_t, int64_t);
+  ICONV_B_EQ_TEST(int32_t, int32_t);
+  ICONV_B_EQ_TEST(int32_t, int16_t);
+
+  ICONV_B_EQ_TEST(int64_t, int64_t);
+  ICONV_B_EQ_TEST(int64_t, int32_t);
+  ICONV_B_EQ_TEST(int64_t, int16_t);
+
+  ICONV_B_UNDERFLOW_TEST(uint16_t, int64_t);
+  ICONV_B_UNDERFLOW_TEST(uint16_t, int32_t);
+  ICONV_B_UNDERFLOW_TEST(uint16_t, int16_t);
+
+  ICONV_B_UNDERFLOW_TEST(uint32_t, int64_t);
+  ICONV_B_UNDERFLOW_TEST(uint32_t, int32_t);
+  ICONV_B_UNDERFLOW_TEST(uint32_t, int16_t);
+
+  ICONV_B_UNDERFLOW_TEST(uint64_t, int64_t);
+  ICONV_B_UNDERFLOW_TEST(uint64_t, int32_t);
+  ICONV_B_UNDERFLOW_TEST(uint64_t, int16_t);
+
+  ICONV_B_UNDERFLOW_TEST(int8_t, int64_t);
+  ICONV_B_UNDERFLOW_TEST(int8_t, int32_t);
+  ICONV_B_UNDERFLOW_TEST(int8_t, int16_t);
+
+  ICONV_B_UNDERFLOW_TEST(uint8_t, int64_t);
+  ICONV_B_UNDERFLOW_TEST(uint8_t, int32_t);
+  ICONV_B_UNDERFLOW_TEST(uint8_t, int16_t);
 }
