@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <boost/numeric/conversion/cast.hpp>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -211,20 +210,30 @@ namespace wire
       static_assert(std::is_integral<Target>(), "target template type is not int-like");
       static_assert(std::is_integral<U>(), "source template type is not int-like");
 
-      try
+      static constexpr const bool target_is_signed = std::numeric_limits<Target>::is_signed;
+      static constexpr const bool source_is_signed = std::numeric_limits<U>::is_signed;
+
+      if // underflow
+      (
+        (target_is_signed && (intmax_t)source < (intmax_t)std::numeric_limits<Target>::min()) ||
+        (!target_is_signed && source < 0)
+      )
       {
-        return boost::numeric_cast<Target>(source);
-      }
-      catch (const boost::numeric::positive_overflow&)
-      {
-        throw_exception(std::uintmax_t(source), std::uintmax_t(std::numeric_limits<Target>::max()));
-      }
-      catch (const boost::numeric::negative_overflow&)
-      {
+        // throw larger_integer exception
         throw_exception(std::intmax_t(source), std::intmax_t(std::numeric_limits<Target>::min()));
       }
+      else if // overflow
+      (
+        (target_is_signed && !source_is_signed && (uintmax_t)source > (uintmax_t)INTMAX_MAX) ||
+        (target_is_signed && (intmax_t)source > (intmax_t)std::numeric_limits<Target>::max()) ||
+        (!target_is_signed && (uintmax_t)source > (uintmax_t)std::numeric_limits<Target>::max())
+      )
+      {
+        // throw smaller_integer exception
+        throw_exception(std::uintmax_t(source), std::uintmax_t(std::numeric_limits<Target>::max()));
+      }
 
-      throw std::logic_error("We should never reach here");
+      return (Target)source;
     }
   }
 
