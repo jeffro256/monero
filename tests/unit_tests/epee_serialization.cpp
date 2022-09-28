@@ -337,21 +337,23 @@ TEST(epee_serialization, integer_convert_to)
     {typeid(uint8_t).name(), "uint8_t"},
   };
 
-  #define INT_A 1876
   #define ICONV(tgt, src, val) wire::integer::convert_to<tgt, src>(val)
+  #define ICONV_EXCEPTION_TEST(tgt, src, val, err_code)                                                   \
+    try {                                                                                                 \
+      auto _ = ICONV(tgt, src, val);                                                                      \
+      const std::string& src_t_name = typeid_to_hr.at(typeid(src).name());                                \
+      const std::string& tgt_t_name = typeid_to_hr.at(typeid(tgt).name());                                \
+      ADD_FAILURE_AT("epee_serialization.cpp", __LINE__) << "expected wire::exception_t when converting " \
+        "value " << val << " from " << src_t_name << " to " << tgt_t_name << ". Instead got value " << _; \
+    }                                                                                                     \
+    catch (const wire::exception_t<wire::error::schema>& we) {                                            \
+      EXPECT_EQ(wire::error::make_error_code(wire::error::schema::err_code), we.code());                  \
+    } 
+
+  #define INT_A 1876
   #define ICONV_A(tgt, src) ICONV(tgt, src, INT_A)
   #define ICONV_A_EQ_TEST(tgt, src) { tgt a = ICONV_A(tgt, src); EXPECT_EQ(INT_A, a); }
-  #define ICONV_A_OVERFLOW_TEST(tgt, src)                                                                   \
-    try {                                                                                                   \
-      auto _ = ICONV_A(tgt, src);                                                                           \
-      const std::string& src_t_name = typeid_to_hr.at(typeid(src).name());                                  \
-      const std::string& tgt_t_name = typeid_to_hr.at(typeid(tgt).name());                                  \
-      ADD_FAILURE_AT("epee_serialization.cpp", __LINE__) << "expected wire::exception_t when converting "   \
-        "value " << INT_A << " from " << src_t_name << " to " << tgt_t_name << ". Instead got value " << _; \
-    }                                                                                                       \
-    catch (const wire::exception_t<wire::error::schema>& we) {                                              \
-      EXPECT_EQ(wire::error::make_error_code(wire::error::schema::smaller_integer), we.code());             \
-    }                                                                                                       \
+  #define ICONV_A_OVERFLOW_TEST(tgt, src) ICONV_EXCEPTION_TEST(tgt, src, INT_A, smaller_integer)
 
   ICONV_A_EQ_TEST(int16_t, int64_t);
   ICONV_A_EQ_TEST(int16_t, int32_t);
@@ -412,17 +414,7 @@ TEST(epee_serialization, integer_convert_to)
   #define INT_B -INT_A
   #define ICONV_B(tgt, src) ICONV(tgt, src, INT_B)
   #define ICONV_B_EQ_TEST(tgt, src) { tgt b = ICONV_B(tgt, src); EXPECT_EQ(INT_B, b); }
-  #define ICONV_B_UNDERFLOW_TEST(tgt, src)                                                                  \
-    try {                                                                                                   \
-      auto _ = ICONV_B(tgt, src);                                                                           \
-      const std::string& src_t_name = typeid_to_hr.at(typeid(src).name());                                  \
-      const std::string& tgt_t_name = typeid_to_hr.at(typeid(tgt).name());                                  \
-      ADD_FAILURE_AT("epee_serialization.cpp", __LINE__) << "expected wire::exception_t when converting "   \
-        "value " << INT_B << " from " << src_t_name << " to " << tgt_t_name << ". Instead got value " << _; \
-    }                                                                                                       \
-    catch (const wire::exception_t<wire::error::schema>& we) {                                              \
-      EXPECT_EQ(wire::error::make_error_code(wire::error::schema::larger_integer), we.code());              \
-    }                                                                                                       \
+  #define ICONV_B_UNDERFLOW_TEST(tgt, src) ICONV_EXCEPTION_TEST(tgt, src, INT_B, larger_integer)
 
   ICONV_B_EQ_TEST(int16_t, int64_t);
   ICONV_B_EQ_TEST(int16_t, int32_t);
@@ -455,4 +447,36 @@ TEST(epee_serialization, integer_convert_to)
   ICONV_B_UNDERFLOW_TEST(uint8_t, int64_t);
   ICONV_B_UNDERFLOW_TEST(uint8_t, int32_t);
   ICONV_B_UNDERFLOW_TEST(uint8_t, int16_t);
+
+  #define INT_C UINTMAX_MAX
+  #define ICONV_C(tgt, src) ICONV(tgt, src, INT_C)
+  #define ICONV_C_EQ_TEST(tgt, src) { tgt c = ICONV_C(tgt, src); EXPECT_EQ(INT_C, c); }
+  #define ICONV_C_OVERFLOW_TEST(tgt, src) ICONV_EXCEPTION_TEST(tgt, src, INT_C, smaller_integer)
+
+  ICONV_C_EQ_TEST(uintmax_t, uintmax_t)
+
+  ICONV_C_OVERFLOW_TEST(std::int64_t, uintmax_t);
+  ICONV_C_OVERFLOW_TEST(std::int32_t, uintmax_t);
+  ICONV_C_OVERFLOW_TEST(std::int16_t, uintmax_t);
+  ICONV_C_OVERFLOW_TEST(std::int8_t, uintmax_t);
+
+  ICONV_C_OVERFLOW_TEST(std::uint32_t, uintmax_t);
+  ICONV_C_OVERFLOW_TEST(std::uint16_t, uintmax_t);
+  ICONV_C_OVERFLOW_TEST(std::uint8_t, uintmax_t);
+
+  #define INT_D INTMAX_MIN
+  #define ICONV_D(tgt, src) ICONV(tgt, src, INT_D)
+  #define ICONV_D_EQ_TEST(tgt, src) { tgt d = ICONV_D(tgt, src); EXPECT_EQ(INT_D, d); }
+  #define ICONV_D_UNDERFLOW_TEST(tgt, src) ICONV_EXCEPTION_TEST(tgt, src, INT_D, larger_integer)
+
+  ICONV_D_EQ_TEST(intmax_t, intmax_t);
+
+  ICONV_D_UNDERFLOW_TEST(std::int32_t, intmax_t);
+  ICONV_D_UNDERFLOW_TEST(std::int16_t, intmax_t);
+  ICONV_D_UNDERFLOW_TEST(std::int8_t, intmax_t);
+
+  ICONV_D_UNDERFLOW_TEST(std::uint64_t, intmax_t);
+  ICONV_D_UNDERFLOW_TEST(std::uint32_t, intmax_t);
+  ICONV_D_UNDERFLOW_TEST(std::uint16_t, intmax_t);
+  ICONV_D_UNDERFLOW_TEST(std::uint8_t, intmax_t);
 }

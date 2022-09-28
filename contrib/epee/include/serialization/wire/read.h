@@ -207,6 +207,7 @@ namespace wire
     template<typename Target, typename U>
     inline Target convert_to(const U source)
     {
+      // Adapted from https://blog.reverberate.org/2012/12/testing-for-integer-overflow-in-c-and-c.html
       static_assert(std::is_integral<Target>(), "target template type is not int-like");
       static_assert(std::is_integral<U>(), "source template type is not int-like");
 
