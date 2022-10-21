@@ -145,9 +145,37 @@
     }                                                                                        \
   } while (0);                                                                               \
 
+/**
+ * @brief Set client signature, acquire RPC mutex, invoke bin endpoint, and check RPC cost
+ *
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables
+ * m_daemon_rpc_mutex, m_http_client, m_client_id_secret_key, and rpc_timeout. The lock_guard is
+ * scoped so that it lives as short as possible.
+ *
+ * @param uri URI of bin endpoint
+ * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
+ * @param res cryptonote::COMMAND_RPC_x::response form which will be used with invoke_http_json_rpc
+ * @param rpc_price RPC credit cost for given method, usually specified in macros named COST_PER_x
+ *
+ * @return std::string on RPC error, otherwise does not return
+ */
+
+#define NRP_INVOKE_BIN_WITH_PRICE(uri, req, res, rpc_price)                                 \
+  do {                                                                                      \
+    req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);            \
+    {                                                                                       \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};             \
+      const uint64_t pre_call_credits = m_rpc_payment_state.credits;                        \
+      bool r = epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, rpc_timeout); \
+      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, res, uri);                   \
+      check_rpc_cost(m_rpc_payment_state, uri, res.credits, pre_call_credits, rpc_price);   \
+    }                                                                                       \
+  } while (0);                                                                              \
+
 namespace
 {
 static constexpr const size_t GET_TX_CHUNK_SIZE = 100; // Must be same as RESTRICTED_TRANSACTIONS_COUNT in rpc/core_rpc_server.cpp
+static constexpr const size_t GET_OUTPUTS_BIN_CHUNK_SIZE = 1024; // Arbitrary
 
 /**
  * @brief Parse and validate pruned transaction entry into cryptonote::transaction and its hash.
@@ -542,6 +570,57 @@ boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& t
   };
 
   return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, &tx_hash, tx_passthru_assignment);
+}
+
+boost::optional<std::string> NodeRPCProxy::get_outputs(const std::vector<cryptonote::get_outputs_out>& req_outs, bool get_txid, std::vector<cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::outkey>& resp_outs)
+{
+  if (m_offline)
+  {
+    return std::string("offline");
+  }
+
+  // Setup outgoing paramter
+  const size_t num_outs = req_outs.size();
+  resp_outs.clear();
+  resp_outs.reserve(num_outs);
+
+  // Start chunking ...
+  for (size_t num_outs_done = 0; num_outs_done < num_outs; num_outs_done += GET_OUTPUTS_BIN_CHUNK_SIZE)
+  {
+    // Calculate chunk bounds
+    const size_t num_outs_remaining = num_outs - num_outs_done;
+    const size_t this_chunk_size = std::min(num_outs_remaining, GET_OUTPUTS_BIN_CHUNK_SIZE);
+    const auto req_chunk_begin = req_outs.begin() + num_outs_done;
+    const auto req_chunk_end = req_chunk_begin + this_chunk_size;
+
+    // Setup forms and invoke
+    cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::request req_t = AUTO_VAL_INIT(req_t);
+    cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::response resp_t = AUTO_VAL_INIT(resp_t);
+    req_t.outputs = {req_chunk_begin, req_chunk_end};
+    req_t.get_txid = get_txid;
+
+    NRP_INVOKE_BIN_WITH_PRICE("/get_outs.bin", req_t, resp_t, this_chunk_size * COST_PER_OUT);
+
+    // Check the number of received outputs matches the number of requested outputs
+    const size_t num_received = resp_t.outs.size();
+    RETURN_ERROR_IF_FALSE
+    (
+      num_received == this_chunk_size,
+      "We got the wrong number of outs: expected " << this_chunk_size << " vs actual " << num_received
+    );
+
+    // If outgoing parameter is empty, move received outputs into paramter, otherwise copy
+    if (resp_outs.empty())
+    {
+      resp_outs = std::move(resp_t.outs);
+    }
+    else
+    {
+      resp_outs.insert(resp_outs.end(), resp_t.outs.begin(), resp_t.outs.end());
+    }
+  }
+
+  return boost::none;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<std::string>&& tx_hashes_ref, const tx_hash_t* txid_check, tx_handler_t& cb)

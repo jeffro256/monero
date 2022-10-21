@@ -101,6 +101,16 @@ public:
    */
   boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t* tx_res, tx_entry_t* tx_entry_res);
 
+  /**
+   * @brief Invoke /get_outputs.bin, chunking as necessary and checking the number of outputs
+   *
+   * @param req_outs List of cryptonote::get_outputs_out to request for
+   * @param get_txid Whether the RPC server should collect txids associated with the outputs
+   * @param resp_outs[out] List where output outkeys will be placed after receiving
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_outputs(const std::vector<cryptonote::get_outputs_out>& req_outs, bool get_txid, std::vector<cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::outkey>& resp_outs);
+
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {
     if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
