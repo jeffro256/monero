@@ -623,6 +623,17 @@ boost::optional<std::string> NodeRPCProxy::get_outputs(const std::vector<crypton
   return boost::none;
 }
 
+boost::optional<std::string> NodeRPCProxy::get_txpool_backlog(std::vector<cryptonote::tx_backlog_entry>& backlog_entries)
+{
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request req_t = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response resp_t = AUTO_VAL_INIT(res);
+
+  NRP_INVOKE_JSON_RPC_WITH_PRICE("get_txpool_backlog", req_t, resp_t, COST_PER_TX_POOL_STATS * res.backlog.size());
+
+  backlog_entries = std::move(resp_t.backlog);
+  return boost::none;
+}
+
 boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<std::string>&& tx_hashes_ref, const tx_hash_t* txid_check, tx_handler_t& cb)
 {
   // Check if offline
