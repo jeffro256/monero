@@ -106,7 +106,7 @@ public:
    *
    * @param req_outs List of cryptonote::get_outputs_out to request for
    * @param get_txid Whether the RPC server should collect txids associated with the outputs
-   * @param resp_outs[out] List where output outkeys will be placed after receiving
+   * @param[out] resp_outs List where output outkeys will be placed after receiving
    * @return boost::none on success, otherwise returns error message
    */
   boost::optional<std::string> get_outputs(const std::vector<cryptonote::get_outputs_out>& req_outs, bool get_txid, std::vector<cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::outkey>& resp_outs);
