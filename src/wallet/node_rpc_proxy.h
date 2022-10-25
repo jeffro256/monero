@@ -111,8 +111,6 @@ public:
    */
   boost::optional<std::string> get_outputs(const std::vector<cryptonote::get_outputs_out>& req_outs, bool get_txid, std::vector<cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::outkey>& resp_outs);
 
-  boost::optional<std::string> get_outputs(const std::vector<cryptonote::get_outputs_out>& req_outs, bool get_txid, std::vector<cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::outkey>& resp_outs);
-
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {
     if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
