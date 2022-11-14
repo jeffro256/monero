@@ -2741,4 +2741,40 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_GET_MULTIHOST_ENDPOINTS
+  {
+    struct request: public rpc_request_base
+    {
+      std::string network_hint;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_request_base)
+        KV_SERIALIZE_OPT(network_hint, "")
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct endpoint_entry
+    {
+      std::string host;
+      std::string port;
+      std::string ssl_fingerprint;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(host)
+        KV_SERIALIZE(port)
+        KV_SERIALIZE(ssl_fingerprint)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response: public rpc_response_base
+    {
+      std::vector<endpoint_entry> endpoints;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_response_base)
+        KV_SERIALIZE(endpoints)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
