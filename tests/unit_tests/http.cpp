@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 #include "net/http_auth.h"
+#include "net/http.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -61,6 +62,8 @@
 #include "md5_l.h"
 #include "string_tools.h"
 #include "crypto/crypto.h"
+#include "storages/http_abstract_invoke.h"
+#include "serialization/keyvalue_serialization.h"
 
 namespace {
 namespace http = epee::net_utils::http;
@@ -252,6 +255,21 @@ std::string get_nc(std::uint32_t count)
 
   return out;
 }
+
+struct JSON_TEST_IP_REQ
+{
+  BEGIN_KV_SERIALIZE_MAP()
+  END_KV_SERIALIZE_MAP()
+};
+
+struct JSON_TEST_IP_RESP
+{
+  std::string ip;
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(ip)
+  END_KV_SERIALIZE_MAP()
+};
 }
 
 TEST(HTTP_Server_Auth, NotRequired)
@@ -742,4 +760,17 @@ TEST(HTTP, Add_Field)
   epee::net_utils::http::add_field(str, {"moarbars", "moarfoo"});
 
   EXPECT_STREQ("leading textfoo: bar\r\nbar: foo\r\nmoarbars: moarfoo\r\n", str.c_str());
+}
+
+TEST(http_client, json_test)
+{
+  JSON_TEST_IP_REQ req;
+  JSON_TEST_IP_RESP resp;
+
+  net::http::client http_client;
+  EXPECT_TRUE(http_client.set_server("142.250.80.51:80", {}, epee::net_utils::ssl_support_t::e_ssl_support_autodetect, "ip.jsontest.com"));
+  //EXPECT_TRUE(http_client.connect(std::chrono::milliseconds{2000}));
+  EXPECT_TRUE(epee::net_utils::invoke_http_json("/", req, resp, http_client));
+
+  std::cout << resp.ip << std::endl;
 }
