@@ -26,13 +26,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "community_node.h"
+#include "remote_node_selection.h"
 
 namespace
 {
     using namespace rpc::remote_selection;
 
-    AbstractNodeGroup::punishment_t pconv(AbstractNodeGroup::Punishment punishment)
+    constexpr AbstractNodeGroup::punishment_t pconv(AbstractNodeGroup::Punishment punishment)
     {
         return static_cast<AbstractNodeGroup::punishment_t>(punishment);
     }
@@ -42,6 +42,21 @@ namespace rpc
 {
 namespace remote_selection
 {
+    bool AbstractNodeGroup::compare_punishment(const AbstractNodeGroup& lhs, const AbstractNodeGroup& rhs) noexcept
+    {
+        return lhs.average_punishments() < rhs.average_punishments();
+    }
+
+    bool AbstractNodeGroup::has_punishment() const noexcept
+    {
+        return average_punishments() != pconv(Punishment::None);
+    }
+
+    bool AbstractNodeGroup::operator<(const AbstractNodeGroup& rhs) const
+    {
+        return compare_punishment(*this, rhs);
+    }
+
     AliveNode::AliveNode(const node_blueprint& blueprint):
         node_blueprint(blueprint), m_resolved_address(), m_last_resolve_time(0),
         m_punish_score(pconv(Punishment::None))
@@ -54,7 +69,14 @@ namespace remote_selection
 
     void AliveNode::punish(node_id_t _id_ignored, Punishment punishment)
     {
-        m_punish_score += pconv(punishment);
+        static constexpr const punishment_t MAX_PUNISHMENT_SCORE = pconv(Punishment::None) - 1;
+        const punishment_t pun_conv = pconv(punishment);
+        m_punish_score += std::min(MAX_PUNISHMENT_SCORE - m_punish_score, pun_conv);
+    }
+
+    AbstractNodeGroup::connection_info AliveNode::yield_conn_info(bool allow_resolve, bool resolve_ipv6)
+    {
+
     }
 } // namespace community
 } // namespace rpc

@@ -74,7 +74,7 @@ struct AbstractNodeGroup
     virtual punishment_t average_punishments() const noexcept = 0;
     virtual void punish(node_id_t punishee, Punishment punishment) = 0;
 
-    virtual connection_info yield_address(bool allow_resolve, bool resolve_ipv6) = 0;
+    virtual connection_info yield_conn_info(bool allow_resolve, bool resolve_ipv6) = 0;
 
     static bool compare_punishment(const AbstractNodeGroup& lhs, const AbstractNodeGroup& rhs) noexcept;
     bool has_punishment() const noexcept;
@@ -99,7 +99,7 @@ public:
     node_id_t id() const noexcept override final;
     punishment_t average_punishments() const noexcept override final;
     void punish(node_id_t punishee, Punishment punishment) override final;
-    connection_info yield_address(bool allow_resolve, bool resolve_ipv6) override final;
+    connection_info yield_conn_info(bool allow_resolve, bool resolve_ipv6) override final;
 };
 
 class NodeFamily: AbstractNodeGroup
@@ -116,7 +116,7 @@ public:
     node_id_t id() const noexcept override final;
     punishment_t average_punishments() const noexcept override final;
     void punish(node_id_t punishee, Punishment punishment) override final;
-    connection_info yield_address(bool allow_resolve, bool resolve_ipv6) override final;
+    connection_info yield_conn_info(bool allow_resolve, bool resolve_ipv6) override final;
 };
 
 class NodeSelector: AbstractNodeGroup
@@ -127,21 +127,19 @@ public:
     node_id_t id() const noexcept override final;
     punishment_t average_punishments() const noexcept override final;
     void punish(node_id_t punishee, Punishment punishment) override final;
-    connection_info yield_address(bool allow_resolve, bool resolve_ipv6) override final;
+    connection_info yield_conn_info(bool allow_resolve, bool resolve_ipv6) override final;
 };
 
-template <class BaseANG>
-class LockedAbstractNodeGroup: public BaseANG
+class LockedAbstractNodeGroup: public AbstractNodeGroup
 {
+    std::unique_ptr<AbstractNodeGroup> m_delegate;
     std::mutex m_mutex; // warning: not recursive!
-
-    static_assert(std::is_base_of<AbstractNodeGroup, BaseANG>(), "Base class not AbstractNodeGroup");
 
 public:
     node_id_t id() const noexcept override final;
     punishment_t average_punishments() const noexcept override final;
     void punish(node_id_t punishee, Punishment punishment) override final;
-    connection_info yield_address(bool allow_resolve, bool resolve_ipv6) override final;
+    connection_info yield_conn_info(bool allow_resolve, bool resolve_ipv6) override final;
 };
 
 } // namespace remote_selection
