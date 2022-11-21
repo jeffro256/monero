@@ -62,9 +62,11 @@ struct AbstractNodeGroup
     struct connection_info
     {
         node_id_t node_id;
-        network_address_t addr;
-        std::unique_ptr<epee::net_utils::http::login> credentials;
-        ssl_context_ptr_t ssl_ctx;
+        std::string host;
+        std::string virtual_host;
+        std::string port;
+        epee::net_utils::http::login credentials;
+        std::string ssl_cert_fingerprint;
     };
 
     virtual ~AbstractNodeGroup() = default;
