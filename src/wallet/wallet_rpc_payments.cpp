@@ -30,7 +30,6 @@
 #include <boost/utility/value_init.hpp>
 #include "include_base_utils.h"
 #include "cryptonote_config.h"
-#include "wallet_rpc_helpers.h"
 #include "wallet2.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -52,15 +51,10 @@
 namespace tools
 {
 //----------------------------------------------------------------------------------------------------
-std::string wallet2::get_client_signature() const
-{
-  return cryptonote::make_rpc_payment_signature(m_rpc_client_secret_key);
-}
-//----------------------------------------------------------------------------------------------------
 bool wallet2::get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &hashing_blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie)
 {
   boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_payment_info(mining, payment_required, credits, diff, credits_per_hash_found, hashing_blob, height, seed_height, seed_hash, next_seed_hash, cookie);
-  credits = m_rpc_payment_state.credits;
+  credits = m_node_rpc_proxy.credits();
   if (result && *result != CORE_RPC_STATUS_OK)
     return false;
   return true;
@@ -82,21 +76,13 @@ bool wallet2::make_rpc_payment(uint32_t nonce, uint32_t cookie, uint64_t &credit
   cryptonote::COMMAND_RPC_ACCESS_SUBMIT_NONCE::response res = AUTO_VAL_INIT(res);
   req.nonce = nonce;
   req.cookie = cookie;
-  m_daemon_rpc_mutex.lock();
-  uint64_t pre_call_credits = m_rpc_payment_state.credits;
+  uint64_t pre_call_credits = m_rpc_payment_state.credits();
   req.client = get_client_signature();
   epee::json_rpc::error error;
-  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "rpc_access_submit_nonce", req, res, error, *m_http_client, rpc_timeout);
-  m_daemon_rpc_mutex.unlock();
+  const bool r = invoke_json_rpc_with_access("rpc_access_submit_nonce", req, res, error);
   THROW_ON_RPC_RESPONSE_ERROR_GENERIC(r, error, res, "rpc_access_submit_nonce");
   THROW_WALLET_EXCEPTION_IF(res.credits < pre_call_credits, error::wallet_internal_error, "RPC payment did not increase balance");
-  if (m_rpc_payment_state.top_hash != res.top_hash)
-  {
-    m_rpc_payment_state.top_hash = res.top_hash;
-    m_rpc_payment_state.stale = true;
-  }
 
-  m_rpc_payment_state.credits = res.credits;
   balance = res.credits;
   credits = balance - pre_call_credits;
   return true;
@@ -203,10 +189,4 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads
   }
   return true;
 }
-//----------------------------------------------------------------------------------------------------
-void wallet2::check_rpc_cost(const char *call, uint64_t post_call_credits, uint64_t pre_call_credits, double expected_cost)
-{
-  return tools::check_rpc_cost(m_rpc_payment_state, call, post_call_credits, pre_call_credits, expected_cost);
-}
-//----------------------------------------------------------------------------------------------------
-}
+} // namespace tools

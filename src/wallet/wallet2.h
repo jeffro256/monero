@@ -71,7 +71,6 @@
 #include "node_rpc_proxy.h"
 #include "message_store.h"
 #include "wallet_light_rpc.h"
-#include "wallet_rpc_helpers.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -1547,16 +1546,6 @@ private:
     bool daemon_requires_payment();
     bool make_rpc_payment(uint32_t nonce, uint32_t cookie, uint64_t &credits, uint64_t &balance);
     bool search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads, const std::function<bool(uint64_t, uint64_t)> &startfunc, const std::function<bool(unsigned)> &contfunc, const std::function<bool(uint64_t)> &foundfunc = NULL, const std::function<void(const std::string&)> &errorfunc = NULL);
-    template<typename T> void handle_payment_changes(const T &res, std::true_type) {
-      if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
-        m_rpc_payment_state.credits = res.credits;
-      if (res.top_hash != m_rpc_payment_state.top_hash)
-      {
-        m_rpc_payment_state.top_hash = res.top_hash;
-        m_rpc_payment_state.stale = true;
-      }
-    }
-    template<typename T> void handle_payment_changes(const T &res, std::false_type) {}
 
     // Light wallet specific functions
     // fetch unspent outs from lw node and store in m_transfers
@@ -1599,26 +1588,40 @@ private:
     crypto::public_key get_multisig_signing_public_key(size_t idx) const;
     crypto::public_key get_multisig_signing_public_key(const crypto::secret_key &skey) const;
 
-    template<class t_request, class t_response>
-    inline bool invoke_http_json(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
+    template <class Req, class Res>
+    bool invoke_json(const std::string& uri, Req& req, Res& res)
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json(uri, req, res, *m_http_client, timeout, http_method);
+      return m_node_rpc_proxy.invoke_json(uri, req, res);
     }
-    template<class t_request, class t_response>
-    inline bool invoke_http_bin(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
+
+    template <class Req, class Res, class CostF>
+    bool invoke_json_with_access(const std::string& uri, Req& req, Res& res, const CostF& cost_f)
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_bin(uri, req, res, *m_http_client, timeout, http_method);
+      return m_node_rpc_proxy.invoke_json_with_access(uri, req, res, cost_f);
     }
-    template<class t_request, class t_response>
-    inline bool invoke_http_json_rpc(const boost::string_ref uri, const std::string& method_name, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
+
+    template <class Req, class Res>
+    bool invoke_json_rpc(const std::string& rpc_method, Req& req, Res& res, epee::json_rpc::error& error)
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, *m_http_client, timeout, http_method, req_id);
+      return m_node_rpc_proxy.invoke_json_rpc(rpc_method, req, res, error);
+    }
+
+    template <class Req, class Res, class CostF>
+    bool invoke_json_rpc_with_access(const std::string& rpc_method, Req& req, Res& res, epee::json_rpc::error& error, const CostF& cost_f)
+    {
+      return m_node_rpc_proxy.invoke_json_rpc_with_access(rpc_method, req, res, error, cost_f);
+    }
+
+    template <class Req, class Res>
+    bool invoke_bin(const std::string& uri, Req& req, Res& res)
+    {
+      return m_node_rpc_proxy.invoke_bin(uri, req, res);
+    }
+
+    template <class Req, class Res, class CostF>
+    bool invoke_bin_with_access(const std::string& uri, Req& req, Res& res, const CostF& cost_f)
+    {
+      return m_node_rpc_proxy.invoke_bin_with_access(uri, req, res, cost_f);
     }
 
     bool set_ring_database(const std::string &filename);
@@ -1670,12 +1673,10 @@ private:
     void finish_rescan_bc_keep_key_images(uint64_t transfer_height, const crypto::hash &hash);
     void enable_dns(bool enable) { m_use_dns = enable; }
     void set_offline(bool offline = true);
-    bool is_offline() const { return m_offline; }
+    bool is_offline() const { return m_node_rpc_proxy.is_offline(); }
 
-    uint64_t credits() const { return m_rpc_payment_state.credits; }
-    void credit_report(uint64_t &expected_spent, uint64_t &discrepancy) const { expected_spent = m_rpc_payment_state.expected_spent; discrepancy = m_rpc_payment_state.discrepancy; }
-
-    static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
+    uint64_t credits() const { return m_node_rpc_proxy.credits(); }
+    void credit_report(uint64_t &expected_spent, uint64_t &discrepancy) const { m_node_rpc_proxy.credit_report(expected_spent, discrepancy); }
 
   private:
     /*!
@@ -1753,6 +1754,7 @@ private:
     crypto::chacha_key get_ringdb_key();
     void setup_keys(const epee::wipeable_string &password);
     size_t get_transfer_details(const crypto::key_image &ki) const;
+    bool invoke_get_transactions(cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request& req, cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request& res, bool throw_on_fail = true);
 
     void register_devices();
     hw::device& lookup_device(const std::string & device_descriptor);
@@ -1778,9 +1780,6 @@ private:
     std::string get_rpc_status(const std::string &s) const;
     void throw_on_rpc_response_error(bool r, const epee::json_rpc::error &error, const std::string &status, const char *method) const;
 
-    std::string get_client_signature() const;
-    void check_rpc_cost(const char *call, uint64_t post_call_credits, uint64_t pre_credits, double expected_cost);
-
     bool should_expand(const cryptonote::subaddress_index &index) const;
     bool spends_one_of_ours(const cryptonote::transaction &tx) const;
 
@@ -1790,7 +1789,6 @@ private:
     std::string m_wallet_file;
     std::string m_keys_file;
     std::string m_mms_file;
-    const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     hashchain m_blockchain;
     serializable_unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     serializable_unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
@@ -1816,8 +1814,6 @@ private:
     serializable_unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     std::atomic<bool> m_run;
-
-    boost::recursive_mutex m_daemon_rpc_mutex;
 
     bool m_trusted_daemon;
     i_wallet2_callback* m_callback;
@@ -1875,10 +1871,7 @@ private:
     std::string m_device_derivation_path;
     uint64_t m_device_last_key_image_sync;
     bool m_use_dns;
-    bool m_offline;
-    uint32_t m_rpc_version;
     crypto::secret_key m_rpc_client_secret_key;
-    rpc_payment_state_t m_rpc_payment_state;
     uint64_t m_credits_target;
     bool m_enable_multisig;
     bool m_allow_mismatched_daemon_version;
@@ -1926,9 +1919,6 @@ private:
     bool m_load_deprecated_formats;
 
     bool m_has_ever_refreshed_from_node;
-
-    static boost::mutex default_daemon_address_lock;
-    static std::string default_daemon_address;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 30)

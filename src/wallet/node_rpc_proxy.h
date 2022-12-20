@@ -29,24 +29,51 @@
 #pragma once
 
 #include <string>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/recursive_mutex.hpp>
+
 #include "include_base_utils.h"
-#include "net/abstract_http_client.h"
-#include "rpc/core_rpc_server_commands_defs.h"
-#include "wallet_rpc_helpers.h"
+#include "net/http.h"
+#include "rpc_payment_state.h"
+#include "storages/http_abstract_invoke.h"
+
+#define NODERPCPROXY_ACCESS_INVOKE_BODY(invsimp, name, req, res, costcb, ...) \
+  do {                                                                        \
+    set_req_payment_signature(req);                                           \
+    const auto tg = m_rpc_payment_state.start_rpc_call(name, 0);              \
+    const bool r = invsimp(name, req, res, ##__VA_ARGS__);                    \
+    if (r)                                                                    \
+    {                                                                         \
+      const uint64_t expected_cost = costcb(res);                             \
+      m_rpc_payment_state.update_expected_cost(tg, expected_cost);            \
+    }                                                                         \
+    m_rpc_payment_state.end_rpc_call(tg, res);                                \
+    return r;                                                                 \
+  } while (0);                                                                \
+
+#define NODERPCPROXY_CONST_COST_F(tres, expcost) [=](const tres&) -> uint64_t {return expcost;}
 
 namespace tools
 {
-
 class NodeRPCProxy
 {
 public:
-  NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_client, rpc_payment_state_t &rpc_payment_state, boost::recursive_mutex &mutex);
+  template <class Res>
+  using cost_cb_t = std::function<uint64_t(const Res&)>;
 
-  void set_client_secret_key(const crypto::secret_key &skey) { m_client_id_secret_key = skey; }
+  NodeRPCProxy();
+
+  void set_persistent_client_secret_key(const crypto::secret_key &skey);
+  void randomize_client_secret_key();
   void invalidate();
-  void set_offline(bool offline) { m_offline = offline; }
+  bool is_offline() const;
+  void set_offline(bool offline);
+  bool set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options);
+  bool set_proxy(const std::string &address);
+  uint64_t get_bytes_sent() const;
+  uint64_t get_bytes_received() const;
+  bool try_connection_start(bool* using_ssl = nullptr);
+
+  uint64_t credits() const;
+  void credit_report(uint64_t &expected_spent, uint64_t &discrepancy) const;
 
   boost::optional<std::string> get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height);
   boost::optional<std::string> get_height(uint64_t &height);
@@ -60,25 +87,82 @@ public:
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
   boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
 
-private:
-  template<typename T> void handle_payment_changes(const T &res, std::true_type) {
-    if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
-      m_rpc_payment_state.credits = res.credits;
-    if (res.top_hash != m_rpc_payment_state.top_hash)
-    {
-      m_rpc_payment_state.top_hash = res.top_hash;
-      m_rpc_payment_state.stale = true;
-    }
+  template <class Req, class Res>
+  bool invoke_json(const std::string& uri, Req& req, Res& res)
+  {
+    res.status.clear();
+    return epee::net_utils::invoke_http_json(uri, req, res, get_transport_ref(), rpc_timeout);
   }
-  template<typename T> void handle_payment_changes(const T &res, std::false_type) {}
+
+  template <class Req, class Res>
+  bool invoke_json_with_access(const std::string& uri, Req& req, Res& res, const cost_cb_t<Res>& cost_f)
+  {
+    NODERPCPROXY_ACCESS_INVOKE_BODY(invoke_json, uri, req, res, cost_f)
+  }
+
+  template <class Req, class Res>
+  bool invoke_json_with_access(const std::string& uri, Req& req, Res& res, uint64_t expected_cost)
+  {
+    cost_cb_t<Res> cost_f = NODERPCPROXY_CONST_COST_F(Res, expected_cost);
+    return invoke_json_with_access(uri, req, res, cost_f);
+  }
+
+  template <class Req, class Res>
+  bool invoke_json_rpc(const std::string& rpc_method, Req& req, Res& res, epee::json_rpc::error& error)
+  {
+    res.status.clear();
+    return epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error, get_transport_ref(), rpc_timeout);
+  }
+
+  template <class Req, class Res>
+  bool invoke_json_rpc_with_access(const std::string& rpc_method, Req& req, Res& res, epee::json_rpc::error& error, const cost_cb_t<Res>& cost_f)
+  {
+    NODERPCPROXY_ACCESS_INVOKE_BODY(invoke_json_rpc, rpc_method, req, res, cost_f, error)
+  }
+
+  template <class Req, class Res>
+  bool invoke_json_rpc_with_access(const std::string& rpc_method, Req& req, Res& res, epee::json_rpc::error& error, uint64_t expected_cost)
+  {
+    cost_cb_t<Res> cost_f = NODERPCPROXY_CONST_COST_F(Res, expected_cost);
+    return invoke_json_rpc_with_access(rpc_method, req, res, error, cost_f);
+  }
+
+  template <class Req, class Res>
+  bool invoke_bin(const std::string& uri, Req& req, Res& res)
+  {
+    res.status.clear();
+    return epee::net_utils::invoke_http_bin(uri, req, res, get_transport_ref(), rpc_timeout);
+  }
+
+  template <class Req, class Res>
+  bool invoke_bin_with_access(const std::string& uri, Req& req, Res& res, const cost_cb_t<Res>& cost_f)
+  {
+    NODERPCPROXY_ACCESS_INVOKE_BODY(invoke_bin, uri, req, res, cost_f)
+  }
+
+  template <class Req, class Res>
+  bool invoke_bin_with_access(const std::string& uri, Req& req, Res& res, uint64_t expected_cost)
+  {
+    cost_cb_t<Res> cost_f = NODERPCPROXY_CONST_COST_F(Res, expected_cost);
+    return invoke_bin_with_access(uri, req, res, cost_f);
+  }
 
 private:
   boost::optional<std::string> get_info();
 
-  epee::net_utils::http::abstract_http_client &m_http_client;
-  rpc_payment_state_t &m_rpc_payment_state;
-  boost::recursive_mutex &m_daemon_rpc_mutex;
+  void set_req_payment_signature(::cryptonote::rpc_access_request_base& req) const;
+
+  epee::net_utils::http::abstract_http_transport& get_transport_ref();
+
+  static constexpr std::chrono::seconds rpc_timeout = std::chrono::seconds(120);
+
+  net::http::client m_http_client;
+  std::string m_daemon_address;
+  bool m_trusted_daemon;
+  boost::optional<epee::net_utils::http::login> m_daemon_login;
+  RpcPaymentState m_rpc_payment_state;
   crypto::secret_key m_client_id_secret_key;
+  bool m_client_id_is_persistent;
   bool m_offline;
 
   uint64_t m_height;
@@ -107,4 +191,4 @@ private:
   std::vector<std::pair<uint8_t, uint64_t>> m_daemon_hard_forks;
 };
 
-}
+} // namespace tools

@@ -76,8 +76,6 @@ namespace epee
     bool m_rised;
   };
 
-  class critical_region;
-
   class critical_section
   {
     boost::recursive_mutex m_section;

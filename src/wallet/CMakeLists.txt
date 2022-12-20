@@ -38,6 +38,7 @@ set(wallet_sources
   message_store.cpp
   message_transporter.cpp
   wallet_rpc_payments.cpp
+  rpc_payment_state.cpp
 )
 
 monero_find_all_headers(wallet_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")

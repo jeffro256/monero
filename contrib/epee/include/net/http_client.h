@@ -177,13 +177,6 @@ namespace net_utils
         return true;
       }
 			//---------------------------------------------------------------------------
-			inline bool invoke_get(const boost::string_ref uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) override
-			{
-					CRITICAL_REGION_LOCAL(m_lock);
-					return invoke(uri, "GET", body, timeout, ppresponse_info, additional_params);
-			}
-
-			//---------------------------------------------------------------------------
 			inline bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
