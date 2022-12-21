@@ -1115,9 +1115,22 @@ private:
 
     std::vector<cryptonote::public_node> get_public_nodes(bool white_only = true);
 
+    /**
+     * @brief Do legacy wallet file cache deserialization.
+     *
+     * For new serializations/deserializations, see the BEGIN_SERIALIZE_OBJECT() DSL section below.
+     *
+     * @tparam t_archive is type boost::archive::binary_iarchive or boost::archive::portable_binary_iarchive
+     * @param a input binary archive
+     * @param ver legacy format version
+     */
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
+      constexpr bool is_iarc = std::is_same<t_archive, boost::archive::binary_iarchive>();
+      constexpr bool is_port_iarc = std::is_same<t_archive, boost::archive::portable_binary_iarchive>();
+      static_assert(is_iarc || is_port_iarc, "Only for deserialization of legacy wallet caches.");
+
       uint64_t dummy_refresh_height = 0; // moved to keys file
       if(ver < 5)
         return;

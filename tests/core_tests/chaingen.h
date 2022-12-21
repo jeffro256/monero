@@ -44,7 +44,6 @@
 #include <boost/functional/hash.hpp>
 
 #include "include_base_utils.h"
-#include "common/boost_serialization_helper.h"
 #include "common/command_line.h"
 #include "common/threadpool.h"
 
@@ -811,11 +810,21 @@ template<class t_test_class>
 inline bool do_replay_file(const std::string& filename)
 {
   std::vector<test_event_entry> events;
-  if (!tools::unserialize_obj_from_file(events, filename))
+  std::ifstream data_file;
+  data_file.open(filename, std::ios_base::binary | std::ios_base::in);
+  CHECK_AND_ASSERT_MES(data_file.good(), false, "Could not open file for binary reading: " << filename);
+  try
   {
-    MERROR("Failed to deserialize data from file: ");
+    boost::archive::portable_binary_iarchive a(data_file);
+    a >> events;
+    CHECK_AND_ASSERT_MES(data_file.good(), false, "Reading binary data from file failed: " << filename);
+  }
+  catch (...)
+  {
+    MERROR("Failed to deserialize binary data from file: " << filename);
     return false;
   }
+
   return do_replay_events<t_test_class>(events);
 }
 
@@ -980,17 +989,18 @@ inline bool do_replay_file(const std::string& filename)
 
 #define SET_EVENT_VISITOR_SETT(VEC_EVENTS, SETT) VEC_EVENTS.push_back(event_visitor_settings(SETT));
 
-#define GENERATE(filename, genclass) \
-    { \
-        std::vector<test_event_entry> events; \
-        genclass g; \
-        g.generate(events); \
-        if (!tools::serialize_obj_to_file(events, filename)) \
-        { \
-            MERROR("Failed to serialize data to file: " << filename); \
-            throw std::runtime_error("Failed to serialize data to file"); \
-        } \
-    }
+#define GENERATE(filename, genclass)                                                                          \
+    {                                                                                                         \
+        std::vector<test_event_entry> events;                                                                 \
+        genclass g;                                                                                           \
+        g.generate(events);                                                                                   \
+        std::ofstream data_file;                                                                              \
+        data_file.open(filename, std::ios_base::binary | std::ios_base::out | std::ios::trunc);               \
+        CHECK_AND_ASSERT_THROW_MES(data_file.good(), "Could not open file for binary writing: " << filename); \
+        boost::archive::portable_binary_oarchive a(data_file);                                                \
+        a << events;                                                                                          \
+        CHECK_AND_ASSERT_THROW_MES(data_file.good(), "Writing to binary file failed: " << filename);          \
+    }                                                                                                         \
 
 
 #define PLAY(filename, genclass) \
