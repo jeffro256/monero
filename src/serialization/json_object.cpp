@@ -666,6 +666,8 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::c
 {
   dest.StartObject();
 
+  const uint32_t rpc_credits_per_hash_compat = 0;
+
   INSERT_INTO_JSON_OBJECT(dest, incoming, info.incoming);
   INSERT_INTO_JSON_OBJECT(dest, localhost, info.localhost);
   INSERT_INTO_JSON_OBJECT(dest, local_ip, info.local_ip);
@@ -674,7 +676,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::c
   INSERT_INTO_JSON_OBJECT(dest, ip, info.ip);
   INSERT_INTO_JSON_OBJECT(dest, port, info.port);
   INSERT_INTO_JSON_OBJECT(dest, rpc_port, info.rpc_port);
-  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, info.rpc_credits_per_hash);
+  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, rpc_credits_per_hash_compat);
 
   INSERT_INTO_JSON_OBJECT(dest, peer_id, info.peer_id);
 
@@ -713,7 +715,6 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
   GET_FROM_JSON_OBJECT(val, info.ip, ip);
   GET_FROM_JSON_OBJECT(val, info.port, port);
   GET_FROM_JSON_OBJECT(val, info.rpc_port, rpc_port);
-  GET_FROM_JSON_OBJECT(val, info.rpc_credits_per_hash, rpc_credits_per_hash);
 
   GET_FROM_JSON_OBJECT(val, info.peer_id, peer_id);
 
@@ -871,11 +872,13 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
 {
   dest.StartObject();
 
+  const uint32_t rpc_credits_per_hash_compat = 0;
+
   INSERT_INTO_JSON_OBJECT(dest, id, peer.id);
   INSERT_INTO_JSON_OBJECT(dest, ip, peer.ip);
   INSERT_INTO_JSON_OBJECT(dest, port, peer.port);
   INSERT_INTO_JSON_OBJECT(dest, rpc_port, peer.rpc_port);
-  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, peer.rpc_credits_per_hash);
+  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, rpc_credits_per_hash_compat);
   INSERT_INTO_JSON_OBJECT(dest, last_seen, peer.last_seen);
   INSERT_INTO_JSON_OBJECT(dest, pruning_seed, peer.pruning_seed);
 
@@ -894,7 +897,6 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::peer& peer)
   GET_FROM_JSON_OBJECT(val, peer.ip, ip);
   GET_FROM_JSON_OBJECT(val, peer.port, port);
   GET_FROM_JSON_OBJECT(val, peer.rpc_port, rpc_port);
-  GET_FROM_JSON_OBJECT(val, peer.rpc_credits_per_hash, rpc_credits_per_hash);
   GET_FROM_JSON_OBJECT(val, peer.last_seen, last_seen);
   GET_FROM_JSON_OBJECT(val, peer.pruning_seed, pruning_seed);
 }

@@ -231,13 +231,8 @@ namespace boost
         return;
       }
       a & pl.rpc_port;
-      if (ver < 3)
-      {
-        if (!typename Archive::is_saving())
-          pl.rpc_credits_per_hash = 0;
-        return;
-      }
-      a & pl.rpc_credits_per_hash;
+      uint32_t rpc_credits_per_hash_compat = 0;
+      a & rpc_credits_per_hash_compat;
     }
 
     template <class Archive, class ver_type>
