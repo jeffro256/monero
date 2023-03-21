@@ -61,8 +61,7 @@ public:
         std::string host,
         std::string port,
         boost::optional<epee::net_utils::http::login> user, 
-        epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
-        const std::string& virtual_host = {}
+        epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect
     ) override;
 
     bool invoke
@@ -100,9 +99,11 @@ private:
         root_peer_entry(const multihost_peer_entry&);
 
         bool operator<(const root_peer_entry& rhs) const;
+
+        bool are_endpoints_stale() const;
     };
 
-    bool find_next_potential_endpoint(size_t invoke_attempt);
+    const peer_entry_sortable* find_next_potential_endpoint(size_t invoke_attempt);
 
     std::multiset<root_peer_entry> m_root_peers;
 

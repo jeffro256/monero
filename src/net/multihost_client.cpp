@@ -39,67 +39,27 @@
 #define MULTIHOST_PUNISHMENT_UNSET 1
 #define MULTIHOST_PUNISHMENT_FRESH 0
 
+using epee::net_utils::ssl_options_t;
+using epee::net_utils::ssl_support_t;
+
 namespace
 {
-static constexpr const size_t MAX_INVOKE_ATTEMPTS = 10; 
+constexpr size_t MAX_INVOKE_ATTEMPTS = 10;
+constexpr std::chrono::steady_clock::duration ENDPOINT_REFRESH_DELAY = std::chrono::minutes(30);
 
-expect<std::string> secure_resolve_anything(const std::string& virt_host)
+ssl_options_t ssl_options_from_fingerprint(const std::string& ssl_fingerprint)
 {
-    // Return quickly if provided raw IPv4 / IPv6 / Tor / i2p address
-    if (net::get_network_address(virt_host, 0))
+    if (ssl_fingerprint.empty())
     {
-        return {virt_host};
-    }
-    
-    tools::DNSResolver& resolver = tools::DNSResolver::instance();
-
-    // Attempt IPv6 resolution first
-    bool dnssec_avail_6 = false;
-    bool dnssec_valid_6 = false;        
-    std::vector<std::string> ips_6 = resolver.get_ipv6(virt_host, dnssec_avail_6, dnssec_valid_6);
-    if (ips_6.size() && dnssec_avail_6 && dnssec_valid_6)
-    {
-        return {ips_6[0]};
-    }
-
-    // Attempt IPv4 resolution next
-    bool dnssec_avail_4 = false;
-    bool dnssec_valid_4 = false;        
-    std::vector<std::string> ips_4 = resolver.get_ipv6(virt_host, dnssec_avail_4, dnssec_valid_4);
-    if (ips_4.size() && dnssec_avail_4 && dnssec_valid_4)
-    {
-        return {ips_4[0]};
-    }
-
-    // Log descriptive messages about failure
-    if (ips_6.size())
-    {
-        if (!dnssec_avail_6)
-        {
-            MERROR("Error resolving address '" << virt_host << "': IPv6 DNSSEC unavailable");
-        }
-        else if (!dnssec_valid_6)
-        {
-            MERROR("Error resolving address '" << virt_host << "': IPv6 DNSSEC invalid");
-        }
-    }
-    else if (ips_4.size())
-    {
-        if (!dnssec_avail_6)
-        {
-            MERROR("Error resolving address '" << virt_host << "': IPv4 DNSSEC unavailable");
-        }
-        else if (!dnssec_valid_6)
-        {
-            MERROR("Error resolving address '" << virt_host << "': IPv4 DNSSEC invalid");
-        }
+        return ssl_options_t(ssl_support_t::e_ssl_support_enabled);
     }
     else
     {
-        MERROR("Error resolving address '" << virt_host << "': no records available");
+        std::vector<std::uint8_t> fp_bytes(32, 0);
+        const bool dcoded = epee::from_hex::to_buffer(epee::to_mut_span(fp_bytes), ssl_fingerprint);
+        CHECK_AND_ASSERT_THROW_MES(dcoded, "Failed to decode SSL cert SHA-256 fingerprint as hex");
+        return ssl_options_t({fp_bytes}, {});
     }
-    
-    return make_error_code(net::error::dns_query_failure);
 }
 } // anonymous namespace
 
@@ -119,11 +79,14 @@ multihost_client::multihost_client(const std::vector<multihost_peer_entry>& root
     , m_last_port()
     , m_auxilliary_internal_client()
 {
+    CHECK_AND_ASSERT_THROW_MES(root_peers.size(), "Invalid argument: root_peers must be non-empty");
+
     // Seed the C pseudo-random number generator
     const unsigned int randval = static_cast<unsigned int>(std::rand());
-    const auto steady_ep_time = std::chrono::steady_clock::now().time_since_epoch();
-    const auto steady_millis = std::chrono::duration_cast<unsigned int, std::milli>(steady_ep_time);
-    std::srand(randval + steady_millis.count());
+    const auto steady_elap = std::chrono::steady_clock::now().time_since_epoch();
+    using target_duration_t = std::chrono::duration<unsigned int, std::milli>;
+    const auto steady_millis = std::chrono::duration_cast<target_duration_t>(steady_elap).count();
+    std::srand(randval + steady_millis);
 
     // Construct root peer set
     for (const multihost_peer_entry& peer_entry: root_peers)
@@ -145,8 +108,7 @@ void multihost_client::set_server
     std::string host,
     std::string port,
     boost::optional<epee::net_utils::http::login> user, 
-    epee::net_utils::ssl_options_t ssl_options/* = ssl_support_t::e_ssl_support_autodetect*/,
-    const std::string& virtual_host/* = {}*/
+    epee::net_utils::ssl_options_t ssl_options/* = ssl_support_t::e_ssl_support_autodetect*/
 )
 {
     throw std::logic_error("multihost_client ignores set_server()");
@@ -158,8 +120,8 @@ bool multihost_client::invoke
     const boost::string_ref method,
     const boost::string_ref body,
     std::chrono::milliseconds timeout,
-    const epee::net_utils::http::http_response_info** ppresponse_info/* = NULL*/,
-    const epee::net_utils::http::fields_list& additional_params/* = fields_list()*/
+    const epee::net_utils::http::http_response_info** ppresp/* = NULL*/,
+    const epee::net_utils::http::fields_list& add_params/* = fields_list()*/
 )
 {
     for (size_t i = 0; i < MAX_INVOKE_ATTEMPTS; ++i)
@@ -173,21 +135,12 @@ bool multihost_client::invoke
 
         const std::string& virt_host = next_endpoint->host;
         const std::string& port = next_endpoint->port;
-        const epee::net_utils::ssl_options_t& ssl_options = next_endpoint->ssl_options;
+        const ssl_options_t& ssl_options = next_endpoint->ssl_options;
 
-        // Resolve virtual host
-        const auto resolved_host = secure_resolve_anything(virt_host);
-        if (!resolved_host)
-        {
-            MDEBUG("Resolving host '" << virt_host << "' failed, continuing multihost invoke...");
-            punish_last_endpoint(MULTIHOST_PUNISHMENT_RESOLVE_FAIL);
-            continue;
-        }
-
-        client::set_server(*resolved_host, port, boost::none, ssl_options, virt_host);
+        client::set_server(virt_host, port, boost::none, ssl_options);
 
         // Invoke
-        const bool inv_success = client::invoke(uri, method, body, timeout, ppresponse_info, additional_params);
+        const bool inv_success = client::invoke(uri, method, body, timeout, ppresp, add_params);
         if (!inv_success)
         {
             punish_last_endpoint(MULTIHOST_PUNISHMENT_TIMEOUT);
@@ -215,10 +168,24 @@ bool multihost_client::invoke
     return false;
 }
 
+const multihost_client::peer_entry_sortable* multihost_client::find_next_potential_endpoint
+(
+    size_t invoke_attempt
+)
+{
+    for (const auto& root_peer : m_root_peers)
+    {
+        
+    }
+
+    return nullptr;
+}
+
 multihost_client::peer_entry_sortable::peer_entry_sortable(const multihost_peer_entry& pe)
     : multihost_peer_entry(pe)
-    , punishment_received(0)
+    , punishment_received(MULTIHOST_PUNISHMENT_UNSET)
     , weak_randomness(std::rand())
+    , ssl_options(ssl_options_from_fingerprint(ssl_fingerprint))
 {}
 
 bool multihost_client::peer_entry_sortable::operator<(const peer_entry_sortable& rhs) const
@@ -229,13 +196,19 @@ bool multihost_client::peer_entry_sortable::operator<(const peer_entry_sortable&
 multihost_client::root_peer_entry::root_peer_entry(const multihost_peer_entry& pe)
     : peer_entry_sortable(pe)
     , endpoints()
-    , last_fetch_time(0)
-    , cached_punishment()
+    , last_fetch_time()
+    , cached_punishment(MULTIHOST_PUNISHMENT_UNSET)
 {}
 
 bool multihost_client::root_peer_entry::operator<(const root_peer_entry& rhs) const
 {
     return cached_punishment < rhs.cached_punishment || weak_randomness < rhs.weak_randomness;
+}
+
+bool multihost_client::root_peer_entry::are_endpoints_stale() const
+{
+    const auto time_since_fetch = std::chrono::steady_clock::now() - last_fetch_time;
+    return time_since_fetch > ENDPOINT_REFRESH_DELAY;
 }
 } // namespace http
 } // namespace net

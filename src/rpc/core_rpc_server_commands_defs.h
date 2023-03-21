@@ -2749,7 +2749,7 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
-        KV_SERIALIZE_OPT(network_hint, "")
+        KV_SERIALIZE_OPT(network_hint, std::string())
       END_KV_SERIALIZE_MAP()
     };
 
