@@ -41,11 +41,15 @@
 
 using epee::net_utils::ssl_options_t;
 using epee::net_utils::ssl_support_t;
+using std::chrono::steady_clock::duration;
+using std::chrono::steady_clock::time_point;
 
 namespace
 {
-constexpr size_t MAX_INVOKE_ATTEMPTS = 10;
-constexpr std::chrono::steady_clock::duration ENDPOINT_REFRESH_DELAY = std::chrono::minutes(30);
+static constexpr size_t MAX_INVOKE_ATTEMPTS = 10;
+static constexpr size_t MAX_ENDPOINTS_PER_ROOT = 100;
+static constexpr time_point NEVER_REFRESHED = std::numeric_limits<time_point::rep>::min();
+static constexpr duration ENDPOINT_REFRESH_DELAY = std::chrono::minutes(30);
 
 ssl_options_t ssl_options_from_fingerprint(const std::string& ssl_fingerprint)
 {
@@ -67,11 +71,6 @@ namespace net
 {
 namespace http
 {
-bool multihost_peer_entry::operator==(const multihost_peer_entry& rhs) const
-{
-    return host == rhs.host && port == rhs.port && ssl_fingerprint == rhs.ssl_fingerprint;
-}
-
 multihost_client::multihost_client(const std::vector<multihost_peer_entry>& root_peers)
     : m_root_peers()
     , m_host_switch_cb()
@@ -173,6 +172,7 @@ const multihost_client::peer_entry_sortable* multihost_client::find_next_potenti
     size_t invoke_attempt
 )
 {
+    const auto root_begin  
     for (const auto& root_peer : m_root_peers)
     {
         

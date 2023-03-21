@@ -28,6 +28,11 @@
 
 #pragma once
 
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/identity.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/tag.hpp>
+
 #include "http.h"
 
 #define MULTIHOST_PUNISHMENT_TIMEOUT 10
@@ -44,8 +49,86 @@ struct multihost_peer_entry
     std::string port;
     std::string ssl_fingerprint;
 
-    bool operator==(const multihost_peer_entry&) const;
+    bool operator==(const multihost_peer_entry& rhs) const;
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace detail
+{
+struct by_address
+{
+    bool operator()(const multihost_peer_entry&, const multihost_peer_entry&) const;
+};
+
+struct peer_entry_sortable: public multihost_peer_entry
+{
+    int64_t punishment_received;
+    int weak_randomness; // doesn't need to be secure, just random enough for load balancing
+    epee::net_utils::ssl_options_t ssl_options;
+
+    peer_entry_sortable(const multihost_peer_entry&);
+
+    bool operator==(const peer_entry_sortable& rhs) const;
+};
+
+struct endpoint_peer_entry: public peer_entry_sortable
+{
+    // These fields help enforce that 2+ roots do not vouch for one endpoint
+    std::string root_owner_host;
+    std::string root_owner_port;
+
+    endpoint_peer_entry(const multihost_peer_entry&, const std::string&, const std::string&);
+};
+
+struct by_endpoint_punishment_nd // non-deterministic, takes weak randomness into account
+{
+    bool operator()(const endpoint_peer_entry&, const ebdpoint_peer_entry&) const;
+};
+
+// Container which can lookup endpoint information by address or by punishment received
+typedef boost::multi_index_container
+<
+    endpoint_peer_entry,
+    boost::multi_index::indexed_by
+    <
+        boost::multi_index::ordered_unique
+        <
+            boost::multi_index::tag<by_address>,
+            boost::multi_index::identity<endpoint_peer_entry>,
+            by_address
+        >,
+        boost::multi_index::ordered_non_unique
+        <
+            boost::multi_index::tag<by_endpoint_punishment_nd>,
+            boost::multi_index::identity<endpoint_peer_entry>,
+            by_endpoint_punishment_nd
+        >
+    >
+> endpoint_cont_t;
+
+struct root_peer_entry: public peer_entry_sortable
+{
+    std::multiset<peer_entry_sortable> endpoints;
+    std::chrono::steady_clock::time_point last_fetch_time;
+    int64_t cached_punishment;
+
+    root_peer_entry(const multihost_peer_entry&);
+
+    bool are_endpoints_stale() const;
+};
+
+struct by_root_punishment_nd // non-deterministic, takes weak randomness into account
+{
+    bool operator()(const root_peer_entry&, const root_peer_entry&) const;
+};
+
+typedef std::multiset<root_peer_entry, by_root_punishment_nd> root_cont_t;
+} // namespace detail
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class multihost_client : public client
 {
@@ -79,38 +162,13 @@ public:
     void punish_last_endpoint(int64_t punishment);
 
 private:
-    struct peer_entry_sortable: public multihost_peer_entry
-    {
-        int64_t punishment_received;
-        int weak_randomness; // doesn't need to be secure, just random enough for load balancing
-        epee::net_utils::ssl_options_t ssl_options;
-
-        peer_entry_sortable(const multihost_peer_entry&);
-
-        bool operator<(const peer_entry_sortable& rhs) const;
-    };
-
-    struct root_peer_entry: public peer_entry_sortable
-    {
-        std::multiset<peer_entry_sortable> endpoints;
-        std::chrono::steady_clock::time_point last_fetch_time;
-        int64_t cached_punishment;
-
-        root_peer_entry(const multihost_peer_entry&);
-
-        bool operator<(const root_peer_entry& rhs) const;
-
-        bool are_endpoints_stale() const;
-    };
-
     const peer_entry_sortable* find_next_potential_endpoint(size_t invoke_attempt);
 
-    std::multiset<root_peer_entry> m_root_peers;
+    detail::root_cont_t m_roots;
+    detail::endpoint_cont_t m_endpoints;
 
+    multihost_peer_entry m_last_endpoint;
     std::unique_ptr<host_switch_cb_t> m_host_switch_cb;
-
-    std::string m_last_host;
-    std::string m_last_port;
 
     client m_auxilliary_internal_client;
 };
