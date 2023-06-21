@@ -113,6 +113,7 @@ set(unit_tests_sources
   output_selection.cpp
   vercmp.cpp
   ringdb.cpp
+  wallet2_storage.cpp
   wipeable_string.cpp
   is_hdd.cpp
   aligned.cpp
@@ -146,6 +147,7 @@ target_link_libraries(unit_tests
     seraphis_main
     seraphis_mocks
     wallet
+    wallet2_basic
     p2p
     version
     ${Boost_CHRONO_LIBRARY}
