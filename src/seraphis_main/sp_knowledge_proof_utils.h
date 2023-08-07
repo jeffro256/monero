@@ -161,10 +161,13 @@ void make_enote_amount_proof_v1(const rct::xmr_amount &amount,
 /**
 * brief: verify enote amount proof
 * param: proof - proof to verify
+* param: expected_amount - amount expected to be in the proof
 * param: expected_commitment - commitment expected to be in the proof
 * return: true/false according to proof validity 
 */
-bool verify_enote_amount_proof_v1(const EnoteAmountProofV1 &proof, const rct::key &expected_commitment);
+bool verify_enote_amount_proof_v1(const EnoteAmountProofV1 &proof,
+    rct::xmr_amount expected_amount,
+    const rct::key &expected_commitment);
 /**
 * brief: make an enote key image proof
 * param: onetime_address - address which has the format xG + yX + zU. 
@@ -251,11 +254,13 @@ void make_enote_sent_proof_v1(const EnoteOwnershipProofV1 &ownership_proof,
 /**
 * brief: verify enote sent proof
 * param: proof - proof to verify
+* param: expected_amount - expected amount of the proof enote
 * param: expected_amount_commitment - expected amount commitment of the proof enote
 * param: expected_onetime_address - expected onetime address of the proof enote
 * return: true/false according to proof validity 
 */
 bool verify_enote_sent_proof_v1(const EnoteSentProofV1 &proof,
+    rct::xmr_amount expected_amount,
     const rct::key &expected_amount_commitment,
     const rct::key &expected_onetime_address);
 /**
@@ -279,11 +284,13 @@ void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_re
 /**
 * brief: verify reserved enote proof
 * param: proof - proof to verify
+* param: expected_amount - amount that should be in the proof
 * param: expected_amount_commitment - commitment that should be in the proof
 * param: expected_onetime_address - onetime address that should be in the proof
 * return: true/false according to proof validity 
 */
 bool verify_reserved_enote_proof_v1(const ReservedEnoteProofV1 &proof,
+    rct::xmr_amount expected_amount,
     const rct::key &expected_amount_commitment,
     const rct::key &expected_onetime_address,
     const std::uint64_t expected_enote_ledger_index);

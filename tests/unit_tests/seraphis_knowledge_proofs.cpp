@@ -108,7 +108,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
         amount_commitment_ref(enote_record.enote),
         enote_amount_proof);
 
-    ASSERT_TRUE(verify_enote_amount_proof_v1(enote_amount_proof, enote_core.amount_commitment));
+    ASSERT_TRUE(verify_enote_amount_proof_v1(enote_amount_proof, enote_record.amount, enote_core.amount_commitment));
 
     // 4. RECIPIENT: enote key image proof
     EnoteKeyImageProofV1 enote_key_image_proof;
@@ -150,7 +150,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
     EnoteSentProofV1 enote_sent_proof;
     make_enote_sent_proof_v1(sender_enote_ownership_proof, enote_amount_proof, enote_sent_proof);
 
-    ASSERT_TRUE(verify_enote_sent_proof_v1(enote_sent_proof, enote_core.amount_commitment, enote_core.onetime_address));
+    ASSERT_TRUE(verify_enote_sent_proof_v1(enote_sent_proof, enote_record.amount, enote_core.amount_commitment, enote_core.onetime_address));
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

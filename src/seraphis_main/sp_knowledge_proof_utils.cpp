@@ -460,24 +460,39 @@ void make_enote_amount_proof_v1(const rct::xmr_amount &amount,
     const rct::key &commitment,
     EnoteAmountProofV1 &proof_out)
 {
+    // C0 = C - aH
+    rct::key C0 = rct::scalarmultH(rct::d2h(amount));
+    rct::subKeys(C0, commitment, C0);
+
+    // Generate zero-knowlege proof of knowledge of discrete log of C0 w/ respect to G
+    crypto::signature C0_sig;
+    crypto::generate_signature(crypto::null_hash, rct::rct2pk(C0), mask, C0_sig);
+
     proof_out = EnoteAmountProofV1{
             .a = amount,
-            .x = rct::sk2rct(mask),
-            .C = commitment
+            .C = commitment,
+            .C0_sig = C0_sig
         };
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool verify_enote_amount_proof_v1(const EnoteAmountProofV1 &proof, const rct::key &expected_commitment)
+bool verify_enote_amount_proof_v1(const EnoteAmountProofV1 &proof,
+    rct::xmr_amount expected_amount,
+    const rct::key &expected_commitment)
 {
-    // 1. check the proof matches the expected amount commitment
+    // 1. check the proof matches the expected amount
+    if (!(proof.a == expected_amount))
+        return false;
+
+    // 2. check the proof matches the expected amount commitment
     if (!(proof.C == expected_commitment))
         return false;
 
-    // 2. check the commitment can be reproduced
-    if (!(proof.C == rct::commit(proof.a, proof.x)))
-        return false;;
+    // C0 = C - aH
+    rct::key C0 = rct::scalarmultH(rct::d2h(proof.a));
+    rct::subKeys(C0, proof.C, C0);
 
-    return true;
+    // 3. check proof of knowledge of discrete log of C0 against G
+    return crypto::check_signature(crypto::null_hash, rct::rct2pk(C0), proof.C0_sig);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_key_image_proof_v1(const rct::key &onetime_address,
@@ -736,6 +751,7 @@ void make_enote_sent_proof_v1(const EnoteOwnershipProofV1 &ownership_proof,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_enote_sent_proof_v1(const EnoteSentProofV1 &proof,
+    rct::xmr_amount expected_amount,
     const rct::key &expected_amount_commitment,
     const rct::key &expected_onetime_address)
 {
@@ -746,7 +762,7 @@ bool verify_enote_sent_proof_v1(const EnoteSentProofV1 &proof,
         return false;
 
     // 2. verify the amount proof
-    if (!verify_enote_amount_proof_v1(proof.amount_proof, expected_amount_commitment))
+    if (!verify_enote_amount_proof_v1(proof.amount_proof, expected_amount, expected_amount_commitment))
         return false;
 
     return true;
@@ -802,6 +818,7 @@ void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_re
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_reserved_enote_proof_v1(const ReservedEnoteProofV1 &proof,
+    rct::xmr_amount expected_amount,
     const rct::key &expected_amount_commitment,
     const rct::key &expected_onetime_address,
     const std::uint64_t expected_enote_ledger_index)
@@ -813,7 +830,7 @@ bool verify_reserved_enote_proof_v1(const ReservedEnoteProofV1 &proof,
         return false;
 
     // 2. verify the enote amount proof
-    if (!verify_enote_amount_proof_v1(proof.amount_proof, expected_amount_commitment))
+    if (!verify_enote_amount_proof_v1(proof.amount_proof, expected_amount, expected_amount_commitment))
         return false;
 
     // 3. verify the key image proof
@@ -955,6 +972,7 @@ bool verify_reserve_proof_v1(const ReserveProofV1 &proof,
         // c. validate the reserved enote proofs
         // - we don't check expected values because all we care about is validity (we already checked address consistency)
         if (!verify_reserved_enote_proof_v1(reserved_enote_proof,
+                reserved_enote_proof.amount_proof.a,
                 reserved_enote_proof.enote_ownership_proof.C,
                 reserved_enote_proof.enote_ownership_proof.Ko,
                 reserved_enote_proof.enote_ledger_index))

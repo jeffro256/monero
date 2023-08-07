@@ -105,15 +105,17 @@ struct EnoteOwnershipProofV1
 
 ////
 // EnoteAmountProofV1
-// - proof an enote with amount commitment C has a particular amount a
+// - proof an enote with amount commitment C has a particular amount a (w/o revealing blinding factor)
 //
-// - VERIFIER: recompute C ?= x G + a H
+// - VERIFIER:
+//   - compute C0 = C - aH
+//   - verify proof of knowledge of discrete log of C0 against G
 ///
 struct EnoteAmountProofV1
 {
     rct::xmr_amount a;
-    rct::key x;
     rct::key C;
+    crypto::signature C0_sig;
 };
 
 ////
