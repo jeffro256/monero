@@ -129,7 +129,7 @@ struct LegacyEnoteRecord final
 
 ////
 // SpBasicEnoteRecordV1
-// - a seraphis enote that has passed the view-tag check using a jamtis find-received key
+// - a seraphis enote that has passed one view-tag check using a jamtis dense-view/sparse-view key
 ///
 struct SpBasicEnoteRecordV1 final
 {
@@ -139,8 +139,12 @@ struct SpBasicEnoteRecordV1 final
     crypto::x25519_pubkey enote_ephemeral_pubkey;
     /// context of the tx input(s) associated with this enote
     rct::key input_context;
-    /// t'_addr: nominal address tag (only useful for jamtis non-selfsend enote types)
-    jamtis::address_tag_t nominal_address_tag;
+    /// flag whether enote was checked against dense (true) or sparse (false) view tag.
+    ///   normally, this value is implicit to your scanning process, but if one switches their wallet
+    ///   type and stores mixed dense/sparse basic records, the enote record utils must know how to
+    ///   adjust the enote record upgrade path. also, storing the value here makes the API less
+    ///   confusing for devs and prevents upgrading w/o checking if view tags are well-formed.
+    bool dense_check;
 };
 
 ////

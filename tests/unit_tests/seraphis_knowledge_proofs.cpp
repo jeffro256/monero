@@ -38,10 +38,10 @@
 #include "seraphis_core/discretized_fee.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/legacy_core_utils.h"
 #include "seraphis_core/legacy_enote_utils.h"
@@ -210,21 +210,21 @@ TEST(seraphis_knowledge_proofs, address_ownership_and_index_proof_K_1)
 
     // 3. make jamtis destination
     JamtisDestinationV1 destination;
-    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_fr, keys.s_ga, j, destination);
+    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_dv, keys.xK_sv, keys.s_ga, j, destination);
 
     // 4. address ownership proof on K_1
     AddressOwnershipProofV1 address_ownership_proof;
     make_address_ownership_proof_v1(rct::zero(), keys.k_m, keys.k_vb, j, address_ownership_proof);  //with mock message
 
     // 5. validate the address ownership proof
-    ASSERT_TRUE(verify_address_ownership_proof_v1(address_ownership_proof, rct::zero(), destination.addr_K1));
+    ASSERT_TRUE(verify_address_ownership_proof_v1(address_ownership_proof, rct::zero(), destination.addr_Ks));
 
     // 6. address index proof on K_1
     AddressIndexProofV1 address_index_proof;
     make_address_index_proof_v1(keys.K_1_base, j, keys.s_ga, address_index_proof);
 
     // 7. validate the address index proof
-    ASSERT_TRUE(verify_address_index_proof_v1(address_index_proof, destination.addr_K1));
+    ASSERT_TRUE(verify_address_index_proof_v1(address_index_proof, destination.addr_Ks));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
@@ -241,7 +241,8 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);
@@ -272,7 +273,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
     // 5. enote ownership proof: sender-selfsend
     EnoteOwnershipProofV1 enote_ownership_proof_sender_selfsend;
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
-        user_address.addr_K1,
+        user_address.addr_Ks,
         rct::zero(),
         keys.k_vb,
         self_send_type,
@@ -299,7 +300,8 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);
@@ -333,7 +335,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
     // 5. enote ownership proof: sender-selfsend
     EnoteOwnershipProofV1 enote_ownership_proof_sender_selfsend;
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
-        user_address.addr_K1,
+        user_address.addr_Ks,
         rct::zero(),
         keys.k_vb,
         payment_proposal_special_change.type,
@@ -359,7 +361,8 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);

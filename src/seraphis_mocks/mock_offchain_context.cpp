@@ -138,7 +138,7 @@ void MockOffchainContext::clear_cache()
     m_tx_key_images.clear();
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key &xk_dense_view,
     scanning::ChunkData &chunk_data_out) const
 {
     chunk_data_out.basic_records_per_tx.clear();
@@ -157,7 +157,7 @@ void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key 
         const rct::key &tx_id{tx_with_output_contents.first};  //use input context as proxy for tx id
 
         // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-        if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+        if (scanning::try_find_sp_enotes_in_tx_by_dense_key(xk_dense_view,
             -1,
             -1,
             tx_id,

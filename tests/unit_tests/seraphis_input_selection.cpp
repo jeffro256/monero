@@ -151,20 +151,20 @@ static void input_selection_test_full(const std::vector<rct::xmr_amount> &stored
     boost::multiprecision::uint128_t total_input_amount{0};
     for (const LegacyContextualEnoteRecordV1 &legacy_input_selected : legacy_contextual_inputs)
     {
-        CHECK_AND_ASSERT_THROW_MES(amount_ref(legacy_input_selected) == input_legacy_amounts_expected[input_index],
+        CHECK_AND_ASSERT_THROW_MES(amount(legacy_input_selected) == input_legacy_amounts_expected[input_index],
             "selected legacy inputs expected amount mismatch");
         ++input_index;
 
-        total_input_amount += amount_ref(legacy_input_selected);
+        total_input_amount += amount(legacy_input_selected);
     }
     input_index = 0;
     for (const SpContextualEnoteRecordV1 &sp_input_selected : sp_contextual_inputs)
     {
-        CHECK_AND_ASSERT_THROW_MES(amount_ref(sp_input_selected) == input_sp_amounts_expected[input_index],
+        CHECK_AND_ASSERT_THROW_MES(amount(sp_input_selected) == input_sp_amounts_expected[input_index],
             "selected sp inputs expected amount mismatch");
         ++input_index;
 
-        total_input_amount += amount_ref(sp_input_selected);
+        total_input_amount += amount(sp_input_selected);
     }
 
     // 4. total input amount is sufficient to cover outputs + fee

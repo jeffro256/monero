@@ -58,7 +58,7 @@ namespace sp
 
 ////
 // SpEnoteOriginStatus
-// - flag indicating where an enote is located
+// - flag indicating where an enote is located. greater enum values are assumed to be 'older'
 ///
 enum class SpEnoteOriginStatus : unsigned char
 {
@@ -72,7 +72,7 @@ enum class SpEnoteOriginStatus : unsigned char
 
 ////
 // SpEnoteSpentStatus
-// - flag indicating where an enote was spent
+// - flag indicating where an enote was spent. greater enum values are assumed to be 'older'
 ///
 enum class SpEnoteSpentStatus : unsigned char
 {
@@ -159,7 +159,7 @@ struct LegacyContextualIntermediateEnoteRecordV1 final
 /// get the record's onetime address
 const rct::key& onetime_address_ref(const LegacyContextualIntermediateEnoteRecordV1 &record);
 /// get the record's amount
-rct::xmr_amount amount_ref(const LegacyContextualIntermediateEnoteRecordV1 &record);
+rct::xmr_amount amount(const LegacyContextualIntermediateEnoteRecordV1 &record);
 
 ////
 // LegacyContextualEnoteRecordV1
@@ -178,7 +178,7 @@ struct LegacyContextualEnoteRecordV1 final
 /// get the record's key image
 const crypto::key_image& key_image_ref(const LegacyContextualEnoteRecordV1 &record);
 /// get the record's amount
-rct::xmr_amount amount_ref(const LegacyContextualEnoteRecordV1 &record);
+rct::xmr_amount amount(const LegacyContextualEnoteRecordV1 &record);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Seraphis ///////////////////////////////////////////////////
@@ -212,7 +212,7 @@ struct SpContextualIntermediateEnoteRecordV1 final
 /// get the record's onetime address
 const rct::key& onetime_address_ref(const SpContextualIntermediateEnoteRecordV1 &record);
 /// get the enote's amount
-rct::xmr_amount amount_ref(const SpContextualIntermediateEnoteRecordV1 &record);
+rct::xmr_amount amount(const SpContextualIntermediateEnoteRecordV1 &record);
 
 ////
 // SpContextualEnoteRecordV1
@@ -231,7 +231,7 @@ struct SpContextualEnoteRecordV1 final
 /// get the record's key image
 const crypto::key_image& key_image_ref(const SpContextualEnoteRecordV1 &record);
 /// get the record's amount
-rct::xmr_amount amount_ref(const SpContextualEnoteRecordV1 &record);
+rct::xmr_amount amount(const SpContextualEnoteRecordV1 &record);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////// Joint /////////////////////////////////////////////////////
@@ -250,12 +250,12 @@ const SpEnoteOriginContextV1& origin_context_ref(const ContextualBasicRecordVari
 // ContextualRecordVariant
 // - variant of all contextual full enote record types
 //
-// amount_ref(): get the record's amount
+// amount(): get the record's amount
 // origin_context_ref(): get the record's origin context
 // spent_context_ref(): get the record's spent context
 ///
 using ContextualRecordVariant = tools::variant<LegacyContextualEnoteRecordV1, SpContextualEnoteRecordV1>;
-rct::xmr_amount amount_ref(const ContextualRecordVariant &variant);
+rct::xmr_amount amount(const ContextualRecordVariant &variant);
 const SpEnoteOriginContextV1& origin_context_ref(const ContextualRecordVariant &variant);
 const SpEnoteSpentContextV1& spent_context_ref(const ContextualRecordVariant &variant);
 

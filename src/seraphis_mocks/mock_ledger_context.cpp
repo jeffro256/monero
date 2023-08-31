@@ -577,7 +577,7 @@ std::uint64_t MockLedgerContext::pop_blocks(const std::size_t num_blocks)
     return this->pop_chain_at_index(top_block_index + 1 >= num_blocks ? top_block_index + 1 - num_blocks : 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &xk_find_received,
+void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key &xk_dense_view,
     scanning::ChunkData &chunk_data_out) const
 {
     chunk_data_out.basic_records_per_tx.clear();
@@ -591,7 +591,7 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
     // - on average, one tx per sizeof(jamtis view tag) enotes will have a record in the chunk; we add 40% to account
     //   for typical variance plus uncertainty in the number of enotes
     chunk_data_out.basic_records_per_tx.reserve(
-            m_unconfirmed_tx_output_contents.size() * 2 * 140 / 100 / sizeof(sp::jamtis::view_tag_t)
+            m_unconfirmed_tx_output_contents.size() * 2 * 140 / 100 / sizeof(sp::jamtis::dense_view_tag_t)
         );
 
     // find-received scan each tx in the unconfirmed chache
@@ -603,7 +603,7 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
         const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
 
         // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-        if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+        if (scanning::try_find_sp_enotes_in_tx_by_dense_key(xk_dense_view,
             -1,
             -1,
             tx_id,
@@ -838,7 +838,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
 //-------------------------------------------------------------------------------------------------------------------
 void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_index,
     const std::uint64_t chunk_max_size,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &xk_dense_view,
     scanning::ChunkContext &chunk_context_out,
     scanning::ChunkData &chunk_data_out) const
 {
@@ -954,7 +954,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
 
         chunk_data_out.basic_records_per_tx.reserve(
                 ((m_accumulated_sp_output_counts.at(chunk_end_index - 1) - total_output_count_before_tx) * 120 / 100 / 
-                    sizeof(sp::jamtis::view_tag_t))
+                    sizeof(sp::jamtis::dense_view_tag_t))
             );
     }
 
@@ -975,7 +975,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
                     const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
 
                     // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
-                    if (scanning::try_find_sp_enotes_in_tx(xk_find_received,
+                    if (scanning::try_find_sp_enotes_in_tx_by_dense_key(xk_dense_view,
                         block_of_tx_output_contents.first,
                         std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
                         tx_id,

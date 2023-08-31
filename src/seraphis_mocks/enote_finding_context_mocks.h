@@ -111,9 +111,9 @@ class EnoteFindingContextLedgerMockSp final : public EnoteFindingContextLedger
 public:
 //constructors
     EnoteFindingContextLedgerMockSp(const MockLedgerContext &mock_ledger_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &xk_dense_view) :
             m_mock_ledger_context{mock_ledger_context},
-            m_xk_find_received{xk_find_received}
+            m_xk_dense_view{xk_dense_view}
     {}
 
 //overloaded operators
@@ -128,7 +128,7 @@ public:
 //member variables
 private:
     const MockLedgerContext &m_mock_ledger_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_xk_dense_view;
 };
 
 ////
@@ -140,9 +140,9 @@ class EnoteFindingContextUnconfirmedMockSp final : public EnoteFindingContextNon
 public:
 //constructors
     EnoteFindingContextUnconfirmedMockSp(const MockLedgerContext &mock_ledger_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &xk_dense_view) :
             m_mock_ledger_context{mock_ledger_context},
-            m_xk_find_received{xk_find_received}
+            m_xk_dense_view{xk_dense_view}
     {}
 
 //overloaded operators
@@ -156,7 +156,7 @@ public:
 //member variables
 private:
     const MockLedgerContext &m_mock_ledger_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_xk_dense_view;
 };
 
 ////
@@ -168,9 +168,9 @@ class EnoteFindingContextOffchainMockSp final : public EnoteFindingContextNonLed
 public:
 //constructors
     EnoteFindingContextOffchainMockSp(const MockOffchainContext &mock_offchain_context,
-        const crypto::x25519_secret_key &xk_find_received) :
+        const crypto::x25519_secret_key &xk_dense_view) :
             m_mock_offchain_context{mock_offchain_context},
-            m_xk_find_received{xk_find_received}
+            m_xk_dense_view{xk_dense_view}
     {}
 
 //overloaded operators
@@ -184,7 +184,7 @@ public:
 //member variables
 private:
     const MockOffchainContext &m_mock_offchain_context;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_xk_dense_view;
 };
 
 } //namespace mocks

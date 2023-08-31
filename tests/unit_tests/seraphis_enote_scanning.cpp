@@ -36,10 +36,10 @@
 #include "seraphis_core/discretized_fee.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/legacy_core_utils.h"
 #include "seraphis_core/legacy_enote_types.h"
@@ -256,7 +256,8 @@ TEST(seraphis_enote_scanning, trivial_ledger)
 
     ASSERT_NO_THROW(make_jamtis_destination_v1(user_keys.K_1_base,
         user_keys.xK_ua,
-        user_keys.xK_fr,
+        user_keys.xK_dv,
+        user_keys.xK_sv,
         user_keys.s_ga,
         j,
         user_address));
@@ -293,8 +294,8 @@ TEST(seraphis_enote_scanning, trivial_ledger)
             .max_chunk_size_hint = 1,
             .max_partialscan_attempts = 0
         };
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
     ChunkConsumerMockSp chunk_consumer{user_keys.K_1_base, user_keys.k_vb, user_enote_store};
@@ -1764,8 +1765,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 0 (range [0, 0) -> DONE)
     // 5. DONE: refresh enote store of A
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_A{enote_finding_context_unconfirmed_A};
     scanning::ScanContextLedgerSimple scan_context_ledger_A{enote_finding_context_ledger_A};
     InvocableTest1 invocable_get_onchain{ledger_context};
@@ -1892,8 +1893,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 3 (range [3, 3) -> DONE)
     // 5. DONE: refresh enote store of A
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_A{ledger_context, user_keys_A.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_A{ledger_context, user_keys_A.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_A{enote_finding_context_unconfirmed_A};
     scanning::ScanContextLedgerSimple scan_context_ledger_A{enote_finding_context_ledger_A};
     InvocableTest2 invocable_get_onchain{destination_A, {3, 5}, ledger_context};
@@ -2019,8 +2020,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     //   b. unconfirmed chunk: empty
     //   c. follow-up onchain loop: success on block 3 (range [3, 3) -> DONE)
     // 5. DONE: refresh enote store of B
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
     InvocableTest3 invocable_get_onchain{destination_B, {3, 5}, ledger_context};
@@ -2135,8 +2136,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     //     iii. get onchain chunk: block 2  (inject: pop 1, +1 blocks) (fail: chunk range [2, 2) -> NEED_PARTIALSCAN)
     //   b. skip unconfirmed chunk: (NEED_PARTIALSCAN)
     // 5. ... etc. until partialscan attempts runs out (then throw)
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
     InvocableTest4 invocable_get_onchain{destination_B, 1, ledger_context};
@@ -2246,8 +2247,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     //     i.   get onchain chunk: block 2  (inject: commit unconfirmed)  (success: chunk range [2, 3])
     //     ii.  get onchain chunk: block 3  (success: chunk range [3, 3) -> DONE)
     // 4. DONE: refresh enote store of B
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed_B{ledger_context, user_keys_B.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger_B{ledger_context, user_keys_B.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
     InvocableTest5Commit invocable_get_unconfirmed{ledger_context};

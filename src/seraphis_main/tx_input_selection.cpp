@@ -537,7 +537,7 @@ static bool try_update_candidate_inputs_selection_v1(const boost::multiprecision
 
     // 4. save the new candidate input - we will try to move it into the added pile in later passthroughs
     candidate_inputs_inout[input_selection_type(input_candidate)].insert(
-            input_set_tracker_t::mapped_type::value_type{amount_ref(input_candidate), std::move(input_candidate)}
+            input_set_tracker_t::mapped_type::value_type{amount(input_candidate), std::move(input_candidate)}
         );
 
     return true;

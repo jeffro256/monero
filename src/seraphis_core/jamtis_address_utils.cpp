@@ -33,7 +33,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "cryptonote_config.h"
-#include "jamtis_core_utils.h"
+#include "jamtis_secret_utils.h"
 #include "jamtis_support_types.h"
 #include "ringct/rctOps.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
@@ -96,6 +96,19 @@ void make_jamtis_spendkey_extension(const boost::string_ref domain_separator,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_spendkey_extension_g(const rct::key &spend_pubkey,
+    const address_index_t &j,
+    const crypto::secret_key &index_generator,
+    crypto::secret_key &extension_out)
+{
+    // k^j_g = H_n("..g..", K_s, j, H_32[s_ga](j))
+    make_jamtis_spendkey_extension(config::HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_G,
+        spend_pubkey,
+        j,
+        index_generator,
+        extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_spendkey_extension_g(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     crypto::secret_key &extension_out)
@@ -105,6 +118,19 @@ void make_jamtis_spendkey_extension_g(const rct::key &spend_pubkey,
         spend_pubkey,
         s_generate_address,
         j,
+        extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_spendkey_extension_x(const rct::key &spend_pubkey,
+    const address_index_t &j,
+    const crypto::secret_key &index_generator,
+    crypto::secret_key &extension_out)
+{
+    // k^j_x = H_n("..x..", K_s, j, H_32[s_ga](j))
+    make_jamtis_spendkey_extension(config::HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_X,
+        spend_pubkey,
+        j,
+        index_generator,
         extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -122,6 +148,19 @@ void make_jamtis_spendkey_extension_x(const rct::key &spend_pubkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_spendkey_extension_u(const rct::key &spend_pubkey,
+    const address_index_t &j,
+    const crypto::secret_key &index_generator,
+    crypto::secret_key &extension_out)
+{
+    // k^j_u = H_n("..u..", K_s, j, H_32[s_ga](j))
+    make_jamtis_spendkey_extension(config::HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_U,
+        spend_pubkey,
+        j,
+        index_generator,
+        extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_spendkey_extension_u(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     crypto::secret_key &extension_out)
@@ -135,21 +174,51 @@ void make_jamtis_spendkey_extension_u(const rct::key &spend_pubkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_address_privkey(const rct::key &spend_pubkey,
+    const address_index_t &j,
+    const crypto::secret_key &index_generator,
+    crypto::x25519_secret_key &address_privkey_out)
+{
+    // xk^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ADDRESS_PRIVKEY, ADDRESS_INDEX_BYTES};
+    transcript.append("K_s", spend_pubkey);
+    transcript.append("j", j.bytes);
+    transcript.append("generator", index_generator);
+
+    sp_hash_to_x25519_scalar(transcript.data(), transcript.size(), address_privkey_out.data);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_address_privkey(const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     crypto::x25519_secret_key &address_privkey_out)
 {
     // s^j_gen
-    crypto::secret_key generator;
-    make_jamtis_index_extension_generator(s_generate_address, j, generator);
+    crypto::secret_key index_generator;
+    make_jamtis_index_extension_generator(s_generate_address, j, index_generator);
 
     // xk^j_a = H_n_x25519(K_s, j, H_32[s_ga](j))
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ADDRESS_PRIVKEY, ADDRESS_INDEX_BYTES};
-    transcript.append("K_s", spend_pubkey);
-    transcript.append("j", j.bytes);
-    transcript.append("generator", generator);
+    make_jamtis_address_privkey(spend_pubkey, j, index_generator, address_privkey_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
+    const address_index_t &j,
+    const crypto::secret_key &index_generator,
+    crypto::secret_key &spendkey_extension_g_out,
+    crypto::secret_key &spendkey_extension_x_out,
+    crypto::secret_key &spendkey_extension_u_out,
+    rct::key &address_spendkey_out)
+{
+    // 1. k^j_{g/x/u} = H_n("..{g/x/u}..", K_s, j, s^j_gen)
+    make_jamtis_spendkey_extension_g(spend_pubkey, j, index_generator, spendkey_extension_g_out);  //k^j_g
+    make_jamtis_spendkey_extension_x(spend_pubkey, j, index_generator, spendkey_extension_x_out);  //k^j_x
+    make_jamtis_spendkey_extension_u(spend_pubkey, j, index_generator, spendkey_extension_u_out);  //k^j_u
 
-    sp_hash_to_x25519_scalar(transcript.data(), transcript.size(), address_privkey_out.data);
+    // 2. K^j_S = k^j_g G + k^j_x X + k^j_u U + K_s
+    make_extended_jamtis_pubkey(spend_pubkey,
+        spendkey_extension_g_out,
+        spendkey_extension_x_out,
+        spendkey_extension_u_out,
+        address_spendkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
@@ -157,18 +226,63 @@ void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
     const address_index_t &j,
     rct::key &address_spendkey_out)
 {
-    // K_1 = k^j_g G + k^j_x X + k^j_u U + K_s
-    crypto::secret_key address_extension_key_u;
-    crypto::secret_key address_extension_key_x;
-    crypto::secret_key address_extension_key_g;
-    make_jamtis_spendkey_extension_u(spend_pubkey, s_generate_address, j, address_extension_key_u);  //k^j_u
-    make_jamtis_spendkey_extension_x(spend_pubkey, s_generate_address, j, address_extension_key_x);  //k^j_x
-    make_jamtis_spendkey_extension_g(spend_pubkey, s_generate_address, j, address_extension_key_g);  //k^j_g
+    crypto::secret_key spendkey_extension_g;
+    crypto::secret_key spendkey_extension_x;
+    crypto::secret_key spendkey_extension_u;
 
-    address_spendkey_out = spend_pubkey;  //K_s
-    extend_seraphis_spendkey_u(address_extension_key_u, address_spendkey_out);      //k^j_u U + K_s
-    extend_seraphis_spendkey_x(address_extension_key_x, address_spendkey_out);      //k^j_x X + k^j_u U + K_s
-    mask_key(address_extension_key_g, address_spendkey_out, address_spendkey_out);  //k^j_g G + k^j_x X + k^j_u U + K_s
+    // 1. s^j_gen = H_32[s_ga](j)
+    crypto::secret_key index_generator;
+    make_jamtis_index_extension_generator(s_generate_address, j, index_generator);
+
+    // 2. K^j_S = k^j_g G + k^j_x X + k^j_u U + K_s
+    make_jamtis_address_spend_key(spend_pubkey,
+        j,
+        index_generator,
+        spendkey_extension_g,
+        spendkey_extension_x,
+        spendkey_extension_u,
+        address_spendkey_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_address_pubkeys(const rct::key &spend_pubkey,
+    const crypto::x25519_pubkey &denseview_pubkey,
+    const crypto::x25519_pubkey &sparseview_pubkey,
+    const crypto::x25519_pubkey &unlockamounts_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    rct::key &address_spendkey_out,
+    crypto::x25519_pubkey &address_denseview_pubkey_out,
+    crypto::x25519_pubkey &address_sparseview_pubkey_out,
+    crypto::x25519_pubkey &address_unlockamounts_pubkey_out)
+{
+    // 1. s^j_gen = H_32[s_ga](j)
+    crypto::secret_key index_generator;
+    make_jamtis_index_extension_generator(s_generate_address, j, index_generator);
+
+    // 2. K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
+    crypto::secret_key spendkey_extension_g;
+    crypto::secret_key spendkey_extension_x;
+    crypto::secret_key spendkey_extension_u;
+    make_jamtis_address_spend_key(spend_pubkey,
+        j,
+        index_generator,
+        spendkey_extension_g,
+        spendkey_extension_x,
+        spendkey_extension_u,
+        address_spendkey_out);
+
+    // 3. xk^j_a = H_n_x25519(K_s, j, s^j_gen)
+    crypto::x25519_secret_key address_privkey;
+    make_jamtis_address_privkey(spend_pubkey, j, index_generator, address_privkey);  //xk^j_a
+
+    // 4. xKj_dv = xk^j_a xK_dv
+    x25519_scmul_key(address_privkey, denseview_pubkey, address_denseview_pubkey_out);
+
+    // 5. xKj_sv = xk^j_a xK_sv
+    x25519_scmul_key(address_privkey, sparseview_pubkey, address_sparseview_pubkey_out);
+
+    // 6. xKj_ua = xk^j_a xK_ua
+    x25519_scmul_key(address_privkey, unlockamounts_pubkey, address_unlockamounts_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_seraphis_key_image_jamtis_style(const rct::key &spend_pubkey,

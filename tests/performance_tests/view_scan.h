@@ -35,10 +35,10 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/legacy_core_utils.h"
 #include "seraphis_core/sp_core_enote_utils.h"
@@ -219,7 +219,8 @@ public:
 
         sp::jamtis::make_jamtis_destination_v1(m_keys.K_1_base,
             m_keys.xK_ua,
-            m_keys.xK_fr,
+            m_keys.xK_dv,
+            m_keys.xK_sv,
             m_keys.s_ga,
             j,
             user_address);
@@ -234,7 +235,7 @@ public:
 
         // invalidate the view tag to test the performance of short-circuiting on failed view tags
         if (m_test_view_tag_check)
-            ++m_enote.view_tag;
+            ++m_enote.dense_view_tag;
 
         return true;
     }
@@ -247,7 +248,8 @@ public:
         if (!sp::try_get_basic_enote_record_v1(m_enote,
                 m_enote_ephemeral_pubkey,
                 rct::zero(),
-                m_keys.xk_fr,
+                m_keys.xk_dv,
+                true, // dense_check=true
                 basic_enote_record))
             return m_test_view_tag_check;  //note: this branch is only valid if trying to trigger the view tag check
 
@@ -281,16 +283,16 @@ struct ParamsShuttleScannerClient final : public ParamsShuttle
 
 // performance of a client that receives basic records from a remote scanning service
 // - takes a 'basic' enote record and tries to get a 'full record' out of it
-// - the number of records tested per test equals the number of bits in the jamtis address tag MAC
+// - the number of records tested per test equals the number of bits in the jamtis sparse view tag
 // - modes:
-//   - ALL_FAKE: all records fail the jamtis address tag decipher step
-//   - ONE_FAKE_TAG_MATCH: one record passes the jamtis address tag decipher step but fails when reproducing the onetime
-//     address
+//   - ALL_FAKE: all records fail the jamtis sparse view tag check step
+//   - ONE_FAKE_TAG_MATCH: one record passes the jamtis sparse view tag check step but fails when
+//     reproducing the onetime address
 //   - ONE_OWNED: one record fully converts from basic -> full
 class test_remote_scanner_client_scan_sp
 {
 public:
-    static const size_t num_records = sp::math::uint_pow(2, sp::jamtis::ADDRESS_TAG_HINT_BYTES * 8);
+    static const size_t num_records = sp::math::uint_pow(2, sp::jamtis::SPARSE_VIEW_TAG_BYTES * 8);
     static const size_t loop_count = 256000 / num_records + 20;
 
     bool init(const ParamsShuttleScannerClient &params)
@@ -306,7 +308,8 @@ public:
 
         sp::jamtis::make_jamtis_destination_v1(m_keys.K_1_base,
             m_keys.xK_ua,
-            m_keys.xK_fr,
+            m_keys.xK_dv,
+            m_keys.xK_sv,
             m_keys.s_ga,
             m_real_address_index,
             user_address);
@@ -327,11 +330,12 @@ public:
         if (!sp::try_get_basic_enote_record_v1(real_enote,
                 output_proposal.enote_ephemeral_pubkey,
                 rct::zero(),
-                m_keys.xk_fr,
+                m_keys.xk_dv,
+                true, // dense_check=true
                 basic_record))
             return false;
 
-        // make enough basic records for 1/(num bits in address tag mac) success rate
+        // make enough basic records for 1/(num bits in sparse view tag) success rate
         // - only the last basic record should succeed
         m_basic_records.reserve(num_records);
 
@@ -344,25 +348,26 @@ public:
                 record_index == num_records - 1)
                 continue;
 
-            // ONE_FAKE_TAG_MATCH: only mangle the onetime address of the last record (don't modify the address tag)
+            // ONE_FAKE_TAG_MATCH: only mangle the onetime address of the last record (don't modify the sparse view tag)
             if (m_mode == ScannerClientModes::ONE_FAKE_TAG_MATCH &&
                 record_index == num_records - 1)
             {
                 sp::SpEnoteV1 temp_enote{m_basic_records.back().enote.unwrap<sp::SpEnoteV1>()};
                 temp_enote.core.onetime_address = rct::pkGen();
+                CHECK_AND_ASSERT_THROW_MES(temp_enote.core.onetime_address
+                    != sp::onetime_address_ref(m_basic_records.back().enote), "what are the chances?");
                 m_basic_records.back().enote = temp_enote;
                 continue;
             }
 
-            // mangle the address tag
+            // mangle the sparse view tag
             // - re-do the fake ones if they succeed by accident
-            sp::jamtis::address_index_t j_temp;
+            sp::jamtis::sparse_view_tag_t svt_temp;
             do
             {
-                sp::jamtis::gen_address_tag(m_basic_records.back().nominal_address_tag);
-            } while(sp::jamtis::try_decipher_address_index(*m_cipher_context,
-                m_basic_records.back().nominal_address_tag,
-                j_temp));
+                svt_temp = sp::jamtis::gen_sparse_view_tag();
+            } while(svt_temp == sp::sparse_view_tag(m_basic_records.back().enote));
+            m_basic_records.back().enote.unwrap<sp::SpEnoteV1>().sparse_view_tag = svt_temp;
         }
 
         return true;
@@ -384,7 +389,8 @@ public:
                         m_keys.K_1_base,
                         m_keys.k_vb,
                         m_keys.xk_ua,
-                        m_keys.xk_fr,
+                        m_keys.xk_dv,
+                        m_keys.xk_sv,
                         m_keys.s_ga,
                         *m_cipher_context,
                         enote_record)
@@ -419,16 +425,8 @@ private:
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
 
-enum class AddressTagDecipherModes
-{
-    ALL_SUCCESSFUL_DECIPHER,
-    NO_SUCCESSFUL_DECIPHER
-};
-
 struct ParamsShuttleAddressTagDecipher final : public ParamsShuttle
-{
-    AddressTagDecipherModes mode;
-};
+{};
 
 // decipher address tags
 class test_jamtis_address_tag_decipher_sp
@@ -446,25 +444,10 @@ public:
 
         // make a pile of address tags
         m_address_tags.resize(1000);
-        sp::jamtis::address_index_t address_index_temp;
-
         for (sp::jamtis::address_tag_t &addr_tag : m_address_tags)
         {
-            if (params.mode == AddressTagDecipherModes::NO_SUCCESSFUL_DECIPHER)
-            {
-                do
-                {
-                    address_index_temp = sp::jamtis::gen_address_index();
-                    addr_tag = sp::jamtis::make_address_tag(address_index_temp, sp::jamtis::address_tag_hint_t{});
-                }
-                while (sp::jamtis::try_decipher_address_index(*m_cipher_context, addr_tag, address_index_temp));
-            }
-            else
-            {
-                address_index_temp = sp::jamtis::gen_address_index();
-
-                addr_tag = sp::jamtis::cipher_address_index(*m_cipher_context, address_index_temp);
-            }
+            const sp::jamtis::address_index_t address_index_temp = sp::jamtis::gen_address_index();
+            addr_tag = sp::jamtis::cipher_address_index(*m_cipher_context, address_index_temp);
         }
 
         return true;
@@ -479,7 +462,7 @@ public:
         sp::jamtis::address_index_t address_index_temp;
 
         for (const sp::jamtis::address_tag_t &addr_tag : m_address_tags)
-            sp::jamtis::try_decipher_address_index(*m_cipher_context, addr_tag, address_index_temp);
+            sp::jamtis::decipher_address_index(*m_cipher_context, addr_tag, address_index_temp);
 
         return true;
     }

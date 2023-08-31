@@ -160,7 +160,8 @@ public:
     /// normal constructor
     ChunkConsumerMockSpIntermediate(const rct::key &jamtis_spend_pubkey,
         const crypto::x25519_secret_key &xk_unlock_amounts,
-        const crypto::x25519_secret_key &xk_find_received,
+        const crypto::x25519_secret_key &xk_dense_view,
+        const crypto::x25519_secret_key &xk_sparse_view,
         const crypto::secret_key &s_generate_address,
         SpEnoteStorePaymentValidator &enote_store);
 
@@ -190,7 +191,8 @@ public:
 private:
     const rct::key &m_jamtis_spend_pubkey;
     const crypto::x25519_secret_key &m_xk_unlock_amounts;
-    const crypto::x25519_secret_key &m_xk_find_received;
+    const crypto::x25519_secret_key &m_xk_dense_view;
+    const crypto::x25519_secret_key &m_xk_sparse_view;
     const crypto::secret_key &m_s_generate_address;
     SpEnoteStorePaymentValidator &m_enote_store;
 
@@ -236,7 +238,8 @@ private:
     SpEnoteStore &m_enote_store;
 
     crypto::x25519_secret_key m_xk_unlock_amounts;
-    crypto::x25519_secret_key m_xk_find_received;
+    crypto::x25519_secret_key m_xk_dense_view;
+    crypto::x25519_secret_key m_xk_sparse_view;
     crypto::secret_key m_s_generate_address;
     crypto::secret_key m_s_cipher_tag;
     std::unique_ptr<jamtis::jamtis_address_tag_cipher_context> m_cipher_context;

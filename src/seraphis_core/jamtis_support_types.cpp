@@ -68,19 +68,9 @@ address_index_t::address_index_t()
     std::memset(this->bytes, 0, ADDRESS_INDEX_BYTES);
 }
 //-------------------------------------------------------------------------------------------------------------------
-address_tag_hint_t::address_tag_hint_t()
-{
-    std::memset(this->bytes, 0, ADDRESS_TAG_HINT_BYTES);
-}
-//-------------------------------------------------------------------------------------------------------------------
 bool operator==(const address_index_t &a, const address_index_t &b)
 {
     return memcmp(a.bytes, b.bytes, sizeof(address_index_t)) == 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool operator==(const address_tag_hint_t &a, const address_tag_hint_t &b)
-{
-    return memcmp(a.bytes, b.bytes, sizeof(address_tag_hint_t)) == 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const address_tag_t &a, const address_tag_t &b)
@@ -101,6 +91,24 @@ bool operator==(const encoded_amount_t &a, const encoded_amount_t &b)
 encoded_amount_t operator^(const encoded_amount_t &a, const encoded_amount_t &b)
 {
     return xor_bytes(a, b);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool operator==(const sparse_view_tag_t &a, const sparse_view_tag_t &b)
+{
+    return 0 == memcmp(&a, &b, sizeof(sparse_view_tag_t));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void append_to_transcript(const sparse_view_tag_t &svt, SpTranscriptBuilder &transcript_inout)
+{
+    transcript_inout.append("data", svt.data);
+}
+//-------------------------------------------------------------------------------------------------------------------
+sparse_view_tag_t gen_sparse_view_tag()
+{
+    sparse_view_tag_t out;
+    out.data[0] = crypto::rand<unsigned char>();
+    out.data[1] = crypto::rand<unsigned char>();
+    return out;
 }
 //-------------------------------------------------------------------------------------------------------------------
 address_index_t max_address_index()
@@ -126,12 +134,11 @@ address_index_t make_address_index(std::uint64_t half1, std::uint64_t half2)
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
-address_tag_t make_address_tag(const address_index_t &enc_j, const address_tag_hint_t &addr_tag_hint)
+address_tag_t make_address_tag(const address_index_t &enc_j)
 {
-    // addr_tag = enc(j) || hint
+    // addr_tag = enc(j)
     address_tag_t temp;
     memcpy(temp.bytes, &enc_j, ADDRESS_INDEX_BYTES);
-    memcpy(temp.bytes + ADDRESS_INDEX_BYTES, &addr_tag_hint, ADDRESS_TAG_HINT_BYTES);
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------

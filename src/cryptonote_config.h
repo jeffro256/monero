@@ -307,7 +307,8 @@ namespace config
   const constexpr char HASH_KEY_JAMTIS_UNLOCKAMOUNTS_KEY[] = "jamtis_unlock_amounts_key";
   const constexpr char HASH_KEY_JAMTIS_GENERATEADDRESS_SECRET[] = "jamtis_generate_address_secret";
   const constexpr char HASH_KEY_JAMTIS_CIPHERTAG_SECRET[] = "jamtis_cipher_tag_secret";
-  const constexpr char HASH_KEY_JAMTIS_FINDRECEIVED_KEY[] = "jamtis_find_received_key";
+  const constexpr char HASH_KEY_JAMTIS_DENSEVIEW_KEY[] = "jamtis_dense_view_key";
+  const constexpr char HASH_KEY_JAMTIS_SPARSEVIEW_KEY[] = "jamtis_sparse_view_key";
   const constexpr char HASH_KEY_JAMTIS_INDEX_EXTENSION_GENERATOR[] = "jamtis_index_extension_generator";
   const constexpr char HASH_KEY_JAMTIS_ADDRESS_PRIVKEY[] = "jamtis_address_privkey";
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_G[] = "jamtis_spendkey_extension_g";
@@ -315,7 +316,8 @@ namespace config
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_U[] = "jamtis_spendkey_extension_u";
   const constexpr char HASH_KEY_JAMTIS_ADDRESS_TAG_HINT[] = "jamtis_address_tag_hint";
   const constexpr char HASH_KEY_JAMTIS_ENCRYPTED_ADDRESS_TAG[] = "jamtis_encrypted_address_tag";
-  const constexpr char HASH_KEY_JAMTIS_VIEW_TAG[] = "jamtis_view_tag";
+  const constexpr char HASH_KEY_JAMTIS_DENSE_VIEW_TAG[] = "jamtis_dense_view_tag";
+  const constexpr char HASH_KEY_JAMTIS_SPARSE_VIEW_TAG[] = "jamtis_sparse_view_tag";
   const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_PLAIN[] = "jamtis_sr_secret_plain";
   const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_DUMMY[] = "jamtis_selfsend_dummy";
   const constexpr char HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET_SELFSEND_CHANGE[] = "jamtis_selfsend_change";

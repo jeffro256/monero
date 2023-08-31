@@ -37,6 +37,7 @@ extern "C"
 #include "crypto/blake2b.h"
 #include "crypto/twofish.h"
 }
+#include "jamtis_secret_utils.h"
 #include "jamtis_support_types.h"
 #include "memwipe.h"
 #include "misc_language.h"
@@ -87,43 +88,6 @@ static encrypted_address_tag_secret_t get_encrypted_address_tag_secret(const rct
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static address_tag_hint_t get_address_tag_hint(const crypto::secret_key &cipher_key,
-    const address_index_t &encrypted_address_index)
-{
-    static_assert(sizeof(address_tag_hint_t) == 2, "");
-    static_assert(sizeof(config::TRANSCRIPT_PREFIX) != 0, "");
-    static_assert(sizeof(config::HASH_KEY_JAMTIS_ADDRESS_TAG_HINT) != 0, "");
-
-    // assemble hash contents: prefix || 'domain-sep' || k || cipher[k](j)
-    // note: use a raw C-style struct here instead of SpKDFTranscript for maximal performance (the string produced is
-    //       equivalent to what you'd get from SpKDFTranscript)
-    // note2: '-1' removes the null terminator
-    struct hash_context_t {
-        unsigned char prefix[sizeof(config::TRANSCRIPT_PREFIX) - 1];
-        unsigned char domain_separator[sizeof(config::HASH_KEY_JAMTIS_ADDRESS_TAG_HINT) - 1];
-        rct::key cipher_key;  //not crypto::secret_key, which has significant construction cost
-        address_index_t enc_j;
-    } hash_context;
-    static_assert(!epee::has_padding<hash_context_t>(), "");
-
-    memcpy(hash_context.prefix, config::TRANSCRIPT_PREFIX, sizeof(config::TRANSCRIPT_PREFIX) - 1);
-    memcpy(hash_context.domain_separator,
-        config::HASH_KEY_JAMTIS_ADDRESS_TAG_HINT,
-        sizeof(config::HASH_KEY_JAMTIS_ADDRESS_TAG_HINT) - 1);
-    hash_context.cipher_key = rct::sk2rct(cipher_key);
-    hash_context.enc_j = encrypted_address_index;
-
-    // address_tag_hint = H_2(k, cipher[k](j))
-    address_tag_hint_t address_tag_hint;
-    sp_hash_to_2(&hash_context, sizeof(hash_context), address_tag_hint.bytes);
-
-    // clean up cipher key bytes
-    memwipe(hash_context.cipher_key.bytes, 32);
-
-    return address_tag_hint;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
 jamtis_address_tag_cipher_context::jamtis_address_tag_cipher_context(const crypto::secret_key &cipher_key)
 {
     // cache the cipher key
@@ -136,15 +100,17 @@ jamtis_address_tag_cipher_context::jamtis_address_tag_cipher_context(const crypt
 //-------------------------------------------------------------------------------------------------------------------
 jamtis_address_tag_cipher_context::~jamtis_address_tag_cipher_context()
 {
+    memwipe(&m_cipher_key, sizeof(crypto::secret_key));
     memwipe(&m_twofish_key, sizeof(Twofish_key));
 }
 //-------------------------------------------------------------------------------------------------------------------
 address_tag_t jamtis_address_tag_cipher_context::cipher(const address_index_t &j) const
 {
-    // address tag = cipher[k](j) || H_2(k, cipher[k](j))
+    // address tag = cipher[k](j)
 
     // expect address index to fit in one Twofish block (16 bytes)
     static_assert(sizeof(address_index_t) == TWOFISH_BLOCK_SIZE, "");
+    static_assert(sizeof(address_index_t) == sizeof(address_tag_t), "");
 
     // prepare ciphered index
     address_index_t encrypted_j{j};
@@ -152,29 +118,29 @@ address_tag_t jamtis_address_tag_cipher_context::cipher(const address_index_t &j
     // encrypt the address index
     Twofish_encrypt_block(&m_twofish_key, encrypted_j.bytes, encrypted_j.bytes);
 
-    // make the address tag hint and complete the address tag
-    return make_address_tag(encrypted_j, get_address_tag_hint(m_cipher_key, encrypted_j));
+    // make the address tag
+    return make_address_tag(encrypted_j);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool jamtis_address_tag_cipher_context::try_decipher(const address_tag_t &addr_tag, address_index_t &j_out) const
+void jamtis_address_tag_cipher_context::decipher(const address_tag_t &addr_tag, address_index_t &j_out) const
 {
     static_assert(sizeof(address_index_t) == TWOFISH_BLOCK_SIZE, "");
-    static_assert(sizeof(address_index_t) + sizeof(address_tag_hint_t) == sizeof(address_tag_t), "");
+    static_assert(sizeof(address_index_t) == sizeof(address_tag_t), "");
 
     // extract the encrypted index
     memcpy(j_out.bytes, addr_tag.bytes, sizeof(address_index_t));
 
-    // recover the address tag hint
-    const address_tag_hint_t address_tag_hint{get_address_tag_hint(m_cipher_key, j_out)};
-
-    // check the address tag hint
-    if (memcmp(addr_tag.bytes + sizeof(address_index_t), address_tag_hint.bytes, sizeof(address_tag_hint_t)) != 0)
-        return false;
-
     // decrypt the address index
     Twofish_decrypt_block(&m_twofish_key, j_out.bytes, j_out.bytes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+jamtis_address_tag_cipher_context jamtis_address_tag_cipher_context::from_generateaddress_secret(const crypto::secret_key &s_ga)
+{
+    // derive s_ct from s_ga
+    crypto::secret_key cipher_tag_secret;
+    jamtis::make_jamtis_ciphertag_secret(s_ga, cipher_tag_secret);
 
-    return true;
+    return jamtis_address_tag_cipher_context(cipher_tag_secret);
 }
 //-------------------------------------------------------------------------------------------------------------------
 address_tag_t cipher_address_index(const jamtis_address_tag_cipher_context &cipher_context, const address_index_t &j)
@@ -191,14 +157,14 @@ address_tag_t cipher_address_index(const crypto::secret_key &cipher_key, const a
     return cipher_address_index(cipher_context, j);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
+void decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
     const address_tag_t &addr_tag,
     address_index_t &j_out)
 {
-    return cipher_context.try_decipher(addr_tag, j_out);
+    cipher_context.decipher(addr_tag, j_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_decipher_address_index(const crypto::secret_key &cipher_key,
+void decipher_address_index(const crypto::secret_key &cipher_key,
     const address_tag_t &addr_tag,
     address_index_t &j_out)
 {
@@ -206,7 +172,7 @@ bool try_decipher_address_index(const crypto::secret_key &cipher_key,
     const jamtis_address_tag_cipher_context cipher_context{cipher_key};
 
     // decipher it
-    return try_decipher_address_index(cipher_context, addr_tag, j_out);
+    decipher_address_index(cipher_context, addr_tag, j_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 encrypted_address_tag_t encrypt_address_tag(const rct::key &sender_receiver_secret,

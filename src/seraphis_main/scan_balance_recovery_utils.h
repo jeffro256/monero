@@ -90,7 +90,10 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
     std::list<ContextualBasicRecordVariant> &basic_records_in_tx_out);
 /**
 * brief: try_find_sp_enotes_in_tx - obtain contextual basic records from a seraphis tx's contents
-* param: xk_find_received -
+* param: xk_dense_view -
+* param: xk_sparse_view -
+* param: xk_dense_or_sparse_view -
+* param: dense_check -
 * param: block_index -
 * param: block_timestamp -
 * param: transaction_id -
@@ -101,7 +104,28 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
 * param: origin_status -
 * outparam: basic_records_in_tx_out -
 */
-bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &xk_find_received,
+bool try_find_sp_enotes_in_tx_by_dense_key(const crypto::x25519_secret_key &xk_dense_view,
+    const std::uint64_t block_index,
+    const std::uint64_t block_timestamp,
+    const rct::key &transaction_id,
+    const std::uint64_t total_enotes_before_tx,
+    const rct::key &input_context,
+    const SpTxSupplementV1 &tx_supplement,
+    const std::vector<SpEnoteVariant> &enotes_in_tx,
+    const SpEnoteOriginStatus origin_status,
+    std::list<ContextualBasicRecordVariant> &basic_records_in_tx_out);
+bool try_find_sp_enotes_in_tx_by_sparse_key(const crypto::x25519_secret_key &xk_sparse_view,
+    const std::uint64_t block_index,
+    const std::uint64_t block_timestamp,
+    const rct::key &transaction_id,
+    const std::uint64_t total_enotes_before_tx,
+    const rct::key &input_context,
+    const SpTxSupplementV1 &tx_supplement,
+    const std::vector<SpEnoteVariant> &enotes_in_tx,
+    const SpEnoteOriginStatus origin_status,
+    std::list<ContextualBasicRecordVariant> &basic_records_in_tx_out);
+bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &xk_dense_or_sparse_view,
+    bool dense_check,
     const std::uint64_t block_index,
     const std::uint64_t block_timestamp,
     const rct::key &transaction_id,
@@ -176,7 +200,8 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 * brief: process_chunk_intermediate_sp - process a chunk of contextual basic records with seraphis {kx_ua, kx_fr, s_ga}
 * param: jamtis_spend_pubkey -
 * param: xk_unlock_amounts -
-* param: xk_find_received -
+* param: xk_dense_view -
+* param: xk_sparse_view -
 * param: s_generate_address -
 * param: cipher_context -
 * param: chunk_basic_records_per_tx - [ tx id : contextual basic record ]
@@ -184,7 +209,8 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 */
 void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
     const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &xk_dense_view,
+    const crypto::x25519_secret_key &xk_sparse_view,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
     const std::unordered_map<rct::key, std::list<ContextualBasicRecordVariant>> &chunk_basic_records_per_tx,
@@ -194,20 +220,22 @@ void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
 * param: jamtis_spend_pubkey -
 * param: k_view_balance -
 * param: xk_unlock_amounts -
-* param: xk_find_received -
+* param: xk_dense_view -
+* param: xk_sparse_view -
 * param: s_generate_address -
 * param: cipher_context -
 * param: check_key_image_is_known_func - callback for checking if a key image is known by the caller
 * param: chunk_basic_records_per_tx - [ tx id : contextual basic record ]
 * param: chunk_contextual_key_images -
-* outparam: found_enote_records_out - [ seraphis KI : legacy contextual intermediate enote record ]
+* outparam: found_enote_records_out - [ seraphis KI : seraphis contextual enote record ]
 * outparam: found_spent_sp_key_images_out - [ seraphis KI : spent context ]
 * outparam: legacy_key_images_in_sp_selfspends_out - [ legacy KI : spent context ]
 */
 void process_chunk_full_sp(const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &k_view_balance,
     const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &xk_dense_view,
+    const crypto::x25519_secret_key &xk_sparse_view,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
     const std::function<bool(const crypto::key_image&)> &check_key_image_is_known_func,

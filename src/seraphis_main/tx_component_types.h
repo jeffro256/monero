@@ -64,8 +64,10 @@ struct SpCoinbaseEnoteV1 final
 
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
-    /// view_tag
-    jamtis::view_tag_t view_tag;
+    /// dense_view_tag
+    jamtis::dense_view_tag_t dense_view_tag;
+    /// sparse_view_tag
+    jamtis::sparse_view_tag_t sparse_view_tag;
 };
 inline const boost::string_ref container_name(const SpCoinbaseEnoteV1&) { return "SpCoinbaseEnoteV1"; }
 void append_to_transcript(const SpCoinbaseEnoteV1 &container, SpTranscriptBuilder &transcript_inout);
@@ -85,8 +87,10 @@ struct SpEnoteV1 final
     jamtis::encoded_amount_t encoded_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
-    /// view_tag
-    jamtis::view_tag_t view_tag;
+    /// dense view_tag
+    jamtis::dense_view_tag_t dense_view_tag;
+    /// sparse view_tag
+    jamtis::sparse_view_tag_t sparse_view_tag;
 };
 inline const boost::string_ref container_name(const SpEnoteV1&) { return "SpEnoteV1"; }
 void append_to_transcript(const SpEnoteV1 &container, SpTranscriptBuilder &transcript_inout);
@@ -103,14 +107,16 @@ std::size_t sp_enote_v1_size_bytes();
 // amount_commitment_ref(): get the enote's amount commitment (this is a copy because coinbase enotes need to
 //                          compute the commitment)
 // addr_tag_enc_ref(): get the enote's encrypted address tag
-// view_tag_ref(): get the enote's view tag (copies are cheap)
+// dense_view_tag(): get the enote's dense view tag (copies are cheap)
+// sparse_view_tag(): get the enote's sparse view tag (copies are cheap)
 ///
 using SpEnoteVariant = tools::variant<SpCoinbaseEnoteV1, SpEnoteV1>;
 SpEnoteCoreVariant core_ref(const SpEnoteVariant &variant);
 const rct::key& onetime_address_ref(const SpEnoteVariant &variant);
 rct::key amount_commitment_ref(const SpEnoteVariant &variant);
 const jamtis::encrypted_address_tag_t& addr_tag_enc_ref(const SpEnoteVariant &variant);
-jamtis::view_tag_t view_tag_ref(const SpEnoteVariant &variant);
+jamtis::dense_view_tag_t dense_view_tag(const SpEnoteVariant &variant);
+jamtis::sparse_view_tag_t sparse_view_tag(const SpEnoteVariant &variant);
 
 ////
 // SpEnoteImageV1

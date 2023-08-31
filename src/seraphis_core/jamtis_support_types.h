@@ -26,11 +26,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Supporting types for Jamtis (address index, address tag hint, address tag, etc.).
+// Supporting types for Jamtis (address index, address tag, dense view tag, sparse view tag, etc.).
 
 #pragma once
 
 //local headers
+#include "seraphis_crypto/sp_transcript.h"
 
 //third party headers
 
@@ -57,20 +58,11 @@ struct address_index_t final
     address_index_t();
 };
 
-/// hint for address tags: addr_tag_hint
-constexpr std::size_t ADDRESS_TAG_HINT_BYTES{2};
-struct address_tag_hint_t final
-{
-    unsigned char bytes[ADDRESS_TAG_HINT_BYTES];
 
-    /// default constructor: default initialize to 0
-    address_tag_hint_t();
-};
-
-/// index ciphered with a cipher key: addr_tag = enc[cipher_key](j) || addr_tag_hint
+/// index ciphered with a cipher key: addr_tag = enc[cipher_key](j)
 struct address_tag_t final
 {
-    unsigned char bytes[ADDRESS_INDEX_BYTES + ADDRESS_TAG_HINT_BYTES];
+    unsigned char bytes[ADDRESS_INDEX_BYTES];
 };
 
 /// address tag XORd with a user-defined secret: addr_tag_enc = addr_tag XOR addr_tag_enc_secret
@@ -78,9 +70,8 @@ using encrypted_address_tag_t = address_tag_t;
 
 /// sizes must be consistent
 static_assert(
-    sizeof(address_index_t)    == ADDRESS_INDEX_BYTES                           &&
-    sizeof(address_tag_hint_t) == ADDRESS_TAG_HINT_BYTES                        &&
-    sizeof(address_tag_t)      == ADDRESS_INDEX_BYTES + ADDRESS_TAG_HINT_BYTES  &&
+    sizeof(address_index_t)    == ADDRESS_INDEX_BYTES              &&
+    sizeof(address_tag_t)      == ADDRESS_INDEX_BYTES              &&
     sizeof(address_tag_t)      == sizeof(encrypted_address_tag_t),
     ""
 );
@@ -111,14 +102,14 @@ struct encoded_amount_t final
 };
 
 /// jamtis view tags
-using view_tag_t = unsigned char;
+static constexpr size_t const DENSE_VIEW_TAG_BYTES = 1;
+using dense_view_tag_t = unsigned char;
+static constexpr size_t const SPARSE_VIEW_TAG_BYTES = 2;
+struct sparse_view_tag_t { unsigned char data[SPARSE_VIEW_TAG_BYTES]; };
 
 /// overloaded operators: address index
 bool operator==(const address_index_t &a, const address_index_t &b);
 inline bool operator!=(const address_index_t &a, const address_index_t &b) { return !(a == b); }
-/// overloaded operators: address tag hint
-bool operator==(const address_tag_hint_t &a, const address_tag_hint_t &b);
-inline bool operator!=(const address_tag_hint_t &a, const address_tag_hint_t &b) { return !(a == b); }
 /// overloaded operators: address tag
 bool operator==(const address_tag_t &a, const address_tag_t &b);
 inline bool operator!=(const address_tag_t &a, const address_tag_t &b) { return !(a == b); }
@@ -129,15 +120,25 @@ bool operator==(const encoded_amount_t &a, const encoded_amount_t &b);
 inline bool operator!=(const encoded_amount_t &a, const encoded_amount_t &b) { return !(a == b); }
 encoded_amount_t operator^(const encoded_amount_t &a, const encoded_amount_t &b);
 
+/// overloaded operators: sparse view tag
+bool operator==(const sparse_view_tag_t &a, const sparse_view_tag_t &b);
+inline bool operator!=(const sparse_view_tag_t &a, const sparse_view_tag_t &b) { return !(a == b); }
+
 /// max address index
 address_index_t max_address_index();
 /// make an address index
 address_index_t make_address_index(std::uint64_t half1, std::uint64_t half2);
 inline address_index_t make_address_index(std::uint64_t half1) { return make_address_index(half1, 0); }
 /// make an address tag
-address_tag_t make_address_tag(const address_index_t &enc_j, const address_tag_hint_t &addr_tag_hint);
+address_tag_t make_address_tag(const address_index_t &enc_j);
 /// generate a random address index
 address_index_t gen_address_index();
+
+/// transcript implementation for sparse_view_tag_t
+inline const boost::string_ref container_name(const sparse_view_tag_t &svt) { return "sparse_view_tag_t"; }
+void append_to_transcript(const sparse_view_tag_t &svt, SpTranscriptBuilder &transcript_inout);
+/// generate a random sparse view tag
+sparse_view_tag_t gen_sparse_view_tag();
 
 /// convert between jamtis enote types and self-send types
 bool try_get_jamtis_enote_type(const JamtisSelfSendType self_send_type, JamtisEnoteType &enote_type_out);

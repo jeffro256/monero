@@ -274,7 +274,8 @@ void make_serializable_sp_coinbase_enote_v1(const SpCoinbaseEnoteV1 &enote, ser_
     memcpy(serializable_enote_out.addr_tag_enc.bytes,
         enote.addr_tag_enc.bytes,
         sizeof(enote.addr_tag_enc));
-    serializable_enote_out.view_tag = enote.view_tag;
+    serializable_enote_out.dense_view_tag = enote.dense_view_tag;
+    memcpy(serializable_enote_out.sparse_view_tag.bytes, enote.sparse_view_tag.data, sizeof(jamtis::sparse_view_tag_t));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_serializable_sp_enote_v1(const SpEnoteV1 &enote, ser_SpEnoteV1 &serializable_enote_out)
@@ -286,7 +287,8 @@ void make_serializable_sp_enote_v1(const SpEnoteV1 &enote, ser_SpEnoteV1 &serial
     memcpy(serializable_enote_out.addr_tag_enc.bytes,
         enote.addr_tag_enc.bytes,
         sizeof(enote.addr_tag_enc));
-    serializable_enote_out.view_tag = enote.view_tag;
+    serializable_enote_out.dense_view_tag = enote.dense_view_tag;
+    memcpy(serializable_enote_out.sparse_view_tag.bytes, enote.sparse_view_tag.data, sizeof(jamtis::sparse_view_tag_t));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_serializable_sp_enote_image_v1(const SpEnoteImageV1 &image, ser_SpEnoteImageV1 &serializable_image_out)
@@ -392,9 +394,10 @@ void make_serializable_sp_tx_squashed_v1(const SpTxSquashedV1 &tx, ser_SpTxSquas
 //-------------------------------------------------------------------------------------------------------------------
 void make_serializable_sp_destination_v1(const jamtis::JamtisDestinationV1 &dest, ser_JamtisDestinationV1 &serializable_dest_out)
 {
-    serializable_dest_out.addr_K1 = dest.addr_K1;
-    serializable_dest_out.addr_K2 = dest.addr_K2;
-    serializable_dest_out.addr_K3 = dest.addr_K3;
+    serializable_dest_out.addr_Ks = dest.addr_Ks;
+    serializable_dest_out.addr_Ddv = dest.addr_Ddv;
+    serializable_dest_out.addr_Dsv = dest.addr_Dsv;
+    serializable_dest_out.addr_Dua = dest.addr_Dua;
     memcpy(serializable_dest_out.addr_tag.bytes,
         dest.addr_tag.bytes,
         sizeof(dest.addr_tag));
@@ -494,7 +497,8 @@ void recover_sp_coinbase_enote_v1(const ser_SpCoinbaseEnoteV1 &serializable_enot
     memcpy(enote_out.addr_tag_enc.bytes,
         serializable_enote.addr_tag_enc.bytes,
         sizeof(serializable_enote.addr_tag_enc));
-    enote_out.view_tag = serializable_enote.view_tag;
+    enote_out.dense_view_tag = serializable_enote.dense_view_tag;
+    memcpy(enote_out.sparse_view_tag.data, serializable_enote.sparse_view_tag.bytes, sizeof(jamtis::sparse_view_tag_t));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void recover_sp_enote_v1(const ser_SpEnoteV1 &serializable_enote, SpEnoteV1 &enote_out)
@@ -506,7 +510,8 @@ void recover_sp_enote_v1(const ser_SpEnoteV1 &serializable_enote, SpEnoteV1 &eno
     memcpy(enote_out.addr_tag_enc.bytes,
         serializable_enote.addr_tag_enc.bytes,
         sizeof(serializable_enote.addr_tag_enc));
-    enote_out.view_tag = serializable_enote.view_tag;
+    enote_out.dense_view_tag = serializable_enote.dense_view_tag;
+    memcpy(enote_out.sparse_view_tag.data, serializable_enote.sparse_view_tag.bytes, sizeof(jamtis::sparse_view_tag_t));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void recover_sp_enote_image_v1(const ser_SpEnoteImageV1 &serializable_image, SpEnoteImageV1 &image_out)
@@ -693,9 +698,10 @@ bool try_recover_sp_tx_squashed_v1(ser_SpTxSquashedV1 &serializable_tx_in, SpTxS
 //-------------------------------------------------------------------------------------------------------------------
 void recover_sp_destination_v1(const ser_JamtisDestinationV1 &serializable_destination, jamtis::JamtisDestinationV1 &dest_out)
 {
-    dest_out.addr_K1 = serializable_destination.addr_K1;
-    dest_out.addr_K2 = serializable_destination.addr_K2;
-    dest_out.addr_K3 = serializable_destination.addr_K3;
+    dest_out.addr_Ks = serializable_destination.addr_Ks;
+    dest_out.addr_Ddv = serializable_destination.addr_Ddv;
+    dest_out.addr_Dsv = serializable_destination.addr_Dsv;
+    dest_out.addr_Dua = serializable_destination.addr_Dua;
     memcpy(dest_out.addr_tag.bytes,
         serializable_destination.addr_tag.bytes,
         sizeof(serializable_destination.addr_tag));

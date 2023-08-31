@@ -134,14 +134,6 @@ bool try_update_enote_origin_context_v1(const SpEnoteOriginContextV1 &fresh_orig
 bool try_update_enote_spent_context_v1(const SpEnoteSpentContextV1 &fresh_spent_context,
     SpEnoteSpentContextV1 &current_spent_context_inout);
 /**
-* brief: try_update_contextual_enote_record_spent_context_v1 - try to update the spent context of a contextual record
-*   with the spent context of a contextual key image set if the record's key image exists in that set
-* param: contextual_key_image_set -
-* inoutparam: contextual_enote_record_inout -
-*/
-bool try_update_contextual_enote_record_spent_context_v1(const SpContextualKeyImageSetV1 &contextual_key_image_set,
-    SpContextualEnoteRecordV1 &contextual_enote_record_inout);
-/**
 * brief: origin_status_from_spent_status_v1 - infer an origin status from a spent status
 *   - i.e. if an enote is spent on-chain, then it must originate on-chain
 * param: spent_status -

@@ -39,9 +39,9 @@
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/tx_extra.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
@@ -127,7 +127,7 @@ static void make_additional_output_special_dummy_v1(const crypto::x25519_pubkey 
     dummy_proposal_out.destination             = jamtis::gen_jamtis_destination_v1();
     crypto::x25519_invmul_key({crypto::x25519_eight()},
         enote_ephemeral_pubkey,
-        dummy_proposal_out.destination.addr_K3);  //(1/8) * xK_e_other
+        dummy_proposal_out.destination.addr_Dua);  //(1/8) * xK_e_other
     dummy_proposal_out.amount                  = 0;
     dummy_proposal_out.enote_ephemeral_privkey = crypto::x25519_eight();  //r = 8 (can't do r = 1 for x25519)
     dummy_proposal_out.partial_memo            = TxExtra{};
@@ -157,23 +157,34 @@ static void make_additional_output_special_self_send_v1(const jamtis::JamtisSelf
 {
     // build payment proposal for a 'special' self-send that uses a shared enote ephemeral pubkey
 
-    // 1. edit the destination to use adjusted DH keys so the proposal's ephemeral pubkey will match the input value
-    //    while still allowing balance recovery with our xk_fr
-    crypto::x25519_secret_key xk_find_received;
-    jamtis::make_jamtis_findreceived_key(k_view_balance, xk_find_received);
+    // 1. derive account keys
+    crypto::x25519_secret_key xk_dense_view;
+    crypto::x25519_secret_key xk_sparse_view;
+    jamtis::make_jamtis_denseview_key(k_view_balance, xk_dense_view);
+    jamtis::make_jamtis_sparseview_key(k_view_balance, xk_sparse_view);
 
-    crypto::x25519_pubkey special_addr_K2;
-    crypto::x25519_scmul_key(xk_find_received, enote_ephemeral_pubkey, special_addr_K2);  //xk_fr * xK_e_other
-
+    // 2. copy destination
     selfsend_proposal_out.destination = destination;
-    crypto::x25519_invmul_key({crypto::x25519_eight()},
-        special_addr_K2,
-        selfsend_proposal_out.destination.addr_K2);  //(1/8) * xk_fr * xK_e_other
+
+    // 2. edit the destination to use adjusted DH keys so the proposal's ephemeral pubkey will match the input value
+    //    while still allowing balance recovery with our xk_dv and xk_sv
+
+    // 2a. xKj_ua = (1/8) * xK_e_other
     crypto::x25519_invmul_key({crypto::x25519_eight()},
         enote_ephemeral_pubkey,
-        selfsend_proposal_out.destination.addr_K3);  //(1/8) * xK_e_other
+        selfsend_proposal_out.destination.addr_Dua);
 
-    // 2. complete the proposal
+    // 2b. xKj_dv = xk_dv * xKj_ua = (1/8) * xk_dv * xK_e_other
+    crypto::x25519_scmul_key(xk_dense_view,
+        selfsend_proposal_out.destination.addr_Dua,
+        selfsend_proposal_out.destination.addr_Ddv);
+
+    // 2c. xKj_sv = xk_sv * xKj_ua = (1/8) * xk_sv * xK_e_other
+    crypto::x25519_scmul_key(xk_sparse_view,
+        selfsend_proposal_out.destination.addr_Dua,
+        selfsend_proposal_out.destination.addr_Dsv);
+
+    // 3. complete the proposal
     selfsend_proposal_out.amount                  = amount;
     selfsend_proposal_out.type                    = self_send_type;
     selfsend_proposal_out.enote_ephemeral_privkey = crypto::x25519_eight();  //r = 8 (can't do r = 1 for x25519)
@@ -297,7 +308,8 @@ void make_v1_coinbase_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &
         output_proposal_out.enote.core,
         output_proposal_out.enote_ephemeral_pubkey,
         output_proposal_out.enote.addr_tag_enc,
-        output_proposal_out.enote.view_tag,
+        output_proposal_out.enote.dense_view_tag,
+        output_proposal_out.enote.sparse_view_tag,
         output_proposal_out.partial_memo);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -311,7 +323,8 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
         output_proposal_out.enote_ephemeral_pubkey,
         output_proposal_out.encoded_amount,
         output_proposal_out.addr_tag_enc,
-        output_proposal_out.view_tag,
+        output_proposal_out.dense_view_tag,
+        output_proposal_out.sparse_view_tag,
         output_proposal_out.partial_memo);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -327,7 +340,8 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &p
         output_proposal_out.enote_ephemeral_pubkey,
         output_proposal_out.encoded_amount,
         output_proposal_out.addr_tag_enc,
-        output_proposal_out.view_tag,
+        output_proposal_out.dense_view_tag,
+        output_proposal_out.sparse_view_tag,
         output_proposal_out.partial_memo);
 }
 //-------------------------------------------------------------------------------------------------------------------

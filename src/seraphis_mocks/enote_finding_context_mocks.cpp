@@ -81,7 +81,7 @@ std::unique_ptr<scanning::LedgerChunk> EnoteFindingContextLedgerMockSp::get_onch
 
     m_mock_ledger_context.get_onchain_chunk_sp(chunk_start_index,
         chunk_max_size,
-        m_xk_find_received,
+        m_xk_dense_view,
         chunk_context,
         chunk_data);
 
@@ -94,12 +94,12 @@ std::unique_ptr<scanning::LedgerChunk> EnoteFindingContextLedgerMockSp::get_onch
 //-------------------------------------------------------------------------------------------------------------------
 void EnoteFindingContextUnconfirmedMockSp::get_nonledger_chunk(scanning::ChunkData &chunk_out) const
 {
-    m_mock_ledger_context.get_unconfirmed_chunk_sp(m_xk_find_received, chunk_out);
+    m_mock_ledger_context.get_unconfirmed_chunk_sp(m_xk_dense_view, chunk_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void EnoteFindingContextOffchainMockSp::get_nonledger_chunk(scanning::ChunkData &chunk_out) const
 {
-    m_mock_offchain_context.get_offchain_chunk_sp(m_xk_find_received, chunk_out);
+    m_mock_offchain_context.get_offchain_chunk_sp(m_xk_dense_view, chunk_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace mocks

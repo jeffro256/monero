@@ -499,14 +499,15 @@ void refresh_user_enote_store_PV(const jamtis::mocks::jamtis_mock_keys &user_key
     const MockLedgerContext &ledger_context,
     SpEnoteStorePaymentValidator &user_enote_store_inout)
 {
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
     ChunkConsumerMockSpIntermediate chunk_consumer{
             user_keys.K_1_base,
             user_keys.xk_ua,
-            user_keys.xk_fr,
+            user_keys.xk_dv,
+            user_keys.xk_sv,
             user_keys.s_ga,
             user_enote_store_inout
         };
@@ -522,8 +523,8 @@ void refresh_user_enote_store(const jamtis::mocks::jamtis_mock_keys &user_keys,
     const MockLedgerContext &ledger_context,
     SpEnoteStore &user_enote_store_inout)
 {
-    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_fr};
-    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_fr};
+    const EnoteFindingContextUnconfirmedMockSp enote_finding_context_unconfirmed{ledger_context, user_keys.xk_dv};
+    const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.xk_dv};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
     ChunkConsumerMockSp chunk_consumer{user_keys.K_1_base, user_keys.k_vb, user_enote_store_inout};

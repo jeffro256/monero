@@ -111,7 +111,8 @@ void get_enote_ephemeral_pubkey(const JamtisPaymentProposalSelfSendV1 &proposal,
 * outparam: output_enote_core_out -
 * outparam: enote_ephemeral_pubkey_out -
 * outparam: addr_tag_enc_out -
-* outparam: view_tag_out -
+* outparam: dense_view_tag_out -
+* outparam: sparse_view_tag_out -
 * outparam: partial_memo_out -
 */
 void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
@@ -119,7 +120,8 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
     SpCoinbaseEnoteCore &output_enote_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_address_tag_t &addr_tag_enc_out,
-    view_tag_t &view_tag_out,
+    dense_view_tag_t &dense_view_tag_out,
+    sparse_view_tag_t &sparse_view_tag_out,
     TxExtra &partial_memo_out);
 /**
 * brief: get_output_proposal_v1 - convert the jamtis proposal to an output proposal
@@ -129,7 +131,8 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * outparam: enote_ephemeral_pubkey_out -
 * outparam: encoded_amount_out -
 * outparam: addr_tag_enc_out -
-* outparam: view_tag_out -
+* outparam: dense_view_tag_out -
+* outparam: sparse_view_tag_out -
 * outparam: partial_memo_out -
 */
 void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
@@ -138,7 +141,8 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encoded_amount_t &encoded_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
-    view_tag_t &view_tag_out,
+    dense_view_tag_t &dense_view_tag_out,
+    sparse_view_tag_t &sparse_view_tag_out,
     TxExtra &partial_memo_out);
 /**
 * brief: get_output_proposal_v1 - convert the jamtis selfsend proposal to an output proposal
@@ -149,7 +153,8 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * outparam: enote_ephemeral_pubkey_out -
 * outparam: encoded_amount_out -
 * outparam: addr_tag_enc_out -
-* outparam: view_tag_out -
+* outparam: dense_view_tag_out -
+* outparam: sparse_view_tag_out -
 * outparam: partial_memo_out -
 */
 void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
@@ -159,7 +164,8 @@ void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encoded_amount_t &encoded_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
-    view_tag_t &view_tag_out,
+    dense_view_tag_t &dense_view_tag_out,
+    sparse_view_tag_t &sparse_view_tag_out,
     TxExtra &partial_memo_out);
 /**
 * brief: gen_jamtis_payment_proposal_v1 - generate a random proposal

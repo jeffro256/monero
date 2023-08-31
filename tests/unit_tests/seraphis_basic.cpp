@@ -42,10 +42,10 @@ extern "C"
 #include "seraphis_core/discretized_fee.h"
 #include "seraphis_core/jamtis_address_tag_utils.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_enote_utils.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_core/sp_core_types.h"
@@ -117,7 +117,8 @@ static void check_is_owned_with_intermediate_record(const SpEnoteVariant &enote,
         input_context,
         keys.K_1_base,
         keys.xk_ua,
-        keys.xk_fr,
+        keys.xk_dv,
+        keys.xk_sv,
         keys.s_ga,
         intermediate_enote_record));
 
@@ -175,8 +176,8 @@ static void check_is_owned(const SpEnoteVariant &enote,
     rct::key sender_receiver_secret;
     if (enote_record.type == JamtisEnoteType::PLAIN)
     {
-        make_jamtis_sender_receiver_secret_plain(keys.xk_fr,
-            enote_record.enote_ephemeral_pubkey,
+        make_jamtis_sender_receiver_secret_plain(keys.xk_dv,
+            keys.xk_sv,
             enote_record.enote_ephemeral_pubkey,
             enote_record.input_context,
             sender_receiver_secret);
@@ -519,8 +520,7 @@ static bool test_info_recovery_addressindex(const address_index_t &j)
     make_secret_key(cipher_key);
     const address_tag_t address_tag{cipher_address_index(cipher_key, j)};
     address_index_t decipher_j;
-    if (!try_decipher_address_index(cipher_key, address_tag, decipher_j))
-        return false;
+    decipher_address_index(cipher_key, address_tag, decipher_j);
     if (decipher_j != j)
         return false;
 
@@ -536,6 +536,33 @@ static bool test_info_recovery_addressindex(const address_index_t &j)
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_basic, jamtis_enote_type_convert)
+{
+    jamtis::JamtisSelfSendType sst;
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_self_send_type(jamtis::JamtisEnoteType::DUMMY, sst));
+    EXPECT_EQ(jamtis::JamtisSelfSendType::DUMMY, sst);
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_self_send_type(jamtis::JamtisEnoteType::CHANGE, sst));
+    EXPECT_EQ(jamtis::JamtisSelfSendType::CHANGE, sst);
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_self_send_type(jamtis::JamtisEnoteType::SELF_SPEND, sst));
+    EXPECT_EQ(jamtis::JamtisSelfSendType::SELF_SPEND, sst);
+
+    EXPECT_FALSE(jamtis::try_get_jamtis_self_send_type(jamtis::JamtisEnoteType::PLAIN, sst));
+
+    jamtis::JamtisEnoteType et;
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_enote_type(jamtis::JamtisSelfSendType::DUMMY, et));
+    EXPECT_EQ(jamtis::JamtisEnoteType::DUMMY, et);
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_enote_type(jamtis::JamtisSelfSendType::CHANGE, et));
+    EXPECT_EQ(jamtis::JamtisEnoteType::CHANGE, et);
+
+    EXPECT_TRUE(jamtis::try_get_jamtis_enote_type(jamtis::JamtisSelfSendType::SELF_SPEND, et));
+    EXPECT_EQ(jamtis::JamtisEnoteType::SELF_SPEND, et);
+}
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_basic, information_recovery_keyimage)
 {
@@ -593,32 +620,6 @@ TEST(seraphis_basic, information_recovery_amountencoding)
     EXPECT_TRUE(decoded_amount == amount);
 }
 //-------------------------------------------------------------------------------------------------------------------
-TEST(seraphis_basic, information_recovery_jamtisaddresstaghint)
-{
-    // cipher an index
-    const address_index_t j{gen_address_index()};
-    crypto::secret_key cipher_key;
-    make_secret_key(cipher_key);
-    const address_tag_t address_tag{cipher_address_index(cipher_key, j)};
-
-    // split the tag into encrypted index and tag hint
-    address_index_t enc_j;
-    address_tag_hint_t hint;
-    memcpy(enc_j.bytes, address_tag.bytes, sizeof(address_index_t));
-    memcpy(hint.bytes, address_tag.bytes + sizeof(address_index_t), sizeof(address_tag_hint_t));
-
-    // make a tag hint using SpKDFTranscript: H_2(k, cipher[k](j))
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ADDRESS_TAG_HINT, sizeof(rct::key) + sizeof(address_index_t)};
-    transcript.append("cipher_key", cipher_key);
-    transcript.append("enc_j", enc_j.bytes);
-
-    address_tag_hint_t reconstructed_hint;
-    sp_hash_to_2(transcript.data(), transcript.size(), reconstructed_hint.bytes);
-
-    // verify that the hint can be reproduced using the SpKDFTranscript utility
-    ASSERT_TRUE(memcmp(hint.bytes, reconstructed_hint.bytes, sizeof(address_tag_hint_t)) == 0);
-}
-//-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_basic, information_recovery_addressindex)
 {
     // test address indices
@@ -642,13 +643,14 @@ TEST(seraphis_basic, information_recovery_jamtisdestination)
     // test making a jamtis destination then recovering the index
     JamtisDestinationV1 destination_known;
     const address_index_t j{gen_address_index()};
-    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_fr, keys.s_ga, j, destination_known);
+    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_dv, keys.xK_sv, keys.s_ga, j, destination_known);
 
     address_index_t j_nominal;
     EXPECT_TRUE(try_get_jamtis_index_from_destination_v1(destination_known,
         keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j_nominal));
     EXPECT_TRUE(j_nominal == j);
@@ -659,7 +661,8 @@ TEST(seraphis_basic, information_recovery_jamtisdestination)
     EXPECT_FALSE(try_get_jamtis_index_from_destination_v1(destination_unknown,
         keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j_nominal));
 }
@@ -676,7 +679,8 @@ TEST(seraphis_basic, information_recovery_coinbase_enote_v1_plain)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);
@@ -706,7 +710,8 @@ TEST(seraphis_basic, information_recovery_enote_v1_plain)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);
@@ -735,7 +740,8 @@ TEST(seraphis_basic, information_recovery_enote_v1_selfsend)
 
     make_jamtis_destination_v1(keys.K_1_base,
         keys.xK_ua,
-        keys.xK_fr,
+        keys.xK_dv,
+        keys.xK_sv,
         keys.s_ga,
         j,
         user_address);
@@ -786,9 +792,9 @@ TEST(seraphis_basic, finalize_v1_output_proposal_set_v1)
     JamtisDestinationV1 selfspend_dest;
     JamtisDestinationV1 change_dest;
     JamtisDestinationV1 dummy_dest;
-    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_fr, keys.s_ga, j_selfspend, selfspend_dest);
-    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_fr, keys.s_ga, j_change, change_dest);
-    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_fr, keys.s_ga, j_dummy, dummy_dest);
+    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_dv, keys.xK_sv, keys.s_ga, j_selfspend, selfspend_dest);
+    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_dv, keys.xK_sv, keys.s_ga, j_change, change_dest);
+    make_jamtis_destination_v1(keys.K_1_base, keys.xK_ua, keys.xK_dv, keys.xK_sv, keys.s_ga, j_dummy, dummy_dest);
 
     // prepare self-spend payment proposals
     JamtisPaymentProposalSelfSendV1 self_spend_payment_proposal1_amnt_1;
@@ -887,7 +893,7 @@ TEST(seraphis_basic, finalize_v1_output_proposal_set_v1)
     normal_proposals[0] = gen_jamtis_payment_proposal_v1(1, 0);
     normal_proposals[1] = gen_jamtis_payment_proposal_v1(1, 0);
     normal_proposals[1].enote_ephemeral_privkey = normal_proposals[0].enote_ephemeral_privkey;
-    normal_proposals[1].destination.addr_K3 = normal_proposals[0].destination.addr_K3;
+    normal_proposals[1].destination.addr_Dua = normal_proposals[0].destination.addr_Dua;
     selfsend_proposals.clear();
     EXPECT_ANY_THROW(finalize_outputs_for_test(normal_proposals, selfsend_proposals));
 
@@ -897,7 +903,7 @@ TEST(seraphis_basic, finalize_v1_output_proposal_set_v1)
     normal_proposals[0] = gen_jamtis_payment_proposal_v1(1, 0);
     normal_proposals[1] = gen_jamtis_payment_proposal_v1(1, 0);  //change = 1
     normal_proposals[1].enote_ephemeral_privkey = normal_proposals[0].enote_ephemeral_privkey;
-    normal_proposals[1].destination.addr_K3 = normal_proposals[0].destination.addr_K3;
+    normal_proposals[1].destination.addr_Dua = normal_proposals[0].destination.addr_Dua;
     selfsend_proposals.clear();
     EXPECT_ANY_THROW(finalize_outputs_for_test(normal_proposals, selfsend_proposals));
 
@@ -961,7 +967,7 @@ TEST(seraphis_basic, finalize_v1_output_proposal_set_v1)
     selfsend_proposals.resize(1);
     selfsend_proposals[0] = self_spend_payment_proposal1_amnt_1;
     normal_proposals[0].enote_ephemeral_privkey = selfsend_proposals[0].enote_ephemeral_privkey;
-    normal_proposals[0].destination.addr_K3 = selfsend_proposals[0].destination.addr_K3;
+    normal_proposals[0].destination.addr_Dua = selfsend_proposals[0].destination.addr_Dua;
     EXPECT_NO_THROW(finalize_outputs_for_test(normal_proposals, selfsend_proposals));
     EXPECT_TRUE(normal_proposals.size() == 1);
     EXPECT_TRUE(selfsend_proposals.size() == 1);
@@ -974,7 +980,7 @@ TEST(seraphis_basic, finalize_v1_output_proposal_set_v1)
     selfsend_proposals.resize(1);
     selfsend_proposals[0] = self_spend_payment_proposal1_amnt_1;  //change = 1
     normal_proposals[0].enote_ephemeral_privkey = selfsend_proposals[0].enote_ephemeral_privkey;
-    normal_proposals[0].destination.addr_K3 = selfsend_proposals[0].destination.addr_K3;
+    normal_proposals[0].destination.addr_Dua = selfsend_proposals[0].destination.addr_Dua;
     EXPECT_ANY_THROW(finalize_outputs_for_test(normal_proposals, selfsend_proposals));
 
     // 1 self-send output, 1 normal output, 0 change: 3 outputs (1 dummy)

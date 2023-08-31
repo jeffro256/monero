@@ -36,7 +36,7 @@
 #include "crypto/x25519.h"
 #include "enote_finding_context_mocks.h"
 #include "ringct/rctTypes.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_impl/enote_store.h"
 #include "seraphis_impl/enote_store_utils.h"
 #include "seraphis_main/enote_record_types.h"
@@ -274,12 +274,14 @@ void ChunkConsumerMockLegacy::consume_onchain_chunk(const scanning::LedgerChunk 
 //-------------------------------------------------------------------------------------------------------------------
 ChunkConsumerMockSpIntermediate::ChunkConsumerMockSpIntermediate(const rct::key &jamtis_spend_pubkey,
     const crypto::x25519_secret_key &xk_unlock_amounts,
-    const crypto::x25519_secret_key &xk_find_received,
+    const crypto::x25519_secret_key &xk_dense_view,
+    const crypto::x25519_secret_key &xk_sparse_view,
     const crypto::secret_key &s_generate_address,
     SpEnoteStorePaymentValidator &enote_store) :
         m_jamtis_spend_pubkey{jamtis_spend_pubkey},
         m_xk_unlock_amounts{xk_unlock_amounts},
-        m_xk_find_received{xk_find_received},
+        m_xk_dense_view{xk_dense_view},
+        m_xk_sparse_view{xk_sparse_view},
         m_s_generate_address{s_generate_address},
         m_enote_store{enote_store}
 {
@@ -316,7 +318,8 @@ void ChunkConsumerMockSpIntermediate::consume_nonledger_chunk(const SpEnoteOrigi
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
         m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_xk_dense_view,
+        m_xk_sparse_view,
         m_s_generate_address,
         *m_cipher_context,
         chunk_data.basic_records_per_tx,
@@ -341,7 +344,8 @@ void ChunkConsumerMockSpIntermediate::consume_onchain_chunk(const scanning::Ledg
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
         m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_xk_dense_view,
+        m_xk_sparse_view,
         m_s_generate_address,
         *m_cipher_context,
         chunk_data->basic_records_per_tx,
@@ -366,7 +370,8 @@ ChunkConsumerMockSp::ChunkConsumerMockSp(const rct::key &jamtis_spend_pubkey,
         m_enote_store{enote_store}
 {
     jamtis::make_jamtis_unlockamounts_key(m_k_view_balance, m_xk_unlock_amounts);
-    jamtis::make_jamtis_findreceived_key(m_k_view_balance, m_xk_find_received);
+    jamtis::make_jamtis_denseview_key(m_k_view_balance, m_xk_dense_view);
+    jamtis::make_jamtis_sparseview_key(m_k_view_balance, m_xk_sparse_view);
     jamtis::make_jamtis_generateaddress_secret(m_k_view_balance, m_s_generate_address);
     jamtis::make_jamtis_ciphertag_secret(m_s_generate_address, m_s_cipher_tag);
 
@@ -404,7 +409,8 @@ void ChunkConsumerMockSp::consume_nonledger_chunk(const SpEnoteOriginStatus nonl
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
         m_k_view_balance,
         m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_xk_dense_view,
+        m_xk_sparse_view,
         m_s_generate_address,
         *m_cipher_context,
         [this](const crypto::key_image &key_image) -> bool
@@ -443,7 +449,8 @@ void ChunkConsumerMockSp::consume_onchain_chunk(const scanning::LedgerChunk &chu
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
         m_k_view_balance,
         m_xk_unlock_amounts,
-        m_xk_find_received,
+        m_xk_dense_view,
+        m_xk_sparse_view,
         m_s_generate_address,
         *m_cipher_context,
         [this](const crypto::key_image &key_image) -> bool

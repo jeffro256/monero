@@ -105,8 +105,10 @@ struct SpOutputProposalV1 final
     jamtis::encoded_amount_t encoded_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
-    /// view_tag
-    jamtis::view_tag_t view_tag;
+    /// dense_view_tag
+    jamtis::dense_view_tag_t dense_view_tag;
+    /// sparse_view_tag
+    jamtis::sparse_view_tag_t sparse_view_tag;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;

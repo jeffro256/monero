@@ -69,24 +69,41 @@ void make_jamtis_unlockamounts_key(const crypto::secret_key &k_view_balance,
 void make_jamtis_unlockamounts_pubkey(const crypto::x25519_secret_key &xk_unlock_amounts,
     crypto::x25519_pubkey &unlockamounts_pubkey_out);
 /**
-* brief: make_jamtis_findreceived_key - find-received key, for finding enotes received by the wallet
-*   - use to compute view tags and nominal spend keys
-*   xk_fr = H_n_x25519[k_vb]()
+* brief: make_jamtis_denseview_key - dense-view key, for calculating dense view tags
+*   xk_dv = H_n_x25519[k_vb]()
 * param: k_view_balance - k_vb
-* outparam: xk_find_received_out - xk_fr
+* outparam: xk_dense_view_out - xk_dv
 */
-void make_jamtis_findreceived_key(const crypto::secret_key &k_view_balance,
-    crypto::x25519_secret_key &xk_find_received_out);
+void make_jamtis_denseview_key(const crypto::secret_key &k_view_balance,
+    crypto::x25519_secret_key &xk_dense_view_out);
 /**
-* brief: make_jamtis_findreceived_pubkey - xK_fr
-*   - xK_fr = xk_fr * xK_ua
-* param: xk_find_received - xk_fr
-* param: unlockamounts_pubkey - xK_ua
-* outparam: findreceived_pubkey_out - xK_fr
+* brief: make_jamtis_denseview_pubkey - xK_dv
+*   - xK_dv = xk_dv * xK_ua
+* param: xk_dense_view - xk_dv
+* param: unlock_amounts_pubkey - xK_ua
+* outparam: denseview_pubkey_out - xK_dv
 */
-void make_jamtis_findreceived_pubkey(const crypto::x25519_secret_key &xk_find_received,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    crypto::x25519_pubkey &findreceived_pubkey_out);
+void make_jamtis_denseview_pubkey(const crypto::x25519_secret_key &xk_dense_view,
+    const crypto::x25519_pubkey &unlock_amounts_pubkey,
+    crypto::x25519_pubkey &denseview_pubkey_out);
+/**
+* brief: make_jamtis_sparseview_key - sparse-view key, for calculating sparse view tags
+*   xk_sv = H_n_x25519[k_vb]()
+* param: k_view_balance - k_vb
+* outparam: xk_sparse_view_out - xk_sv
+*/
+void make_jamtis_sparseview_key(const crypto::secret_key &k_view_balance,
+    crypto::x25519_secret_key &xk_sparse_view_out);
+/**
+* brief: make_jamtis_sparseview_pubkey - xK_sv
+*   - xK_sv = xk_sv * xK_ua
+* param: xk_sparse_view - xk_sv
+* param: unlock_amounts_pubkey - xK_ua
+* outparam: sparseview_pubkey_out - xK_sv
+*/
+void make_jamtis_sparseview_pubkey(const crypto::x25519_secret_key &xk_sparse_view,
+    const crypto::x25519_pubkey &unlock_amounts_pubkey,
+    crypto::x25519_pubkey &sparseview_pubkey_out);
 /**
 * brief: make_jamtis_generateaddress_secret - generate-address secret, for generating addresses
 *   s_ga = H_32[k_vb]()
@@ -103,6 +120,19 @@ void make_jamtis_generateaddress_secret(const crypto::secret_key &k_view_balance
 */
 void make_jamtis_ciphertag_secret(const crypto::secret_key &s_generate_address,
     crypto::secret_key &s_cipher_tag_out);
-
+/**
+ * brief: make_extended_jamtis_pubkey - add G, X, & U key extensions to public (usually spend) key
+ *     K_ext = k_g G + k_x X + k_u U + K_base
+ * param: base_pubkey - K_base
+ * param: ext_g - k_g
+ * param: ext_x - k_x
+ * param: ext_u - k_u
+ * outparam: extended_pubkey_out - K_ext
+ */
+void make_extended_jamtis_pubkey(const rct::key &base_pubkey,
+    const crypto::secret_key &ext_g,
+    const crypto::secret_key &ext_x,
+    const crypto::secret_key &ext_u,
+    rct::key &extended_pubkey_out);
 } //namespace jamtis
 } //namespace sp

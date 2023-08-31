@@ -54,12 +54,14 @@ namespace jamtis
 ///
 struct JamtisDestinationV1 final
 {
-    /// K_1 = k^j_g G + k^j_x X + k^j_u U + K_s   (address spend key)
-    rct::key addr_K1;
-    /// xK_2 = xk^j_a xK_fr                       (address view key)
-    crypto::x25519_pubkey addr_K2;
-    /// xK_3 = xk^j_a xK_ua                       (DH base key)
-    crypto::x25519_pubkey addr_K3;
+    /// Kj_s = k^j_g G + k^j_x X + k^j_u U + K_s   (address spend key)
+    rct::key addr_Ks;
+    /// xKj_dv = xk^j_a xK_dv                      (address dense-view key)
+    crypto::x25519_pubkey addr_Ddv;
+    /// xKj_sv = xk^j_a xK_sv                      (address sparse-view key)
+    crypto::x25519_pubkey addr_Dsv;
+    /// xKj_ua = xk^j_a xK_ua                      (address DH base key)
+    crypto::x25519_pubkey addr_Dua;
     /// addr_tag
     address_tag_t addr_tag;
 };
@@ -71,14 +73,16 @@ bool operator==(const JamtisDestinationV1 &a, const JamtisDestinationV1 &b);
 * brief: make_jamtis_destination_v1 - make a destination address
 * param: spend_pubkey - K_s = k_vb X + k_m U
 * param: unlockamounts_pubkey - xK_ua = xk_ua xG
-* param: findreceived_pubkey - xK_fr = xk_fr xk_ua xG
+* param: denseview_pubkey - xK_dv = xk_dv xk_ua xG
+* param: sparseview_pubkey - xK_sv = xk_sv xk_ua xG
 * param: s_generate_address - s_ga
 * param: j - address_index
 * outparam: destination_out - the full address, with address tag
 */
 void make_jamtis_destination_v1(const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &denseview_pubkey,
+    const crypto::x25519_pubkey &sparseview_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     JamtisDestinationV1 &destination_out);
@@ -88,7 +92,8 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
 * param: destination - destination address to recreate
 * param: spend_pubkey - K_s
 * param: unlockamounts_pubkey - xK_ua = xk_ua xG
-* param: findreceived_pubkey - xK_fr = xk_fr xk_ua xG
+* param: denseview_pubkey - xK_dv = xk_dv xk_ua xG
+* param: sparseview_pubkey - xK_sv = xk_sv xk_ua xG
 * param: s_generate_address - s_ga
 * outparam: j_out - address index (if successful)
 * return: true if the destination can be recreated
@@ -96,7 +101,8 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
 bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &unlockamounts_pubkey,
-    const crypto::x25519_pubkey &findreceived_pubkey,
+    const crypto::x25519_pubkey &denseview_pubkey,
+    const crypto::x25519_pubkey &sparseview_pubkey,
     const crypto::secret_key &s_generate_address,
     address_index_t &j_out);
 /**

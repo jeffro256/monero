@@ -65,12 +65,14 @@ struct jamtis_mock_keys
     crypto::secret_key k_m;           //master
     crypto::secret_key k_vb;          //view-balance
     crypto::x25519_secret_key xk_ua;  //unlock-amounts
-    crypto::x25519_secret_key xk_fr;  //find-received
+    crypto::x25519_secret_key xk_dv;  //dense-view
+    crypto::x25519_secret_key xk_sv;  //sparse-view
     crypto::secret_key s_ga;          //generate-address
     crypto::secret_key s_ct;          //cipher-tag
     rct::key K_1_base;                //jamtis spend base     = k_vb X + k_m U
     crypto::x25519_pubkey xK_ua;      //unlock-amounts pubkey = xk_ua xG
-    crypto::x25519_pubkey xK_fr;      //find-received pubkey  = xk_fr xk_ua xG
+    crypto::x25519_pubkey xK_dv;      //dense-view pubkey     = xk_dv xk_ua xG
+    crypto::x25519_pubkey xK_sv;      //sparse-view pubkey    = xk_sv xk_ua xG
 };
 
 /// make a set of mock jamtis keys (for mock-ups/unit testing)

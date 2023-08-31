@@ -35,7 +35,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "ringct/rctOps.h"
-#include "seraphis_core/jamtis_core_utils.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 
 //third party headers
@@ -58,12 +58,14 @@ void make_jamtis_mock_keys(jamtis_mock_keys &keys_out)
     keys_out.k_m  = rct::rct2sk(rct::skGen());
     keys_out.k_vb = rct::rct2sk(rct::skGen());
     make_jamtis_unlockamounts_key(keys_out.k_vb, keys_out.xk_ua);
-    make_jamtis_findreceived_key(keys_out.k_vb, keys_out.xk_fr);
+    make_jamtis_denseview_key(keys_out.k_vb, keys_out.xk_dv);
+    make_jamtis_sparseview_key(keys_out.k_vb, keys_out.xk_sv);
     make_jamtis_generateaddress_secret(keys_out.k_vb, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
     make_seraphis_spendkey(keys_out.k_vb, keys_out.k_m, keys_out.K_1_base);
     make_jamtis_unlockamounts_pubkey(keys_out.xk_ua, keys_out.xK_ua);
-    make_jamtis_findreceived_pubkey(keys_out.xk_fr, keys_out.xK_ua, keys_out.xK_fr);
+    make_jamtis_denseview_pubkey(keys_out.xk_dv, keys_out.xK_ua, keys_out.xK_dv);
+    make_jamtis_denseview_pubkey(keys_out.xk_sv, keys_out.xK_ua, keys_out.xK_sv);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_random_address_for_user(const jamtis_mock_keys &user_keys, JamtisDestinationV1 &user_address_out)
@@ -73,7 +75,8 @@ void make_random_address_for_user(const jamtis_mock_keys &user_keys, JamtisDesti
 
     make_jamtis_destination_v1(user_keys.K_1_base,
         user_keys.xK_ua,
-        user_keys.xK_fr,
+        user_keys.xK_dv,
+        user_keys.xK_sv,
         user_keys.s_ga,
         address_index,
         user_address_out);

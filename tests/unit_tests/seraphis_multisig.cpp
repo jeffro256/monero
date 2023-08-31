@@ -47,9 +47,9 @@
 #include "seraphis_core/binned_reference_set.h"
 #include "seraphis_core/binned_reference_set_utils.h"
 #include "seraphis_core/discretized_fee.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/legacy_core_utils.h"
 #include "seraphis_core/legacy_enote_utils.h"
@@ -98,13 +98,15 @@ static void make_multisig_jamtis_mock_keys(const multisig::multisig_account &acc
     keys_out.k_m = rct::rct2sk(rct::Z); //master key is not known in multisig
     keys_out.k_vb = account.get_common_privkey();
     make_jamtis_unlockamounts_key(keys_out.k_vb, keys_out.xk_ua);
-    make_jamtis_findreceived_key(keys_out.k_vb, keys_out.xk_fr);
+    make_jamtis_denseview_key(keys_out.k_vb, keys_out.xk_dv);
+    make_jamtis_sparseview_key(keys_out.k_vb, keys_out.xk_sv);
     make_jamtis_generateaddress_secret(keys_out.k_vb, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
     keys_out.K_1_base = rct::pk2rct(account.get_multisig_pubkey());
     extend_seraphis_spendkey_x(keys_out.k_vb, keys_out.K_1_base);
     make_jamtis_unlockamounts_pubkey(keys_out.xk_ua, keys_out.xK_ua);
-    make_jamtis_findreceived_pubkey(keys_out.xk_fr, keys_out.xK_ua, keys_out.xK_fr);
+    make_jamtis_denseview_pubkey(keys_out.xk_dv, keys_out.xK_ua, keys_out.xK_dv);
+    make_jamtis_sparseview_pubkey(keys_out.xk_sv, keys_out.xK_ua, keys_out.xK_sv);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -431,7 +433,8 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
 
     ASSERT_NO_THROW(make_jamtis_destination_v1(shared_sp_keys.K_1_base,
         shared_sp_keys.xK_ua,
-        shared_sp_keys.xK_fr,
+        shared_sp_keys.xK_dv,
+        shared_sp_keys.xK_sv,
         shared_sp_keys.s_ga,
         j,
         sp_user_address));

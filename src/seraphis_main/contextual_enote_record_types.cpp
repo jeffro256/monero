@@ -51,7 +51,7 @@ const rct::key& onetime_address_ref(const LegacyContextualIntermediateEnoteRecor
     return onetime_address_ref(record.record.enote);
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount amount_ref(const LegacyContextualIntermediateEnoteRecordV1 &record)
+rct::xmr_amount amount(const LegacyContextualIntermediateEnoteRecordV1 &record)
 {
     return record.record.amount;
 }
@@ -61,7 +61,7 @@ const crypto::key_image& key_image_ref(const LegacyContextualEnoteRecordV1 &reco
     return record.record.key_image;
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount amount_ref(const LegacyContextualEnoteRecordV1 &record)
+rct::xmr_amount amount(const LegacyContextualEnoteRecordV1 &record)
 {
     return record.record.amount;
 }
@@ -71,7 +71,7 @@ const rct::key& onetime_address_ref(const SpContextualIntermediateEnoteRecordV1 
     return onetime_address_ref(record.record.enote);
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount amount_ref(const SpContextualIntermediateEnoteRecordV1 &record)
+rct::xmr_amount amount(const SpContextualIntermediateEnoteRecordV1 &record)
 {
     return record.record.amount;
 }
@@ -81,7 +81,7 @@ const crypto::key_image& key_image_ref(const SpContextualEnoteRecordV1 &record)
     return record.record.key_image;
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount amount_ref(const SpContextualEnoteRecordV1 &record)
+rct::xmr_amount amount(const SpContextualEnoteRecordV1 &record)
 {
     return record.record.amount;
 }
@@ -100,13 +100,13 @@ const SpEnoteOriginContextV1& origin_context_ref(const ContextualBasicRecordVari
     return variant.visit(visitor{});
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount amount_ref(const ContextualRecordVariant &variant)
+rct::xmr_amount amount(const ContextualRecordVariant &variant)
 {
     struct visitor final : public tools::variant_static_visitor<rct::xmr_amount>
     {
         using variant_static_visitor::operator();  //for blank overload
-        rct::xmr_amount operator()(const LegacyContextualEnoteRecordV1 &record) const { return amount_ref(record); }
-        rct::xmr_amount operator()(const SpContextualEnoteRecordV1 &record)     const { return amount_ref(record); }
+        rct::xmr_amount operator()(const LegacyContextualEnoteRecordV1 &record) const { return amount(record); }
+        rct::xmr_amount operator()(const SpContextualEnoteRecordV1 &record)     const { return amount(record); }
     };
 
     return variant.visit(visitor{});

@@ -121,9 +121,10 @@ void get_enote_v1(const SpOutputProposalV1 &proposal, SpEnoteV1 &enote_out)
         rct::commit(amount_ref(proposal), rct::sk2rct(proposal.core.amount_blinding_factor));
 
     // enote misc. details
-    enote_out.encoded_amount = proposal.encoded_amount;
-    enote_out.addr_tag_enc   = proposal.addr_tag_enc;
-    enote_out.view_tag       = proposal.view_tag;
+    enote_out.encoded_amount  = proposal.encoded_amount;
+    enote_out.addr_tag_enc    = proposal.addr_tag_enc;
+    enote_out.dense_view_tag  = proposal.dense_view_tag;
+    enote_out.sparse_view_tag = proposal.sparse_view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
@@ -244,7 +245,8 @@ SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount, const
     temp.enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
     crypto::rand(sizeof(temp.encoded_amount), temp.encoded_amount.bytes);
     crypto::rand(sizeof(temp.addr_tag_enc), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.dense_view_tag = crypto::rand_idx<jamtis::dense_view_tag_t>(0);
+    temp.sparse_view_tag = jamtis::gen_sparse_view_tag();
 
     std::vector<ExtraFieldElement> memo_elements;
     memo_elements.resize(num_random_memo_elements);

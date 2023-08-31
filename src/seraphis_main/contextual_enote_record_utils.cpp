@@ -175,7 +175,7 @@ boost::multiprecision::uint128_t total_amount(const std::vector<LegacyContextual
     boost::multiprecision::uint128_t total_amount{0};
 
     for (const LegacyContextualEnoteRecordV1 &contextual_record : contextual_records)
-        total_amount += amount_ref(contextual_record);
+        total_amount += amount(contextual_record);
 
     return total_amount;
 }
@@ -185,7 +185,7 @@ boost::multiprecision::uint128_t total_amount(const std::vector<SpContextualEnot
     boost::multiprecision::uint128_t total_amount{0};
 
     for (const SpContextualEnoteRecordV1 &contextual_record : contextual_records)
-        total_amount += amount_ref(contextual_record);
+        total_amount += amount(contextual_record);
 
     return total_amount;
 }
@@ -252,21 +252,6 @@ bool try_update_enote_spent_context_v1(const SpEnoteSpentContextV1 &fresh_spent_
 
     // 2. overwrite with the fresh context (do this even if the fresh one seems to have the same age)
     current_spent_context_inout = fresh_spent_context;
-
-    return true;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_update_contextual_enote_record_spent_context_v1(const SpContextualKeyImageSetV1 &contextual_key_image_set,
-    SpContextualEnoteRecordV1 &contextual_enote_record_inout)
-{
-    // 1. fail if our record doesn't have a key image in the set
-    if (!has_key_image(contextual_key_image_set, key_image_ref(contextual_enote_record_inout)))
-        return false;
-
-    // 2. try to update the record's spent context
-    if (!try_update_enote_spent_context_v1(contextual_key_image_set.spent_context,
-            contextual_enote_record_inout.spent_context))
-        return false;
 
     return true;
 }

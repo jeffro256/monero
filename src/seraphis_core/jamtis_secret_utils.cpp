@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //paired header
-#include "jamtis_core_utils.h"
+#include "jamtis_secret_utils.h"
 
 //local headers
 #include "crypto/crypto.h"
@@ -67,20 +67,36 @@ void make_jamtis_unlockamounts_pubkey(const crypto::x25519_secret_key &xk_unlock
     x25519_scmul_base(xk_unlock_amounts, unlockamounts_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_findreceived_key(const crypto::secret_key &k_view_balance,
-    crypto::x25519_secret_key &xk_find_received_out)
+void make_jamtis_denseview_key(const crypto::secret_key &k_view_balance,
+    crypto::x25519_secret_key &xk_dense_view_out)
 {
-    // xk_fr = H_n_x25519[k_vb]()
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_FINDRECEIVED_KEY, 0};
-    sp_derive_x25519_key(to_bytes(k_view_balance), transcript.data(), transcript.size(), xk_find_received_out.data);
+    // xk_dv = H_n_x25519[k_fr]()
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_DENSEVIEW_KEY, 0};
+    sp_derive_x25519_key(to_bytes(k_view_balance), transcript.data(), transcript.size(), xk_dense_view_out.data);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_findreceived_pubkey(const crypto::x25519_secret_key &xk_find_received,
-    const crypto::x25519_pubkey &unlockamounts_pubkey,
-    crypto::x25519_pubkey &findreceived_pubkey_out)
+void make_jamtis_denseview_pubkey(const crypto::x25519_secret_key &xk_dense_view,
+    const crypto::x25519_pubkey &unlock_amounts_pubkey,
+    crypto::x25519_pubkey &denseview_pubkey_out)
 {
-    // xK_fr = xk_fr * xK_ua
-    x25519_scmul_key(xk_find_received, unlockamounts_pubkey, findreceived_pubkey_out);
+    // xK_dv = xk_dv * xK_ua
+    x25519_scmul_key(xk_dense_view, unlock_amounts_pubkey, denseview_pubkey_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_sparseview_key(const crypto::secret_key &k_view_balance,
+    crypto::x25519_secret_key &xk_sparse_view_out)
+{
+    // xk_sv = H_n_x25519[k_fr]()
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SPARSEVIEW_KEY, 0};
+    sp_derive_x25519_key(to_bytes(k_view_balance), transcript.data(), transcript.size(), xk_sparse_view_out.data);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_sparseview_pubkey(const crypto::x25519_secret_key &xk_sparse_view,
+    const crypto::x25519_pubkey &unlock_amounts_pubkey,
+    crypto::x25519_pubkey &sparseview_pubkey_out)
+{
+    // xK_sv = xk_sv * xK_ua
+    x25519_scmul_key(xk_sparse_view, unlock_amounts_pubkey, sparseview_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_generateaddress_secret(const crypto::secret_key &k_view_balance,
@@ -97,6 +113,19 @@ void make_jamtis_ciphertag_secret(const crypto::secret_key &s_generate_address,
     // s_ct = H_32[s_ga]()
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_CIPHERTAG_SECRET, 0};
     sp_derive_secret(to_bytes(s_generate_address), transcript.data(), transcript.size(), to_bytes(s_cipher_tag_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_extended_jamtis_pubkey(const rct::key &base_pubkey,
+    const crypto::secret_key &ext_g,
+    const crypto::secret_key &ext_x,
+    const crypto::secret_key &ext_u,
+    rct::key &extended_pubkey_out)
+{
+    mask_key(ext_g,
+        base_pubkey,
+        extended_pubkey_out);  //k_g G + K_base
+    extend_seraphis_spendkey_x(ext_x, extended_pubkey_out);  //k_g G + k_x X + K_base
+    extend_seraphis_spendkey_u(ext_u, extended_pubkey_out);  //k_g G + k_x X + k_u U + K_base
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis

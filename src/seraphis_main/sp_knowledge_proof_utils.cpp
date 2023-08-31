@@ -36,8 +36,8 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/jamtis_address_utils.h"
-#include "seraphis_core/jamtis_core_utils.h"
 #include "seraphis_core/jamtis_enote_utils.h"
+#include "seraphis_core/jamtis_secret_utils.h"
 #include "seraphis_core/jamtis_support_types.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_core/sp_core_types.h"
@@ -327,19 +327,20 @@ void make_enote_ownership_proof_v1_sender_plain(const crypto::x25519_secret_key 
     // 1. compute the enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
     jamtis::make_jamtis_enote_ephemeral_pubkey(enote_ephemeral_privkey,
-        recipient_destination.addr_K3,
+        recipient_destination.addr_Dua,
         enote_ephemeral_pubkey);
 
     // 2. prepare the sender-receiver secret
     rct::key sender_receiver_secret;
     jamtis::make_jamtis_sender_receiver_secret_plain(enote_ephemeral_privkey,
-        recipient_destination.addr_K2,
+        recipient_destination.addr_Ddv,
+        recipient_destination.addr_Dsv,
         enote_ephemeral_pubkey,
         input_context,
         sender_receiver_secret);
 
     // 3. complete the proof
-    make_enote_ownership_proof_v1(recipient_destination.addr_K1,
+    make_enote_ownership_proof_v1(recipient_destination.addr_Ks,
         sender_receiver_secret,
         amount_commitment,
         onetime_address,
@@ -387,12 +388,14 @@ void make_enote_ownership_proof_v1_receiver(const SpEnoteRecordV1 &enote_record,
     EnoteOwnershipProofV1 &proof_out)
 {
     // 1. helper privkeys
-    crypto::x25519_secret_key xk_find_received;
+    crypto::x25519_secret_key xk_dense_view;
+    crypto::x25519_secret_key xk_sparse_view;
     crypto::secret_key s_generate_address;
-    jamtis::make_jamtis_findreceived_key(k_view_balance, xk_find_received);
+    jamtis::make_jamtis_denseview_key(k_view_balance, xk_dense_view);
+    jamtis::make_jamtis_sparseview_key(k_view_balance, xk_sparse_view);
     jamtis::make_jamtis_generateaddress_secret(k_view_balance, s_generate_address);
 
-    // 2. get the owning address's spendkey K_1
+    // 2. get the owning address's spendkey K^j_S
     rct::key jamtis_address_spend_key;
     jamtis::make_jamtis_address_spend_key(jamtis_spend_pubkey,
         s_generate_address,
@@ -413,8 +416,8 @@ void make_enote_ownership_proof_v1_receiver(const SpEnoteRecordV1 &enote_record,
     }
     else
     {
-        jamtis::make_jamtis_sender_receiver_secret_plain(xk_find_received,
-            enote_record.enote_ephemeral_pubkey,
+        jamtis::make_jamtis_sender_receiver_secret_plain(xk_dense_view,
+            xk_sparse_view,
             enote_record.enote_ephemeral_pubkey,
             enote_record.input_context,
             sender_receiver_secret);

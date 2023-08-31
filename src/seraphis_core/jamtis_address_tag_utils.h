@@ -58,16 +58,23 @@ public:
     /// normal constructor
     jamtis_address_tag_cipher_context(const crypto::secret_key &cipher_key);
 
+    /// copy/move construction
+    jamtis_address_tag_cipher_context(const jamtis_address_tag_cipher_context&) = default;
+    jamtis_address_tag_cipher_context(jamtis_address_tag_cipher_context&&) = default;
+
 //destructor
     ~jamtis_address_tag_cipher_context();
 
 //overloaded operators
-    /// disable copy/move (this is a scoped manager)
-    jamtis_address_tag_cipher_context& operator=(jamtis_address_tag_cipher_context&&) = delete;
+    // copy/move assignment
+    jamtis_address_tag_cipher_context& operator=(const jamtis_address_tag_cipher_context&) = default;
+    jamtis_address_tag_cipher_context& operator=(jamtis_address_tag_cipher_context&&) = default;
 
 //member functions
     address_tag_t cipher(const address_index_t &j) const;
-    bool try_decipher(const address_tag_t &addr_tag, address_index_t &j_out) const;
+    void decipher(const address_tag_t &addr_tag, address_index_t &j_out) const;
+
+    static jamtis_address_tag_cipher_context from_generateaddress_secret(const crypto::secret_key &s_ga);
 
 //member variables
 private:
@@ -75,15 +82,15 @@ private:
     Twofish_key m_twofish_key;
 };
 
-/// addr_tag = cipher[k](j) || H_2(k, cipher[k](j))
+/// addr_tag = cipher[k](j)
 address_tag_t cipher_address_index(const jamtis_address_tag_cipher_context &cipher_context, const address_index_t &j);
 address_tag_t cipher_address_index(const crypto::secret_key &cipher_key, const address_index_t &j);
 
-/// try to get j from an address tag
-bool try_decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
+/// get j from an address tag
+void decipher_address_index(const jamtis_address_tag_cipher_context &cipher_context,
     const address_tag_t &addr_tag,
     address_index_t &j_out);
-bool try_decipher_address_index(const crypto::secret_key &cipher_key,
+void decipher_address_index(const crypto::secret_key &cipher_key,
     const address_tag_t &addr_tag,
     address_index_t &j_out);
 

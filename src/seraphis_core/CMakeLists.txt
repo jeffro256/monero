@@ -32,10 +32,10 @@ set(seraphis_core_sources
   discretized_fee.cpp
   jamtis_address_tag_utils.cpp
   jamtis_address_utils.cpp
-  jamtis_core_utils.cpp
   jamtis_destination.cpp
   jamtis_enote_utils.cpp
   jamtis_payment_proposal.cpp
+  jamtis_secret_utils.cpp
   jamtis_support_types.cpp
   legacy_core_utils.cpp
   legacy_decoy_selector_flat.cpp

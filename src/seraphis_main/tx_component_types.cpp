@@ -56,14 +56,16 @@ void append_to_transcript(const SpCoinbaseEnoteV1 &container, SpTranscriptBuilde
 {
     transcript_inout.append("core", container.core);
     transcript_inout.append("addr_tag_enc", container.addr_tag_enc.bytes);
-    transcript_inout.append("view_tag", container.view_tag);
+    transcript_inout.append("dense_view_tag", container.dense_view_tag);
+    transcript_inout.append("sparse_view_tag", container.sparse_view_tag);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_coinbase_enote_v1_size_bytes()
 {
     return sp_coinbase_enote_core_size_bytes() +
         sizeof(jamtis::encrypted_address_tag_t) +
-        sizeof(jamtis::view_tag_t);
+        sizeof(jamtis::dense_view_tag_t) +
+        sizeof(jamtis::sparse_view_tag_t);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const SpEnoteV1 &container, SpTranscriptBuilder &transcript_inout)
@@ -71,7 +73,8 @@ void append_to_transcript(const SpEnoteV1 &container, SpTranscriptBuilder &trans
     transcript_inout.append("core", container.core);
     transcript_inout.append("encoded_amount", container.encoded_amount.bytes);
     transcript_inout.append("addr_tag_enc", container.addr_tag_enc.bytes);
-    transcript_inout.append("view_tag", container.view_tag);
+    transcript_inout.append("dense_view_tag", container.dense_view_tag);
+    transcript_inout.append("sparse_view_tag", container.sparse_view_tag);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_enote_v1_size_bytes()
@@ -79,7 +82,8 @@ std::size_t sp_enote_v1_size_bytes()
     return sp_enote_core_size_bytes() +
         sizeof(jamtis::encoded_amount_t) +
         sizeof(jamtis::encrypted_address_tag_t) +
-        sizeof(jamtis::view_tag_t);
+        sizeof(jamtis::dense_view_tag_t) +
+        sizeof(jamtis::sparse_view_tag_t);
 }
 //-------------------------------------------------------------------------------------------------------------------
 SpEnoteCoreVariant core_ref(const SpEnoteVariant &variant)
@@ -132,13 +136,25 @@ const jamtis::encrypted_address_tag_t& addr_tag_enc_ref(const SpEnoteVariant &va
     return variant.visit(visitor{});
 }
 //-------------------------------------------------------------------------------------------------------------------
-jamtis::view_tag_t view_tag_ref(const SpEnoteVariant &variant)
+jamtis::dense_view_tag_t dense_view_tag(const SpEnoteVariant &variant)
 {
-    struct visitor final : public tools::variant_static_visitor<jamtis::view_tag_t>
+    struct visitor final : public tools::variant_static_visitor<jamtis::dense_view_tag_t>
     {
         using variant_static_visitor::operator();  //for blank overload
-        jamtis::view_tag_t operator()(const SpCoinbaseEnoteV1 &enote) const { return enote.view_tag; }
-        jamtis::view_tag_t operator()(const SpEnoteV1 &enote)         const { return enote.view_tag; }
+        jamtis::dense_view_tag_t operator()(const SpCoinbaseEnoteV1 &enote) const { return enote.dense_view_tag; }
+        jamtis::dense_view_tag_t operator()(const SpEnoteV1 &enote)         const { return enote.dense_view_tag; }
+    };
+
+    return variant.visit(visitor{});
+}
+//-------------------------------------------------------------------------------------------------------------------
+jamtis::sparse_view_tag_t sparse_view_tag(const SpEnoteVariant &variant)
+{
+    struct visitor final : public tools::variant_static_visitor<jamtis::sparse_view_tag_t>
+    {
+        using variant_static_visitor::operator();  //for blank overload
+        jamtis::sparse_view_tag_t operator()(const SpCoinbaseEnoteV1 &enote) const { return enote.sparse_view_tag; }
+        jamtis::sparse_view_tag_t operator()(const SpEnoteV1 &enote)         const { return enote.sparse_view_tag; }
     };
 
     return variant.visit(visitor{});
@@ -301,17 +317,19 @@ std::size_t sp_tx_supplement_v1_size_bytes(const SpTxSupplementV1 &tx_supplement
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const SpCoinbaseEnoteV1 &a, const SpCoinbaseEnoteV1 &b)
 {
-    return a.core      == b.core &&
-        a.addr_tag_enc == b.addr_tag_enc &&
-        a.view_tag     == b.view_tag;
+    return a.core         == b.core &&
+        a.addr_tag_enc    == b.addr_tag_enc &&
+        a.dense_view_tag  == b.dense_view_tag &&
+        a.sparse_view_tag == b.sparse_view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const SpEnoteV1 &a, const SpEnoteV1 &b)
 {
-    return a.core        == b.core &&
-        a.encoded_amount == b.encoded_amount &&
-        a.addr_tag_enc   == b.addr_tag_enc &&
-        a.view_tag       == b.view_tag;
+    return a.core         == b.core &&
+        a.encoded_amount  == b.encoded_amount &&
+        a.addr_tag_enc    == b.addr_tag_enc &&
+        a.dense_view_tag  == b.dense_view_tag &&
+        a.sparse_view_tag == b.sparse_view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const SpEnoteVariant &variant1, const SpEnoteVariant &variant2)
@@ -358,7 +376,8 @@ SpCoinbaseEnoteV1 gen_sp_coinbase_enote_v1()
 
     // extra pieces
     crypto::rand(sizeof(jamtis::encrypted_address_tag_t), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.dense_view_tag = crypto::rand_idx<jamtis::dense_view_tag_t>(0);
+    temp.sparse_view_tag = jamtis::gen_sparse_view_tag();
 
     return temp;
 }
@@ -373,7 +392,8 @@ SpEnoteV1 gen_sp_enote_v1()
     // extra pieces
     crypto::rand(sizeof(temp.encoded_amount), temp.encoded_amount.bytes);
     crypto::rand(sizeof(jamtis::encrypted_address_tag_t), temp.addr_tag_enc.bytes);
-    temp.view_tag = crypto::rand_idx<jamtis::view_tag_t>(0);
+    temp.dense_view_tag = crypto::rand_idx<jamtis::dense_view_tag_t>(0);
+    temp.sparse_view_tag = jamtis::gen_sparse_view_tag();
 
     return temp;
 }
