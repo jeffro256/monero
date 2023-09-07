@@ -379,8 +379,7 @@ public:
     {
         try
         {
-            const sp::mocks::TxValidationContextMock tx_validation_context{*m_ledger_contex};
-            return sp::validate_txs(m_tx_ptrs, tx_validation_context);
+            return sp::validate_txs(m_tx_ptrs, *m_ledger_contex);
         }
         catch (...)
         {

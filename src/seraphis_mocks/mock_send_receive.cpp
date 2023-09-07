@@ -59,7 +59,6 @@
 #include "seraphis_main/tx_component_types.h"
 #include "seraphis_main/txtype_coinbase_v1.h"
 #include "seraphis_main/txtype_squashed_v1.h"
-#include "tx_validation_context_mock.h"
 
 //third party headers
 
@@ -163,8 +162,7 @@ void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinba
         coinbase_tx);
 
     // 3. validate the coinbase tx
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, ledger_context_inout),
         "send sp coinbase amounts to user (mock): failed to validate coinbase tx.");
 
     // 4. commit coinbase tx as new block
@@ -208,8 +206,7 @@ void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_am
         coinbase_tx);
 
     // 3. validate the coinbase tx
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, ledger_context_inout),
         "send sp coinbase amounts to user (mock): failed to validate coinbase tx.");
 
     // 4. commit coinbase tx as new block
@@ -353,8 +350,7 @@ void transfer_funds_single_mock_v1_unconfirmed_sp_only(const jamtis::mocks::jamt
         single_tx);
 
     // 2. validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, ledger_context_inout),
         "transfer funds single mock unconfirmed: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(ledger_context_inout.try_add_unconfirmed_tx_v1(single_tx),
         "transfer funds single mock unconfirmed: adding unconfirmed tx to mock ledger failed.");
@@ -390,8 +386,7 @@ void transfer_funds_single_mock_v1_unconfirmed(const legacy_mock_keys &local_use
         single_tx);
 
     // 2. validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, ledger_context_inout),
         "transfer funds single mock unconfirmed sp only: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(ledger_context_inout.try_add_unconfirmed_tx_v1(single_tx),
         "transfer funds single mock unconfirmed sp only: validating tx failed.");
@@ -427,8 +422,7 @@ void transfer_funds_single_mock_v1(const legacy_mock_keys &local_user_legacy_key
         single_tx);
 
     // 2, validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, ledger_context_inout),
         "transfer funds single mock: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(try_add_tx_to_ledger(single_tx, ledger_context_inout),
         "transfer funds single mock: adding tx to mock ledger failed.");

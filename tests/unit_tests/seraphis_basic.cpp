@@ -1292,15 +1292,13 @@ TEST(seraphis_basic, txtype_squashed_v1)
         tx_ptrs.push_back(&(txs.back()));
     }
 
-    const TxValidationContextMock tx_validation_context{ledger_context};
-
-    EXPECT_TRUE(validate_txs(tx_ptrs, tx_validation_context));
+    EXPECT_TRUE(validate_txs(tx_ptrs, ledger_context));
 
     // insert key images to ledger
     for (const SpTxSquashedV1 &tx : txs)
         EXPECT_TRUE(try_add_tx_to_ledger(tx, ledger_context));
 
     // validation should fail due to double-spend
-    EXPECT_FALSE(validate_txs(tx_ptrs, tx_validation_context));
+    EXPECT_FALSE(validate_txs(tx_ptrs, ledger_context));
 }
 //-------------------------------------------------------------------------------------------------------------------

@@ -45,6 +45,7 @@
 #include "seraphis_crypto/sp_crypto_utils.h"
 #include "seraphis_main/scan_core_types.h"
 #include "seraphis_main/tx_component_types.h"
+#include "seraphis_main/tx_validation_context.h"
 
 //third party headers
 
@@ -70,7 +71,7 @@ namespace sp
 namespace mocks
 {
 
-class MockLedgerContext final
+class MockLedgerContext final: public TxValidationContext
 {
 public:
 //constructors
@@ -102,19 +103,31 @@ public:
     bool cryptonote_key_image_exists_onchain(const crypto::key_image &key_image) const;
     bool seraphis_key_image_exists_onchain(const crypto::key_image &key_image) const;
     /**
+    * brief: cryptonote_key_image_exists - checks if a cryptonote key image exists in the mock ledger "on-chain"
+    * param: key_image -
+    * return: true/false on check result
+    */
+    bool cryptonote_key_image_exists(const crypto::key_image &key_image) const override;
+    /**
+    * brief: seraphis_key_image_exists - checks if a seraphis key image exists in the mock ledger "on-chain"
+    * param: key_image -
+    * return: true/false on check result
+    */
+    bool seraphis_key_image_exists(const crypto::key_image &key_image) const override;
+    /**
     * brief: get_reference_set_proof_elements_v1 - get legacy enotes stored in the ledger (for a membership proof)
     * param: indices -
     * outparam: proof_elements_out - {KI, C}
     */
     void get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
-        rct::ctkeyV &proof_elements_out) const;
+        rct::ctkeyV &proof_elements_out) const override;
     /**
     * brief: get_reference_set_proof_elements_v2 - get seraphis squashed enotes stored in the ledger
     * param: indices -
     * outparam: proof_elements_out - {squashed enote}
     */
     void get_reference_set_proof_elements_v2(const std::vector<std::uint64_t> &indices,
-        rct::keyV &proof_elements_out) const;
+        rct::keyV &proof_elements_out) const override;
     /**
     * brief: max_legacy_enote_index - highest index of a legacy enote in the ledger
     * return: highest legacy enote index (defaults to std::uint64_t::max if no enotes)

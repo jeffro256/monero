@@ -1655,8 +1655,7 @@ public:
         if (m_num_calls == 1)
         {
             // validate and submit to the mock ledger
-            const TxValidationContextMock tx_validation_context{m_ledger_contex};
-            ASSERT_TRUE(validate_tx(m_tx_to_submit, tx_validation_context));
+            ASSERT_TRUE(validate_tx(m_tx_to_submit, m_ledger_contex));
             ASSERT_TRUE(m_ledger_contex.try_add_unconfirmed_tx_v1(m_tx_to_submit));
         }
     }

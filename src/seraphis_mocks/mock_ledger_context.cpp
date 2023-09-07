@@ -124,6 +124,16 @@ bool MockLedgerContext::seraphis_key_image_exists_onchain(const crypto::key_imag
     return m_sp_key_images.find(key_image) != m_sp_key_images.end();
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool MockLedgerContext::cryptonote_key_image_exists(const crypto::key_image &key_image) const
+{
+    return cryptonote_key_image_exists_onchain(key_image);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool MockLedgerContext::seraphis_key_image_exists(const crypto::key_image &key_image) const
+{
+    return seraphis_key_image_exists_onchain(key_image);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void MockLedgerContext::get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
     rct::ctkeyV &proof_elements_out) const
 {

@@ -81,8 +81,6 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
 {
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-
     try
     {
         // mock params
@@ -105,7 +103,7 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
             tx);
 
         // validate tx
-        EXPECT_TRUE(validate_tx(tx, tx_validation_context));
+        EXPECT_TRUE(validate_tx(tx, ledger_context_inout));
 
         if (test_double_spend)
         {
@@ -114,7 +112,7 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
 
             // re-validate tx
             // - should fail now that key images were added to the ledger
-            EXPECT_FALSE(validate_tx(tx, tx_validation_context));
+            EXPECT_FALSE(validate_tx(tx, ledger_context_inout));
         }
     }
     catch (...)
@@ -161,7 +159,6 @@ template <typename SpTxType>
 static void run_mock_tx_test_batch(const std::vector<SpTxGenData> &gen_data)
 {
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
     std::vector<SpTxType> txs_to_verify;
     std::vector<const SpTxType*> txs_to_verify_ptrs;
     txs_to_verify.reserve(gen_data.size() * 2);
@@ -215,7 +212,7 @@ static void run_mock_tx_test_batch(const std::vector<SpTxGenData> &gen_data)
     try
     {
         // validate tx
-        EXPECT_TRUE(validate_txs(txs_to_verify_ptrs, tx_validation_context));
+        EXPECT_TRUE(validate_txs(txs_to_verify_ptrs, ledger_context));
     }
     catch (...)
     {
@@ -226,7 +223,7 @@ static void run_mock_tx_test_batch(const std::vector<SpTxGenData> &gen_data)
 //-------------------------------------------------------------------------------------------------------------------
 template <typename SpTxType>
 static bool validate_tx_against_cache(const SpTxType &tx,
-    const TxValidationContextMock &validation_context,
+    const TxValidationContext &validation_context,
     const bool tx_should_be_in_cache_flag,
     std::unordered_set<rct::key> &valid_txs_cache_inout)
 {
@@ -269,8 +266,6 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
 {
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
-
     try
     {
         // mock params
@@ -292,12 +287,12 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
             tx);
 
         // validate tx
-        EXPECT_TRUE(validate_tx(tx, tx_validation_context));
+        EXPECT_TRUE(validate_tx(tx, ledger_context_inout));
 
         // validate tx against cache
         std::unordered_set<rct::key> valid_txs_cache;
-        EXPECT_TRUE(validate_tx_against_cache(tx, tx_validation_context, false, valid_txs_cache));  //result isn't cached
-        EXPECT_TRUE(validate_tx_against_cache(tx, tx_validation_context, true, valid_txs_cache));  //result is cached
+        EXPECT_TRUE(validate_tx_against_cache(tx, ledger_context_inout, false, valid_txs_cache));  //result isn't cached
+        EXPECT_TRUE(validate_tx_against_cache(tx, ledger_context_inout, true, valid_txs_cache));  //result is cached
 
         if (test_double_spend)
         {
@@ -306,12 +301,12 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
 
             // re-validate tx
             // - should fail now that key images were added to the ledger
-            EXPECT_FALSE(validate_tx(tx, tx_validation_context));
-            EXPECT_FALSE(validate_tx_against_cache(tx, tx_validation_context, true, valid_txs_cache));
+            EXPECT_FALSE(validate_tx(tx, ledger_context_inout));
+            EXPECT_FALSE(validate_tx_against_cache(tx, ledger_context_inout, true, valid_txs_cache));
 
             // re-validate tx with a fresh cache
             std::unordered_set<rct::key> valid_txs_cache_fresh;
-            EXPECT_FALSE(validate_tx_against_cache(tx, tx_validation_context, false, valid_txs_cache_fresh));
+            EXPECT_FALSE(validate_tx_against_cache(tx, ledger_context_inout, false, valid_txs_cache_fresh));
         }
     }
     catch (...)

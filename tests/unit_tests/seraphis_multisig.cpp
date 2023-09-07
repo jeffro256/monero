@@ -789,8 +789,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
     //ASSERT_TRUE(completed_tx.tx_fee == tx_fee_calculator.compute_fee(fee_per_tx_weight, completed_tx));
 
     // g) verify tx
-    const TxValidationContextMock tx_validation_context{ledger_context};
-    ASSERT_NO_THROW(ASSERT_TRUE(validate_tx(completed_tx, tx_validation_context)));
+    ASSERT_NO_THROW(ASSERT_TRUE(validate_tx(completed_tx, ledger_context)));
 
     // h) add tx to mock ledger
     ASSERT_NO_THROW(ASSERT_TRUE(try_add_tx_to_ledger(completed_tx, ledger_context)));

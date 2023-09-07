@@ -112,7 +112,6 @@ TEST(seraphis_serialization_demo, seraphis_coinbase_standard)
 {
     // ledger context
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
 
     // make a tx
     SpTxCoinbaseV1 tx;
@@ -144,8 +143,8 @@ TEST(seraphis_serialization_demo, seraphis_coinbase_standard)
 
     EXPECT_TRUE(original_tx_id == recovered_tx_id);
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_coinbase_v1_size_bytes(tx) == sp_tx_coinbase_v1_size_bytes(recovered_tx)));
-    EXPECT_TRUE(validate_tx(tx, tx_validation_context));
-    EXPECT_TRUE(validate_tx(recovered_tx, tx_validation_context));
+    EXPECT_TRUE(validate_tx(tx, ledger_context));
+    EXPECT_TRUE(validate_tx(recovered_tx, ledger_context));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization_demo, seraphis_squashed_standard)
@@ -164,7 +163,6 @@ TEST(seraphis_serialization_demo, seraphis_squashed_standard)
 
     // ledger context
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
 
     // make a tx
     SpTxSquashedV1 tx;
@@ -206,7 +204,7 @@ TEST(seraphis_serialization_demo, seraphis_squashed_standard)
 
     EXPECT_TRUE(original_tx_id == recovered_tx_id);
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx) == sp_tx_squashed_v1_size_bytes(recovered_tx)));
-    EXPECT_TRUE(validate_tx(tx, tx_validation_context));
-    EXPECT_TRUE(validate_tx(recovered_tx, tx_validation_context));
+    EXPECT_TRUE(validate_tx(tx, ledger_context));
+    EXPECT_TRUE(validate_tx(recovered_tx, ledger_context));
 }
 //-------------------------------------------------------------------------------------------------------------------

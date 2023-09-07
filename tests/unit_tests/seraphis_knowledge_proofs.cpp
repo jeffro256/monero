@@ -508,10 +508,8 @@ TEST(seraphis_knowledge_proofs, reserve_proof)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 9);
 
     // make and validate their reserve proofs
-    const TxValidationContextMock tx_validation_context{ledger_context};
-
-    reserve_proof_helper(tx_validation_context, user_keys_A, enote_store_A, 29);
-    reserve_proof_helper(tx_validation_context, user_keys_B, enote_store_B, 9);
+    reserve_proof_helper(ledger_context, user_keys_A, enote_store_A, 29);
+    reserve_proof_helper(ledger_context, user_keys_B, enote_store_B, 9);
 }
 //-------------------------------------------------------------------------------------------------------------------
 /*
@@ -641,9 +639,7 @@ TEST(seraphis_knowledge_proofs, sp_all_knowledge_proofs)
     make_standard_input_context_v1(tx1.legacy_input_images,tx1.sp_input_images,input_context_tx1);
 
     // validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context};
-
-    CHECK_AND_ASSERT_THROW_MES(validate_tx(tx1, tx_validation_context),
+    CHECK_AND_ASSERT_THROW_MES(validate_tx(tx1, ledger_context),
         "transfer funds single mock: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(try_add_tx_to_ledger(tx1, ledger_context),
         "transfer funds single mock: adding tx to mock ledger failed.");
