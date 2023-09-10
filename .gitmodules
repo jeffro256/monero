@@ -17,3 +17,6 @@
 [submodule "external/mx25519"]
 	path = external/mx25519
 	url = https://github.com/tevador/mx25519
+[submodule "external/cppcodec"]
+	path = external/cppcodec
+	url = https://github.com/tplgy/cppcodec.git
