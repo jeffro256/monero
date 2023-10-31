@@ -72,3 +72,15 @@ endif()
 
 install(FILES ${wallet2_basic_headers}
     DESTINATION include/wallet/wallet2_basic)
+
+monero_add_executable(wallet2_size_debug
+  wallet2_size_debug.cpp)
+
+target_link_libraries(wallet2_size_debug
+  PRIVATE
+    wallet2_basic)
+
+set_property(TARGET wallet2_size_debug
+	PROPERTY
+	OUTPUT_NAME "monero-wallet2-size-debug")
+install(TARGETS wallet2_size_debug DESTINATION bin)
