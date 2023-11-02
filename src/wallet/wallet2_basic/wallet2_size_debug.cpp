@@ -39,6 +39,7 @@
 #include "serialization/pair.h"
 #include "serialization/string.h"
 #include "serialization/variant.h"
+#include "stats.h"
 #include "version.h"
 #include "wallet2_storage.h"
 
@@ -52,12 +53,19 @@ namespace po = boost::program_options;
 
 #define DEBUG_CACHE_FIELD_SIZE(name) \
     { \
-        std::stringstream ss; \
-        binary_archive<true> ar(ss); \
-        CHECK_AND_ASSERT_THROW_MES(::serialization::serialize(ar, c.name), "Failed to serialize cache field " #name); \
-        const size_t sersize = ss.str().size(); \
+        const size_t sersize = get_serialized_size(c.name); \
         MINFO("Wallet field " #name " takes up " << sersize << " bytes."); \
     } \
+
+template <typename T>
+size_t get_serialized_size(T &x)
+{
+    std::stringstream ss;
+    binary_archive<true> ar(ss);
+    CHECK_AND_ASSERT_THROW_MES(::serialization::serialize(ar, x), "Failed to serialize object");
+    const size_t sersize = ss.str().size();
+    return sersize;
+}
 
 int main(int argc, char* argv[])
 {
@@ -152,6 +160,64 @@ int main(int argc, char* argv[])
         const size_t sersize = ss.str().size();
         MINFO("Grand Total: " << sersize);
     }
+
+    MINFO("------------------------------------------------------------------");
+    MINFO("------------------------------------------------------------------");
+    
+    std::vector<size_t> transfer_details_sizes;
+    transfer_details_sizes.reserve(c.m_transfers.size());
+    for (auto &t : c.m_transfers)
+        transfer_details_sizes.push_back(get_serialized_size(t));
+    
+    Stats<size_t> transfer_stats(transfer_details_sizes);
+
+    MINFO("Stats about m_transfers list:");
+    MINFO("min: " << transfer_stats.get_min());
+    MINFO("max: " << transfer_stats.get_max());
+    MINFO("mean: " << transfer_stats.get_mean());
+    MINFO("median: " << transfer_stats.get_median());
+    MINFO("stdev: " << transfer_stats.get_standard_deviation());
+    MINFO("variance: " << transfer_stats.get_variance());
+
+    MINFO("------------------------------------------------------------------");
+    MINFO("------------------------------------------------------------------");
+    
+    std::vector<size_t> m_multisig_k_sizes;
+    m_multisig_k_sizes.reserve(c.m_transfers.size());
+    for (auto &t : c.m_transfers)
+        m_multisig_k_sizes.push_back(get_serialized_size(t.m_multisig_k));
+    
+    Stats<size_t> m_multisig_k_stats(m_multisig_k_sizes);
+    const size_t m_multisig_k_stats_sum = std::accumulate(m_multisig_k_sizes.begin(), m_multisig_k_sizes.end(), 0);
+
+    MINFO("Stats about m_transfers subfield m_multisig_k:");
+    MINFO("min: " << m_multisig_k_stats.get_min());
+    MINFO("max: " << m_multisig_k_stats.get_max());
+    MINFO("mean: " << m_multisig_k_stats.get_mean());
+    MINFO("median: " << m_multisig_k_stats.get_median());
+    MINFO("stdev: " << m_multisig_k_stats.get_standard_deviation());
+    MINFO("variance: " << m_multisig_k_stats.get_variance());
+    MINFO("sum: " << m_multisig_k_stats_sum);
+
+    MINFO("------------------------------------------------------------------");
+    MINFO("------------------------------------------------------------------");
+    
+    std::vector<size_t> m_multisig_info_sizes;
+    m_multisig_info_sizes.reserve(c.m_transfers.size());
+    for (auto &t : c.m_transfers)
+        m_multisig_info_sizes.push_back(get_serialized_size(t.m_multisig_info));
+    
+    Stats<size_t> m_multisig_info_stats(m_multisig_info_sizes);
+    const size_t m_multisig_info_stats_sum = std::accumulate(m_multisig_info_sizes.begin(), m_multisig_info_sizes.end(), 0);
+
+    MINFO("Stats about m_transfers subfield m_multisig_info:");
+    MINFO("min: " << m_multisig_info_stats.get_min());
+    MINFO("max: " << m_multisig_info_stats.get_max());
+    MINFO("mean: " << m_multisig_info_stats.get_mean());
+    MINFO("median: " << m_multisig_info_stats.get_median());
+    MINFO("stdev: " << m_multisig_info_stats.get_standard_deviation());
+    MINFO("variance: " << m_multisig_info_stats.get_variance());
+    MINFO("sum: " << m_multisig_info_stats_sum);
 
     return 0;
 }
