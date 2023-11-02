@@ -190,6 +190,11 @@ int main(int argc, char* argv[])
     Stats<size_t> m_multisig_k_stats(m_multisig_k_sizes);
     const size_t m_multisig_k_stats_sum = std::accumulate(m_multisig_k_sizes.begin(), m_multisig_k_sizes.end(), 0);
 
+    int mk_num_empty = 0;
+    for (const auto &td : c.m_transfers)
+        for (const auto &mk : td.m_multisig_k)
+            mk_num_empty += mk == rct::zero();
+
     MINFO("Stats about m_transfers subfield m_multisig_k:");
     MINFO("min: " << m_multisig_k_stats.get_min());
     MINFO("max: " << m_multisig_k_stats.get_max());
@@ -198,6 +203,7 @@ int main(int argc, char* argv[])
     MINFO("stdev: " << m_multisig_k_stats.get_standard_deviation());
     MINFO("variance: " << m_multisig_k_stats.get_variance());
     MINFO("sum: " << m_multisig_k_stats_sum);
+    MINFO("number empty keys: " << mk_num_empty);
 
     MINFO("------------------------------------------------------------------");
     MINFO("------------------------------------------------------------------");
