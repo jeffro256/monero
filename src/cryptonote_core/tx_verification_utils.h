@@ -30,9 +30,18 @@
 
 #include "common/data_cache.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/verification_context.h"
 
 namespace cryptonote
 {
+
+/**
+ * @brief Get the maximum transaction weight for a given hardfork
+ *
+ * @param hf_version hard fork version
+ * @return the maximum unconditional transaction weight
+ */
+uint64_t get_transaction_weight_limit(uint8_t hf_version);
 
 // Modifying this value should not affect consensus. You can adjust it for performance needs
 static constexpr const size_t RCT_VER_CACHE_SIZE = 8192;
@@ -74,5 +83,45 @@ bool ver_rct_non_semantics_simple_cached
     rct_ver_cache_t& cache,
     std::uint8_t rct_type_to_cache
 );
+
+/**
+ * @brief Verify the semantics of a group of RingCT signatures as a batch (if applicable)
+ *
+ * Coinbase txs or other transaction with a RingCT type of RCTTypeNull will fail to verify.
+ *
+ * @param rvv list of signatures to verify
+ * @return true if all signatures verified semantics successfully, false otherwise
+ */
+bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv);
+
+/**
+ * @brief type that maps txids to cached information necessary to add that tx to a block
+ */
+using pool_supplement_t = std::unordered_map<crypto::hash, std::pair<transaction, blobdata>>;
+
+/**
+ * @brief Verify every non-input consensus rule for a group of non-coinbase transactions
+ *
+ * List of checks that we do for each transaction in the pool supplement:
+ *     1. Check tx blob size < get_max_tx_size()
+ *     2. Check tx version != 0
+ *     3. Check tx version is less than maximum for given hard fork version
+ *     4. Check tx weight < get_transaction_weight_limit()
+ *     5. Passes core::check_tx_semantic()
+ *     6. Passes Blockchain::check_tx_outputs()
+ *     7. Passes ver_mixed_rct_semantics()
+ *
+ * We assume the structure of the pool is already correct: for each value entry, the
+ * cryptonote::transaction matches its corresponding blobdata and the TXID map key is correctly
+ * calculated for that transaction.
+ *
+ * @param pool_supplement map of txids -> corresponding tx and blob
+ * @return true if all transactions in the pool supplement verify, false otherwise
+ */
+bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
+    std::uint8_t hf_version);
+
+bool ver_non_input_consensus(const pool_supplement_t& pool_supplement, tx_verification_context& tvc,
+    std::uint8_t hf_version);
 
 } // namespace cryptonote

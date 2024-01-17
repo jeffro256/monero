@@ -344,10 +344,12 @@ namespace cryptonote
      *
      * @param bl_ the block to be added
      * @param bvc metadata about the block addition's success/failure
+     * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true on successful addition to the blockchain, else false
      */
-    bool add_new_block(const block& bl_, block_verification_context& bvc);
+    bool add_new_block(const block& bl_, block_verification_context& bvc,
+      pool_supplement_t extra_block_txs = {});
 
     /**
      * @brief clears the blockchain and starts a new one
@@ -698,10 +700,13 @@ namespace cryptonote
      *
      * @param tx the transaction to check the outputs of
      * @param tvc returned info about tx verification
+     * @param hf_version hard fork version
      *
      * @return false if any outputs do not conform, otherwise true
      */
-    bool check_tx_outputs(const transaction& tx, tx_verification_context &tvc) const;
+    static bool check_tx_outputs(const transaction& tx,
+      tx_verification_context &tvc,
+      std::uint8_t hf_version);
 
     /**
      * @brief gets the block weight limit based on recent blocks
@@ -1070,13 +1075,6 @@ namespace cryptonote
     void cancel();
 
     /**
-     * @brief called when we see a tx originating from a block
-     *
-     * Used for handling txes from historical blocks in a fast way
-     */
-    void on_new_tx_from_block(const cryptonote::transaction &tx);
-
-    /**
      * @brief returns the timestamps of the last N blocks
      */
     std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
@@ -1152,7 +1150,6 @@ namespace cryptonote
     // Keccak hashes for each block and for fast pow checking
     std::vector<std::pair<crypto::hash, crypto::hash>> m_blocks_hash_of_hashes;
     std::vector<std::pair<crypto::hash, uint64_t>> m_blocks_hash_check;
-    std::vector<crypto::hash> m_blocks_txs_check;
 
     blockchain_db_sync_mode m_db_sync_mode;
     bool m_fast_sync;
@@ -1333,10 +1330,12 @@ namespace cryptonote
      * @param bl the block to be added
      * @param bvc metadata concerning the block's validity
      * @param notify if set to true, sends new block notification on success
+     * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true if the block was added successfully, otherwise false
      */
-    bool handle_block_to_main_chain(const block& bl, block_verification_context& bvc, bool notify = true);
+    bool handle_block_to_main_chain(const block& bl, block_verification_context& bvc,
+      bool notify = true, pool_supplement_t extra_block_txs = {});
 
     /**
      * @brief validate and add a new block to the end of the blockchain
@@ -1349,10 +1348,12 @@ namespace cryptonote
      * @param id the hash of the block
      * @param bvc metadata concerning the block's validity
      * @param notify if set to true, sends new block notification on success
+     * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true if the block was added successfully, otherwise false
      */
-    bool handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc, bool notify = true);
+    bool handle_block_to_main_chain(const block& bl, const crypto::hash& id,
+      block_verification_context& bvc, bool notify = true, pool_supplement_t extra_block_txs = {});
 
     /**
      * @brief validate and add a new block to an alternate blockchain
@@ -1364,10 +1365,12 @@ namespace cryptonote
      * @param b the block to be added
      * @param id the hash of the block
      * @param bvc metadata concerning the block's validity
+     * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true if the block was added successfully, otherwise false
      */
-    bool handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc);
+    bool handle_alternative_block(const block& b, const crypto::hash& id,
+      block_verification_context& bvc, pool_supplement_t extra_block_txs = {});
 
     /**
      * @brief builds a list of blocks connecting a block to the main chain
@@ -1552,7 +1555,6 @@ namespace cryptonote
      * @return true
      */
     bool update_next_cumulative_weight_limit(uint64_t *long_term_effective_median_block_weight = NULL);
-    void return_tx_to_pool(std::vector<std::pair<transaction, blobdata>> &txs);
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend

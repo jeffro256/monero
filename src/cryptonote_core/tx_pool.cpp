@@ -42,6 +42,7 @@
 #include "blockchain_db/blockchain_db.h"
 #include "int-util.h"
 #include "misc_language.h"
+#include "tx_verification_utils.h"
 #include "warnings.h"
 #include "common/perf_timer.h"
 #include "crypto/hash.h"
@@ -109,15 +110,6 @@ namespace cryptonote
       return amount * ACCEPT_THRESHOLD;
     }
 
-    uint64_t get_transaction_weight_limit(uint8_t version)
-    {
-      // from v8, limit a tx to 50% of the minimum block weight
-      if (version >= 8)
-        return get_min_block_weight(version) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
-      else
-        return get_min_block_weight(version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
-    }
-
     // external lock must be held for the comparison+set to work properly
     void set_if_less(std::atomic<time_t>& next_check, const time_t candidate) noexcept
     {
@@ -148,13 +140,6 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     PERF_TIMER(add_tx);
-    if (tx.version == 0)
-    {
-      // v0 never accepted
-      LOG_PRINT_L1("transaction version 0 is invalid");
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
 
     // we do not accept transactions that timed out before, unless they're
     // kept_by_block
@@ -166,62 +151,20 @@ namespace cryptonote
       return false;
     }
 
-    if(!check_inputs_types_supported(tx))
+    if (!cryptonote::ver_non_input_consensus(tx, tvc, version))
     {
-      tvc.m_verifivation_failed = true;
-      tvc.m_invalid_input = true;
+      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+      tvc.m_verifivation_failed = true; // should already be set, but just in case
       return false;
     }
 
     // fee per kilobyte, size rounded up.
-    uint64_t fee;
-
-    if (tx.version == 1)
-    {
-      uint64_t inputs_amount = 0;
-      if(!get_inputs_money_amount(tx, inputs_amount))
-      {
-        tvc.m_verifivation_failed = true;
-        return false;
-      }
-
-      uint64_t outputs_amount = get_outs_money_amount(tx);
-      if(outputs_amount > inputs_amount)
-      {
-        LOG_PRINT_L1("transaction use more money than it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
-        tvc.m_verifivation_failed = true;
-        tvc.m_overspend = true;
-        return false;
-      }
-      else if(outputs_amount == inputs_amount)
-      {
-        LOG_PRINT_L1("transaction fee is zero: outputs_amount == inputs_amount, rejecting.");
-        tvc.m_verifivation_failed = true;
-        tvc.m_fee_too_low = true;
-        return false;
-      }
-
-      fee = inputs_amount - outputs_amount;
-    }
-    else
-    {
-      fee = tx.rct_signatures.txnFee;
-    }
-
+    const uint64_t fee = get_tx_fee(tx);
     if (!kept_by_block && !m_blockchain.check_fee(tx_weight, fee))
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
       tvc.m_no_drop_offense = true;
-      return false;
-    }
-
-    size_t tx_weight_limit = get_transaction_weight_limit(version);
-    if ((!kept_by_block || version >= HF_VERSION_PER_BYTE_FEE) && tx_weight > tx_weight_limit)
-    {
-      LOG_PRINT_L1("transaction is too heavy: " << tx_weight << " bytes, maximum weight: " << tx_weight_limit);
-      tvc.m_verifivation_failed = true;
-      tvc.m_too_big = true;
       return false;
     }
 
@@ -248,14 +191,6 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-    }
-
-    if (!m_blockchain.check_tx_outputs(tx, tvc))
-    {
-      LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid output");
-      tvc.m_verifivation_failed = true;
-      tvc.m_invalid_output = true;
-      return false;
     }
 
     // assume failure during verification steps until success is certain
@@ -570,7 +505,6 @@ namespace cryptonote
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(id, meta))
       {
-        MERROR("Failed to find tx_meta in txpool");
         return false;
       }
       txblob = m_blockchain.get_txpool_tx_blob(id, relay_category::all);
