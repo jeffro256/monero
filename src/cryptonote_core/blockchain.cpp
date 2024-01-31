@@ -643,12 +643,14 @@ block Blockchain::pop_block_from_blockchain()
       // in hf_versions.
       uint8_t version = get_ideal_hard_fork_version(m_db->height());
 
-      // We assume that if they were in a block, the transactions are already
-      // known to the network as a whole. However, if we had mined that block,
-      // that might not be always true. Unlikely though, and always relaying
-      // these again might cause a spike of traffic as many nodes re-relay
-      // all the transactions in a popped block when a reorg happens.
-      bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version);
+      // We assume that if they were in a block, the transactions are already known to the network
+      // as a whole. However, if we had mined that block, that might not be always true. Unlikely
+      // though, and always relaying these again might cause a spike of traffic as many nodes
+      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
+      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // from the mempool earlier in this function call, when the mempool has the same current fork
+      // version, we can return it without re-verifying the consensus rules on it.
+      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -4328,16 +4330,16 @@ leave:
       const blobdata &tx_blob = txs[i].second;
       const size_t tx_weight = std::get<1>(txs_meta[i]);
 
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      // We assume that if they were in a block, the transactions are already
-      // known to the network as a whole. However, if we had mined that block,
-      // that might not be always true. Unlikely though, and always relaying
-      // these again might cause a spike of traffic as many nodes re-relay
-      // all the transactions in a popped block when a reorg happens.
-      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true, version))
-      {
+      // We assume that if they were in a block, the transactions are already known to the network
+      // as a whole. However, if we had mined that block, that might not be always true. Unlikely
+      // though, and always relaying these again might cause a spike of traffic as many nodes
+      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
+      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // from the mempool earlier in this function call, when the mempool has the same current fork
+      // version, we can return it without re-verifying the consensus rules on it.
+      cryptonote::tx_verification_context tvc{};
+      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true, version, version))
         MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
-      }
     }
   };
 

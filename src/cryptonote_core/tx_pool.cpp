@@ -133,7 +133,10 @@ namespace cryptonote
     // corresponding lists.
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/
+    const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight,
+    tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+    uint8_t version, uint8_t nic_verified_hf_version)
   {
     const bool kept_by_block = (tx_relay == relay_method::block);
 
@@ -152,7 +155,7 @@ namespace cryptonote
       return false;
     }
 
-    if (!cryptonote::ver_non_input_consensus(tx, tvc, version))
+    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
     {
       LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
       tvc.m_verifivation_failed = true; // should already be set, but just in case
@@ -339,14 +342,16 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay,
+    bool relayed, uint8_t version, uint8_t nic_verified_hf_version)
   {
     crypto::hash h = null_hash;
     cryptonote::blobdata bl;
     t_serializable_object_to_blob(tx, bl);
     if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
-    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version);
+    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version,
+      nic_verified_hf_version);
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_txpool_weight() const

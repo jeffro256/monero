@@ -104,7 +104,9 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
+      size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -119,10 +121,12 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param relayed was this transaction from the network or a local client?
      * @param version the version used to create the transaction
+     * @param nic_verified_hf_version if equal to "version" parameter, skips non-input consensus checks
      *
      * @return true if the transaction passes validations, otherwise false
      */
-    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief takes a transaction with the given hash from the pool
