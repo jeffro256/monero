@@ -1082,12 +1082,7 @@ namespace cryptonote
 
      bool m_offline;
 
-    /* `boost::function` is used because the implementation never allocates if
-       the callable object has a single `std::shared_ptr` or `std::weap_ptr`
-       internally. Whereas, the libstdc++ `std::function` will allocate. */
-
      std::shared_ptr<tools::Notify> m_block_rate_notify;
-     boost::function<void(std::vector<txpool_event>)> m_zmq_pub;
    };
 }
 
