@@ -91,6 +91,7 @@ namespace cryptonote
    */
   typedef std::function<const epee::span<const unsigned char>(cryptonote::network_type network)> GetCheckpointsCallback;
 
+  typedef boost::function<void(std::vector<txpool_event>)> TxpoolNotifyCallback;
   typedef boost::function<void(uint64_t /* height */, epee::span<const block> /* blocks */)> BlockNotifyCallback;
   typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
 
@@ -348,8 +349,10 @@ namespace cryptonote
      *
      * @return true on successful addition to the blockchain, else false
      */
+    bool add_new_block(const block& bl_, block_verification_context& bvc);
+
     bool add_new_block(const block& bl_, block_verification_context& bvc,
-      pool_supplement_t extra_block_txs = {});
+      pool_supplement& extra_block_txs);
 
     /**
      * @brief clears the blockchain and starts a new one
@@ -821,6 +824,13 @@ namespace cryptonote
         blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     /**
+     * @brief sets a txpool notify object to call for every new tx used to add a new block
+     *
+     * @param notify the notify object to call at every new tx used to add a new block
+     */
+    void set_txpool_notify(TxpoolNotifyCallback&& notify);
+
+    /**
      * @brief sets a block notify object to call for every new block
      *
      * @param notify the notify object to call at every new block
@@ -840,6 +850,11 @@ namespace cryptonote
      * @param notify the notify object to call at every reorg
      */
     void set_reorg_notify(const std::shared_ptr<tools::Notify> &notify) { m_reorg_notify = notify; }
+
+    /**
+     * @brief Notify this Blockchain's txpool notifier about a txpool event
+     */
+    void notify_txpool_event(std::vector<txpool_event>&& event);
 
     /**
      * @brief Put DB in safe sync mode
@@ -1213,6 +1228,7 @@ namespace cryptonote
        the callable object has a single `std::shared_ptr` or `std::weap_ptr`
        internally. Whereas, the libstdc++ `std::function` will allocate. */
 
+    TxpoolNotifyCallback m_txpool_notifier;
     std::vector<BlockNotifyCallback> m_block_notifiers;
     std::vector<MinerNotifyCallback> m_miner_notifiers;
     std::shared_ptr<tools::Notify> m_reorg_notify;
@@ -1329,13 +1345,10 @@ namespace cryptonote
      *
      * @param bl the block to be added
      * @param bvc metadata concerning the block's validity
-     * @param notify if set to true, sends new block notification on success
-     * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true if the block was added successfully, otherwise false
      */
-    bool handle_block_to_main_chain(const block& bl, block_verification_context& bvc,
-      bool notify = true, pool_supplement_t extra_block_txs = {});
+    bool handle_block_to_main_chain(const block& bl, block_verification_context& bvc);
 
     /**
      * @brief validate and add a new block to the end of the blockchain
@@ -1347,13 +1360,12 @@ namespace cryptonote
      * @param bl the block to be added
      * @param id the hash of the block
      * @param bvc metadata concerning the block's validity
-     * @param notify if set to true, sends new block notification on success
      * @param extra_block_txs txs belonging to this block that may not be in the mempool
      *
      * @return true if the block was added successfully, otherwise false
      */
     bool handle_block_to_main_chain(const block& bl, const crypto::hash& id,
-      block_verification_context& bvc, bool notify = true, pool_supplement_t extra_block_txs = {});
+      block_verification_context& bvc, pool_supplement& extra_block_txs);
 
     /**
      * @brief validate and add a new block to an alternate blockchain
@@ -1370,7 +1382,7 @@ namespace cryptonote
      * @return true if the block was added successfully, otherwise false
      */
     bool handle_alternative_block(const block& b, const crypto::hash& id,
-      block_verification_context& bvc, pool_supplement_t extra_block_txs = {});
+      block_verification_context& bvc, pool_supplement& extra_block_txs);
 
     /**
      * @brief builds a list of blocks connecting a block to the main chain

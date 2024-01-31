@@ -95,9 +95,15 @@ bool ver_rct_non_semantics_simple_cached
 bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv);
 
 /**
- * @brief type that maps txids to cached information necessary to add that tx to a block
+ * @brief Used to provide transaction info that skips the mempool to block handling code 
  */
-using pool_supplement_t = std::unordered_map<crypto::hash, std::pair<transaction, blobdata>>;
+struct pool_supplement
+{
+    // Map of supplemental tx info that we might need to validate a block
+    std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> txs_by_txid;
+    // If non-zero, then consider all the txs' non-input consensus rules verified for this hard fork
+    std::uint8_t nic_verified_hf_version = 0;
+};
 
 /**
  * @brief Verify every non-input consensus rule for a group of non-coinbase transactions
@@ -121,7 +127,7 @@ using pool_supplement_t = std::unordered_map<crypto::hash, std::pair<transaction
 bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
     std::uint8_t hf_version);
 
-bool ver_non_input_consensus(const pool_supplement_t& pool_supplement, tx_verification_context& tvc,
+bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
     std::uint8_t hf_version);
 
 } // namespace cryptonote

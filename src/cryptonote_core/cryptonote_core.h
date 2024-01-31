@@ -137,14 +137,19 @@ namespace cryptonote
       * @param block_blob the block to be added
       * @param block the block to be added, or NULL
       * @param bvc return-by-reference metadata context about the block's validity
-      * @param update_miner_blocktemplate whether or not to update the miner's block template
       * @param extra_block_txs txs belonging to this block that may not be in the mempool
+      * @param update_miner_blocktemplate whether or not to update the miner's block template
       *
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc,
-      bool update_miner_blocktemplate = true, pool_supplement_t extra_block_txs = {});
+     bool handle_incoming_block(const blobdata& block_blob, const block *b,
+       block_verification_context& bvc,
+       bool update_miner_blocktemplate = true);
+
+     bool handle_incoming_block(const blobdata& block_blob, const block *b,
+       block_verification_context& bvc, pool_supplement& extra_block_txs,
+       bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
@@ -428,13 +433,6 @@ namespace cryptonote
       * @param enforce_dns enforce DNS checkpoints or not
       */
      void set_enforce_dns_checkpoints(bool enforce_dns);
-
-     /**
-      * @brief set a listener for txes being added to the txpool
-      *
-      * @param callable to notify, or empty function to disable.
-      */
-     void set_txpool_listener(boost::function<void(std::vector<txpool_event>)> zmq_pub);
 
      /**
       * @brief set whether or not to enable or disable DNS checkpoints
@@ -953,7 +951,8 @@ namespace cryptonote
       *
       * @note see Blockchain::add_new_block
       */
-     bool add_new_block(const block& b, block_verification_context& bvc, pool_supplement_t extra_block_txs = {});
+     bool add_new_block(const block& b, block_verification_context& bvc,
+       pool_supplement& extra_block_txs);
 
      /**
       * @brief load any core state stored on disk

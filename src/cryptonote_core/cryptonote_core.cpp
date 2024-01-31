@@ -260,13 +260,6 @@ namespace cryptonote
   {
     m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
   }
-  //-----------------------------------------------------------------------------------
-  void core::set_txpool_listener(boost::function<void(std::vector<txpool_event>)> zmq_pub)
-  {
-    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
-    m_zmq_pub = std::move(zmq_pub);
-  }
-
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints(const bool skip_dns /* = false */)
   {
@@ -786,10 +779,8 @@ namespace cryptonote
       return false;
     }
 
-    std::vector<txpool_event> event(1); // a vector of one for move speed into m_zmq_pub
-    transaction& tx = event.front().tx;
-    crypto::hash& txid = event.front().hash;
-
+    transaction tx;
+    crypto::hash txid;
     if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
@@ -808,8 +799,7 @@ namespace cryptonote
       return true;
     }
 
-    const uint64_t tx_weight = tx.pruned ? get_pruned_transaction_weight(tx)
-      : get_transaction_weight(tx, tx_blob.size());
+    const uint64_t tx_weight = get_transaction_weight(tx, tx_blob.size());
     if (!add_new_tx(tx, txid, tx_blob, tx_weight, tvc, tx_relay, relayed))
       return false;
 
@@ -830,13 +820,6 @@ namespace cryptonote
     }
 
     MDEBUG("tx added to pool: " << txid);
-
-    if (m_zmq_pub && matches_category(tx_relay, relay_category::legacy))
-    {
-      event.front().weight = tx_weight;
-      event.front().blob_size = tx_blob.size();
-      m_zmq_pub(std::move(event));
-    }
 
     return true;
     CATCH_ENTRY_L0("core::handle_incoming_tx()", false);
@@ -1148,9 +1131,6 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::notify_txpool_event(const epee::span<const cryptonote::blobdata> tx_blobs, epee::span<const crypto::hash> tx_hashes, epee::span<const cryptonote::transaction> txs, const std::vector<bool> &just_broadcasted) const
   {
-    if (!m_zmq_pub)
-      return true;
-
     if (tx_blobs.size() != tx_hashes.size() || tx_blobs.size() != txs.size() || tx_blobs.size() != just_broadcasted.size())
       return false;
 
@@ -1174,7 +1154,7 @@ namespace cryptonote
       results[i].res = just_broadcasted[i];
     }
 
-    m_zmq_pub(std::move(results));
+    m_blockchain_storage.notify_txpool_event(std::move(results));
 
     return true;
   }
@@ -1204,7 +1184,7 @@ namespace cryptonote
 
     m_mempool.set_relayed(epee::to_span(tx_hashes), tx_relay, just_broadcasted);
 
-    if (m_zmq_pub && matches_category(tx_relay, relay_category::legacy))
+    if (matches_category(tx_relay, relay_category::legacy))
       notify_txpool_event(tx_blobs, epee::to_span(tx_hashes), epee::to_span(txs), just_broadcasted);
   }
   //-----------------------------------------------------------------------------------------------
@@ -1310,7 +1290,7 @@ namespace cryptonote
     if(bvc.m_added_to_main_chain)
     {
       cryptonote_connection_context exclude_context = {};
-      NOTIFY_NEW_FLUFFY_BLOCK::request arg = AUTO_VAL_INIT(arg);
+      NOTIFY_NEW_FLUFFY_BLOCK::request arg{};
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::vector<crypto::hash> missed_txs;
       std::vector<cryptonote::blobdata> txs;
@@ -1349,9 +1329,9 @@ namespace cryptonote
   }
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc,
-    pool_supplement_t extra_block_txs)
+    pool_supplement& extra_block_txs)
   {
-    return m_blockchain_storage.add_new_block(b, bvc, std::move(extra_block_txs));
+    return m_blockchain_storage.add_new_block(b, bvc, extra_block_txs);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
@@ -1378,8 +1358,16 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc,
-    bool update_miner_blocktemplate, pool_supplement_t extra_block_txs)
+  bool core::handle_incoming_block(const blobdata& block_blob, const block *b,
+    block_verification_context& bvc, bool update_miner_blocktemplate)
+  {
+    pool_supplement ps{};
+    return handle_incoming_block(block_blob, b, bvc, ps, update_miner_blocktemplate);
+  }
+
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_incoming_block(const blobdata& block_blob, const block *b,
+    block_verification_context& bvc, pool_supplement& extra_block_txs, bool update_miner_blocktemplate)
   {
     TRY_ENTRY();
 
@@ -1406,7 +1394,7 @@ namespace cryptonote
       }
       b = &lb;
     }
-    add_new_block(*b, bvc, std::move(extra_block_txs));
+    add_new_block(*b, bvc, extra_block_txs);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
        update_miner_block_template();
     return true;

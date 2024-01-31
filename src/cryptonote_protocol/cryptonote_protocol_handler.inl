@@ -80,8 +80,10 @@ namespace cryptonote
   inline bool make_pool_supplement_from_block_entry(
     const std::vector<cryptonote::tx_blob_entry>& tx_entries,
     const CryptoHashContainer& blk_tx_hashes,
-    cryptonote::pool_supplement_t& pool_supplement)
+    cryptonote::pool_supplement& pool_supplement)
   {
+    pool_supplement.nic_verified_hf_version = 0;
+
     for (const auto& tx_entry: tx_entries)
     {
       cryptonote::transaction tx;
@@ -97,7 +99,7 @@ namespace cryptonote
         return false;
       }
 
-      pool_supplement.emplace(tx_hash, std::make_pair(std::move(tx), tx_entry.blob));
+      pool_supplement.txs_by_txid.emplace(tx_hash, std::make_pair(std::move(tx), tx_entry.blob));
     }
 
     return true;
@@ -105,7 +107,7 @@ namespace cryptonote
 
   inline bool make_pool_supplement_from_block_entry(
     const cryptonote::block_complete_entry& blk_entry,
-    cryptonote::pool_supplement_t& pool_supplement)
+    cryptonote::pool_supplement& pool_supplement)
   {
     cryptonote::block blk;
     if (!cryptonote::parse_and_validate_block_from_blob(blk_entry.block, blk))
@@ -579,7 +581,7 @@ namespace cryptonote
       // directly to core::handle_incoming_block() -> Blockchain::add_block(), which means we can
       // skip the mempool for faster block propogation. Later in the function, we will erase the
       // transactions we already knew about so we can relay just those alongside this block.
-      pool_supplement_t extra_block_txs;
+      pool_supplement extra_block_txs;
       if (!make_pool_supplement_from_block_entry(arg.b.txs, blk_txids_set, extra_block_txs))
       {
         LOG_ERROR_CCONTEXT
@@ -617,13 +619,13 @@ namespace cryptonote
         blobdata tx_blob;
         std::vector<blobdata> tx_blobs;
         std::vector<crypto::hash> missed_txs;
-        const auto ebt_it = extra_block_txs.find(tx_hash);
-        const bool found_in_payload = ebt_it != extra_block_txs.cend();
+        const auto ebt_it = extra_block_txs.txs_by_txid.find(tx_hash);
+        const bool found_in_payload = ebt_it != extra_block_txs.txs_by_txid.cend();
         if (m_core.get_pool_transaction(tx_hash, tx_blob, relay_category::broadcasted)) // if in public pool
         {
           have_tx.emplace_back(std::move(tx_blob), crypto::null_hash);
           if (found_in_payload)
-            extra_block_txs.erase(ebt_it);
+            extra_block_txs.txs_by_txid.erase(ebt_it);
         }
         else if (m_core.get_transactions({tx_hash}, tx_blobs, missed_txs)
             && tx_blobs.size() == 1
@@ -631,7 +633,7 @@ namespace cryptonote
         {
           have_tx.emplace_back(std::move(tx_blobs.front()), crypto::null_hash);
           if (found_in_payload)
-            extra_block_txs.erase(ebt_it);
+            extra_block_txs.txs_by_txid.erase(ebt_it);
         }
         else if (found_in_payload) // or if only in fluffy payload
         {
@@ -647,7 +649,7 @@ namespace cryptonote
       {
         // Add all newly discovered txs in this fluffy payload to the list that we re-request from
         // the peer.
-        for (const auto &t : extra_block_txs)
+        for (const auto &t : extra_block_txs.txs_by_txid)
           need_tx_indices.push_back(blk_txids_set.at(t.first));
 
         // request non-mempool txs
@@ -682,7 +684,7 @@ namespace cryptonote
         }
 
         block_verification_context bvc = {};
-        m_core.handle_incoming_block(arg.b.block, &new_block, bvc, true, std::move(extra_block_txs));
+        m_core.handle_incoming_block(arg.b.block, &new_block, bvc, extra_block_txs);
 
         if (!m_core.cleanup_handle_incoming_blocks(true))
         {
@@ -711,11 +713,8 @@ namespace cryptonote
         }
         else if( bvc.m_added_to_main_chain )
         {
-          // Optimization: only relay full transaction blobs which were new to us in this notification
+          // Relay an empty block
           arg.b.txs.clear();
-          for (auto &extra_block_tx : extra_block_txs)
-            arg.b.txs.emplace_back(std::move(extra_block_tx.second.second), crypto::null_hash);
-
           relay_block(arg, context);
         }
         else if( bvc.m_marked_as_orphaned )
@@ -1435,7 +1434,7 @@ namespace cryptonote
             TIME_MEASURE_START(transactions_process_time);
             num_txs += block_entry.txs.size();
 
-            pool_supplement_t block_txs;
+            pool_supplement block_txs;
             if (!make_pool_supplement_from_block_entry(block_entry, block_txs))
             {
                 drop_connections(span_origin);
@@ -1467,8 +1466,7 @@ namespace cryptonote
             m_core.handle_incoming_block(block_entry.block,
               pblocks.empty() ? NULL : &pblocks[blockidx],
               bvc,
-              false, // no notify
-              std::move(block_txs)); // <--- process block
+              block_txs); // <--- process block
 
             if(bvc.m_verifivation_failed)
             {

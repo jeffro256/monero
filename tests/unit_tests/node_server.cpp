@@ -60,7 +60,8 @@ public:
   bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const {return false;}
   void get_blockchain_top(uint64_t& height, crypto::hash& top_id)const{height=0;top_id=crypto::null_hash;}
   bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
-  bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true, cryptonote::pool_supplement_t extra_block_txs = {}) { return true; }
+  bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true) { return true; }
+  bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, cryptonote::pool_supplement& extra_block_txs, bool update_miner_blocktemplate = true) { return true; }
   void pause_mine(){}
   void resume_mine(){}
   bool on_idle(){return true;}

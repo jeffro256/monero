@@ -36,6 +36,7 @@
 #include "tx_pool.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_basic/events.h"
 #include "cryptonote_config.h"
 #include "blockchain.h"
 #include "blockchain_db/locked_txn.h"
@@ -325,6 +326,13 @@ namespace cryptonote
     ++m_cookie;
 
     MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size());
+    if (tvc.m_added_to_pool && meta.matches(relay_category::legacy))
+      m_blockchain.notify_txpool_event({txpool_event{
+        .tx = tx,
+        .hash = id,
+        .blob_size = blob.size(),
+        .weight = tx_weight,
+        .res = !kept_by_block}});
 
     prune(m_txpool_max_weight);
 
