@@ -4410,6 +4410,7 @@ leave:
       else // did not find txid in mempool or provided extra block txs
       {
         MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
+        txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
         bvc.m_verifivation_failed = true;
         bvc.m_missing_txs = true;
         return_txs_to_pool();
