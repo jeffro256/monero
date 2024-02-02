@@ -205,8 +205,8 @@ namespace cryptonote
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
-    bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
-    if(!ch_inp_res)
+    bool ch_inp_res = kept_by_block || check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
+    if(!ch_inp_res || kept_by_block)
     {
       // if the transaction was valid before (kept_by_block), then it
       // may become valid again, so ignore the failed inputs check.
@@ -257,8 +257,6 @@ namespace cryptonote
     {
       try
       {
-        if (kept_by_block)
-          m_parsed_tx_cache.insert(std::make_pair(id, tx));
         CRITICAL_REGION_LOCAL1(m_blockchain);
         LockedTXN lock(m_blockchain.get_db());
 
