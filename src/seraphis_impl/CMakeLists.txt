@@ -32,6 +32,7 @@ set(seraphis_impl_sources
   enote_store_payment_validator.cpp
   enote_store_utils.cpp
   legacy_ki_import_tool.cpp
+  monero_tx_type.cpp
   scan_ledger_chunk_async.cpp
   scan_process_basic.cpp
   tx_builder_utils.cpp

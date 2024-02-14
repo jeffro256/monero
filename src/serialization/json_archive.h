@@ -130,6 +130,12 @@ struct json_archive<true> : public json_archive_base<std::ostream, true>
     return +v;
   }
 
+  template<typename T>
+  static std::enable_if_t<std::is_enum_v<T>, int> promote_to_printable_integer_type(T v)
+  {
+    return static_cast<int>(v);
+  }
+
   template <class T>
   void serialize_int(T v)
   {
