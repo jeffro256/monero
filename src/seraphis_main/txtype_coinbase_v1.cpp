@@ -215,6 +215,12 @@ bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx)
 }
 //-------------------------------------------------------------------------------------------------------------------
 template <>
+bool validate_tx_semantics_sp_ref_set<SpTxCoinbaseV1>(const SpTxCoinbaseV1&, const TxValidationContext&)
+{
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
 bool validate_tx_key_images<SpTxCoinbaseV1>(const SpTxCoinbaseV1&, const TxValidationContext&)
 {
     // coinbase txs have no key images

@@ -1272,14 +1272,21 @@ TEST(seraphis_basic, txtype_squashed_v1)
     txs.reserve(num_txs);
     tx_ptrs.reserve(num_txs);
 
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+        .decomp_n = 2,
+        .decomp_m = 2,
+        .bin_radius = 1,
+        .num_bin_members = 2
+    };
+
     for (std::size_t tx_index{0}; tx_index < num_txs; ++tx_index)
     {
         make_sp_txtype_squashed_v1(2,
-            2,
-            2,
+            sp_ref_set_config.decomp_n,
+            sp_ref_set_config.decomp_m,
             SpBinnedReferenceSetConfigV1{
-                .bin_radius = 1,
-                .num_bin_members = 2
+                .bin_radius = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.bin_radius),
+                .num_bin_members = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.num_bin_members)
             },
             3,
             in_legacy_amounts,
@@ -1292,7 +1299,7 @@ TEST(seraphis_basic, txtype_squashed_v1)
         tx_ptrs.push_back(&(txs.back()));
     }
 
-    const TxValidationContextMock tx_validation_context{ledger_context};
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
 
     EXPECT_TRUE(validate_txs(tx_ptrs, tx_validation_context));
 

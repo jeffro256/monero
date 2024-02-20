@@ -45,6 +45,25 @@ namespace sp { class SpTranscriptBuilder; }
 
 namespace sp
 {
+////
+// LegacyClsagProof
+// - NO key image here, just proof elements
+///
+struct LegacyClsagProof
+{
+    /// scalars
+    rct::keyV s;
+    rct::key c1;
+    /// commitment key image
+    rct::key D;
+};
+inline const boost::string_ref container_name(const LegacyClsagProof&) { return "LegacyClsagProof"; }
+void append_to_transcript(const LegacyClsagProof &container, SpTranscriptBuilder &transcript_inout);
+
+/// convert back and forth between LegacyClsagProof and rct::clsag
+LegacyClsagProof make_legacy_clsag_proof(const rct::clsag &rctlib_clsag);
+rct::clsag convert_legacy_clsag_proof_to_rctlib(const LegacyClsagProof &clsag,
+    const crypto::key_image &key_image);
 
 ////
 // LegacyEnoteImageV1: not used in seraphis
@@ -91,7 +110,7 @@ inline std::size_t legacy_enote_image_v2_size_bytes() { return 32 + 32; }
 struct LegacyRingSignatureV4 final
 {
     /// a clsag proof
-    rct::clsag clsag_proof;
+    LegacyClsagProof clsag_proof;
     /// on-chain indices of the proof's ring members
     std::vector<std::uint64_t> reference_set;
 };

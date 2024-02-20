@@ -72,6 +72,7 @@ namespace sp
 {
 ////
 // TxValidationContextSimple
+// - stores given seraphis reference set config
 // - assumes key images are not double-spent
 // - stores manually-specified reference set elements (useful for validating partial txs)
 ///
@@ -79,8 +80,10 @@ class TxValidationContextSimple final : public TxValidationContext
 {
 public:
 //constructors
-    TxValidationContextSimple(const std::unordered_map<std::uint64_t, rct::ctkey> &legacy_reference_set_proof_elements,
+    TxValidationContextSimple(const SemanticConfigSpRefSetV1 &sp_ref_set_config,
+        const std::unordered_map<std::uint64_t, rct::ctkey> &legacy_reference_set_proof_elements,
         const std::unordered_map<std::uint64_t, rct::key> &sp_reference_set_proof_elements) :
+        m_sp_ref_set_config{sp_ref_set_config},
         m_legacy_reference_set_proof_elements{legacy_reference_set_proof_elements},
         m_sp_reference_set_proof_elements{sp_reference_set_proof_elements}
     {}
@@ -90,6 +93,14 @@ public:
     TxValidationContextSimple& operator=(TxValidationContextSimple&&) = delete;
 
 //member functions
+    /**
+     * brief: get_sp_ref_set_config - given tx version, return refset config to validate tx against (m_sp_ref_set_config)
+     * ...
+    */
+    virtual const SemanticConfigSpRefSetV1& get_sp_ref_set_config(const tx_version_t) const override
+    {
+        return m_sp_ref_set_config;
+    }
     /**
     * brief: *_key_image_exists - check if a key image exists (always false here)
     * ...
@@ -143,6 +154,7 @@ public:
 
 //member variables
 private:
+    const SemanticConfigSpRefSetV1 m_sp_ref_set_config;
     const std::unordered_map<std::uint64_t, rct::ctkey> &m_legacy_reference_set_proof_elements;
     const std::unordered_map<std::uint64_t, rct::key> &m_sp_reference_set_proof_elements;
 };
@@ -285,6 +297,12 @@ static void prepare_sp_membership_proof_prep_for_tx_simulation_v1(const rct::key
     prep_out.real_reference_enote = real_reference_enote;
     prep_out.address_mask = address_mask;
     prep_out.commitment_mask = commitment_mask;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static SemanticConfigSpRefSetV1 get_minimum_possible_mock_sp_ref_set_config()
+{
+    return SemanticConfigSpRefSetV1{.decomp_n = 2, .decomp_m = 2, .bin_radius = 0, .num_bin_members = 1};
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -985,10 +1003,13 @@ void check_v1_partial_tx_semantics_v1(const SpPartialTxV1 &partial_tx,
     const SpTxSquashedV1::SemanticRulesVersion semantic_rules_version)
 {
     // 1. get parameters for making mock seraphis ref sets (use minimum parameters for efficiency when possible)
-    const SemanticConfigSpRefSetV1 ref_set_config{semantic_config_sp_ref_sets_v1(semantic_rules_version)};
-    const SpBinnedReferenceSetConfigV1 bin_config{
-            .bin_radius = static_cast<ref_set_bin_dimension_v1_t>(ref_set_config.bin_radius_min),
-            .num_bin_members = static_cast<ref_set_bin_dimension_v1_t>(ref_set_config.num_bin_members_min),
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+        semantic_rules_version == SpTxSquashedV1::SemanticRulesVersion::MOCK
+        ? get_minimum_possible_mock_sp_ref_set_config()
+        : static_semantic_config_sp_ref_sets_v1(semantic_rules_version)};
+    const SpBinnedReferenceSetConfigV1 sp_bin_config{
+            .bin_radius = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.bin_radius),
+            .num_bin_members = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.num_bin_members),
         };
 
     // 2. make mock membership proof ref sets
@@ -998,9 +1019,9 @@ void check_v1_partial_tx_semantics_v1(const SpPartialTxV1 &partial_tx,
     prepare_sp_membership_proof_preps_for_tx_simulation_v1(partial_tx.sp_input_enotes,
         partial_tx.sp_address_masks,
         partial_tx.sp_commitment_masks,
-        ref_set_config.decomp_n_min,
-        ref_set_config.decomp_m_min,
-        bin_config,
+        sp_ref_set_config.decomp_n,
+        sp_ref_set_config.decomp_m,
+        sp_bin_config,
         sp_membership_proof_preps,
         sp_reference_set_proof_elements);
 
@@ -1032,6 +1053,7 @@ void check_v1_partial_tx_semantics_v1(const SpPartialTxV1 &partial_tx,
 
     // 6. validate tx
     const TxValidationContextSimple tx_validation_context{
+            sp_ref_set_config,
             legacy_reference_set_proof_elements,
             sp_reference_set_proof_elements
         };

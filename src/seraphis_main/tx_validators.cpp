@@ -190,46 +190,28 @@ bool validate_sp_semantics_sp_reference_sets_v1(const SemanticConfigSpRefSetV1 &
     if (sp_membership_proofs.size() == 0)
         return true;
 
-    // check ref set decomp
-    const std::size_t ref_set_decomp_n{sp_membership_proofs[0].ref_set_decomp_n};
-    const std::size_t ref_set_decomp_m{sp_membership_proofs[0].ref_set_decomp_m};
+    // proof ref set decomposition (n^m) should match number of referenced enotes
+    const std::size_t ref_set_size{math::uint_pow(config.decomp_n, config.decomp_m)};
 
-    if (ref_set_decomp_n < config.decomp_n_min ||
-        ref_set_decomp_n > config.decomp_n_max)
-        return false;
+    // bin width (2*radius+1)
+    const std::size_t bin_width{compute_bin_width(config.bin_radius)};
 
-    if (ref_set_decomp_m < config.decomp_m_min ||
-        ref_set_decomp_m > config.decomp_m_max)
-        return false;
+    // num bin loci
+    const std::size_t num_bin_loci = sp_membership_proofs[0].bin_loci.size();
 
-    // check binned reference set configuration
-    const SpBinnedReferenceSetConfigV1 bin_config{sp_membership_proofs[0].binned_reference_set.bin_config};
-
-    if (bin_config.bin_radius < config.bin_radius_min ||
-        bin_config.bin_radius > config.bin_radius_max)
-        return false;
-
-    if (bin_config.num_bin_members < config.num_bin_members_min ||
-        bin_config.num_bin_members > config.num_bin_members_max)
+    // Check that the number of bin loci evenly divides the total reference set size
+    if (ref_set_size % num_bin_loci != 0)
         return false;
 
     // check seraphis membership proofs
     for (const SpMembershipProofV1 &sp_proof : sp_membership_proofs)
     {
-        // proof ref set decomposition (n^m) should match number of referenced enotes
-        const std::size_t ref_set_size{math::uint_pow(sp_proof.ref_set_decomp_n, sp_proof.ref_set_decomp_m)};
-
-        if (ref_set_size != reference_set_size(sp_proof.binned_reference_set))
+        // check that all membership proofs have the same number of bin loci
+        if (sp_proof.bin_loci.size() != num_bin_loci)
             return false;
 
-        // all proofs should have same ref set decomp (and implicitly: same ref set size)
-        if (sp_proof.ref_set_decomp_n != ref_set_decomp_n)
-            return false;
-        if (sp_proof.ref_set_decomp_m != ref_set_decomp_m)
-            return false;
-
-        // all proofs should have the same bin config
-        if (sp_proof.binned_reference_set.bin_config != bin_config)
+        // check that the bin rotation factor is less than the bin width
+        if (sp_proof.bin_rotation_factor >= bin_width)
             return false;
     }
 
@@ -341,8 +323,7 @@ bool validate_sp_semantics_layout_v1(const std::vector<LegacyRingSignatureV4> &l
     // note: duplicate bin locations are allowed
     for (const SpMembershipProofV1 &sp_proof : sp_membership_proofs)
     {
-        if (!std::is_sorted(sp_proof.binned_reference_set.bin_loci.begin(),
-                sp_proof.binned_reference_set.bin_loci.end()))
+        if (!std::is_sorted(sp_proof.bin_loci.begin(), sp_proof.bin_loci.end()))
             return false;
     }
 
@@ -454,14 +435,6 @@ bool validate_sp_legacy_input_proofs_v1(const std::vector<LegacyRingSignatureV4>
     if (legacy_ring_signatures.size() != legacy_input_images.size())
         return false;
 
-    // legacy ring signatures and input images should have the same main key images stored
-    for (std::size_t legacy_input_index{0}; legacy_input_index < legacy_ring_signatures.size(); ++legacy_input_index)
-    {
-        if (rct::rct2ki(legacy_ring_signatures[legacy_input_index].clsag_proof.I) !=
-                legacy_input_images[legacy_input_index].key_image)
-            return false;
-    }
-
     // validate each legacy ring signature
     rct::ctkeyV ring_members_temp;
     rct::key ring_signature_message_temp;
@@ -480,8 +453,12 @@ bool validate_sp_legacy_input_proofs_v1(const std::vector<LegacyRingSignatureV4>
             ring_signature_message_temp);
 
         // verify CLSAG proof
+        const rct::clsag clsag_rctlib{
+            convert_legacy_clsag_proof_to_rctlib(legacy_ring_signatures[legacy_input_index].clsag_proof,
+                legacy_input_images[legacy_input_index].key_image)
+            };
         if (!rct::verRctCLSAGSimple(ring_signature_message_temp,
-                legacy_ring_signatures[legacy_input_index].clsag_proof,
+                clsag_rctlib,
                 ring_members_temp,
                 legacy_input_images[legacy_input_index].masked_commitment))
             return false;
@@ -513,11 +490,18 @@ bool validate_sp_composition_proofs_v1(const std::vector<SpImageProofV1> &sp_ima
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpMembershipProofV1*> &sp_membership_proofs,
     const std::vector<const SpEnoteImageCore*> &sp_input_images,
+    const SemanticConfigSpRefSetV1 &sp_ref_set_config,
     const TxValidationContext &tx_validation_context,
     std::list<SpMultiexpBuilder> &validation_data_out)
 {
     const std::size_t num_proofs{sp_membership_proofs.size()};
     validation_data_out.clear();
+
+    // bin config
+    const SpBinnedReferenceSetConfigV1 bin_config{
+        .bin_radius = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.bin_radius),
+        .num_bin_members = static_cast<ref_set_bin_dimension_v1_t>(sp_ref_set_config.num_bin_members)
+    };
 
     // sanity check
     if (num_proofs != sp_input_images.size())
@@ -537,7 +521,6 @@ bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpM
     offsets.reserve(num_proofs);
     messages.reserve(num_proofs);
 
-    rct::key generator_seed_reproduced;
     std::vector<std::uint64_t> reference_indices;
 
     for (std::size_t proof_index{0}; proof_index < num_proofs; ++proof_index)
@@ -547,17 +530,15 @@ bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpM
             !sp_input_images[proof_index])
             return false;
 
-        // the binned reference set's generator seed should be reproducible
-        make_binned_ref_set_generator_seed_v1(sp_input_images[proof_index]->masked_address,
-            sp_input_images[proof_index]->masked_commitment,
-            generator_seed_reproduced);
-
-        if (!(generator_seed_reproduced == sp_membership_proofs[proof_index]->binned_reference_set.bin_generator_seed))
-            return false;
+        // extract binned reference set from membership proof + enote image info
+        SpBinnedReferenceSetV1 binned_reference_set;
+        make_binned_ref_set_v1(*sp_membership_proofs[proof_index],
+            bin_config,
+            *sp_input_images[proof_index],
+            binned_reference_set);
 
         // extract the references
-        if(!try_get_reference_indices_from_binned_reference_set_v1(sp_membership_proofs[proof_index]->binned_reference_set,
-                reference_indices))
+        if(!try_get_reference_indices_from_binned_reference_set_v1(binned_reference_set, reference_indices))
             return false;
 
         // get proof keys from enotes stored in the ledger
@@ -570,7 +551,7 @@ bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpM
             sp_input_images[proof_index]->masked_commitment);
 
         // proof message
-        make_tx_membership_proof_message_v1(sp_membership_proofs[proof_index]->binned_reference_set,
+        make_tx_membership_proof_message_v1(binned_reference_set,
             tools::add_element(messages));
 
         // save the proof
@@ -582,8 +563,8 @@ bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpM
         messages,
         membership_proof_keys,
         offsets,
-        sp_membership_proofs[0]->ref_set_decomp_n,
-        sp_membership_proofs[0]->ref_set_decomp_m,
+        sp_ref_set_config.decomp_n,
+        sp_ref_set_config.decomp_m,
         validation_data_out);
 
     return true;

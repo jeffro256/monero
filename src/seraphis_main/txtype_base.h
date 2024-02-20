@@ -66,6 +66,8 @@ unsigned char tx_structure_version();
 template <typename SpTxType>
 bool validate_tx_semantics(const SpTxType &tx);
 template <typename SpTxType>
+bool validate_tx_semantics_sp_ref_set(const SpTxType &tx, const TxValidationContext &tx_validation_context);
+template <typename SpTxType>
 bool validate_tx_key_images(const SpTxType &tx, const TxValidationContext &tx_validation_context);
 template <typename SpTxType>
 bool validate_tx_amount_balance(const SpTxType &tx);

@@ -167,9 +167,8 @@ void append_to_transcript(const SpEnoteImageV1 &container, SpTranscriptBuilder &
 void append_to_transcript(const SpMembershipProofV1 &container, SpTranscriptBuilder &transcript_inout)
 {
     transcript_inout.append("grootle_proof", container.grootle_proof);
-    transcript_inout.append("binned_reference_set", container.binned_reference_set);
-    transcript_inout.append("n", container.ref_set_decomp_n);
-    transcript_inout.append("m", container.ref_set_decomp_m);
+    transcript_inout.append("bin_loci", container.bin_loci);
+    transcript_inout.append("bin_rotation_factor", container.bin_rotation_factor);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_membership_proof_v1_size_bytes(const std::size_t n,
@@ -180,36 +179,16 @@ std::size_t sp_membership_proof_v1_size_bytes(const std::size_t n,
 
     return grootle_size_bytes(n, m) +
         (num_bin_members > 0
-            ? sp_binned_ref_set_v1_size_bytes(ref_set_size / num_bin_members)
-            : 0) +
-        4 * 2;  //decomposition parameters (assume these fit in 4 bytes each)
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::size_t sp_membership_proof_v1_size_bytes_compact(const std::size_t n,
-    const std::size_t m,
-    const std::size_t num_bin_members)
-{
-    const std::size_t ref_set_size{math::uint_pow(n, m)};
-
-    return grootle_size_bytes(n, m) +
-        (num_bin_members > 0
-            ? sp_binned_ref_set_v1_size_bytes_compact(ref_set_size / num_bin_members)  //compact binned ref set
-            : 0);  //no decomposition parameters
+            ? sp_binned_ref_set_v1_size_bytes_compact(ref_set_size / num_bin_members)
+            : 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_membership_proof_v1_size_bytes(const SpMembershipProofV1 &proof)
 {
-    return sp_membership_proof_v1_size_bytes(proof.ref_set_decomp_n,
-        proof.ref_set_decomp_m,
-        proof.binned_reference_set.bin_config.num_bin_members);
+    return grootle_size_bytes(proof.grootle_proof) +
+        sp_binned_ref_set_v1_size_bytes_compact(proof.bin_loci.size());
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::size_t sp_membership_proof_v1_size_bytes_compact(const SpMembershipProofV1 &proof)
-{
-    return sp_membership_proof_v1_size_bytes_compact(proof.ref_set_decomp_n,
-        proof.ref_set_decomp_m,
-        proof.binned_reference_set.bin_config.num_bin_members);
-}
 //-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const SpImageProofV1 &container, SpTranscriptBuilder &transcript_inout)
 {

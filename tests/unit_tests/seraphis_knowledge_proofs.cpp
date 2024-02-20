@@ -419,6 +419,13 @@ TEST(seraphis_knowledge_proofs, reserve_proof)
             .bin_radius = 1,
             .num_bin_members = 2
         };
+    
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        };
 
     /// mock ledger context for this test
     MockLedgerContext ledger_context{0, 10000};
@@ -508,7 +515,7 @@ TEST(seraphis_knowledge_proofs, reserve_proof)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 9);
 
     // make and validate their reserve proofs
-    const TxValidationContextMock tx_validation_context{ledger_context};
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
 
     reserve_proof_helper(tx_validation_context, user_keys_A, enote_store_A, 29);
     reserve_proof_helper(tx_validation_context, user_keys_B, enote_store_B, 9);

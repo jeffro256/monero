@@ -34,7 +34,6 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "ringct/rctTypes.h"
-#include "seraphis_core/binned_reference_set.h"
 #include "seraphis_core/discretized_fee.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_support_types.h"
@@ -145,13 +144,11 @@ struct ser_BulletproofPlus2_PARTIAL final
     END_SERIALIZE()
 };
 
-/// partially serializable rct::clsag
-struct ser_clsag_PARTIAL final
+/// serializable sp::LegacyClsagProof
+struct ser_LegacyClsagProof final
 {
     rct::keyV s; // scalars
     rct::key c1;
-
-    //rct::key I; // signing key image   (not serializable here)
     rct::key D; // commitment key image
 
     BEGIN_SERIALIZE()
@@ -199,25 +196,6 @@ struct ser_GrootleProof final
         FIELD(X)
         FIELD(zA)
         FIELD(z)
-    END_SERIALIZE()
-};
-
-/// partially serializable SpBinnedReferenceSetV1
-struct ser_SpBinnedReferenceSetV1_PARTIAL final
-{
-    /// bin configuration details (shared by all bins)
-    //SpBinnedReferenceSetConfigV1 bin_config;  (not serializable here)
-    /// bin generator seed (shared by all bins)
-    //rct::key bin_generator_seed;              (not serializable here)
-    /// rotation factor (shared by all bins)
-    std::uint16_t bin_rotation_factor;
-    /// bin loci (serializable as index offsets)
-    std::vector<std::uint64_t> bin_loci_COMPACT;
-
-    BEGIN_SERIALIZE()
-        VARINT_FIELD(bin_rotation_factor)
-            static_assert(sizeof(bin_rotation_factor) == sizeof(ref_set_bin_dimension_v1_t), "");
-        FIELD(bin_loci_COMPACT)
     END_SERIALIZE()
 };
 
@@ -299,16 +277,16 @@ struct ser_SpBalanceProofV1_PARTIAL final
     END_SERIALIZE()
 };
 
-/// partially serializable LegacyRingSignatureV4
-struct ser_LegacyRingSignatureV4_PARTIAL final
+/// serializable LegacyRingSignatureV4
+struct ser_LegacyRingSignatureV4 final
 {
     /// a clsag proof
-    ser_clsag_PARTIAL clsag_proof_PARTIAL;
+    ser_LegacyClsagProof clsag_proof;
     /// on-chain indices of the proof's ring members (serializable as index offsets)
     std::vector<std::uint64_t> reference_set_COMPACT;
 
     BEGIN_SERIALIZE()
-        FIELD(clsag_proof_PARTIAL)
+        FIELD(clsag_proof)
         FIELD(reference_set_COMPACT)
     END_SERIALIZE()
 };
@@ -324,20 +302,20 @@ struct ser_SpImageProofV1 final
     END_SERIALIZE()
 };
 
-/// partially serializable SpMembershipProofV1 (does not include config info)
-struct ser_SpMembershipProofV1_PARTIAL final
+/// serializable SpMembershipProofV1 (does not include config info)
+struct ser_SpMembershipProofV1 final
 {
     /// a grootle proof
     ser_GrootleProof grootle_proof;
     /// binned representation of ledger indices of enotes referenced by the proof
-    ser_SpBinnedReferenceSetV1_PARTIAL binned_reference_set_PARTIAL;
-    /// ref set size = n^m
-    //std::size_t ref_set_decomp_n;  (not serializable here)
-    //std::size_t ref_set_decomp_m;  (not serializable here)
+    std::vector<std::uint64_t> bin_loci;
+    /// bin rotation factor (shared by all bins)
+    ref_set_bin_dimension_v1_t bin_rotation_factor;
 
     BEGIN_SERIALIZE()
         FIELD(grootle_proof)
-        FIELD(binned_reference_set_PARTIAL)
+        FIELD(bin_loci)
+        VARINT_FIELD(bin_rotation_factor)
     END_SERIALIZE()
 };
 
@@ -391,11 +369,11 @@ struct ser_SpTxSquashedV1 final
     /// balance proof (balance proof and range proofs)
     ser_SpBalanceProofV1_PARTIAL balance_proof;
     /// ring signature proofs: membership and ownership/key-image-legitimacy for each legacy input
-    std::vector<ser_LegacyRingSignatureV4_PARTIAL> legacy_ring_signatures;
+    std::vector<ser_LegacyRingSignatureV4> legacy_ring_signatures;
     /// composition proofs: ownership/key-image-legitimacy for each seraphis input
     std::vector<ser_SpImageProofV1> sp_image_proofs;
     /// Grootle proofs on squashed enotes: membership for each seraphis input
-    std::vector<ser_SpMembershipProofV1_PARTIAL> sp_membership_proofs;
+    std::vector<ser_SpMembershipProofV1> sp_membership_proofs;
     /// supplemental data for tx
     ser_SpTxSupplementV1 tx_supplement;
     /// the transaction fee (discretized representation)

@@ -202,11 +202,11 @@ SemanticConfigComponentCountsV1 semantic_config_component_counts_v1(
 SemanticConfigLegacyRefSetV1 semantic_config_legacy_ref_sets_v1(
     const SpTxSquashedV1::SemanticRulesVersion tx_semantic_rules_version);
 /**
-* brief: semantic_config_sp_ref_sets_v1 - seraphis reference set configuration for a given semantics rule version
+* brief: static_semantic_config_sp_ref_sets_v1 - seraphis reference set configuration for a given semantics rule version
 * param: tx_semantic_rules_version -
 * return: allowed reference set configuration for the given semantics rules version
 */
-SemanticConfigSpRefSetV1 semantic_config_sp_ref_sets_v1(
+SemanticConfigSpRefSetV1 static_semantic_config_sp_ref_sets_v1(
     const SpTxSquashedV1::SemanticRulesVersion tx_semantic_rules_version);
 
 
@@ -232,6 +232,9 @@ inline tx_version_t tx_version_from(const SpTxSquashedV1::SemanticRulesVersion t
 /// transaction validators
 template <>
 bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx);
+template <>
+bool validate_tx_semantics_sp_ref_set<SpTxSquashedV1>(const SpTxSquashedV1 &tx,
+    const TxValidationContext &tx_validation_context);
 template <>
 bool validate_tx_key_images<SpTxSquashedV1>(const SpTxSquashedV1 &tx, const TxValidationContext &tx_validation_context);
 template <>

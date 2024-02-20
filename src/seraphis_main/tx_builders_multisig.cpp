@@ -532,12 +532,14 @@ static bool try_make_v1_legacy_input_v1(const rct::key &tx_proposal_prefix,
         }
 
         // 3. assemble proof (will throw if partial sig assembly doesn't produce a valid proof)
-        LegacyRingSignatureV4 ring_signature;
+        rct::clsag clsag_rctlib;
         multisig::finalize_clsag_multisig_proof(input_proof_partial_sigs,
             referenced_enotes,
             masked_commitment,
-            ring_signature.clsag_proof);
+            clsag_rctlib);
 
+        LegacyRingSignatureV4 ring_signature;
+        ring_signature.clsag_proof = make_legacy_clsag_proof(clsag_rctlib);
         ring_signature.reference_set = std::move(reference_set);
 
         // 4. make legacy input

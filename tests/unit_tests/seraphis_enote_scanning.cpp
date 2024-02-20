@@ -1641,8 +1641,10 @@ class InvocableTest5Submit final : public Invocable
 {
 public:
     InvocableTest5Submit(SpTxSquashedV1 tx_to_submit,
+        const SemanticConfigSpRefSetV1 sp_ref_set_config,
         MockLedgerContext &ledger_context) :
             m_tx_to_submit{std::move(tx_to_submit)},
+            m_sp_ref_set_config{sp_ref_set_config},
             m_ledger_contex{ledger_context}
     {}
     InvocableTest5Submit& operator=(InvocableTest5Submit&&) = delete;
@@ -1655,13 +1657,17 @@ public:
         if (m_num_calls == 1)
         {
             // validate and submit to the mock ledger
-            const TxValidationContextMock tx_validation_context{m_ledger_contex};
+            const TxValidationContextMock tx_validation_context{
+                    m_ledger_contex,
+                    m_sp_ref_set_config
+                };
             ASSERT_TRUE(validate_tx(m_tx_to_submit, tx_validation_context));
             ASSERT_TRUE(m_ledger_contex.try_add_unconfirmed_tx_v1(m_tx_to_submit));
         }
     }
 private:
     const SpTxSquashedV1 m_tx_to_submit;
+    const SemanticConfigSpRefSetV1 m_sp_ref_set_config;
     MockLedgerContext &m_ledger_contex;
     std::size_t m_num_calls{0};
 };
@@ -2168,6 +2174,13 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
             .bin_radius = 1,
             .num_bin_members = 2
         };
+    
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        };
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
@@ -2251,7 +2264,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed_B{enote_finding_context_unconfirmed_B};
     scanning::ScanContextLedgerSimple scan_context_ledger_B{enote_finding_context_ledger_B};
     InvocableTest5Commit invocable_get_unconfirmed{ledger_context};
-    InvocableTest5Submit invocable_get_onchain{std::move(sneaky_tx), ledger_context};
+    InvocableTest5Submit invocable_get_onchain{std::move(sneaky_tx), sp_ref_set_config, ledger_context};
     ScanContextNonLedgerTEST test_scan_context_unconfirmed_B(scan_context_unconfirmed_B,
         invocable_get_unconfirmed);
     ScanContextLedgerTEST test_scan_context_ledger_B(scan_context_ledger_B,

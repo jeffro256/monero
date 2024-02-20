@@ -45,6 +45,24 @@
 namespace sp
 {
 //-------------------------------------------------------------------------------------------------------------------
+void append_to_transcript(const LegacyClsagProof &container, SpTranscriptBuilder &transcript_inout)
+{
+    transcript_inout.append("s", container.s);
+    transcript_inout.append("c1", container.c1);
+    transcript_inout.append("D", container.D);
+}
+//-------------------------------------------------------------------------------------------------------------------
+LegacyClsagProof make_legacy_clsag_proof(const rct::clsag &rctlib_clsag)
+{
+    return LegacyClsagProof{.s = rctlib_clsag.s, .c1 = rctlib_clsag.c1, .D = rctlib_clsag.D};
+}
+//-------------------------------------------------------------------------------------------------------------------
+rct::clsag convert_legacy_clsag_proof_to_rctlib(const LegacyClsagProof &clsag,
+    const crypto::key_image &key_image)
+{
+    return rct::clsag{.s = clsag.s, .c1 = clsag.c1, .I = rct::ki2rct(key_image), .D = clsag.D};
+}
+//-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const LegacyEnoteImageV2 &container, SpTranscriptBuilder &transcript_inout)
 {
     transcript_inout.append("C_masked", container.masked_commitment);
@@ -53,7 +71,7 @@ void append_to_transcript(const LegacyEnoteImageV2 &container, SpTranscriptBuild
 //-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const LegacyRingSignatureV4 &container, SpTranscriptBuilder &transcript_inout)
 {
-    append_clsag_to_transcript(container.clsag_proof, transcript_inout);
+    transcript_inout.append("clsag_proof", container.clsag_proof);
     transcript_inout.append("reference_set", container.reference_set);
 }
 //-------------------------------------------------------------------------------------------------------------------

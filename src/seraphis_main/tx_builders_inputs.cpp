@@ -600,9 +600,8 @@ void make_v1_membership_proof_v1(const std::size_t ref_set_decomp_n,
 
 
     /// copy miscellaneous components
-    membership_proof_out.binned_reference_set = std::move(binned_reference_set);
-    membership_proof_out.ref_set_decomp_n     = ref_set_decomp_n;
-    membership_proof_out.ref_set_decomp_m     = ref_set_decomp_m;
+    membership_proof_out.bin_loci            = std::move(binned_reference_set.bin_loci);
+    membership_proof_out.bin_rotation_factor = binned_reference_set.bin_rotation_factor;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_membership_proof_v1(SpMembershipProofPrepV1 membership_proof_prep, SpMembershipProofV1 &membership_proof_out)
@@ -656,6 +655,36 @@ void make_v1_alignable_membership_proofs_v1(std::vector<SpMembershipProofPrepV1>
 
     for (SpMembershipProofPrepV1 &proof_prep : membership_proof_preps)
         make_v1_alignable_membership_proof_v1(std::move(proof_prep), tools::add_element(alignable_membership_proofs_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_binned_ref_set_v1(const SpMembershipProofV1 &membership_proof,
+    const SpBinnedReferenceSetConfigV1 &ref_set_config,
+    const rct::key &bin_generator_seed,
+    SpBinnedReferenceSetV1 &binned_ref_set_out)
+{
+    binned_ref_set_out = SpBinnedReferenceSetV1{
+        .bin_config = ref_set_config,
+        .bin_generator_seed = bin_generator_seed,
+        .bin_rotation_factor = membership_proof.bin_rotation_factor,
+        .bin_loci = membership_proof.bin_loci
+    };
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_binned_ref_set_v1(const SpMembershipProofV1 &membership_proof,
+    const SpBinnedReferenceSetConfigV1 &ref_set_config,
+    const SpEnoteImageCore &enote_image,
+    SpBinnedReferenceSetV1 &binned_ref_set_out)
+{
+    // bin_generator_seed = H_32(K", C")
+    rct::key bin_generator_seed;
+    make_binned_ref_set_generator_seed_v1(enote_image.masked_address,
+        enote_image.masked_commitment,
+        bin_generator_seed);
+
+    return make_binned_ref_set_v1(membership_proof,
+        ref_set_config,
+        bin_generator_seed,
+        binned_ref_set_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void align_v1_membership_proofs_v1(const std::vector<SpEnoteImageV1> &input_images,
