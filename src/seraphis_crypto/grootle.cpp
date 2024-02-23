@@ -552,7 +552,7 @@ void make_grootle_proof(const rct::key &message,  // message to insert in Fiat-S
 //-------------------------------------------------------------------------------------------------------------------
 void get_grootle_verification_data(const std::vector<const GrootleProof*> &proofs,
     const rct::keyV &messages,
-    const std::vector<rct::keyV> &M,
+    const std::vector<rct::keyV> &S,
     const rct::keyV &proof_offsets,
     const std::size_t n,
     const std::size_t m,
@@ -570,9 +570,9 @@ void get_grootle_verification_data(const std::vector<const GrootleProof*> &proof
     // reference set size
     const std::size_t N = std::pow(n, m);
 
-    CHECK_AND_ASSERT_THROW_MES(M.size() == num_proofs,
+    CHECK_AND_ASSERT_THROW_MES(S.size() == num_proofs,
         "grootle proof verifying: public key vectors don't line up with proofs!");
-    for (const rct::keyV &proof_S : M)
+    for (const rct::keyV &proof_S : S)
     {
         CHECK_AND_ASSERT_THROW_MES(proof_S.size() == N,
             "grootle proof verifying: public key vector for a proof is wrong size!");
@@ -629,7 +629,7 @@ void get_grootle_verification_data(const std::vector<const GrootleProof*> &proof
 
         build_verification_multiexps_for_proof(*(proofs[proof_i]),
             messages[proof_i],
-            M[proof_i],
+            S[proof_i],
             proof_offsets[proof_i],
             n,
             m,
@@ -646,14 +646,14 @@ void get_grootle_verification_data(const std::vector<const GrootleProof*> &proof
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_grootle_proofs(const std::vector<const GrootleProof*> &proofs,
     const rct::keyV &messages,
-    const std::vector<rct::keyV> &M,
+    const std::vector<rct::keyV> &S,
     const rct::keyV &proof_offsets,
     const std::size_t n,
     const std::size_t m)
 {
     // build multiexp
     std::list<SpMultiexpBuilder> verification_data;
-    get_grootle_verification_data(proofs, messages, M, proof_offsets, n, m, verification_data);
+    get_grootle_verification_data(proofs, messages, S, proof_offsets, n, m, verification_data);
 
     // verify multiexp
     if (!SpMultiexp{verification_data}.evaluates_to_point_at_infinity())

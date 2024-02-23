@@ -128,7 +128,7 @@ void get_grootle_verification_data(const std::vector<const GrootleProof*> &proof
     std::list<SpMultiexpBuilder> &verification_data_out);
 bool verify_grootle_proofs(const std::vector<const GrootleProof*> &proofs,
     const rct::keyV &messages,
-    const std::vector<rct::keyV> &M,
+    const std::vector<rct::keyV> &S,
     const rct::keyV &proof_offsets,
     const std::size_t n,
     const std::size_t m);
