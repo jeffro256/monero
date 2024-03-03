@@ -144,6 +144,8 @@ inline tx_version_t tx_version_from(const SpTxCoinbaseV1::SemanticRulesVersion t
 {
     return tx_version_from<SpTxCoinbaseV1>(static_cast<unsigned char>(tx_semantic_rules_version));
 }
+template <>
+tx_version_t tx_version_from(const SpTxCoinbaseV1 &tx);
 
 /// transaction validators
 template <>

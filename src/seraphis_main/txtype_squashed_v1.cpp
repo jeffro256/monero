@@ -519,6 +519,11 @@ SemanticConfigSpRefSetV1 semantic_config_sp_ref_sets_v1(
     return config;
 }
 //-------------------------------------------------------------------------------------------------------------------
+tx_version_t tx_version_from(const SpTxSquashedV1 &tx)
+{
+    return tx_version_from(tx.tx_semantic_rules_version);
+}
+//-------------------------------------------------------------------------------------------------------------------
 template <>
 bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
 {

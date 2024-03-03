@@ -228,6 +228,8 @@ inline tx_version_t tx_version_from(const SpTxSquashedV1::SemanticRulesVersion t
 {
     return tx_version_from<SpTxSquashedV1>(static_cast<unsigned char>(tx_semantic_rules_version));
 }
+template <>
+tx_version_t tx_version_from(const SpTxSquashedV1 &tx);
 
 /// transaction validators
 template <>

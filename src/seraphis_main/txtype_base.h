@@ -126,6 +126,8 @@ tx_version_t tx_version_from(const unsigned char tx_semantic_rules_version)
 {
     return tx_version_seraphis_base_from(tx_structure_version<SpTxType>(), tx_semantic_rules_version);
 }
+template <typename SpTxType>
+tx_version_t tx_version_from(const SpTxType &tx);
 
 
 //// core validators

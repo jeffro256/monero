@@ -195,6 +195,11 @@ SemanticConfigCoinbaseComponentCountsV1 semantic_config_coinbase_component_count
     return config;
 }
 //-------------------------------------------------------------------------------------------------------------------
+tx_version_t tx_version_from(const SpTxCoinbaseV1 &tx)
+{
+    return tx_version_from(tx.tx_semantic_rules_version);
+}
+//-------------------------------------------------------------------------------------------------------------------
 template <>
 bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx)
 {
