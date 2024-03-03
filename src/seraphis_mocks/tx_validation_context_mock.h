@@ -65,6 +65,34 @@ public:
 
 //member functions
     /**
+     * brief: is_tx_version_allowed - checks if tx version is currently allowed by the validation context
+     * param: txver -
+     * return: true/false on check result
+    */
+    virtual bool is_tx_version_allowed(const tx_version_t txver) const override
+    {
+        // is seraphis
+        if (tx_era_version(txver) != TxEraSp)
+            return false;
+
+        // is SpTxCoinbaseV1 or SpTxSquashedV1
+        if (tx_structure_version(txver) > tx_structure_version<SpTxSquashedV1>())
+            return false;
+
+        // is MOCK semantics rule version
+        if (tx_semantic_rules_version(txver) != 0)
+            return false;
+
+        return true;
+    }
+    /**
+     * brief: get_cryptonote_fork_version() - gets current fork version identifier in the validation context
+    */
+    virtual std::uint8_t get_cryptonote_fork_version() const override
+    {
+        return 0;
+    }
+    /**
     * brief: cryptonote_key_image_exists - checks if a cryptonote key image exists in the mock ledger
     * param: key_image -
     * return: true/false on check result

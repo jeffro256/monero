@@ -196,6 +196,12 @@ SemanticConfigCoinbaseComponentCountsV1 semantic_config_coinbase_component_count
 }
 //-------------------------------------------------------------------------------------------------------------------
 template <>
+bool validate_tx_version<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx, const TxValidationContext &tx_validation_context)
+{
+    return tx_validation_context.is_tx_version_allowed(tx_version_from(tx.tx_semantic_rules_version));
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
 bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx)
 {
     // validate component counts (num outputs, etc.)
@@ -215,6 +221,13 @@ bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx)
             tx.tx_supplement.tx_extra))
         return false;
 
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
+bool validate_tx_semantics_fork_dependent<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx,
+    const TxValidationContext &tx_validation_context)
+{
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------

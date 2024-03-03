@@ -64,7 +64,11 @@ unsigned char tx_structure_version();
 
 /// transaction validators
 template <typename SpTxType>
+bool validate_tx_version(const SpTxType &tx, const TxValidationContext &tx_validation_context);
+template <typename SpTxType>
 bool validate_tx_semantics(const SpTxType &tx);
+template <typename SpTxType>
+bool validate_tx_semantics_fork_dependent(const SpTxType &tx, const TxValidationContext &tx_validation_context);
 template <typename SpTxType>
 bool validate_tx_key_images(const SpTxType &tx, const TxValidationContext &tx_validation_context);
 template <typename SpTxType>
@@ -96,6 +100,9 @@ struct tx_version_t final
 };
 inline bool operator==(const tx_version_t &a, const tx_version_t &b)
 { return (a.bytes[0] == b.bytes[0]) && (a.bytes[1] == b.bytes[1]) && (a.bytes[2] == b.bytes[2]); }
+inline unsigned char tx_era_version(const tx_version_t txver) { return txver.bytes[0]; }
+inline unsigned char tx_structure_version(const tx_version_t txver) { return txver.bytes[1]; }
+inline unsigned char tx_semantic_rules_version(const tx_version_t txver) { return txver.bytes[2]; }
 
 inline tx_version_t tx_version_tx_base_from(const unsigned char tx_era_version,
     const unsigned char tx_structure_version,

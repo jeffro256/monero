@@ -520,6 +520,12 @@ SemanticConfigSpRefSetV1 semantic_config_sp_ref_sets_v1(
 }
 //-------------------------------------------------------------------------------------------------------------------
 template <>
+bool validate_tx_version<SpTxSquashedV1>(const SpTxSquashedV1 &tx, const TxValidationContext &tx_validation_context)
+{
+    return tx_validation_context.is_tx_version_allowed(tx_version_from(tx.tx_semantic_rules_version));
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
 bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
 {
     // validate component counts (num inputs/outputs/etc.)
@@ -566,6 +572,13 @@ bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
     if (!validate_sp_semantics_fee_v1(tx.tx_fee))
         return false;
 
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
+bool validate_tx_semantics_fork_dependent<SpTxSquashedV1>(const SpTxSquashedV1 &tx,
+    const TxValidationContext &tx_validation_context)
+{
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------

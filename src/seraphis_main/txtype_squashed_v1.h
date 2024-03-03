@@ -231,7 +231,12 @@ inline tx_version_t tx_version_from(const SpTxSquashedV1::SemanticRulesVersion t
 
 /// transaction validators
 template <>
+bool validate_tx_version<SpTxSquashedV1>(const SpTxSquashedV1 &tx, const TxValidationContext &tx_validation_context);
+template <>
 bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx);
+template <>
+bool validate_tx_semantics_fork_dependent<SpTxSquashedV1>(const SpTxSquashedV1 &tx,
+    const TxValidationContext &tx_validation_context);
 template <>
 bool validate_tx_key_images<SpTxSquashedV1>(const SpTxSquashedV1 &tx, const TxValidationContext &tx_validation_context);
 template <>

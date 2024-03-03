@@ -91,6 +91,20 @@ public:
 
 //member functions
     /**
+     * brief: is_tx_version_allowed - checks if tx version is currently allowed by the validation context
+    */
+    virtual bool is_tx_version_allowed(const tx_version_t txver) const override
+    {
+        return true;
+    }
+    /**
+     * brief: get_cryptonote_fork_version() - gets current fork version identifier in the validation context
+    */
+    virtual std::uint8_t get_cryptonote_fork_version() const override
+    {
+        return 0;
+    }
+    /**
     * brief: *_key_image_exists - check if a key image exists (always false here)
     * ...
     */

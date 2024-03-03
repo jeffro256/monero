@@ -33,6 +33,7 @@
 //local headers
 #include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
+#include "txtype_base.h"
 
 //third party headers
 
@@ -56,6 +57,16 @@ public:
     TxValidationContext& operator=(TxValidationContext&&) = delete;
 
 //member functions
+    /**
+     * brief: is_tx_version_allowed - checks if tx version is currently allowed by the validation context
+     * param: txver -
+     * return: true/false on check result
+    */
+    virtual bool is_tx_version_allowed(const tx_version_t txver) const = 0;
+    /**
+     * brief: get_cryptonote_fork_version() - gets current fork version identifier in the validation context
+    */
+    virtual std::uint8_t get_cryptonote_fork_version() const = 0;
     /**
     * brief: cryptonote_key_image_exists - checks if a cryptonote-style key image exists in the validation context
     * param: key_image -
