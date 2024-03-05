@@ -41,6 +41,7 @@ set(common_sources
   password.cpp
   perf_timer.cpp
   pruning.cpp
+  recursive_shared_mutex.cpp
   spawn.cpp
   threadpool.cpp
   updates.cpp
