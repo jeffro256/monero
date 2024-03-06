@@ -59,21 +59,28 @@ static bool validate_txs_impl(const std::vector<const SpTxType*> &txs, const TxV
             if (!tx)
                 return false;
 
+            // Validate that the transaction's nominal version is allowed in the context
             if (!validate_tx_version(*tx, tx_validation_context))
                 return false;
 
+            // Validate as many non-cryptographic static semantic rules against tx's nominal version as possible
             if (!validate_tx_semantics(*tx))
                 return false;
 
+            // Validate non-cryptographic semantic rules for this tx which are dependent on the fork version (i.e. most
+            // Cryptonote/RingCT rules)
             if (!validate_tx_semantics_fork_dependent(*tx, tx_validation_context))
                 return false;
 
+            // Validate that the key images do not exist in this validation context (and are otherwise valid)
             if (!validate_tx_key_images(*tx, tx_validation_context))
                 return false;
 
+            // Validate amount balances: plaintext or confidential
             if (!validate_tx_amount_balance(*tx))
                 return false;
 
+            // Validate membership proofs, ring sigs, etc against live data (unless done in validate_txs_batchable)
             if (!validate_tx_input_proofs(*tx, tx_validation_context))
                 return false;
         }

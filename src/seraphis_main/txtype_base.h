@@ -63,6 +63,8 @@ template <typename SpTxType>
 unsigned char tx_structure_version();
 
 /// transaction validators
+/// For more information on what is expected from implementors in each validation function, see
+/// definition of validate_txs_impl().
 template <typename SpTxType>
 bool validate_tx_version(const SpTxType &tx, const TxValidationContext &tx_validation_context);
 template <typename SpTxType>
