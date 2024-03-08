@@ -1200,7 +1200,10 @@ namespace cryptonote
   }
   //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
+  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos,
+    std::vector<spent_key_image_info>& key_image_infos,
+    bool include_sensitive_data,
+    bool include_tx_blobs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1208,20 +1211,10 @@ namespace cryptonote
     const size_t count = m_blockchain.get_txpool_tx_count(include_sensitive_data);
     tx_infos.reserve(count);
     key_image_infos.reserve(count);
-    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
-      tx_info txi;
+    m_blockchain.for_all_txpool_txes(
+    [&tx_infos, key_image_infos, include_sensitive_data, include_tx_blobs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
+      tx_info txi{};
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
-      txi.tx_blob = blobdata(bd->data(), bd->size());
-      transaction tx;
-      if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(*bd, tx) : parse_and_validate_tx_from_blob(*bd, tx)))
-      {
-        MERROR("Failed to parse tx from txpool");
-        // continue
-        return true;
-      }
-      tx.set_hash(txid);
-      txi.tx_json = obj_to_json_str(tx);
-      txi.blob_size = bd->size();
       txi.weight = meta.weight;
       txi.fee = meta.fee;
       txi.kept_by_block = meta.kept_by_block;
@@ -1236,9 +1229,23 @@ namespace cryptonote
       txi.last_relayed_time = (include_sensitive_data && !meta.dandelionpp_stem) ? meta.last_relayed_time : 0;
       txi.do_not_relay = meta.do_not_relay;
       txi.double_spend_seen = meta.double_spend_seen;
+      if (include_tx_blobs && bd != nullptr)
+      {
+        txi.tx_blob = blobdata(bd->data(), bd->size());
+        transaction tx;
+        if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(*bd, tx) :
+          parse_and_validate_tx_from_blob(*bd, tx)))
+        {
+          MERROR("Failed to parse tx from txpool");
+          // continue
+          return true;
+        }
+        txi.tx_json = obj_to_json_str(tx);
+        txi.blob_size = bd->size();
+      }
       tx_infos.push_back(std::move(txi));
       return true;
-    }, true, category);
+    }, include_tx_blobs, category);
 
     for (const key_images_container::value_type& kee : m_spent_key_images) {
       const crypto::key_image& k_image = kee.first;
