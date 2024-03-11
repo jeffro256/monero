@@ -76,6 +76,8 @@ bool validate_tx_key_images(const SpTxType &tx, const TxValidationContext &tx_va
 template <typename SpTxType>
 bool validate_tx_amount_balance(const SpTxType &tx);
 template <typename SpTxType>
+bool validate_tx_mixability(const SpTxType &tx, const TxValidationContext &tx_validation_context);
+template <typename SpTxType>
 bool validate_tx_input_proofs(const SpTxType &tx, const TxValidationContext &tx_validation_context);
 template <typename SpTxType>
 bool validate_txs_batchable(const std::vector<const SpTxType*> &txs, const TxValidationContext &tx_validation_context);

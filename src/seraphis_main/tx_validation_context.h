@@ -95,6 +95,13 @@ public:
     */
     virtual void get_reference_set_proof_elements_v2(const std::vector<std::uint64_t> &indices,
         rct::keyV &proof_elements_out) const = 0;
+    /**
+     * @brief gets the total number of on-chain, non-Seraphis enotes for a given amount in the validation context
+     *
+     * @param amount the output enote amount to get information for, with 0 meaning the RingCT dist
+     * @return std::uint64_t the current total number of on-chain enotes for the given amount
+     */
+    virtual std::uint64_t get_cryptonote_global_ref_set_size(const std::uint64_t amount) const = 0;
 };
 
 } //namespace sp
