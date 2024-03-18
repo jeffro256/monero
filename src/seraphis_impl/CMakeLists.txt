@@ -34,7 +34,6 @@ set(seraphis_impl_sources
   legacy_ki_import_tool.cpp
   scan_ledger_chunk_async.cpp
   scan_process_basic.cpp
-  serialization_demo_utils.cpp
   tx_builder_utils.cpp
   tx_fee_calculator_squashed_v1.cpp
   tx_input_selection_output_context_v1.cpp)
