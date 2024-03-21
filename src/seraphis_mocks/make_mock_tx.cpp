@@ -64,12 +64,8 @@ namespace sp
 namespace mocks
 {
 //-------------------------------------------------------------------------------------------------------------------
-template <>
-void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
-    const std::vector<rct::xmr_amount>&,
-    const std::vector<rct::xmr_amount>&,
+void make_mock_coinbase_tx(const SpTxParamPackV1 &params,
     const std::vector<rct::xmr_amount> &out_amounts,
-    const DiscretizedFee,
     MockLedgerContext &ledger_context_inout,
     SpTxCoinbaseV1 &tx_out)
 {
@@ -107,6 +103,18 @@ void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
         std::move(output_enotes),
         std::move(tx_supplement),
         tx_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
+void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
+    const std::vector<rct::xmr_amount>&,
+    const std::vector<rct::xmr_amount>&,
+    const std::vector<rct::xmr_amount> &out_amounts,
+    const DiscretizedFee,
+    MockLedgerContext &ledger_context_inout,
+    SpTxCoinbaseV1 &tx_out)
+{
+    return make_mock_coinbase_tx(params, out_amounts, ledger_context_inout, tx_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 template <>

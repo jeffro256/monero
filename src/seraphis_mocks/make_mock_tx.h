@@ -92,6 +92,10 @@ struct SpTxParamPackV1
     SpBinnedReferenceSetConfigV1 bin_config{0, 0};
 };
 /// make an SpTxCoinbaseV1 transaction
+void make_mock_coinbase_tx(const SpTxParamPackV1 &params,
+    const std::vector<rct::xmr_amount> &out_amounts,
+    MockLedgerContext &ledger_context_inout,
+    SpTxCoinbaseV1 &tx_out);
 template <>
 void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
     const std::vector<rct::xmr_amount> &legacy_in_amounts,

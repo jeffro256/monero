@@ -410,7 +410,7 @@ bool validate_sp_key_images_v1(const std::vector<LegacyEnoteImageV2> &legacy_inp
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_sp_coinbase_amount_overflow_v1(const std::vector<SpCoinbaseEnoteV1> &outputs)
 {
-    // add together output amounts (use uint128_t to prevent malicious overflow)
+    // expect the output sum doesn't overflow
     boost::multiprecision::uint128_t output_amount_sum{0};
 
     for (const SpCoinbaseEnoteV1 &output : outputs)
