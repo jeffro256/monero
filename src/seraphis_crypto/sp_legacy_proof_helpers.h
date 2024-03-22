@@ -79,12 +79,12 @@ void make_bpp2_rangeproofs(const std::vector<rct::xmr_amount> &amounts,
 void append_bpp2_proof_to_transcript(const BulletproofPlus2Proof &bpp_proof,
     SpTranscriptBuilder &transcript_inout);
 /**
- * brief: get the size of the BP+ L/R vectors given the number of range proofs
+ * brief: bpp_lr_length - get the length of the BP+ L/R vectors, given the number of range proofs
  *   - L/R length: ceil(log2(64 * num range proofs)
 */
 std::size_t bpp_lr_length(const std::size_t num_range_proofs);
 /**
-* brief: bpp_size_bytes{_lr} - get the size of a BP+ proof in bytes (excluding commitments)
+* brief: bpp_size_bytes - get the size of a BP+ proof in bytes (excluding commitments)
 *   - BP+ size: 32 * (2*ceil(log2(64 * num range proofs)) + 6)
 * param: num_range_proofs -
 * param: lr_length - length of the L/R proof vectors

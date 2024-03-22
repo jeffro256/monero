@@ -661,12 +661,13 @@ bool validate_txs_batchable<SpTxSquashedV1>(const std::vector<const SpTxSquashed
                 rct::INV_EIGHT));
         }
 
-        // gather tx commitment pointers
-        tx_commitments_ptrs.push_back(&curr_tx_commitments);
-
         // gather range proofs
         range_proof_ptrs.push_back(&(tx->balance_proof.bpp2_proof));
     }
+
+    // gather pointers to tx commitment lists (we do this after done modifying tx_commitments)
+    for (const auto &cvec : tx_commitments)
+        tx_commitments_ptrs.push_back(&cvec);
 
     // batch verification: collect pippenger data sets for an aggregated multiexponentiation
 
