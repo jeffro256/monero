@@ -64,12 +64,15 @@ namespace sp
 namespace mocks
 {
 //-------------------------------------------------------------------------------------------------------------------
-void make_mock_coinbase_tx(const SpTxParamPackV1 &params,
-    const std::vector<rct::xmr_amount> &out_amounts,
+template <>
+void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
     MockLedgerContext &ledger_context_inout,
     SpTxCoinbaseV1 &tx_out)
 {
-    CHECK_AND_ASSERT_THROW_MES(out_amounts.size() > 0, "SpTxCoinbaseV1: tried to make mock tx without any outputs.");
+    const std::vector<rct::xmr_amount> &out_amounts = params.output_amounts;
+
+    CHECK_AND_ASSERT_THROW_MES(out_amounts.size() > 0,
+        "SpTxCoinbaseV1: tried to make mock tx without any outputs.");
 
     // 1. mock semantics version
     const SpTxCoinbaseV1::SemanticRulesVersion semantic_rules_version{SpTxCoinbaseV1::SemanticRulesVersion::MOCK};
@@ -106,26 +109,15 @@ void make_mock_coinbase_tx(const SpTxParamPackV1 &params,
 }
 //-------------------------------------------------------------------------------------------------------------------
 template <>
-void make_mock_tx<SpTxCoinbaseV1>(const SpTxParamPackV1 &params,
-    const std::vector<rct::xmr_amount>&,
-    const std::vector<rct::xmr_amount>&,
-    const std::vector<rct::xmr_amount> &out_amounts,
-    const DiscretizedFee,
-    MockLedgerContext &ledger_context_inout,
-    SpTxCoinbaseV1 &tx_out)
-{
-    return make_mock_coinbase_tx(params, out_amounts, ledger_context_inout, tx_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-template <>
 void make_mock_tx<SpTxSquashedV1>(const SpTxParamPackV1 &params,
-    const std::vector<rct::xmr_amount> &legacy_in_amounts,
-    const std::vector<rct::xmr_amount> &sp_in_amounts,
-    const std::vector<rct::xmr_amount> &out_amounts,
-    const DiscretizedFee discretized_transaction_fee,
     MockLedgerContext &ledger_context_inout,
     SpTxSquashedV1 &tx_out)
 {
+    const std::vector<rct::xmr_amount> &legacy_in_amounts = params.legacy_input_amounts;
+    const std::vector<rct::xmr_amount> &sp_in_amounts = params.sp_input_amounts;
+    const std::vector<rct::xmr_amount> &out_amounts = params.output_amounts;
+    const DiscretizedFee &discretized_transaction_fee = params.discretized_fee;
+
     CHECK_AND_ASSERT_THROW_MES(legacy_in_amounts.size() + sp_in_amounts.size() > 0,
         "SpTxSquashedV1: tried to make mock tx without any inputs.");
     CHECK_AND_ASSERT_THROW_MES(out_amounts.size() > 0, "SpTxSquashedV1: tried to make mock tx without any outputs.");
