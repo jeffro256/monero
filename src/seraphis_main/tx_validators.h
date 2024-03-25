@@ -80,14 +80,10 @@ struct SemanticConfigLegacyRefSetV1 final
 /// semantic validation config: seraphis reference sets
 struct SemanticConfigSpRefSetV1 final
 {
-    std::size_t decomp_n_min;
-    std::size_t decomp_n_max;
-    std::size_t decomp_m_min;
-    std::size_t decomp_m_max;
-    std::size_t bin_radius_min;
-    std::size_t bin_radius_max;
-    std::size_t num_bin_members_min;
-    std::size_t num_bin_members_max;
+    std::size_t decomp_n;
+    std::size_t decomp_m;
+    std::size_t bin_radius;
+    std::size_t num_bin_members;
 };
 
 /**
@@ -288,11 +284,13 @@ bool validate_sp_composition_proofs_v1(const std::vector<SpImageProofV1> &sp_ima
 *   - get verification data for grootle proofs (membership proofs)
 * param: membership_proofs -
 * param: input_images -
+* param: sp_ref_set_config -
 * param: tx_validation_context -
 * outparam: validation_data_out -
 */
 bool try_get_sp_membership_proofs_v1_validation_data(const std::vector<const SpMembershipProofV1*> &membership_proofs,
     const std::vector<const SpEnoteImageCore*> &input_images,
+    const SemanticConfigSpRefSetV1 &sp_ref_set_config,
     const TxValidationContext &tx_validation_context,
     std::list<SpMultiexpBuilder> &validation_data_out);
 

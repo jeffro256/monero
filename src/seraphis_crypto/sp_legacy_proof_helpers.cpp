@@ -77,14 +77,6 @@ static std::size_t highest_bit_position(std::size_t num)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-void append_clsag_to_transcript(const rct::clsag &clsag_proof, SpTranscriptBuilder &transcript_inout)
-{
-    transcript_inout.append("s", clsag_proof.s);
-    transcript_inout.append("c1", clsag_proof.c1);
-    transcript_inout.append("I", clsag_proof.I);
-    transcript_inout.append("D", clsag_proof.D);
-}
-//-------------------------------------------------------------------------------------------------------------------
 std::size_t clsag_size_bytes(const std::size_t ring_size)
 {
     return 32 * (ring_size + 2);  //does not include 'I', which is treated as a cached value here

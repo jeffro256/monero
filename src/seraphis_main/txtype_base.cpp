@@ -62,6 +62,9 @@ static bool validate_txs_impl(const std::vector<const SpTxType*> &txs, const TxV
             if (!validate_tx_semantics(*tx))
                 return false;
 
+            if (!validate_tx_semantics_sp_ref_set(*tx, tx_validation_context))
+                return false;
+
             if (!validate_tx_key_images(*tx, tx_validation_context))
                 return false;
 

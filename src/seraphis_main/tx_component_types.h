@@ -139,25 +139,20 @@ struct SpMembershipProofV1 final
 {
     /// a grootle proof
     GrootleProof grootle_proof;
-    /// binned representation of ledger indices of enotes referenced by the proof
-    SpBinnedReferenceSetV1 binned_reference_set;
-    /// ref set size = n^m
-    std::size_t ref_set_decomp_n;
-    std::size_t ref_set_decomp_m;
+    /// loci of binned representation of ledger indices of enotes referenced by the proof
+    std::vector<std::uint64_t> bin_loci;
+    /// bin rotation factor (shared by all bins)
+    ref_set_bin_dimension_v1_t bin_rotation_factor;
 };
 inline const boost::string_ref container_name(const SpMembershipProofV1&) { return "SpMembershipProofV1"; }
 void append_to_transcript(const SpMembershipProofV1 &container, SpTranscriptBuilder &transcript_inout);
 
 /// get size in bytes
-/// - note: compact version excludes the decomposition parameters, and uses the compact size of the binned ref set
+/// - note: excludes the decomposition parameters, bin config, and generator seed
 std::size_t sp_membership_proof_v1_size_bytes(const std::size_t n,
     const std::size_t m,
     const std::size_t num_bin_members);
-std::size_t sp_membership_proof_v1_size_bytes_compact(const std::size_t n,
-    const std::size_t m,
-    const std::size_t num_bin_members);
 std::size_t sp_membership_proof_v1_size_bytes(const SpMembershipProofV1 &proof);
-std::size_t sp_membership_proof_v1_size_bytes_compact(const SpMembershipProofV1 &proof);
 
 ////
 // SpImageProofV1
