@@ -200,7 +200,7 @@ bool validate_sp_semantics_sp_reference_sets_v1(const SemanticConfigSpRefSetV1 &
     const std::size_t num_bin_loci = sp_membership_proofs[0].bin_loci.size();
 
     // Check that the number of bin loci evenly divides the total reference set size
-    if (ref_set_size % num_bin_loci != 0)
+    if ((num_bin_loci == 0) || (ref_set_size % num_bin_loci != 0))
         return false;
 
     // check seraphis membership proofs
