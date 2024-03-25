@@ -158,7 +158,7 @@ void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinba
         coinbase_tx);
 
     // 3. validate the coinbase tx
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const TxValidationContextMock tx_validation_context{ledger_context_inout, {}};
     CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, tx_validation_context),
         "send sp coinbase amounts to user (mock): failed to validate coinbase tx.");
 
@@ -198,7 +198,7 @@ void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_am
         coinbase_tx);
 
     // 3. validate the coinbase tx
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const TxValidationContextMock tx_validation_context{ledger_context_inout, {}};
     CHECK_AND_ASSERT_THROW_MES(validate_tx(coinbase_tx, tx_validation_context),
         "send sp coinbase amounts to user (mock): failed to validate coinbase tx.");
 
@@ -383,7 +383,14 @@ void transfer_funds_single_mock_v1_unconfirmed_sp_only(const jamtis::mocks::jamt
         single_tx);
 
     // 2. validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const TxValidationContextMock tx_validation_context{ledger_context_inout,
+        SemanticConfigSpRefSetV1{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        }
+    };
     CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
         "transfer funds single mock unconfirmed: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(ledger_context_inout.try_add_unconfirmed_tx_v1(single_tx),
@@ -420,7 +427,14 @@ void transfer_funds_single_mock_v1_unconfirmed(const legacy_mock_keys &local_use
         single_tx);
 
     // 2. validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const TxValidationContextMock tx_validation_context{ledger_context_inout,
+        SemanticConfigSpRefSetV1{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        }
+    };
     CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
         "transfer funds single mock unconfirmed sp only: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(ledger_context_inout.try_add_unconfirmed_tx_v1(single_tx),
@@ -457,7 +471,14 @@ void transfer_funds_single_mock_v1(const legacy_mock_keys &local_user_legacy_key
         single_tx);
 
     // 2, validate and submit to the mock ledger
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const TxValidationContextMock tx_validation_context{ledger_context_inout,
+        SemanticConfigSpRefSetV1{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        }
+    };
     CHECK_AND_ASSERT_THROW_MES(validate_tx(single_tx, tx_validation_context),
         "transfer funds single mock: validating tx failed.");
     CHECK_AND_ASSERT_THROW_MES(try_add_tx_to_ledger(single_tx, ledger_context_inout),

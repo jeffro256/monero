@@ -33,6 +33,8 @@
 //local headers
 #include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
+#include "txtype_base.h"
+#include "tx_validators.h"
 
 //third party headers
 
@@ -56,6 +58,13 @@ public:
     TxValidationContext& operator=(TxValidationContext&&) = delete;
 
 //member functions
+    /**
+     * brief: get_sp_ref_set_config - given tx version, return refset config to validate tx against
+     * param: txver -
+     * return: SemanticConfigSpRefSetV1 object (ref) which should be used to validate the transaction
+     * note: returned reference should be valid for the lifetime of the validation context
+    */
+    virtual const SemanticConfigSpRefSetV1& get_sp_ref_set_config(const tx_version_t txver) const = 0;
     /**
     * brief: cryptonote_key_image_exists - checks if a cryptonote-style key image exists in the validation context
     * param: key_image -

@@ -95,7 +95,7 @@ TEST(seraphis_serialization_demo, seraphis_squashed_empty)
 
     // recover the tx
     SpTxSquashedV1 recovered_tx;
-    EXPECT_NO_THROW(sp::serialization::recover_sp_tx_squashed_v1(serializable_tx_recovered, {}, 0, 0, recovered_tx));
+    EXPECT_NO_THROW(sp::serialization::recover_sp_tx_squashed_v1(serializable_tx_recovered, recovered_tx));
 
     // check that the original tx was recovered
     rct::key original_tx_id;
@@ -112,7 +112,7 @@ TEST(seraphis_serialization_demo, seraphis_coinbase_standard)
 {
     // ledger context
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
+    const TxValidationContextMock tx_validation_context{ledger_context, {}};
 
     // make a tx
     SpTxCoinbaseV1 tx;
@@ -165,10 +165,17 @@ TEST(seraphis_serialization_demo, seraphis_squashed_standard)
     tx_params.sp_input_amounts = {2, 3};
     tx_params.output_amounts = {3};
     tx_params.discretized_fee = discretize_fee(3);
+    
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = tx_params.ref_set_decomp_n,
+            .decomp_m = tx_params.ref_set_decomp_m,
+            .bin_radius = tx_params.bin_config.bin_radius,
+            .num_bin_members = tx_params.bin_config.num_bin_members,
+        };
 
     // ledger context
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
 
     // make a tx
     SpTxSquashedV1 tx;
@@ -192,9 +199,6 @@ TEST(seraphis_serialization_demo, seraphis_squashed_standard)
     // recover the tx
     SpTxSquashedV1 recovered_tx;
     EXPECT_NO_THROW(sp::serialization::recover_sp_tx_squashed_v1(serializable_tx_recovered,
-        tx_params.bin_config,
-        tx_params.ref_set_decomp_n,
-        tx_params.ref_set_decomp_m,
         recovered_tx));
 
     // check the tx was recovered

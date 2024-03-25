@@ -230,7 +230,7 @@ void make_v3_legacy_ring_signature(const rct::key &message,
 
 
     /// make clsag proof
-    ring_signature_out.clsag_proof = rct::CLSAG_Gen(message,
+    rct::clsag clsag_temp = rct::CLSAG_Gen(message,
         referenced_onetime_addresses,
         rct::sk2rct(signing_privkey),
         nominal_commitments_to_zero,
@@ -239,7 +239,7 @@ void make_v3_legacy_ring_signature(const rct::key &message,
         masked_commitment,
         real_reference_index,
         hwdev);
-
+    ring_signature_out.clsag_proof = make_legacy_clsag_proof(clsag_temp);
 
     /// save the reference set
     ring_signature_out.reference_set = std::move(reference_set);
@@ -309,17 +309,13 @@ void check_v1_legacy_input_semantics_v1(const LegacyInputV1 &input)
     CHECK_AND_ASSERT_THROW_MES(masked_commitment_reproduced == input.input_image.masked_commitment,
         "legacy input semantics (v1): could not reproduce masked commitment (pseudo-output commitment).");
 
-    // 2. key image is consistent between input image and cached value in the ring signature
-    CHECK_AND_ASSERT_THROW_MES(input.input_image.key_image == rct::rct2ki(input.ring_signature.clsag_proof.I),
-        "legacy input semantics (v1): key image is not consistent between input image and ring signature.");
-
-    // 3. ring signature reference indices are sorted and unique and match with the cached reference enotes
+    // 2. ring signature reference indices are sorted and unique and match with the cached reference enotes
     CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(input.ring_signature.reference_set),
         "legacy input semantics (v1): reference set indices are not sorted and unique.");
     CHECK_AND_ASSERT_THROW_MES(input.ring_signature.reference_set.size() == input.ring_members.size(),
         "legacy input semantics (v1): reference set indices don't match referenced enotes.");
 
-    // 4. ring signature message
+    // 3. ring signature message
     rct::key ring_signature_message;
     make_tx_legacy_ring_signature_message_v1(input.tx_proposal_prefix,
         input.ring_signature.reference_set,
@@ -327,7 +323,7 @@ void check_v1_legacy_input_semantics_v1(const LegacyInputV1 &input)
 
     // 4. ring signature is valid
     CHECK_AND_ASSERT_THROW_MES(rct::verRctCLSAGSimple(ring_signature_message,
-            input.ring_signature.clsag_proof,
+            convert_legacy_clsag_proof_to_rctlib(input.ring_signature.clsag_proof, input.input_image.key_image),
             input.ring_members,
             input.input_image.masked_commitment),
         "legacy input semantics (v1): ring signature is invalid.");

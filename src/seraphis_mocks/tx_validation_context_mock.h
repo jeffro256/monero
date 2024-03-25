@@ -55,8 +55,10 @@ class TxValidationContextMock final : public TxValidationContext
 {
 public:
 //constructors
-    TxValidationContextMock(const MockLedgerContext &mock_ledger_context) :
-        m_mock_ledger_context{mock_ledger_context}
+    TxValidationContextMock(const MockLedgerContext &mock_ledger_context,
+        const SemanticConfigSpRefSetV1 &sp_ref_set_config) :
+        m_mock_ledger_context{mock_ledger_context},
+        m_current_sp_ref_set_config{sp_ref_set_config}
     {}
 
 //overloaded operators
@@ -64,6 +66,15 @@ public:
     TxValidationContextMock& operator=(TxValidationContextMock&&) = delete;
 
 //member functions
+    /**
+     * brief: get_sp_ref_set_config - given tx version, return refset config to validate tx against
+     * param: txver -
+     * return: SemanticConfigSpRefSetV1 object which should be used to validate the transaction
+    */
+    virtual const SemanticConfigSpRefSetV1& get_sp_ref_set_config(const tx_version_t) const override
+    {
+        return m_current_sp_ref_set_config;
+    }
     /**
     * brief: cryptonote_key_image_exists - checks if a cryptonote key image exists in the mock ledger
     * param: key_image -
@@ -106,6 +117,7 @@ public:
 //member variables
 private:
     const MockLedgerContext &m_mock_ledger_context;
+    const SemanticConfigSpRefSetV1 m_current_sp_ref_set_config;
 };
 
 } //namespace mocks

@@ -81,7 +81,14 @@ static void run_mock_tx_test(const std::size_t legacy_ring_size,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
 {
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        };
+
+    const TxValidationContextMock tx_validation_context{ledger_context_inout, sp_ref_set_config};
 
     try
     {
@@ -161,12 +168,22 @@ template <typename SpTxType>
 static void run_mock_tx_test_batch(const std::vector<SpTxGenData> &gen_data)
 {
     MockLedgerContext ledger_context{0, 10000};
-    const TxValidationContextMock tx_validation_context{ledger_context};
     std::vector<SpTxType> txs_to_verify;
     std::vector<const SpTxType*> txs_to_verify_ptrs;
     txs_to_verify.reserve(gen_data.size() * 2);
     txs_to_verify_ptrs.reserve(gen_data.size() * 2);
     TestType expected_result = TestType::ExpectTrue;
+
+    // Batchable txs must share same seraphis reference set config, otherwise validation fails later
+    ASSERT_NE(0, gen_data.size());
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = gen_data[0].ref_set_decomp_n,
+            .decomp_m = gen_data[0].ref_set_decomp_m,
+            .bin_radius = gen_data[0].bin_config.bin_radius,
+            .num_bin_members = gen_data[0].bin_config.num_bin_members
+        };
+    
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
 
     for (const SpTxGenData &gen : gen_data)
     {
@@ -270,7 +287,14 @@ static void run_mock_tx_test_cached(const std::size_t legacy_ring_size,
     const bool test_double_spend,
     MockLedgerContext &ledger_context_inout)
 {
-    const TxValidationContextMock tx_validation_context{ledger_context_inout};
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = ref_set_decomp_n,
+            .decomp_m = ref_set_decomp_m,
+            .bin_radius = bin_config.bin_radius,
+            .num_bin_members = bin_config.num_bin_members
+        };
+
+    const TxValidationContextMock tx_validation_context{ledger_context_inout, sp_ref_set_config};
 
     try
     {

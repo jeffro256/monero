@@ -379,6 +379,13 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
             .num_bin_members = num_bin_members
         };
 
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+        .decomp_n = ref_set_decomp_n,
+        .decomp_m = ref_set_decomp_m,
+        .bin_radius = bin_radius,
+        .num_bin_members = num_bin_members
+    };
+
     // global
     MockLedgerContext ledger_context{0, 10000};
 
@@ -789,7 +796,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
     //ASSERT_TRUE(completed_tx.tx_fee == tx_fee_calculator.compute_fee(fee_per_tx_weight, completed_tx));
 
     // g) verify tx
-    const TxValidationContextMock tx_validation_context{ledger_context};
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
     ASSERT_NO_THROW(ASSERT_TRUE(validate_tx(completed_tx, tx_validation_context)));
 
     // h) add tx to mock ledger

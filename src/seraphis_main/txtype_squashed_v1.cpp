@@ -67,13 +67,12 @@
 namespace sp
 {
 //-------------------------------------------------------------------------------------------------------------------
-std::size_t sp_tx_squashed_v1_size_bytes(const std::size_t num_legacy_inputs,
+//-------------------------------------------------------------------------------------------------------------------
+static std::size_t sp_tx_squashed_v1_size_bytes(const std::size_t num_legacy_inputs,
     const std::size_t num_sp_inputs,
     const std::size_t num_outputs,
     const std::size_t legacy_ring_size,
-    const std::size_t ref_set_decomp_n,
-    const std::size_t ref_set_decomp_m,
-    const std::size_t num_bin_members,
+    const std::size_t sp_membership_proof_size,
     const std::size_t tx_extra_size)
 {
     // size of the transaction as represented in C++ (it is likely ~5-15% smaller when serialized)
@@ -100,7 +99,7 @@ std::size_t sp_tx_squashed_v1_size_bytes(const std::size_t num_legacy_inputs,
     size += num_sp_inputs * sp_image_proof_v1_size_bytes();
 
     // membership proofs for seraphis inputs
-    size += num_sp_inputs * sp_membership_proof_v1_size_bytes_compact(ref_set_decomp_n, ref_set_decomp_m, num_bin_members);
+    size += num_sp_inputs * sp_membership_proof_size;
 
     // extra data in tx
     size += sp_tx_supplement_v1_size_bytes(num_outputs, tx_extra_size, true);  //with shared ephemeral pubkey assumption
@@ -111,6 +110,52 @@ std::size_t sp_tx_squashed_v1_size_bytes(const std::size_t num_legacy_inputs,
     return size;
 }
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static std::size_t sp_tx_squashed_v1_weight(const std::size_t num_legacy_inputs,
+    const std::size_t num_sp_inputs,
+    const std::size_t num_outputs,
+    const std::size_t legacy_ring_size,
+    const std::size_t sp_membership_proof_size,
+    const std::size_t tx_extra_size)
+{
+    // tx weight = tx size + balance proof clawback
+    std::size_t weight{
+            sp_tx_squashed_v1_size_bytes(num_legacy_inputs,
+                num_sp_inputs,
+                num_outputs,
+                legacy_ring_size,
+                sp_membership_proof_size,
+                tx_extra_size)
+        };
+
+    // subtract balance proof size and add its weight
+    weight -= sp_balance_proof_v1_size_bytes(num_sp_inputs + num_outputs);
+    weight += sp_balance_proof_v1_weight(num_sp_inputs + num_outputs);
+
+    return weight;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+std::size_t sp_tx_squashed_v1_size_bytes(const std::size_t num_legacy_inputs,
+    const std::size_t num_sp_inputs,
+    const std::size_t num_outputs,
+    const std::size_t legacy_ring_size,
+    const std::size_t ref_set_decomp_n,
+    const std::size_t ref_set_decomp_m,
+    const std::size_t num_bin_members,
+    const std::size_t tx_extra_size)
+{
+    const size_t sp_membership_proof_size{sp_membership_proof_v1_size_bytes(ref_set_decomp_n,
+        ref_set_decomp_m, num_bin_members)};
+
+    return sp_tx_squashed_v1_size_bytes(num_legacy_inputs,
+        num_sp_inputs,
+        num_outputs,
+        legacy_ring_size,
+        sp_membership_proof_size,
+        tx_extra_size);
+}
+//-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_tx_squashed_v1_size_bytes(const SpTxSquashedV1 &tx)
 {
     const std::size_t legacy_ring_size{
@@ -118,29 +163,18 @@ std::size_t sp_tx_squashed_v1_size_bytes(const SpTxSquashedV1 &tx)
             ? tx.legacy_ring_signatures[0].reference_set.size()
             : 0
         };
-    const std::size_t ref_set_decomp_n{
+
+    const std::size_t sp_membership_proof_size{
             tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].ref_set_decomp_n
+            ? sp_membership_proof_v1_size_bytes(tx.sp_membership_proofs[0])
             : 0
-        };
-    const std::size_t ref_set_decomp_m{
-            tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].ref_set_decomp_m
-            : 0
-        };
-    const std::size_t num_bin_members{
-            tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].binned_reference_set.bin_config.num_bin_members
-            : 0u
         };
 
     return sp_tx_squashed_v1_size_bytes(tx.legacy_input_images.size(),
         tx.sp_input_images.size(),
         tx.outputs.size(),
         legacy_ring_size,
-        ref_set_decomp_n,
-        ref_set_decomp_m,
-        num_bin_members,
+        sp_membership_proof_size,
         tx.tx_supplement.tx_extra.size());
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -153,23 +187,15 @@ std::size_t sp_tx_squashed_v1_weight(const std::size_t num_legacy_inputs,
     const std::size_t num_bin_members,
     const std::size_t tx_extra_size)
 {
-    // tx weight = tx size + balance proof clawback
-    std::size_t weight{
-            sp_tx_squashed_v1_size_bytes(num_legacy_inputs,
-                num_sp_inputs,
-                num_outputs,
-                legacy_ring_size,
-                ref_set_decomp_n,
-                ref_set_decomp_m,
-                num_bin_members,
-                tx_extra_size)
-        };
+    const size_t sp_membership_proof_size{sp_membership_proof_v1_size_bytes(ref_set_decomp_n,
+        ref_set_decomp_m, num_bin_members)};
 
-    // subtract balance proof size and add its weight
-    weight -= sp_balance_proof_v1_size_bytes(num_sp_inputs + num_outputs);
-    weight += sp_balance_proof_v1_weight(num_sp_inputs + num_outputs);
-
-    return weight;
+    return sp_tx_squashed_v1_weight(num_legacy_inputs,
+        num_sp_inputs,
+        num_outputs,
+        legacy_ring_size,
+        sp_membership_proof_size,
+        tx_extra_size);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t sp_tx_squashed_v1_weight(const SpTxSquashedV1 &tx)
@@ -179,29 +205,18 @@ std::size_t sp_tx_squashed_v1_weight(const SpTxSquashedV1 &tx)
             ? tx.legacy_ring_signatures[0].reference_set.size()
             : 0
         };
-    const std::size_t ref_set_decomp_n{
+
+    const std::size_t sp_membership_proof_size{
             tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].ref_set_decomp_n
+            ? sp_membership_proof_v1_size_bytes(tx.sp_membership_proofs[0])
             : 0
-        };
-    const std::size_t ref_set_decomp_m{
-            tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].ref_set_decomp_m
-            : 0
-        };
-    const std::size_t num_bin_members{
-            tx.sp_membership_proofs.size()
-            ? tx.sp_membership_proofs[0].binned_reference_set.bin_config.num_bin_members
-            : 0u
         };
 
     return sp_tx_squashed_v1_weight(tx.legacy_input_images.size(),
         tx.sp_input_images.size(),
         tx.outputs.size(),
         legacy_ring_size,
-        ref_set_decomp_n,
-        ref_set_decomp_m,
-        num_bin_members,
+        sp_membership_proof_size,
         tx.tx_supplement.tx_extra.size());
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -483,33 +498,17 @@ SemanticConfigLegacyRefSetV1 semantic_config_legacy_ref_sets_v1(
     return config;
 }
 //-------------------------------------------------------------------------------------------------------------------
-SemanticConfigSpRefSetV1 semantic_config_sp_ref_sets_v1(
+SemanticConfigSpRefSetV1 static_semantic_config_sp_ref_sets_v1(
     const SpTxSquashedV1::SemanticRulesVersion tx_semantic_rules_version)
 {
     SemanticConfigSpRefSetV1 config{};
 
-    if (tx_semantic_rules_version == SpTxSquashedV1::SemanticRulesVersion::MOCK)
+    if (tx_semantic_rules_version == SpTxSquashedV1::SemanticRulesVersion::ONE)
     {
-        // note: if n*m exceeds GROOTLE_MAX_MN, an exception will be thrown
-        config.decomp_n_min = 2;
-        config.decomp_n_max = 100000;
-        config.decomp_m_min = 2;
-        config.decomp_m_max = 100000;
-        config.bin_radius_min = 0;
-        config.bin_radius_max = 30000;
-        config.num_bin_members_min = 1;
-        config.num_bin_members_max = 60000;
-    }
-    else if (tx_semantic_rules_version == SpTxSquashedV1::SemanticRulesVersion::ONE)
-    {
-        config.decomp_n_min = config::SP_GROOTLE_N_V1;
-        config.decomp_n_max = config::SP_GROOTLE_N_V1;
-        config.decomp_m_min = config::SP_GROOTLE_M_V1;
-        config.decomp_m_max = config::SP_GROOTLE_M_V1;
-        config.bin_radius_min = config::SP_REF_SET_BIN_RADIUS_V1;
-        config.bin_radius_max = config::SP_REF_SET_BIN_RADIUS_V1;
-        config.num_bin_members_min = config::SP_REF_SET_NUM_BIN_MEMBERS_V1;
-        config.num_bin_members_max = config::SP_REF_SET_NUM_BIN_MEMBERS_V1;
+        config.decomp_n = config::SP_GROOTLE_N_V1;
+        config.decomp_m = config::SP_GROOTLE_M_V1;
+        config.bin_radius = config::SP_REF_SET_BIN_RADIUS_V1;
+        config.num_bin_members = config::SP_REF_SET_NUM_BIN_MEMBERS_V1;
     }
     else  //unknown semantic rules version
     {
@@ -538,11 +537,6 @@ bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
             tx.legacy_ring_signatures))
         return false;
 
-    // validate seraphis input proof reference set sizes
-    if (!validate_sp_semantics_sp_reference_sets_v1(semantic_config_sp_ref_sets_v1(tx.tx_semantic_rules_version),
-            tx.sp_membership_proofs))
-        return false;
-
     // validate output serialization semantics
     if (!validate_sp_semantics_output_serialization_v2(tx.outputs))
         return false;
@@ -563,6 +557,22 @@ bool validate_tx_semantics<SpTxSquashedV1>(const SpTxSquashedV1 &tx)
 
     // validate the tx fee is well-formed
     if (!validate_sp_semantics_fee_v1(tx.tx_fee))
+        return false;
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template <>
+bool validate_tx_semantics_sp_ref_set<SpTxSquashedV1>(const SpTxSquashedV1 &tx,
+    const TxValidationContext &tx_validation_context)
+{
+    // get sp ref set config for this tx version
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            tx_validation_context.get_sp_ref_set_config(tx_version_from(tx.tx_semantic_rules_version))
+        };
+
+    // validate seraphis input proof reference set sizes
+    if (!validate_sp_semantics_sp_reference_sets_v1(sp_ref_set_config, tx.sp_membership_proofs))
         return false;
 
     return true;
@@ -632,10 +642,17 @@ bool validate_txs_batchable<SpTxSquashedV1>(const std::vector<const SpTxSquashed
     tx_commitments_ptrs.reserve(txs.size());
     range_proof_ptrs.reserve(txs.size());
 
+    if (txs.empty())
+        return true;
+
+    const SpTxSquashedV1::SemanticRulesVersion tx_semantic_rules_version{
+            txs[0]->tx_semantic_rules_version
+        };
+
     // prepare for batch-verification
     for (const SpTxSquashedV1 *tx : txs)
     {
-        if (!tx)
+        if (!tx || tx->tx_semantic_rules_version != tx_semantic_rules_version)
             return false;
 
         // used to gather all new tx commitments (sp enote image masked, then enote outputs)
@@ -671,10 +688,16 @@ bool validate_txs_batchable<SpTxSquashedV1>(const std::vector<const SpTxSquashed
 
     // batch verification: collect pippenger data sets for an aggregated multiexponentiation
 
+    // seraphis reference set config
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            tx_validation_context.get_sp_ref_set_config(tx_version_from(tx_semantic_rules_version)
+        )};
+
     // seraphis membership proofs
     std::list<SpMultiexpBuilder> validation_data_sp_membership_proofs;
     if (!try_get_sp_membership_proofs_v1_validation_data(sp_membership_proof_ptrs,
             sp_input_image_ptrs,
+            sp_ref_set_config,
             tx_validation_context,
             validation_data_sp_membership_proofs))
         return false;
@@ -704,6 +727,8 @@ bool try_get_tx_contextual_validation_id(const SpTxSquashedV1 &tx,
         // 1. check key images
         if (!validate_sp_key_images_v1(tx.legacy_input_images, tx.sp_input_images, tx_validation_context))
             return false;
+        else if (tx.sp_input_images.size() != tx.sp_membership_proofs.size())
+            return false;
 
         // 2. get legacy ring members
         std::vector<rct::ctkeyV> legacy_ring_members;
@@ -722,14 +747,30 @@ bool try_get_tx_contextual_validation_id(const SpTxSquashedV1 &tx,
         std::vector<rct::keyV> sp_membership_proof_refs;
         sp_membership_proof_refs.reserve(tx.sp_membership_proofs.size());
 
-        for (const SpMembershipProofV1 &sp_membership_proof : tx.sp_membership_proofs)
+        const SemanticConfigSpRefSetV1 sp_semantic_config_ref_set{
+            tx_validation_context.get_sp_ref_set_config(tx_version_from(tx.tx_semantic_rules_version))
+        };
+
+        const SpBinnedReferenceSetConfigV1 bin_config{
+            .bin_radius = static_cast<ref_set_bin_dimension_v1_t>(sp_semantic_config_ref_set.bin_radius),
+            .num_bin_members = static_cast<ref_set_bin_dimension_v1_t>(sp_semantic_config_ref_set.num_bin_members)
+        };
+
+        for (size_t sp_input_index = 0; sp_input_index < tx.sp_input_images.size(); ++sp_input_index)
         {
-            // a. decompress the reference set indices
-            if(!try_get_reference_indices_from_binned_reference_set_v1(sp_membership_proof.binned_reference_set,
+            // a. expand binned reference set from membership proof + enote image info
+            SpBinnedReferenceSetV1 binned_reference_set;
+            make_binned_ref_set_v1(tx.sp_membership_proofs[sp_input_index],
+                bin_config,
+                tx.sp_input_images[sp_input_index].core,
+                binned_reference_set);
+
+            // b. decompress the reference set indices
+            if (!try_get_reference_indices_from_binned_reference_set_v1(binned_reference_set,
                     sp_reference_indices_temp))
                 return false;
 
-            // b. get the seraphis reference set elements
+            // c. get the seraphis reference set elements
             tx_validation_context.get_reference_set_proof_elements_v2(sp_reference_indices_temp,
                 tools::add_element(sp_membership_proof_refs));
         }

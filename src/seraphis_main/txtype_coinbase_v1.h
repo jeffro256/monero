@@ -145,6 +145,9 @@ inline tx_version_t tx_version_from(const SpTxCoinbaseV1::SemanticRulesVersion t
 template <>
 bool validate_tx_semantics<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx);
 template <>
+bool validate_tx_semantics_sp_ref_set<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx,
+    const TxValidationContext &tx_validation_context);
+template <>
 bool validate_tx_key_images<SpTxCoinbaseV1>(const SpTxCoinbaseV1&, const TxValidationContext&);
 template <>
 bool validate_tx_amount_balance<SpTxCoinbaseV1>(const SpTxCoinbaseV1 &tx);

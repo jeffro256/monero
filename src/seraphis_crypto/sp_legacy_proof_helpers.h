@@ -45,14 +45,6 @@ namespace sp { class SpTranscriptBuilder; }
 
 namespace sp
 {
-
-/**
-* brief: append_clsag_to_transcript - append CLSAG proof to a transcript
-*   transcript += {s} || c1 || I || D
-* param: clsag_proof -
-* inoutparam: transcript_inout - contents appended to a transcript
-*/
-void append_clsag_to_transcript(const rct::clsag &clsag_proof, SpTranscriptBuilder &transcript_inout);
 /**
 * brief: clsag_size_bytes - get the size of a CLSAG proof in bytes
 *   - CLSAG size: 32 * (ring size + 2)

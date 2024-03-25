@@ -278,6 +278,17 @@ void make_v1_alignable_membership_proof_v1(SpMembershipProofPrepV1 membership_pr
 void make_v1_alignable_membership_proofs_v1(std::vector<SpMembershipProofPrepV1> membership_proof_preps,
     std::vector<SpAlignableMembershipProofV1> &alignable_membership_proof_out);
 /**
+ * brief: make_binned_ref_set_v1 - use membership proof, refset config, and gen seed to make binned reference set
+*/
+void make_binned_ref_set_v1(const SpMembershipProofV1 &membership_proof,
+    const SpBinnedReferenceSetConfigV1 &ref_set_config,
+    const rct::key &bin_generator_seed,
+    SpBinnedReferenceSetV1 &binned_ref_set_out);
+void make_binned_ref_set_v1(const SpMembershipProofV1 &membership_proof,
+    const SpBinnedReferenceSetConfigV1 &ref_set_config,
+    const SpEnoteImageCore &enote_image,
+    SpBinnedReferenceSetV1 &binned_ref_set_out);
+/**
 * brief: align_v1_membership_proofs_v1 - rearrange seraphis membership proofs so they line up with a set of input images
 * param: input_images -
 * param: membership_proofs_alignable -

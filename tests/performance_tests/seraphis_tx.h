@@ -321,6 +321,12 @@ public:
                 tx_params.sp_input_amounts = std::move(sp_input_amounts);
                 tx_params.output_amounts = std::move(output_amounts);
                 tx_params.discretized_fee = sp::discretize_fee(0);
+                m_sp_ref_set_config = sp::SemanticConfigSpRefSetV1{
+                        .decomp_n = params.n,
+                        .decomp_m = params.m,
+                        .bin_radius = sp::math::uint_pow(params.n, params.m) / 2,
+                        .num_bin_members = sp::math::uint_pow(params.n, params.m / 2)
+                    };
 
                 // make tx
                 m_txs.emplace_back();
@@ -379,7 +385,10 @@ public:
     {
         try
         {
-            const sp::mocks::TxValidationContextMock tx_validation_context{*m_ledger_contex};
+            const sp::mocks::TxValidationContextMock tx_validation_context{
+                    *m_ledger_contex,
+                    m_sp_ref_set_config
+                };
             return sp::validate_txs(m_tx_ptrs, tx_validation_context);
         }
         catch (...)
@@ -391,5 +400,6 @@ public:
 private:
     std::vector<SpTxType> m_txs;
     std::vector<const SpTxType*> m_tx_ptrs;
+    sp::SemanticConfigSpRefSetV1 m_sp_ref_set_config;
     std::shared_ptr<sp::mocks::MockLedgerContext> m_ledger_contex;
 };
