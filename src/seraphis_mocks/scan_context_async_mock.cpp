@@ -35,6 +35,7 @@
 #include "misc_language.h"
 #include "misc_log_ex.h"
 #include "net/http.h"
+#include "seraphis_core/legacy_enote_utils.h"
 #include "seraphis_impl/scan_ledger_chunk_simple.h"
 #include "seraphis_main/contextual_enote_record_types.h"
 #include "seraphis_main/enote_finding_context.h"
@@ -102,25 +103,14 @@ static void validate_get_blocks_res(const ChunkRequest &req,
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static std::uint64_t get_total_output_count_before_tx(const std::vector<std::uint64_t> &output_indices)
-{
-    // total_output_count_before_tx == global output index of first output in tx.
-    // Some txs have no enotes, in which case we set this value to 0 as it isn't useful.
-    // TODO: pre-RCT outputs yield incorrect values here but this is only used for spending
-    // need https://github.com/UkoeHB/monero/pull/40 in order to handle pre-RCT outputs
-    return !output_indices.empty() ? output_indices[0] : 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
 static void prepare_unscanned_legacy_transaction(const crypto::hash &tx_hash,
     const cryptonote::transaction &tx,
-    const std::uint64_t total_output_count_before_tx,
+    const std::vector<std::uint64_t> legacy_output_index_number_per_enote,
     sp::LegacyUnscannedTransaction &unscanned_tx_out)
 {
     unscanned_tx_out = LegacyUnscannedTransaction{};
 
     unscanned_tx_out.transaction_id         = rct::hash2rct(tx_hash);
-    unscanned_tx_out.total_enotes_before_tx = total_output_count_before_tx;
     unscanned_tx_out.unlock_time            = tx.unlock_time;
 
     unscanned_tx_out.tx_memo = sp::TxExtra(
@@ -130,6 +120,10 @@ static void prepare_unscanned_legacy_transaction(const crypto::hash &tx_hash,
 
     sp::legacy_outputs_to_enotes(tx, unscanned_tx_out.enotes);
 
+    CHECK_AND_ASSERT_THROW_MES(legacy_output_index_number_per_enote.empty() ||
+            legacy_output_index_number_per_enote.size() == unscanned_tx_out.enotes.size(),
+        "bad number of output indices compared to number of legacy tx enotes");
+
     unscanned_tx_out.legacy_key_images.reserve(tx.vin.size());
     for (const auto &in: tx.vin)
     {
@@ -137,6 +131,21 @@ static void prepare_unscanned_legacy_transaction(const crypto::hash &tx_hash,
             continue;
         const auto &txin = boost::get<cryptonote::txin_to_key>(in);
         unscanned_tx_out.legacy_key_images.emplace_back(txin.k_image);
+    }
+
+    const bool is_rct{tx.version == 2};
+
+    unscanned_tx_out.legacy_output_index_per_enote.clear();
+    unscanned_tx_out.legacy_output_index_per_enote.reserve(unscanned_tx_out.enotes.size());
+    for (size_t i = 0; i < unscanned_tx_out.enotes.size(); ++i)
+    {
+        const rct::xmr_amount ledger_indexing_amount{
+                get_legacy_ledger_indexing_amount(unscanned_tx_out.enotes[i], is_rct)
+            };
+        const std::uint64_t global_index{
+                legacy_output_index_number_per_enote.empty() ? 0 : legacy_output_index_number_per_enote[i]
+            };
+        unscanned_tx_out.legacy_output_index_per_enote.push_back({ledger_indexing_amount, global_index});
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -242,7 +251,7 @@ static void prepare_unscanned_block(const cryptonote::block_complete_entry &res_
     crypto::hash miner_tx_hash = cryptonote::get_transaction_hash(block.miner_tx);
     prepare_unscanned_legacy_transaction(miner_tx_hash,
         block.miner_tx,
-        get_total_output_count_before_tx(output_indices[0].indices),
+        output_indices[0].indices,
         unscanned_block_out.unscanned_txs[0]);
 
     // Prepare non-miner txs
@@ -258,7 +267,7 @@ static void prepare_unscanned_block(const cryptonote::block_complete_entry &res_
 
         prepare_unscanned_legacy_transaction(block.tx_hashes[tx_idx],
             std::move(tx),
-            get_total_output_count_before_tx(output_indices[unscanned_tx_idx].indices),
+            output_indices[unscanned_tx_idx].indices,
             unscanned_tx);
     }
 }

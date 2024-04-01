@@ -69,6 +69,18 @@ void append_to_transcript(const LegacyEnoteImageV2 &container, SpTranscriptBuild
     transcript_inout.append("KI", container.key_image);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void append_to_transcript(const LegacyReferenceSetV2 &container, SpTranscriptBuilder &transcript_inout)
+{
+    std::vector<std::uint64_t> refset_data;
+    refset_data.reserve(2 * container.indices.size());
+    for (const legacy_output_index_t &i : container.indices)
+    {
+        refset_data.push_back(i.ledger_indexing_amount);
+        refset_data.push_back(i.index);
+    }
+    transcript_inout.append("indices", refset_data);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void append_to_transcript(const LegacyRingSignatureV4 &container, SpTranscriptBuilder &transcript_inout)
 {
     transcript_inout.append("clsag_proof", container.clsag_proof);
@@ -77,15 +89,15 @@ void append_to_transcript(const LegacyRingSignatureV4 &container, SpTranscriptBu
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t legacy_ring_signature_v4_size_bytes(const std::size_t num_ring_members)
 {
-    return clsag_size_bytes(num_ring_members) + num_ring_members * 8;
+    return clsag_size_bytes(num_ring_members) + num_ring_members * 16;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t legacy_ring_signature_v4_size_bytes(const LegacyRingSignatureV4 &ring_signature)
 {
-    CHECK_AND_ASSERT_THROW_MES(ring_signature.clsag_proof.s.size() == ring_signature.reference_set.size(),
+    CHECK_AND_ASSERT_THROW_MES(ring_signature.clsag_proof.s.size() == ring_signature.reference_set.indices.size(),
         "legacy ring signature v4 size: clsag proof doesn't match reference set size.");
 
-    return legacy_ring_signature_v4_size_bytes(ring_signature.reference_set.size());
+    return legacy_ring_signature_v4_size_bytes(ring_signature.reference_set.indices.size());
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool compare_KI(const LegacyEnoteImageV2 &a, const LegacyEnoteImageV2 &b)

@@ -58,6 +58,11 @@ void get_legacy_enote_identifier(const rct::key &onetime_address, const rct::xmr
     sp_hash_to_32(transcript.data(), transcript.size(), identifier_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
+rct::xmr_amount get_legacy_ledger_indexing_amount(const LegacyEnoteVariant &enote, const bool is_rct)
+{
+    return is_rct ? 0 : cleartext_amount_ref(enote);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_legacy_enote_v1(const rct::key &destination_spendkey,
     const rct::key &destination_viewkey,
     const rct::xmr_amount amount,

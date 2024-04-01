@@ -216,7 +216,7 @@ bool matches_with(const LegacyMultisigInputProposalV1 &multisig_input_proposal,
         return false;
 
     // references line up 1:1
-    if (multisig_input_proposal.reference_set.size() != proof_proposal.ring_members.size())
+    if (multisig_input_proposal.reference_set.indices.size() != proof_proposal.ring_members.size())
         return false;
 
     return true;

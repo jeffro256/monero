@@ -33,6 +33,7 @@
 //local headers
 #include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/legacy_output_index.h"
 
 //third party headers
 #include <boost/utility/string_ref.hpp>
@@ -89,6 +90,28 @@ void append_to_transcript(const LegacyEnoteImageV2 &container, SpTranscriptBuild
 inline std::size_t legacy_enote_image_v2_size_bytes() { return 32 + 32; }
 
 ////
+// LegacyReferenceSetV1: not used in seraphis
+// - ledger indexing amount
+// - list of global output indices for given amount
+///
+
+////
+// LegacyReferenceSetV2:
+// - sorted list of (ledger indexing amount, global index) pairs
+///
+struct LegacyReferenceSetV2
+{
+    std::set<legacy_output_index_t> indices;
+};
+inline const boost::string_ref container_name(const LegacyReferenceSetV2&) { return "LegacyReferenceSetV2"; }
+void append_to_transcript(const LegacyReferenceSetV2 &container, SpTranscriptBuilder &transcript_inout);
+
+/// get the size in bytes
+inline std::size_t legacy_ref_set_v2_size_bytes(const std::size_t num_indices) { return 16 * num_indices; }
+inline std::size_t legacy_ref_set_v2_size_bytes(const LegacyReferenceSetV2 &legacy_ref_set)
+{ return legacy_ref_set_v2_size_bytes(legacy_ref_set.indices.size()); }
+
+////
 // LegacyRingSignatureV1: not used in seraphis
 // - Cryptonote ring signature (using LegacyEnoteImageV1)
 ///
@@ -105,14 +128,14 @@ inline std::size_t legacy_enote_image_v2_size_bytes() { return 32 + 32; }
 
 ////
 // LegacyRingSignatureV4
-// - CLSAG (using LegacyEnoteImageV2)
+// - CLSAG (using LegacyEnoteImageV2 and mixed ledger amount reference set [Seraphis-only])
 ///
 struct LegacyRingSignatureV4 final
 {
     /// a clsag proof
     LegacyClsagProof clsag_proof;
-    /// on-chain indices of the proof's ring members
-    std::vector<std::uint64_t> reference_set;
+    /// sorted on-chain indices of the proof's ring members in (amount, index) form
+    LegacyReferenceSetV2 reference_set;
 };
 inline const boost::string_ref container_name(const LegacyRingSignatureV4&) { return "LegacyRingSignatureV4"; }
 void append_to_transcript(const LegacyRingSignatureV4 &container, SpTranscriptBuilder &transcript_inout);

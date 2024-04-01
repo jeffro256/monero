@@ -87,10 +87,10 @@ void make_v1_legacy_input_proposal_v1(const LegacyEnoteRecord &enote_record,
 * outparam: message_out - the message to sign in a legacy ring signature
 */
 void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_message,
-    const std::vector<std::uint64_t> &reference_set_indices,
+    const LegacyReferenceSetV2 &reference_set_indices,
     rct::key &message_out);
 /**
-* brief: make_v4_legacy_ring_signature - make a legacy v3 ring signature
+* brief: make_v4_legacy_ring_signature - make a legacy v4 ring signature
 * param: message -
 * param: reference_set -
 * param: referenced_enotes -
@@ -103,7 +103,7 @@ void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_messag
 * outparam: ring_signature_out -
 */
 void make_v4_legacy_ring_signature(const rct::key &message,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     const rct::ctkeyV &referenced_enotes,
     const std::uint64_t real_reference_index,
     const rct::key &masked_commitment,

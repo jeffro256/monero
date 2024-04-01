@@ -81,7 +81,7 @@ class TxValidationContextSimple final : public TxValidationContext
 public:
 //constructors
     TxValidationContextSimple(const SemanticConfigSpRefSetV1 &sp_ref_set_config,
-        const std::unordered_map<std::uint64_t, rct::ctkey> &legacy_reference_set_proof_elements,
+        const std::unordered_map<legacy_output_index_t, rct::ctkey> &legacy_reference_set_proof_elements,
         const std::unordered_map<std::uint64_t, rct::key> &sp_reference_set_proof_elements) :
         m_sp_ref_set_config{sp_ref_set_config},
         m_legacy_reference_set_proof_elements{legacy_reference_set_proof_elements},
@@ -115,19 +115,19 @@ public:
     }
     /**
     * brief: get_reference_set_proof_elements_v1 - gets legacy {KI, C} pairs stored in the validation context
-    * param: indices -
+    *   - note: should only return elements that are valid to reference in a tx (e.g. locked elements are invalid)
+    * param: indices - (output amount, global output index) reference pairs to existing on-chain legacy enotes
     * outparam: proof_elements_out - {KI, C}
     */
-    void get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
+    virtual void get_reference_set_proof_elements_v1(const std::set<legacy_output_index_t> &indices,
         rct::ctkeyV &proof_elements_out) const override
     {
         proof_elements_out.clear();
         proof_elements_out.reserve(indices.size());
-
-        for (const std::uint64_t index : indices)
+        for (const legacy_output_index_t &index : indices)
         {
-            if (m_legacy_reference_set_proof_elements.find(index) != m_legacy_reference_set_proof_elements.end())
-                proof_elements_out.emplace_back(m_legacy_reference_set_proof_elements.at(index));
+            if (m_legacy_reference_set_proof_elements.count(index))
+                proof_elements_out.push_back(m_legacy_reference_set_proof_elements.at(index));
             else
                 proof_elements_out.emplace_back(rct::ctkey{});
         }
@@ -155,7 +155,7 @@ public:
 //member variables
 private:
     const SemanticConfigSpRefSetV1 m_sp_ref_set_config;
-    const std::unordered_map<std::uint64_t, rct::ctkey> &m_legacy_reference_set_proof_elements;
+    const std::unordered_map<legacy_output_index_t, rct::ctkey> &m_legacy_reference_set_proof_elements;
     const std::unordered_map<std::uint64_t, rct::key> &m_sp_reference_set_proof_elements;
 };
 
@@ -503,7 +503,7 @@ static void check_tx_proposal_semantics_output_proposals_v1(const std::vector<Sp
 //-------------------------------------------------------------------------------------------------------------------
 static void collect_legacy_ring_signature_ring_members(const std::vector<LegacyRingSignatureV4> &legacy_ring_signatures,
     const std::vector<rct::ctkeyV> &legacy_ring_signature_rings,
-    std::unordered_map<std::uint64_t, rct::ctkey> &legacy_reference_set_proof_elements_out)
+    std::unordered_map<legacy_output_index_t, rct::ctkey> &legacy_reference_set_proof_elements_out)
 {
     // map legacy ring members onto their on-chain legacy enote indices
     CHECK_AND_ASSERT_THROW_MES(legacy_ring_signatures.size() == legacy_ring_signature_rings.size(),
@@ -512,15 +512,17 @@ static void collect_legacy_ring_signature_ring_members(const std::vector<LegacyR
 
     for (std::size_t legacy_input_index{0}; legacy_input_index < legacy_ring_signatures.size(); ++legacy_input_index)
     {
-        CHECK_AND_ASSERT_THROW_MES(legacy_ring_signatures[legacy_input_index].reference_set.size() ==
-                legacy_ring_signature_rings[legacy_input_index].size(),
+        const std::size_t ring_size{legacy_ring_signatures[legacy_input_index].reference_set.indices.size()};
+
+        CHECK_AND_ASSERT_THROW_MES(ring_size == legacy_ring_signature_rings[legacy_input_index].size(),
             "collect legacy ring signature ring members: a reference set doesn't line up with the corresponding ring.");
 
-        for (std::size_t ring_index{0}; ring_index < legacy_ring_signature_rings[legacy_input_index].size(); ++ring_index)
+        auto reference_indices_it = legacy_ring_signatures[legacy_input_index].reference_set.indices.cbegin();
+        for (std::size_t ring_index{0}; ring_index < ring_size; ++ring_index)
         {
-            legacy_reference_set_proof_elements_out[
-                    legacy_ring_signatures[legacy_input_index].reference_set[ring_index]
-                ] = legacy_ring_signature_rings[legacy_input_index][ring_index];
+            legacy_reference_set_proof_elements_out[*reference_indices_it] =
+                legacy_ring_signature_rings[legacy_input_index][ring_index];
+            ++reference_indices_it;
         }
     }
 }
@@ -1030,7 +1032,7 @@ void check_v1_partial_tx_semantics_v1(const SpPartialTxV1 &partial_tx,
     make_v1_membership_proofs_v1(std::move(sp_membership_proof_preps), sp_membership_proofs);
 
     // 4. collect legacy ring signature ring members for mock validation context
-    std::unordered_map<std::uint64_t, rct::ctkey> legacy_reference_set_proof_elements;
+    std::unordered_map<legacy_output_index_t, rct::ctkey> legacy_reference_set_proof_elements;
 
     collect_legacy_ring_signature_ring_members(partial_tx.legacy_ring_signatures,
         partial_tx.legacy_ring_signature_rings,

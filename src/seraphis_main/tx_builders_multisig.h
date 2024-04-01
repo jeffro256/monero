@@ -100,11 +100,11 @@ void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteVariant &enote,
     const std::uint64_t tx_output_index,
     const std::uint64_t unlock_time,
     const crypto::secret_key &commitment_mask,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     LegacyMultisigInputProposalV1 &proposal_out);
 void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteRecord &enote_record,
     const crypto::secret_key &commitment_mask,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     LegacyMultisigInputProposalV1 &proposal_out);
 /**
 * brief: check_v1_sp_multisig_input_proposal_semantics_v1 - check semantics of a seraphis multisig input proposal
