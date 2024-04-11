@@ -39,7 +39,8 @@
 #include "gtest/gtest.h"
 
 using namespace sp;
-using namespace mocks;
+using namespace jamtis;
+using namespace sp::mocks;
 
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization, seraphis_coinbase_empty)
@@ -173,5 +174,58 @@ TEST(seraphis_serialization, seraphis_squashed_standard)
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx) == sp_tx_squashed_v1_size_bytes(recovered_tx)));
     EXPECT_TRUE(validate_tx(tx, tx_validation_context));
     EXPECT_TRUE(validate_tx(recovered_tx, tx_validation_context));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, jamtis_destination_v1)
+{
+    // generate
+    JamtisDestinationV1 dest{gen_jamtis_destination_v1()};
+
+    // serialize
+    std::string serialized_dest;
+    EXPECT_TRUE(::serialization::dump_binary(dest, serialized_dest));
+
+    // deserialize
+    JamtisDestinationV1 recovered_dest;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_dest, recovered_dest));
+
+    // compare
+    EXPECT_EQ(dest, recovered_dest);
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, jamtis_payment_proposal_v1)
+{
+    // generate
+    JamtisPaymentProposalV1 payprop{gen_jamtis_payment_proposal_v1(7, 3)};
+
+    // serialize
+    std::string serialized_payprop;
+    EXPECT_TRUE(::serialization::dump_binary(payprop, serialized_payprop));
+
+    // deserialize
+    JamtisPaymentProposalV1 recovered_payprop;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_payprop, recovered_payprop));
+
+    // compare
+    EXPECT_EQ(payprop, recovered_payprop);
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, jamtis_payment_proposal_self_send_v1)
+{
+    // generate
+    JamtisPaymentProposalSelfSendV1 payprop{
+            gen_jamtis_selfsend_payment_proposal_v1(7, JamtisSelfSendType::SELF_SPEND, 3)
+        };
+
+    // serialize
+    std::string serialized_payprop;
+    EXPECT_TRUE(::serialization::dump_binary(payprop, serialized_payprop));
+
+    // deserialize
+    JamtisPaymentProposalSelfSendV1 recovered_payprop;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_payprop, recovered_payprop));
+
+    // compare
+    EXPECT_EQ(payprop, recovered_payprop);
 }
 //-------------------------------------------------------------------------------------------------------------------
