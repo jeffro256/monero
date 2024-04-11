@@ -636,7 +636,10 @@ bool do_serialize_cryptonote_tx(Archive<true> &ar, MoneroTxVariant &tx, const bo
 }
 
 template <bool W, template <bool> class Archive>
-bool do_serialize(Archive<W> &ar, MoneroTxVariant &tx, const bool pruned = false)
+bool do_serialize(Archive<W> &ar,
+    MoneroTxVariant &tx,
+    const bool pruned = false,
+    const std::size_t mock_num_bins = 0)
 {
     ar.begin_object();
 

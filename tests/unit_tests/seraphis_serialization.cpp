@@ -440,7 +440,7 @@ TEST(seraphis_serialization, seraphis_coinbase_empty)
 
     // recover the tx
     SpTxCoinbaseV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check that the original tx was recovered
     rct::key original_tx_id;
@@ -451,6 +451,31 @@ TEST(seraphis_serialization, seraphis_coinbase_empty)
 
     EXPECT_TRUE(original_tx_id == recovered_tx_id);
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_coinbase_v1_size_bytes(tx) == sp_tx_coinbase_v1_size_bytes(recovered_tx)));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, seraphis_coinbase_empty_variant)
+{
+    // make empty tx
+    MoneroTxVariant tx = SpTxCoinbaseV1{};
+
+    // serialize the tx
+    std::string serialized_tx;
+    EXPECT_TRUE(::serialization::dump_binary(tx, serialized_tx));
+
+    // recover the tx
+    MoneroTxVariant recovered_tx;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
+
+    // check that the original tx was recovered
+    rct::key original_tx_id;
+    rct::key recovered_tx_id;
+
+    EXPECT_NO_THROW(get_sp_tx_coinbase_v1_txid(tx.unwrap<SpTxCoinbaseV1>(), original_tx_id));
+    EXPECT_NO_THROW(get_sp_tx_coinbase_v1_txid(recovered_tx.unwrap<SpTxCoinbaseV1>(), recovered_tx_id));
+
+    EXPECT_TRUE(original_tx_id == recovered_tx_id);
+    EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_coinbase_v1_size_bytes(tx.unwrap<SpTxCoinbaseV1>())
+        == sp_tx_coinbase_v1_size_bytes(recovered_tx.unwrap<SpTxCoinbaseV1>())));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization, seraphis_squashed_empty)
@@ -464,7 +489,7 @@ TEST(seraphis_serialization, seraphis_squashed_empty)
 
     // recover the tx
     SpTxSquashedV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check that the original tx was recovered
     rct::key original_tx_id;
@@ -475,6 +500,31 @@ TEST(seraphis_serialization, seraphis_squashed_empty)
 
     EXPECT_TRUE(original_tx_id == recovered_tx_id);
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx) == sp_tx_squashed_v1_size_bytes(recovered_tx)));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, seraphis_squashed_empty_variant)
+{
+    // make empty tx
+    MoneroTxVariant tx = SpTxSquashedV1{};
+
+    // serialize the tx
+    std::string serialized_tx;
+    EXPECT_TRUE(::serialization::dump_binary(tx, serialized_tx));
+
+    // recover the tx
+    MoneroTxVariant recovered_tx;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
+
+    // check that the original tx was recovered
+    rct::key original_tx_id;
+    rct::key recovered_tx_id;
+
+    EXPECT_NO_THROW(get_sp_tx_squashed_v1_txid(tx.unwrap<SpTxSquashedV1>(), original_tx_id));
+    EXPECT_NO_THROW(get_sp_tx_squashed_v1_txid(recovered_tx.unwrap<SpTxSquashedV1>(), recovered_tx_id));
+
+    EXPECT_TRUE(original_tx_id == recovered_tx_id);
+    EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx.unwrap<SpTxSquashedV1>())
+        == sp_tx_squashed_v1_size_bytes(recovered_tx.unwrap<SpTxSquashedV1>())));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization, seraphis_coinbase_standard)
@@ -493,7 +543,7 @@ TEST(seraphis_serialization, seraphis_coinbase_standard)
 
     // recover the tx
     SpTxCoinbaseV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check the tx was recovered
     rct::key original_tx_id;
@@ -506,6 +556,38 @@ TEST(seraphis_serialization, seraphis_coinbase_standard)
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_coinbase_v1_size_bytes(tx) == sp_tx_coinbase_v1_size_bytes(recovered_tx)));
     EXPECT_TRUE(validate_tx(tx, tx_validation_context));
     EXPECT_TRUE(validate_tx(recovered_tx, tx_validation_context));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, seraphis_coinbase_standard_variant)
+{
+    // ledger context
+    MockLedgerContext ledger_context{0, 10000};
+    const TxValidationContextMock tx_validation_context{ledger_context, {}};
+
+    // make a tx
+    MoneroTxVariant tx = SpTxCoinbaseV1{};
+    make_mock_tx<SpTxCoinbaseV1>(SpTxParamPackV1{.output_amounts = {1}}, ledger_context, tx.unwrap<SpTxCoinbaseV1>());
+
+    // serialize the tx
+    std::string serialized_tx;
+    EXPECT_TRUE(::serialization::dump_binary(tx, serialized_tx));
+
+    // recover the tx
+    MoneroTxVariant recovered_tx;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
+
+    // check the tx was recovered
+    rct::key original_tx_id;
+    rct::key recovered_tx_id;
+
+    EXPECT_NO_THROW(get_sp_tx_coinbase_v1_txid(tx.unwrap<SpTxCoinbaseV1>(), original_tx_id));
+    EXPECT_NO_THROW(get_sp_tx_coinbase_v1_txid(recovered_tx.unwrap<SpTxCoinbaseV1>(), recovered_tx_id));
+
+    EXPECT_TRUE(original_tx_id == recovered_tx_id);
+    EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_coinbase_v1_size_bytes(tx.unwrap<SpTxCoinbaseV1>())
+        == sp_tx_coinbase_v1_size_bytes(recovered_tx.unwrap<SpTxCoinbaseV1>())));
+    EXPECT_TRUE(validate_tx(tx.unwrap<SpTxCoinbaseV1>(), tx_validation_context));
+    EXPECT_TRUE(validate_tx(recovered_tx.unwrap<SpTxCoinbaseV1>(), tx_validation_context));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization, seraphis_squashed_standard)
@@ -547,7 +629,7 @@ TEST(seraphis_serialization, seraphis_squashed_standard)
 
     // recover the tx
     SpTxSquashedV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check the tx was recovered
     rct::key original_tx_id;
@@ -560,6 +642,61 @@ TEST(seraphis_serialization, seraphis_squashed_standard)
     EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx) == sp_tx_squashed_v1_size_bytes(recovered_tx)));
     EXPECT_TRUE(validate_tx(tx, tx_validation_context));
     EXPECT_TRUE(validate_tx(recovered_tx, tx_validation_context));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, seraphis_squashed_standard_variant)
+{
+    // config
+    SpTxParamPackV1 tx_params;
+
+    tx_params.legacy_ring_size = 2;
+    tx_params.ref_set_decomp_n = 2;
+    tx_params.ref_set_decomp_m = 2;
+    tx_params.bin_config =
+        SpBinnedReferenceSetConfigV1{
+            .bin_radius = 1,
+            .num_bin_members = 1
+        };
+    tx_params.legacy_input_amounts = {1};
+    tx_params.sp_input_amounts = {2, 3};
+    tx_params.output_amounts = {3};
+    tx_params.discretized_fee = discretize_fee(3);
+
+    const SemanticConfigSpRefSetV1 sp_ref_set_config{
+            .decomp_n = tx_params.ref_set_decomp_n,
+            .decomp_m = tx_params.ref_set_decomp_m,
+            .bin_radius = tx_params.bin_config.bin_radius,
+            .num_bin_members = tx_params.bin_config.num_bin_members,
+        };
+
+    // ledger context
+    MockLedgerContext ledger_context{0, 10000};
+    const TxValidationContextMock tx_validation_context{ledger_context, sp_ref_set_config};
+
+    // make a tx
+    MoneroTxVariant tx = SpTxSquashedV1{};
+    make_mock_tx<SpTxSquashedV1>(tx_params, ledger_context, tx.unwrap<SpTxSquashedV1>());
+
+    // serialize the tx
+    std::string serialized_tx;
+    EXPECT_TRUE(::serialization::dump_binary(tx, serialized_tx));
+
+    // recover the tx
+    MoneroTxVariant recovered_tx;
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
+
+    // check the tx was recovered
+    rct::key original_tx_id;
+    rct::key recovered_tx_id;
+
+    EXPECT_NO_THROW(get_sp_tx_squashed_v1_txid(tx.unwrap<SpTxSquashedV1>(), original_tx_id));
+    EXPECT_NO_THROW(get_sp_tx_squashed_v1_txid(recovered_tx.unwrap<SpTxSquashedV1>(), recovered_tx_id));
+
+    EXPECT_TRUE(original_tx_id == recovered_tx_id);
+    EXPECT_NO_THROW(EXPECT_TRUE(sp_tx_squashed_v1_size_bytes(tx.unwrap<SpTxSquashedV1>())
+        == sp_tx_squashed_v1_size_bytes(recovered_tx.unwrap<SpTxSquashedV1>())));
+    EXPECT_TRUE(validate_tx(tx.unwrap<SpTxSquashedV1>(), tx_validation_context));
+    EXPECT_TRUE(validate_tx(recovered_tx.unwrap<SpTxSquashedV1>(), tx_validation_context));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_serialization, jamtis_destination_v1)
