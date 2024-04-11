@@ -54,7 +54,7 @@ TEST(seraphis_serialization, seraphis_coinbase_empty)
 
     // recover the tx
     SpTxCoinbaseV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check that the original tx was recovered
     rct::key original_tx_id;
@@ -78,7 +78,7 @@ TEST(seraphis_serialization, seraphis_squashed_empty)
 
     // recover the tx
     SpTxSquashedV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check that the original tx was recovered
     rct::key original_tx_id;
@@ -107,7 +107,7 @@ TEST(seraphis_serialization, seraphis_coinbase_standard)
 
     // recover the tx
     SpTxCoinbaseV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check the tx was recovered
     rct::key original_tx_id;
@@ -161,7 +161,7 @@ TEST(seraphis_serialization, seraphis_squashed_standard)
 
     // recover the tx
     SpTxSquashedV1 recovered_tx;
-    EXPECT_NO_THROW(::serialization::parse_binary(serialized_tx, recovered_tx));
+    EXPECT_TRUE(::serialization::parse_binary(serialized_tx, recovered_tx));
 
     // check the tx was recovered
     rct::key original_tx_id;
