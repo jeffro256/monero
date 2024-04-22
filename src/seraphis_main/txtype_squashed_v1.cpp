@@ -222,40 +222,27 @@ std::size_t sp_tx_squashed_v1_weight(const SpTxSquashedV1 &tx)
 //-------------------------------------------------------------------------------------------------------------------
 void get_sp_tx_squashed_v1_txid(const SpTxSquashedV1 &tx, rct::key &tx_id_out)
 {
-    // tx_id = H_32(tx_proposal_prefix, tx_artifacts_merkle_root)
+    // tx_id = H_32(tx_proposal_prefix, tx_proofs_merkle_root)
 
     // 1. tx proposal prefix
     // H_32(tx version, legacy input key images, seraphis input key images, output enotes, fee, tx supplement)
     rct::key tx_proposal_prefix;
     make_tx_proposal_prefix_v1(tx, tx_proposal_prefix);
 
-    // 2. input images prefix
-    // - note: key images are represented in the tx id twice (tx proposal prefix and input images
-    //   - the reasons are: A) decouple proposals from the enote image structure, B) don't require proposals to commit
-    //     to input commitment masks
-    // H_32({C", KI}((legacy)), {K", C", KI}((seraphis)))
-    rct::key input_images_prefix;
-    make_input_images_prefix_v1(tx.legacy_input_images, tx.sp_input_images, input_images_prefix);
-
-    // 3. tx proofs prefix
+    // 2. tx proofs merkle root
     // H_32(balance proof, legacy ring signatures, image proofs, seraphis membership proofs)
-    rct::key tx_proofs_prefix;
-    make_tx_proofs_prefix_v1(tx.balance_proof,
+    rct::key tx_proofs_merkle_root;
+    make_tx_proofs_merkle_root_v1(tx.balance_proof,
         tx.legacy_ring_signatures,
         tx.sp_image_proofs,
         tx.sp_membership_proofs,
-        tx_proofs_prefix);
+        tx_proofs_merkle_root);
 
-    // 4. tx artifacts prefix
-    // H_32(input images prefix, tx proofs prefix)
-    rct::key tx_artifacts_merkle_root;
-    make_tx_artifacts_merkle_root_v1(input_images_prefix, tx_proofs_prefix, tx_artifacts_merkle_root);
-
-    // 5. tx id
-    // tx_id = H_32(tx_proposal_prefix, tx_artifacts_merkle_root)
+    // 3. tx id
+    // tx_id = H_32(tx_proposal_prefix, tx_proofs_merkle_root)
     SpFSTranscript transcript{config::HASH_KEY_SERAPHIS_TRANSACTION_TYPE_SQUASHED_V1, 2*sizeof(rct::key)};
     transcript.append("prefix", tx_proposal_prefix);
-    transcript.append("artifacts", tx_artifacts_merkle_root);
+    transcript.append("tx_proofs_merkle_root", tx_proofs_merkle_root);
 
     assert(transcript.size() <= 128 && "sp squashed v1 tx id must fit within one blake2b block (128 bytes).");
     sp_hash_to_32(transcript.data(), transcript.size(), tx_id_out.bytes);

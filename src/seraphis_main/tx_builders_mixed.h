@@ -108,7 +108,7 @@ void make_tx_proposal_prefix_v1(const tx_version_t &tx_version,
     rct::key &tx_proposal_prefix_out);
 void make_tx_proposal_prefix_v1(const SpTxSquashedV1 &tx, rct::key &tx_proposal_prefix_out);
 /**
-* brief: make_tx_proofs_prefix_v1 - hash of all proofs in a tx (e.g. for use in making a tx id)
+* brief: make_tx_proofs_merkle_root_v1 - hash of all proofs in a tx (e.g. for use in making a tx id)
 *   - H_32(balance proof, legacy ring signatures, seraphis image proofs, seraphis membership proofs)
 * param: balance_proof -
 * param: legacy_ring_signatures -
@@ -116,21 +116,11 @@ void make_tx_proposal_prefix_v1(const SpTxSquashedV1 &tx, rct::key &tx_proposal_
 * param: sp_membership_proofs -
 * outparam: tx_proofs_prefix_out -
 */
-void make_tx_proofs_prefix_v1(const SpBalanceProofV1 &balance_proof,
+void make_tx_proofs_merkle_root_v1(const SpBalanceProofV1 &balance_proof,
     const std::vector<LegacyRingSignatureV4> &legacy_ring_signatures,
     const std::vector<SpImageProofV1> &sp_image_proofs,
     const std::vector<SpMembershipProofV1> &sp_membership_proofs,
     rct::key &tx_proofs_prefix_out);
-/**
-* brief: make_tx_artifacts_merkle_root_v1 - merkle root of transaction artifacts (input images and proofs)
-*   - H_32(input images prefix, tx proofs prefix)
-* param: input_images_prefix -
-* param: tx_proofs_prefix -
-* outparam: tx_artifacts_merkle_root_out -
-*/
-void make_tx_artifacts_merkle_root_v1(const rct::key &input_images_prefix,
-    const rct::key &tx_proofs_prefix,
-    rct::key &tx_artifacts_merkle_root_out);
 /**
 * brief: check_v1_coinbase_tx_proposal_semantics_v1 - check semantics of a coinbase tx proposal
 *   - throws if a check fails

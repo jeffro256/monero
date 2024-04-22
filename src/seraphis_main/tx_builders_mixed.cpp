@@ -721,7 +721,7 @@ void make_tx_proposal_prefix_v1(const SpTxSquashedV1 &tx, rct::key &tx_proposal_
         tx_proposal_prefix_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_tx_proofs_prefix_v1(const SpBalanceProofV1 &balance_proof,
+void make_tx_proofs_merkle_root_v1(const SpBalanceProofV1 &balance_proof,
     const std::vector<LegacyRingSignatureV4> &legacy_ring_signatures,
     const std::vector<SpImageProofV1> &sp_image_proofs,
     const std::vector<SpMembershipProofV1> &sp_membership_proofs,
@@ -745,21 +745,6 @@ void make_tx_proofs_prefix_v1(const SpBalanceProofV1 &balance_proof,
     transcript.append("sp_membership_proofs", sp_membership_proofs);
 
     sp_hash_to_32(transcript.data(), transcript.size(), tx_proofs_prefix_out.bytes);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_tx_artifacts_merkle_root_v1(const rct::key &input_images_prefix,
-    const rct::key &tx_proofs_prefix,
-    rct::key &tx_artifacts_merkle_root_out)
-{
-    // H_32(input images prefix, tx proofs prefix)
-    SpFSTranscript transcript{
-            config::HASH_KEY_SERAPHIS_TX_ARTIFACTS_MERKLE_ROOT_V1,
-            2*sizeof(rct::key)
-        };
-    transcript.append("input_images_prefix", input_images_prefix);
-    transcript.append("tx_proofs_prefix", tx_proofs_prefix);
-
-    sp_hash_to_32(transcript.data(), transcript.size(), tx_artifacts_merkle_root_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void check_v1_coinbase_tx_proposal_semantics_v1(const SpCoinbaseTxProposalV1 &tx_proposal)
