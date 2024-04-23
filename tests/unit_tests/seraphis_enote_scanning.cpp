@@ -2174,7 +2174,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
             .bin_radius = 1,
             .num_bin_members = 2
         };
-    
+
     const SemanticConfigSpRefSetV1 sp_ref_set_config{
             .decomp_n = ref_set_decomp_n,
             .decomp_m = ref_set_decomp_m,
