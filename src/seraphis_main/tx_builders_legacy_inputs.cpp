@@ -169,7 +169,7 @@ void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_messag
     sp_hash_to_32(transcript.data(), transcript.size(), message_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_v3_legacy_ring_signature(const rct::key &message,
+void make_v4_legacy_ring_signature(const rct::key &message,
     std::vector<std::uint64_t> reference_set,
     const rct::ctkeyV &referenced_enotes,
     const std::uint64_t real_reference_index,
@@ -186,25 +186,25 @@ void make_v3_legacy_ring_signature(const rct::key &message,
 
     // 1. reference sets
     CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(reference_set),
-        "make v3 legacy ring signature: reference set indices are not sorted and unique.");
+        "make v4 legacy ring signature: reference set indices are not sorted and unique.");
     CHECK_AND_ASSERT_THROW_MES(reference_set.size() == referenced_enotes.size(),
-        "make v3 legacy ring signature: reference set indices don't match referenced enotes.");
+        "make v4 legacy ring signature: reference set indices don't match referenced enotes.");
     CHECK_AND_ASSERT_THROW_MES(real_reference_index < referenced_enotes.size(),
-        "make v3 legacy ring signature: real reference index is outside range of referenced enotes.");
+        "make v4 legacy ring signature: real reference index is outside range of referenced enotes.");
 
     // 2. reference onetime address is reproducible
     rct::key onetime_address_reproduced{rct::scalarmultBase(rct::sk2rct(legacy_spend_privkey))};
     mask_key(reference_view_privkey, onetime_address_reproduced, onetime_address_reproduced);
 
     CHECK_AND_ASSERT_THROW_MES(onetime_address_reproduced == referenced_enotes[real_reference_index].dest,
-        "make v3 legacy ring signature: could not reproduce onetime address.");
+        "make v4 legacy ring signature: could not reproduce onetime address.");
 
     // 3. masked commitment is reproducible
     rct::key masked_commitment_reproduced{referenced_enotes[real_reference_index].mask};
     mask_key(reference_commitment_mask, masked_commitment_reproduced, masked_commitment_reproduced);
 
     CHECK_AND_ASSERT_THROW_MES(masked_commitment_reproduced == masked_commitment,
-        "make v3 legacy ring signature: could not reproduce masked commitment (pseudo-output commitment).");
+        "make v4 legacy ring signature: could not reproduce masked commitment (pseudo-output commitment).");
 
 
     /// prepare to make proof
@@ -245,7 +245,7 @@ void make_v3_legacy_ring_signature(const rct::key &message,
     ring_signature_out.reference_set = std::move(reference_set);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_v3_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_prep,
+void make_v4_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_prep,
     const crypto::secret_key &legacy_spend_privkey,
     hw::device &hwdev,
     LegacyRingSignatureV4 &ring_signature_out)
@@ -257,7 +257,7 @@ void make_v3_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_p
         message);
 
     // complete signature
-    make_v3_legacy_ring_signature(message,
+    make_v4_legacy_ring_signature(message,
         std::move(ring_signature_prep.reference_set),
         ring_signature_prep.referenced_enotes,
         ring_signature_prep.real_reference_index,
@@ -269,7 +269,7 @@ void make_v3_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_p
         ring_signature_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_v3_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ring_signature_preps,
+void make_v4_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ring_signature_preps,
     const crypto::secret_key &legacy_spend_privkey,
     hw::device &hwdev,
     std::vector<LegacyRingSignatureV4> &ring_signatures_out)
@@ -278,7 +278,7 @@ void make_v3_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ri
     for (const LegacyRingSignaturePrepV1 &signature_prep : ring_signature_preps)
     {
         CHECK_AND_ASSERT_THROW_MES(signature_prep.tx_proposal_prefix == ring_signature_preps[0].tx_proposal_prefix,
-            "make v3 legacy ring signatures: inconsistent proposal prefixes.");
+            "make v4 legacy ring signatures: inconsistent proposal prefixes.");
     }
 
     // sort ring signature preps
@@ -292,7 +292,7 @@ void make_v3_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ri
 
     for (LegacyRingSignaturePrepV1 &signature_prep : ring_signature_preps)
     {
-        make_v3_legacy_ring_signature_v1(std::move(signature_prep),
+        make_v4_legacy_ring_signature_v1(std::move(signature_prep),
             legacy_spend_privkey,
             hwdev,
             tools::add_element(ring_signatures_out));
@@ -369,7 +369,7 @@ void make_v1_legacy_input_v1(const rct::key &tx_proposal_prefix,
 
     // 3. construct ring signature
     LegacyRingSignatureV4 ring_signature;
-    make_v3_legacy_ring_signature_v1(std::move(ring_signature_prep), legacy_spend_privkey, hwdev, ring_signature);
+    make_v4_legacy_ring_signature_v1(std::move(ring_signature_prep), legacy_spend_privkey, hwdev, ring_signature);
 
     // 4. finish making the input
     make_v1_legacy_input_v1(tx_proposal_prefix,

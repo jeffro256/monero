@@ -90,7 +90,7 @@ void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_messag
     const std::vector<std::uint64_t> &reference_set_indices,
     rct::key &message_out);
 /**
-* brief: make_v3_legacy_ring_signature - make a legacy v3 ring signature
+* brief: make_v4_legacy_ring_signature - make a legacy v3 ring signature
 * param: message -
 * param: reference_set -
 * param: referenced_enotes -
@@ -102,7 +102,7 @@ void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_messag
 * inoutparam: hwdev -
 * outparam: ring_signature_out -
 */
-void make_v3_legacy_ring_signature(const rct::key &message,
+void make_v4_legacy_ring_signature(const rct::key &message,
     std::vector<std::uint64_t> reference_set,
     const rct::ctkeyV &referenced_enotes,
     const std::uint64_t real_reference_index,
@@ -112,11 +112,11 @@ void make_v3_legacy_ring_signature(const rct::key &message,
     const crypto::secret_key &legacy_spend_privkey,
     hw::device &hwdev,
     LegacyRingSignatureV4 &ring_signature_out);
-void make_v3_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_prep,
+void make_v4_legacy_ring_signature_v1(LegacyRingSignaturePrepV1 ring_signature_prep,
     const crypto::secret_key &legacy_spend_privkey,
     hw::device &hwdev,
     LegacyRingSignatureV4 &ring_signature_out);
-void make_v3_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ring_signature_preps,
+void make_v4_legacy_ring_signatures_v1(std::vector<LegacyRingSignaturePrepV1> ring_signature_preps,
     const crypto::secret_key &legacy_spend_privkey,
     hw::device &hwdev,
     std::vector<LegacyRingSignatureV4> &ring_signatures_out);

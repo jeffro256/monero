@@ -472,7 +472,7 @@ static void make_sp_txtype_squashed_v1(const std::size_t legacy_ring_size,
                 legacy_ring_size,
                 ledger_context_inout)
         };
-    make_v3_legacy_ring_signatures_v1(std::move(legacy_ring_signature_preps),
+    make_v4_legacy_ring_signatures_v1(std::move(legacy_ring_signature_preps),
         legacy_spend_privkey,
         hw::get_device("default"),
         tx_legacy_ring_signatures);
