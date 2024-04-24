@@ -735,10 +735,10 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN}) == 0);
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     send_sp_coinbase_amounts_to_users({{1}}, {destination_A}, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -748,10 +748,10 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //amount 1 locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //amount 1 locked
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN}) == 1);
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //amount 1 locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //amount 1 locked
 
     send_sp_coinbase_amounts_to_users({{2}}, {destination_A}, ledger_context);
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -761,10 +761,10 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //amount 2 locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //amount 2 locked
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN}) == 3);
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //amount 2 locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //amount 2 locked
 
     ledger_context.commit_unconfirmed_txs_v1({}, {}, {}, {});
     refresh_user_enote_store(user_keys_A, refresh_config, ledger_context, enote_store_A);
@@ -774,10 +774,10 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_A, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //none locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //none locked
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN}) == 3);
     ASSERT_TRUE(get_received_sum(enote_store_PV_A, {SpEnoteOriginStatus::ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //none
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //none
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
@@ -2595,7 +2595,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_2)
         {SpEnoteSpentStatus::SPENT_ONCHAIN, SpEnoteSpentStatus::SPENT_UNCONFIRMED}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //spend enote in block 1
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -2647,7 +2647,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_2)
         {SpEnoteSpentStatus::SPENT_ONCHAIN, SpEnoteSpentStatus::SPENT_UNCONFIRMED}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
 
     //add empty block 2 (inject to test ledger index trackers)
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -2837,7 +2837,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //make enote: 2 -> user
     LegacyEnoteV5 enote_2;
@@ -2891,7 +2891,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -2909,7 +2909,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store.update_legacy_fullscan_index_for_import_cycle(intermediate_index_pre_import_cycle_1));
@@ -2933,7 +2933,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_2{
@@ -2950,7 +2950,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 3);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 3);  //intermediate record promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -2968,7 +2968,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 3);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 3);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store.update_legacy_fullscan_index_for_import_cycle(intermediate_index_pre_import_cycle_2));
@@ -3002,7 +3002,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_3{
@@ -3037,7 +3037,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);  //enote 2 is now unspent
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 3);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 3);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_4{
@@ -3108,7 +3108,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 6);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 6);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 6);
 
     //intermediate scan (this should have no effect right after a full scan)
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -3126,7 +3126,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 6);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 6);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 6);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_5{
@@ -3169,7 +3169,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 2);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 2);
 
     //pop block 3
     ledger_context.pop_blocks(1);
@@ -3190,7 +3190,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 6);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 6);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 6);
 
     //intermediate scan to show there is no effect on index trackers
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -3207,7 +3207,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_3)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 6);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 6);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 6);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_6{
@@ -3353,7 +3353,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_4)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate scan index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -3379,7 +3379,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_4)
             {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
         ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
             {SpEnoteSpentStatus::SPENT_ONCHAIN},
-            {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+            {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //import key images: enote 1 in block 0, enote 2 in block 1
     ASSERT_TRUE(enote_store.try_import_legacy_key_image(key_image_1, enote_1.onetime_address, events));
@@ -3392,7 +3392,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_4)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
 
     //legacy key image scan (does nothing, no enotes were spent)
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -3410,7 +3410,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_4)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store.update_legacy_fullscan_index_for_import_cycle(intermediate_index_pre_import_cycle_1));
@@ -3548,7 +3548,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_5)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate scan index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -3583,7 +3583,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_5)
             {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
         ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
             {SpEnoteSpentStatus::SPENT_ONCHAIN},
-            {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+            {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //import key images: enote 1 in block 0, enote 2 in block 1
     ASSERT_TRUE(enote_store.try_import_legacy_key_image(key_image_1, enote_1.onetime_address, events));
@@ -3596,7 +3596,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_5)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
 
     //legacy key image scan (does nothing, no enotes were spent)
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -3614,7 +3614,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_5)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store.update_legacy_fullscan_index_for_import_cycle(intermediate_index_pre_import_cycle_1));
@@ -3714,7 +3714,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -3757,7 +3757,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //full scan (separate enote store); balance should still be 1
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -3792,7 +3792,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -3809,7 +3809,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);  //intermediate record promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -3827,7 +3827,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store_int.update_legacy_fullscan_index_for_import_cycle(
@@ -3876,7 +3876,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_2{
@@ -3923,7 +3923,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_3{
@@ -3978,7 +3978,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 1);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 1);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_4{
@@ -4033,7 +4033,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_6)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_5{
@@ -4206,7 +4206,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -4246,7 +4246,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 5);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -4263,7 +4263,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 5);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 5);  //intermediate records promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 5);  //intermediate records promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -4281,7 +4281,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 5);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 5);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 5);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store_int.update_legacy_fullscan_index_for_import_cycle(
@@ -4320,7 +4320,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 3);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 3);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_2{
@@ -4386,7 +4386,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 4);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 4);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 4);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_3{
@@ -4442,7 +4442,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_4{
@@ -4491,7 +4491,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_7)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 4);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE}) == 4);
+        {BalanceExclusion::LEGACY_INTERMEDIATE}) == 4);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_5{
@@ -4660,11 +4660,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1 is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -4680,7 +4680,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1 is locked
 
     //block 1: enote 2 (unlock at block 3)
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -4707,11 +4707,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1 is unlocked, enote 2 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1 is unlocked, enote 2 is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -4727,7 +4727,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1 is unlocked, enote 2 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1 is unlocked, enote 2 is locked
 
     //block 2: enote 3 (unlock at block 5)
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -4754,11 +4754,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -4774,7 +4774,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
 
     //block 3: empty
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -4799,11 +4799,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -4819,7 +4819,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1, 2 are unlocked, enote 3 is locked
 
     //block 4: empty
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -4844,11 +4844,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -4867,11 +4867,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //intermediate records promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //intermediate records promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -4889,11 +4889,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store_int.update_legacy_fullscan_index_for_import_cycle(
@@ -4916,7 +4916,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_8)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 3);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 3);  //enotes 1, 2, 3 are unlocked
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(seraphis_enote_scanning, legacy_pre_transition_9)
@@ -5045,11 +5045,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -5065,7 +5065,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is locked
 
     //block 1: empty
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -5090,11 +5090,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1a is unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1a is unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -5110,7 +5110,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 1);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1a is unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 1);  //enote 1a is unlocked
 
     //block 2: enote 1-b (amount 2; unlock 0)
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -5137,11 +5137,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is unlocked, 1b is locked (hides 1a)
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is unlocked, 1b is locked (hides 1a)
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //full scan (separate enote store)
     refresh_user_enote_store_legacy_full(legacy_keys.Ks,
@@ -5157,7 +5157,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is unlocked, 1b is locked (hides 1a)
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enote 1a is unlocked, 1b is locked (hides 1a)
 
     //block 3: empty
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -5182,11 +5182,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_1{
@@ -5203,11 +5203,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //intermediate records promoted to full
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //intermediate records promoted to full
 
     //legacy key image scan
     refresh_user_enote_store_legacy_intermediate(legacy_keys.Ks,
@@ -5225,11 +5225,11 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);
 
     //set fullscan index to saved intermediate block index
     ASSERT_NO_THROW(enote_store_int.update_legacy_fullscan_index_for_import_cycle(
@@ -5252,7 +5252,7 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 2);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 2);  //enotes 1a, 1b are unlocked
 
     //block 4: enote 1-c (amount 3; unlock 0), spend enote 1   (check balance with a locked and spent enote [enote 1-c])
     ASSERT_NO_THROW(ledger_context.add_legacy_coinbase(
@@ -5282,14 +5282,14 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enotes 1a, 1b, are unlocked, 1c is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enotes 1a, 1b, are unlocked, 1c is locked
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
     ASSERT_TRUE(get_balance(enote_store_int, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::LEGACY_INTERMEDIATE,
-        BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::LEGACY_INTERMEDIATE,
+        BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 
     //get intermediate block index
     const std::uint64_t intermediate_index_pre_import_cycle_2{
@@ -5321,10 +5321,10 @@ TEST(seraphis_enote_scanning, legacy_pre_transition_9)
         {SpEnoteSpentStatus::SPENT_ONCHAIN}) == 0);
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);  //enotes 1a, 1b are unlocked, 1c is locked
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);  //enotes 1a, 1b are unlocked, 1c is locked
     ASSERT_TRUE(get_balance(enote_store_full, {SpEnoteOriginStatus::ONCHAIN},
         {SpEnoteSpentStatus::SPENT_ONCHAIN},
-        {BalanceExclusions::ORIGIN_LEDGER_LOCKED}) == 0);
+        {BalanceExclusion::ORIGIN_LEDGER_LOCKED}) == 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
