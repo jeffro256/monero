@@ -57,10 +57,10 @@ namespace sp
 {
 
 ////
-// BalanceExclusions
+// BalanceExclusion
 // - Enotes that match with a balance exclusion will not be included in a balance calculation.
 ///
-enum class BalanceExclusions
+enum class BalanceExclusion
 {
     LEGACY_FULL,
     LEGACY_INTERMEDIATE,
@@ -125,7 +125,7 @@ scanning::ContiguityMarker get_nearest_sp_scanned_block(const SpEnoteStore &enot
 boost::multiprecision::uint128_t get_balance(const SpEnoteStore &enote_store,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
     const std::unordered_set<SpEnoteSpentStatus> &spent_statuses = {},
-    const std::unordered_set<BalanceExclusions> &exclusions = {});
+    const std::unordered_set<BalanceExclusion> &exclusions = {});
 /**
 * brief: get_balance - get current total amount received using specified origin statuses and exclusions
 * param: payment_validator -
@@ -135,6 +135,6 @@ boost::multiprecision::uint128_t get_balance(const SpEnoteStore &enote_store,
 */
 boost::multiprecision::uint128_t get_received_sum(const SpEnoteStorePaymentValidator &payment_validator,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions = {});
+    const std::unordered_set<BalanceExclusion> &exclusions = {});
 
 } //namespace sp

@@ -62,12 +62,12 @@ static boost::multiprecision::uint128_t get_balance_intermediate_legacy(
     const std::uint64_t top_block_index,
     const std::uint64_t default_spendable_age,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t balance{0};
 
     // 1. ignore if excluded
-    if (exclusions.find(BalanceExclusions::LEGACY_INTERMEDIATE) != exclusions.end())
+    if (exclusions.find(BalanceExclusion::LEGACY_INTERMEDIATE) != exclusions.end())
         return 0;
 
     // 2. accumulate balance
@@ -81,7 +81,7 @@ static boost::multiprecision::uint128_t get_balance_intermediate_legacy(
             continue;
 
         // b. ignore locked onchain enotes if they should be excluded
-        if (exclusions.find(BalanceExclusions::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
+        if (exclusions.find(BalanceExclusion::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
             current_contextual_record.origin_context.origin_status == SpEnoteOriginStatus::ONCHAIN &&
             onchain_legacy_enote_is_locked(
                     current_contextual_record.origin_context.block_index,
@@ -144,12 +144,12 @@ static boost::multiprecision::uint128_t get_balance_full_legacy(
     const std::uint64_t default_spendable_age,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
     const std::unordered_set<SpEnoteSpentStatus> &spent_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t balance{0};
 
     // 1. ignore if excluded
-    if (exclusions.find(BalanceExclusions::LEGACY_FULL) != exclusions.end())
+    if (exclusions.find(BalanceExclusion::LEGACY_FULL) != exclusions.end())
         return 0;
 
     // 2. accumulate balance
@@ -166,7 +166,7 @@ static boost::multiprecision::uint128_t get_balance_full_legacy(
             continue;
 
         // c. ignore locked onchain enotes if they should be excluded
-        if (exclusions.find(BalanceExclusions::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
+        if (exclusions.find(BalanceExclusion::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
             current_contextual_record.origin_context.origin_status == SpEnoteOriginStatus::ONCHAIN &&
             onchain_legacy_enote_is_locked(
                     current_contextual_record.origin_context.block_index,
@@ -223,12 +223,12 @@ static boost::multiprecision::uint128_t get_balance_intermediate_seraphis(
     const std::uint64_t top_block_index,
     const std::uint64_t default_spendable_age,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t received_sum{0};
 
     // 1. ignore if excluded
-    if (exclusions.find(BalanceExclusions::SERAPHIS_INTERMEDIATE) != exclusions.end())
+    if (exclusions.find(BalanceExclusion::SERAPHIS_INTERMEDIATE) != exclusions.end())
         return 0;
 
     // 2. accumulate received sum
@@ -242,7 +242,7 @@ static boost::multiprecision::uint128_t get_balance_intermediate_seraphis(
             continue;
 
         // b. ignore locked onchain enotes if they should be excluded
-        if (exclusions.find(BalanceExclusions::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
+        if (exclusions.find(BalanceExclusion::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
             current_contextual_record.origin_context.origin_status == SpEnoteOriginStatus::ONCHAIN &&
             onchain_sp_enote_is_locked(
                     current_contextual_record.origin_context.block_index,
@@ -265,12 +265,12 @@ static boost::multiprecision::uint128_t get_balance_full_seraphis(
     const std::uint64_t default_spendable_age,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
     const std::unordered_set<SpEnoteSpentStatus> &spent_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t balance{0};
 
     // 1. ignore if excluded
-    if (exclusions.find(BalanceExclusions::SERAPHIS_FULL) != exclusions.end())
+    if (exclusions.find(BalanceExclusion::SERAPHIS_FULL) != exclusions.end())
         return 0;
 
     // 2. accumulate balance
@@ -287,7 +287,7 @@ static boost::multiprecision::uint128_t get_balance_full_seraphis(
             continue;
 
         // c. ignore locked onchain enotes if they should be excluded
-        if (exclusions.find(BalanceExclusions::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
+        if (exclusions.find(BalanceExclusion::ORIGIN_LEDGER_LOCKED) != exclusions.end() &&
             current_contextual_record.origin_context.origin_status == SpEnoteOriginStatus::ONCHAIN &&
             onchain_sp_enote_is_locked(
                     current_contextual_record.origin_context.block_index,
@@ -458,7 +458,7 @@ scanning::ContiguityMarker get_nearest_sp_scanned_block(const SpEnoteStore &enot
 boost::multiprecision::uint128_t get_balance(const SpEnoteStore &enote_store,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
     const std::unordered_set<SpEnoteSpentStatus> &spent_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t balance{0};
 
@@ -492,7 +492,7 @@ boost::multiprecision::uint128_t get_balance(const SpEnoteStore &enote_store,
 //-------------------------------------------------------------------------------------------------------------------
 boost::multiprecision::uint128_t get_received_sum(const SpEnoteStorePaymentValidator &payment_validator,
     const std::unordered_set<SpEnoteOriginStatus> &origin_statuses,
-    const std::unordered_set<BalanceExclusions> &exclusions)
+    const std::unordered_set<BalanceExclusion> &exclusions)
 {
     boost::multiprecision::uint128_t received_sum{0};
 
