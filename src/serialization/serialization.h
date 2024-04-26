@@ -217,9 +217,9 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  *
  * \brief does not add a tag to the serialized value
  */
-#define FIELDS(f)							\
+#define FIELDS(f, ...)                                             \
   do {									\
-    bool r = do_serialize(ar, f);					\
+    bool r = do_serialize(ar, f VA_ARGS_COMMAPREFIX(__VA_ARGS__)); \
     if (!r || !ar.good()) return false;					\
   } while(0);
 

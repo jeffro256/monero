@@ -201,7 +201,112 @@ namespace cryptonote
     }
   };
 
-  class transaction: public transaction_prefix
+  class transaction_uncached: public transaction_prefix
+  {
+  public:
+    std::vector<std::vector<crypto::signature> > signatures;
+    rct::rctSig rct_signatures;
+
+    template<bool W, template <bool> class Archive>
+    bool serialize_base(Archive<W> &ar)
+    {
+      FIELDS(*static_cast<transaction_prefix *>(this))
+
+      if (version == 1)
+      {
+      }
+      else
+      {
+        ar.tag("rct_signatures");
+        if (!vin.empty())
+        {
+          ar.begin_object();
+          bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
+          if (!r || !ar.good()) return false;
+          ar.end_object();
+        }
+      }
+      return ar.good();
+    }
+  };
+
+  BEGIN_SERIALIZE_OBJECT_FN(transaction_uncached,
+        unsigned int *p_prefix_size = nullptr,
+        unsigned int *p_unprunable_size = nullptr
+  )
+    const auto start_pos = ar.getpos();
+
+    FIELDS(*static_cast<transaction_prefix *>(&v))
+
+    if (std::is_same<Archive<W>, binary_archive<W>>())
+      if (p_prefix_size)
+        *p_prefix_size = ar.getpos() - start_pos;
+
+    if (v.version == 1)
+    {
+      if (std::is_same<Archive<W>, binary_archive<W>>())
+        if (p_unprunable_size)
+          *p_unprunable_size = ar.getpos() - start_pos;
+
+      ar.tag("signatures");
+      ar.begin_array();
+      PREPARE_CUSTOM_VECTOR_SERIALIZATION(v.vin.size(), v.signatures);
+      bool signatures_not_expected = v.signatures.empty();
+      if (!signatures_not_expected && v.vin.size() != v.signatures.size())
+        return false;
+
+      if (!signatures_not_expected) for (size_t i = 0; i < v.vin.size(); ++i)
+      {
+        const txin_to_key * const p_ring{boost::strict_get<txin_to_key>(&v.vin[i])};
+        size_t signature_size = p_ring ? p_ring->key_offsets.size() : 0;
+        if (signatures_not_expected)
+        {
+          if (0 == signature_size)
+            continue;
+          else
+            return false;
+        }
+
+        PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, v.signatures[i]);
+        if (signature_size != v.signatures[i].size())
+          return false;
+
+        FIELDS(v.signatures[i]);
+
+        if (v.vin.size() - i > 1)
+          ar.delimit_array();
+      }
+      ar.end_array();
+    }
+    else
+    {
+      ar.tag("rct_signatures");
+      if (!v.vin.empty())
+      {
+        ar.begin_object();
+        bool r = v.rct_signatures.serialize_rctsig_base(ar, v.vin.size(), v.vout.size());
+        if (!r || !ar.good()) return false;
+        ar.end_object();
+
+        if (std::is_same<Archive<W>, binary_archive<W>>())
+          if (p_unprunable_size)
+            *p_unprunable_size = ar.getpos() - start_pos;
+
+        const bool pruned{W && v.rct_signatures.p.MGs.empty() && v.rct_signatures.p.CLSAGs.empty()};
+        if (!pruned && v.rct_signatures.type != rct::RCTTypeNull)
+        {
+          ar.tag("rctsig_prunable");
+          ar.begin_object();
+          r = v.rct_signatures.p.serialize_rctsig_prunable(ar, v.rct_signatures.type, v.vin.size(), v.vout.size(),
+              v.vin.size() > 0 && v.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(v.vin[0]).key_offsets.size() - 1 : 0);
+          if (!r || !ar.good()) return false;
+          ar.end_object();
+        }
+      }
+    }
+  END_SERIALIZE()
+
+  class transaction: public transaction_uncached
   {
   private:
     // hash cash
@@ -210,9 +315,6 @@ namespace cryptonote
     mutable std::atomic<bool> blob_size_valid;
 
   public:
-    std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
-    rct::rctSig rct_signatures;
-
     // hash cash
     mutable crypto::hash hash;
     mutable crypto::hash prunable_hash;
@@ -247,71 +349,12 @@ namespace cryptonote
         set_blob_size_valid(false);
       }
 
-      const auto start_pos = ar.getpos();
+      unsigned int prefix_size{};
+      unsigned int unprunable_size{};
+      FIELDS(static_cast<transaction_uncached&>(*this), &prefix_size, &unprunable_size)
+      this->prefix_size.store(prefix_size);
+      this->unprunable_size.store(unprunable_size);
 
-      FIELDS(*static_cast<transaction_prefix *>(this))
-
-      if (std::is_same<Archive<W>, binary_archive<W>>())
-        prefix_size = ar.getpos() - start_pos;
-
-      if (version == 1)
-      {
-        if (std::is_same<Archive<W>, binary_archive<W>>())
-          unprunable_size = ar.getpos() - start_pos;
-
-        ar.tag("signatures");
-        ar.begin_array();
-        PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
-        bool signatures_not_expected = signatures.empty();
-        if (!signatures_not_expected && vin.size() != signatures.size())
-          return false;
-
-        if (!pruned) for (size_t i = 0; i < vin.size(); ++i)
-        {
-          size_t signature_size = get_signature_size(vin[i]);
-          if (signatures_not_expected)
-          {
-            if (0 == signature_size)
-              continue;
-            else
-              return false;
-          }
-
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
-          if (signature_size != signatures[i].size())
-            return false;
-
-          FIELDS(signatures[i]);
-
-          if (vin.size() - i > 1)
-            ar.delimit_array();
-        }
-        ar.end_array();
-      }
-      else
-      {
-        ar.tag("rct_signatures");
-        if (!vin.empty())
-        {
-          ar.begin_object();
-          bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.good()) return false;
-          ar.end_object();
-
-          if (std::is_same<Archive<W>, binary_archive<W>>())
-            unprunable_size = ar.getpos() - start_pos;
-
-          if (!pruned && rct_signatures.type != rct::RCTTypeNull)
-          {
-            ar.tag("rctsig_prunable");
-            ar.begin_object();
-            r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
-                vin.size() > 0 && vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
-            if (!r || !ar.good()) return false;
-            ar.end_object();
-          }
-        }
-      }
       if (!typename Archive<W>::is_saving())
         pruned = false;
     END_SERIALIZE()
@@ -319,38 +362,21 @@ namespace cryptonote
     template<bool W, template <bool> class Archive>
     bool serialize_base(Archive<W> &ar)
     {
-      FIELDS(*static_cast<transaction_prefix *>(this))
+      if (!transaction_uncached::serialize_base(ar))
+        return false;
 
-      if (version == 1)
-      {
-      }
-      else
-      {
-        ar.tag("rct_signatures");
-        if (!vin.empty())
-        {
-          ar.begin_object();
-          bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.good()) return false;
-          ar.end_object();
-        }
-      }
       if (!typename Archive<W>::is_saving())
         pruned = true;
+
       return ar.good();
     }
-
-  private:
-    static size_t get_signature_size(const txin_v& tx_in);
   };
 
   inline transaction::transaction(const transaction &t):
-    transaction_prefix(t),
+    transaction_uncached(t),
     hash_valid(false),
     prunable_hash_valid(false),
     blob_size_valid(false),
-    signatures(t.signatures),
-    rct_signatures(t.rct_signatures),
     pruned(t.pruned),
     unprunable_size(t.unprunable_size.load()),
     prefix_size(t.prefix_size.load())
@@ -374,13 +400,12 @@ namespace cryptonote
 
   inline transaction &transaction::operator=(const transaction &t)
   {
-    transaction_prefix::operator=(t);
+    transaction_uncached::operator=(t);
 
     set_hash_valid(false);
     set_prunable_hash_valid(false);
     set_blob_size_valid(false);
-    signatures = t.signatures;
-    rct_signatures = t.rct_signatures;
+
     if (t.is_hash_valid())
     {
       hash = t.hash;
@@ -434,22 +459,6 @@ namespace cryptonote
     set_prunable_hash_valid(false);
     set_blob_size_valid(false);
   }
-
-  inline
-  size_t transaction::get_signature_size(const txin_v& tx_in)
-  {
-    struct txin_signature_size_visitor : public boost::static_visitor<size_t>
-    {
-      size_t operator()(const txin_gen& txin) const{return 0;}
-      size_t operator()(const txin_to_script& txin) const{return 0;}
-      size_t operator()(const txin_to_scripthash& txin) const{return 0;}
-      size_t operator()(const txin_to_key& txin) const {return txin.key_offsets.size();}
-    };
-
-    return boost::apply_visitor(txin_signature_size_visitor(), tx_in);
-  }
-
-
 
   /************************************************************************/
   /*                                                                      */
