@@ -324,8 +324,8 @@ public:
                 m_sp_ref_set_config = sp::SemanticConfigSpRefSetV1{
                         .decomp_n = params.n,
                         .decomp_m = params.m,
-                        .bin_radius = sp::math::uint_pow(params.n, params.m) / 2,
-                        .num_bin_members = sp::math::uint_pow(params.n, params.m / 2)
+                        .bin_radius = static_cast<sp::ref_set_bin_dimension_v1_t>(sp::math::uint_pow(params.n, params.m) / 2),
+                        .num_bin_members = static_cast<sp::ref_set_bin_dimension_v1_t>(sp::math::uint_pow(params.n, params.m / 2))
                     };
 
                 // make tx
