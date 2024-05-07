@@ -92,6 +92,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetBlocksFast);
     RPC_MESSAGE_MEMBER(std::list<crypto::hash>, block_ids);
     RPC_MESSAGE_MEMBER(uint64_t, start_height);
     RPC_MESSAGE_MEMBER(bool, prune);
+    RPC_MESSAGE_MEMBER(uint64_t, max_block_count);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
     RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::block_with_transactions>, blocks);

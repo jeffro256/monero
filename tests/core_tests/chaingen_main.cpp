@@ -303,6 +303,13 @@ int main(int argc, char* argv[])
 
     GENERATE_AND_PLAY(gen_block_low_coinbase);
 
+    GENERATE_AND_PLAY(gen_enote_v1_pre_rct);
+    GENERATE_AND_PLAY(gen_enote_v1_coinbase);
+    GENERATE_AND_PLAY(gen_enote_v2_rct_full_size_encoded_amount);
+    GENERATE_AND_PLAY(gen_enote_v3_rct_compact_encoded_amount);
+    GENERATE_AND_PLAY(gen_enote_v4_coinbase_view_tags);
+    GENERATE_AND_PLAY(gen_enote_v5_rct_view_tags);
+
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     if (!list_tests)
     {

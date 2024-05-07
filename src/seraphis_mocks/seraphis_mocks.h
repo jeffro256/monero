@@ -44,6 +44,7 @@
 #include "mock_tx_builders_inputs.h"
 #include "mock_tx_builders_legacy_inputs.h"
 #include "mock_tx_builders_outputs.h"
+#include "scan_context_async_mock.h"
 #include "scan_chunk_consumer_mocks.h"
 #include "tx_fee_calculator_mocks.h"
 #include "tx_input_selection_output_context_mocks.h"

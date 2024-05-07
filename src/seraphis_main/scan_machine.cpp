@@ -71,13 +71,22 @@ enum class ContiguityCheckResult : unsigned char
 //   fixed back-off were used it could take many fullscan attempts to find the point of divergence
 //-------------------------------------------------------------------------------------------------------------------
 static std::uint64_t get_reorg_avoidance_depth(const std::uint64_t reorg_avoidance_increment,
+    const bool force_reorg_avoidance_increment,
     const std::uint64_t num_reorg_avoidance_backoffs)
 {
-    // 1. start at a depth of zero
+    // 1. start at a depth of zero (unless `force_reorg_avoidance_increment` is true)
     // - this allows us to avoid accidentally reorging your data store if the scanning backend only has a portion
     //   of the blocks in your initial reorg avoidance depth range available when 'get chunk' is called (in the case
     //   where there wasn't actually a reorg and the backend is just catching up)
-    if (num_reorg_avoidance_backoffs == 0)
+    // - for example, if your refresh index is 100, your start index is 150, and your avoidance increment is 10, if
+    //   you start scanning but your scan context has only processed blocks 0-145 (out of let's say 200), then if we
+    //   include a reorg avoidance backoff for the first processed chunk, then blocks [140, ..) will be requested
+    //   from the scan context and only [140, 145] might be returned; when the chunk consumer gets those blocks, it
+    //   will think blocks 145-150 were reorged away; a scan context *could* avoid returning a partial chunk if it
+    //   knows there are unprocessed blocks in the chunk, but for robustness we can't assume all contexts will do so
+    // - `force_reorg_avoidance_increment` is useful when pointing to a daemon that fails if we request a start block
+    //   higher than chain tip, so our initial request for blocks starts at a block the daemon knows
+    if (!force_reorg_avoidance_increment && num_reorg_avoidance_backoffs == 0)
         return 0;
 
     // 2. check that the increment is not 0
@@ -87,18 +96,22 @@ static std::uint64_t get_reorg_avoidance_depth(const std::uint64_t reorg_avoidan
         "reorg avoidance increment.");
 
     // 3. 10 ^ (num requests - 1) * increment
-    return math::saturating_mul(math::uint_pow(10, num_reorg_avoidance_backoffs - 1), reorg_avoidance_increment, -1);
+    const std::uint64_t exponent = math::saturating_sub(num_reorg_avoidance_backoffs, 1, 0);
+    return math::saturating_mul(math::uint_pow(10, exponent), reorg_avoidance_increment, -1);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static std::uint64_t get_estimated_start_scan_index(const std::uint64_t reorg_avoidance_increment,
+    const bool force_reorg_avoidance_increment,
     const std::uint64_t num_reorg_avoidance_backoffs,
     const std::uint64_t lowest_scannable_index,
     const std::uint64_t desired_start_index)
 {
     // 1. set reorg avoidance depth
     const std::uint64_t reorg_avoidance_depth{
-            get_reorg_avoidance_depth(reorg_avoidance_increment, num_reorg_avoidance_backoffs)
+            get_reorg_avoidance_depth(reorg_avoidance_increment,
+                force_reorg_avoidance_increment,
+                num_reorg_avoidance_backoffs)
         };
 
     // 2. initial block to scan = max(desired first block - reorg depth, chunk consumer's min scan index)
@@ -107,6 +120,7 @@ static std::uint64_t get_estimated_start_scan_index(const std::uint64_t reorg_av
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static void set_initial_contiguity_marker(const std::uint64_t reorg_avoidance_increment,
+    const bool force_reorg_avoidance_increment,
     const std::uint64_t num_reorg_avoidance_backoffs,
     const ChunkConsumer &chunk_consumer,
     ContiguityMarker &contiguity_marker_out)
@@ -115,6 +129,7 @@ static void set_initial_contiguity_marker(const std::uint64_t reorg_avoidance_in
     // - this is only an estimate since the chunk consumer may not have the block at this exact index cached
     const std::uint64_t estimated_start_scan_index{
             get_estimated_start_scan_index(reorg_avoidance_increment,
+                force_reorg_avoidance_increment,
                 num_reorg_avoidance_backoffs,
                 chunk_consumer.refresh_index(),
                 chunk_consumer.desired_first_block())
@@ -435,6 +450,7 @@ static ScanMachineState handle_need_fullscan(const ScanMachineNeedFullscan &stat
     // 1. set initial contiguity marker
     ContiguityMarker start_scan_contiguity_marker;
     set_initial_contiguity_marker(state.metadata.config.reorg_avoidance_increment,
+        state.metadata.config.force_reorg_avoidance_increment,
         state.metadata.fullscan_attempts,  //exponential backoff as function of fullscan attempts, starting at 0
         chunk_consumer,
         start_scan_contiguity_marker);
@@ -464,6 +480,7 @@ static ScanMachineState handle_need_partialscan(const ScanMachineNeedPartialscan
     // 1. set initial contiguity marker
     ContiguityMarker start_scan_contiguity_marker;
     set_initial_contiguity_marker(state.metadata.config.reorg_avoidance_increment,
+        state.metadata.config.force_reorg_avoidance_increment,
         1,  //in partial scans always back off by just one reorg avoidance increment
         chunk_consumer,
         start_scan_contiguity_marker);

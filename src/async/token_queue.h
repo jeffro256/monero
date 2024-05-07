@@ -51,7 +51,8 @@ enum class TokenQueueResult : unsigned char
     SUCCESS,
     QUEUE_EMPTY,
     TRY_LOCK_FAIL,
-    SHUTTING_DOWN
+    SHUTTING_DOWN,
+    QUEUE_NOT_EMPTY
 };
 
 /// async token queue
@@ -116,7 +117,27 @@ public:
         m_queue.pop_front();
         return TokenQueueResult::SUCCESS;
     }
+    /// try to remove the minimum element
+    TokenQueueResult try_remove_min(TokenT &token_out)
+    {
+        // try to lock the queue, then check if there are any elements
+        std::unique_lock<std::mutex> lock{m_mutex, std::try_to_lock};
+        if (!lock.owns_lock())
+            return TokenQueueResult::TRY_LOCK_FAIL;
+        if (m_queue.size() == 0)
+            return TokenQueueResult::QUEUE_EMPTY;
 
+        // find the min element
+        auto min_elem = m_queue.begin();
+        for (auto it = m_queue.begin(); it != m_queue.end(); ++it)
+        {
+            if (*it < *min_elem)
+                min_elem = it;
+        }
+        token_out = std::move(*min_elem);
+        m_queue.erase(min_elem);
+        return TokenQueueResult::SUCCESS;
+    }
     /// shut down the queue
     void shut_down()
     {
@@ -125,6 +146,15 @@ public:
             m_is_shutting_down = true;
         }
         m_condvar.notify_all();
+    }
+    /// reset the queue (queue must already be empty)
+    TokenQueueResult reset()
+    {
+        std::lock_guard<std::mutex> lock{m_mutex};
+        if (!m_queue.empty())
+            return TokenQueueResult::QUEUE_NOT_EMPTY;
+        m_is_shutting_down = false;
+        return TokenQueueResult::SUCCESS;
     }
 
 private:

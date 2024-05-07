@@ -35,6 +35,7 @@ set(core_tests_sources
   chaingen001.cpp
   chaingen_main.cpp
   double_spend.cpp
+  enote_scanning.cpp
   integer_overflow.cpp
   multisig.cpp
   ring_signature_1.cpp
@@ -57,6 +58,7 @@ set(core_tests_headers
   chaingen_tests_list.h
   double_spend.h
   double_spend.inl
+  enote_scanning.h
   integer_overflow.h
   multisig.h
   ring_signature_1.h
@@ -81,6 +83,8 @@ target_link_libraries(core_tests
     version
     epee
     device
+    seraphis_core
+    seraphis_main
     wallet
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
