@@ -41,6 +41,7 @@ monero_add_library(async
 target_link_libraries(async
   PUBLIC
     common
+    epee
   PRIVATE
     ${EXTRA_LIBRARIES})
 

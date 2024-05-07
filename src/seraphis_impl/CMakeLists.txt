@@ -28,6 +28,7 @@
 
 set(seraphis_impl_sources
   checkpoint_cache.cpp
+  enote_finding_context_legacy.cpp
   enote_store.cpp
   enote_store_payment_validator.cpp
   enote_store_utils.cpp

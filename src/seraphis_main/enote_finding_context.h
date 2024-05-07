@@ -31,6 +31,9 @@
 #pragma once
 
 //local headers
+#include "async/threadpool.h"
+#include "crypto/crypto.h"
+#include "ringct/rctTypes.h"
 #include "seraphis_main/scan_core_types.h"
 #include "seraphis_main/scan_ledger_chunk.h"
 
@@ -82,6 +85,59 @@ public:
     /// get an onchain chunk (or empty chunk representing top of current chain)
     virtual std::unique_ptr<scanning::LedgerChunk> get_onchain_chunk(const std::uint64_t chunk_start_index,
         const std::uint64_t chunk_max_size) const = 0;
+};
+
+////
+/// LegacyUnscannedTransaction: a transaction that is ready to be legacy view scanned
+///
+struct LegacyUnscannedTransaction final
+{
+    rct::key transaction_id;
+    uint64_t unlock_time;
+    sp::TxExtra tx_memo;
+    uint64_t total_enotes_before_tx;
+    std::vector<sp::LegacyEnoteVariant> enotes;
+    std::vector<crypto::key_image> legacy_key_images;
+};
+
+////
+/// LegacyUnscannedBlock: a block that is ready to be legacy view scanned
+// - the txs are expected to be ordered as they appear in the block, where
+//   the first tx is the miner tx
+///
+struct LegacyUnscannedBlock final
+{
+    uint64_t block_index;
+    uint64_t block_timestamp;
+    rct::key block_hash;
+    rct::key prev_block_hash;
+    std::vector<LegacyUnscannedTransaction> unscanned_txs;
+};
+
+////
+/// LegacyUnscannedChunk: a chunk of blocks ready to be legacy view scanned
+// - the blocks are expected to match their order on-chain
+///
+using LegacyUnscannedChunk = std::vector<LegacyUnscannedBlock>;
+
+////
+// EnoteFindingContextLegacy
+// - takes in chunks of blocks and produces chunks of owned enotes (from view scanning)
+///
+class EnoteFindingContextLegacy
+{
+public:
+//destructor
+    virtual ~EnoteFindingContextLegacy() = default;
+
+//overloaded operators
+    /// disable copy/move (this is a virtual base class)
+    EnoteFindingContextLegacy& operator=(EnoteFindingContextLegacy&&) = delete;
+
+//member functions
+    /// scans a chunk of blocks to find basic enote records
+    virtual void view_scan_chunk(const LegacyUnscannedChunk &legacy_unscanned_chunk,
+        sp::scanning::ChunkData &chunk_data_out) const = 0;
 };
 
 } //namespace sp

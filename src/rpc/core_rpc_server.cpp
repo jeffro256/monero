@@ -702,26 +702,35 @@ namespace cryptonote
     if (get_blocks)
     {
       // quick check for noop
-      if (!req.block_ids.empty())
+      if (req.start_height > 0 || !req.block_ids.empty())
       {
         uint64_t last_block_height;
         crypto::hash last_block_hash;
         m_core.get_blockchain_top(last_block_height, last_block_hash);
-        if (last_block_hash == req.block_ids.front())
+
+        if (!req.high_height_ok && req.start_height > last_block_height)
+        {
+          res.status = "Failed";
+          return true;
+        }
+
+        if (req.start_height > last_block_height ||
+           (!req.block_ids.empty() && last_block_hash == req.block_ids.front()))
         {
           res.start_height = 0;
           res.current_height = last_block_height + 1;
+          res.top_block_hash = last_block_hash;
           res.status = CORE_RPC_STATUS_OK;
           return true;
         }
       }
 
-      size_t max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
+      size_t max_blocks = req.max_block_count > 0
+        ? std::min(req.max_block_count, (uint64_t)COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
+        : COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
       if (m_rpc_payment)
       {
-        max_blocks = res.credits / COST_PER_BLOCK;
-        if (max_blocks > COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
-          max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
+        max_blocks = std::min((size_t)(res.credits / COST_PER_BLOCK), max_blocks);
         if (max_blocks == 0)
         {
           res.status = CORE_RPC_STATUS_PAYMENT_REQUIRED;
@@ -730,7 +739,7 @@ namespace cryptonote
       }
 
       std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
-      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
       {
         res.status = "Failed";
         add_host_fail(ctx);

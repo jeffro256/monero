@@ -75,6 +75,8 @@ struct ScanMachineConfig final
     /// increment for avoiding reorgs
     /// - each fullscan attempt looks (10^attempts * increment) blocks below the requested start index
     std::uint64_t reorg_avoidance_increment{10};
+    /// force using the reorg_avoidance_increment from the start
+    bool force_reorg_avoidance_increment{false};
     /// max number of blocks per ledger chunk
     /// - this is only a hint, the downstream scanning context is free to ignore it
     std::uint64_t max_chunk_size_hint{100};
