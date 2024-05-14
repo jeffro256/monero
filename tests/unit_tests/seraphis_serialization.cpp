@@ -229,3 +229,30 @@ TEST(seraphis_serialization, jamtis_payment_proposal_self_send_v1)
     EXPECT_EQ(payprop, recovered_payprop);
 }
 //-------------------------------------------------------------------------------------------------------------------
+template <typename... Ts> void match_tools_variant(const tools::variant<Ts...>&) {}
+VARIANT_TAG(binary_archive, sp::SpEnoteCore, 0x37);
+VARIANT_TAG(binary_archive, sp::SpCoinbaseEnoteCore, 0x88);
+//-------------------------------------------------------------------------------------------------------------------
+TEST(seraphis_serialization, tools_variant)
+{
+    sp::SpEnoteCoreVariant enote_core{
+            sp::SpEnoteCore{
+                    .onetime_address = rct::pkGen(),
+                    .amount_commitment = rct::zeroCommit(420)
+                }
+        };
+
+    match_tools_variant(enote_core); // throws compile error if enote_core stops being of tools::variant type
+
+    // serialize
+    std::string serialized;
+    EXPECT_TRUE(::serialization::dump_binary(enote_core, serialized));
+
+    // deserialize
+    sp::SpEnoteCoreVariant enote_core_recovered;
+    EXPECT_TRUE(::serialization::parse_binary(serialized, enote_core_recovered));
+
+    // test equal
+    EXPECT_EQ(enote_core, enote_core_recovered);
+}
+//-------------------------------------------------------------------------------------------------------------------
