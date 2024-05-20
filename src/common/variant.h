@@ -154,6 +154,10 @@ private:
 //member variables
     /// variant of all value types
     VType m_value;
+
+//friend functions
+template <class Archive, typename... Ts>
+friend bool do_serialize(Archive &ar, variant<Ts...> &v);
 };
 
 template <typename... Types>
