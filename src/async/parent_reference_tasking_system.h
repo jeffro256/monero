@@ -256,4 +256,4 @@ private:
     std::atomic<std::uint16_t> m_submit_rotation_counter{0};
 };
 
-} //namespace asyc
+} //namespace async

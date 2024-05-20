@@ -263,4 +263,4 @@ void unclaim_sleeping_task(SleepingTask &sleeping_task_inout);
 void reserve_sleeping_task(SleepingTask &sleeping_task_inout);
 void kill_sleeping_task(SleepingTask &sleeping_task_inout);
 
-} //namespace asyc
+} //namespace async

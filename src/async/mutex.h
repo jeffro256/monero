@@ -93,4 +93,4 @@ private:
     std::atomic<std::thread::id> m_mutex_owner{std::thread::id{}};
 };
 
-} //namespace asyc
+} //namespace async

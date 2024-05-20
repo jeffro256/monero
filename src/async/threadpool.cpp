@@ -800,4 +800,15 @@ void Threadpool::shut_down() noexcept
     m_waiter_manager.shut_down();
 }
 //-------------------------------------------------------------------------------------------------------------------
+Threadpool& get_default_threadpool()
+{
+    static Threadpool default_threadpool{
+            static_cast<unsigned char>(DefaultPriorityLevels::MIN),
+            static_cast<uint16_t>(std::max(2u, std::thread::hardware_concurrency()) - 1),
+            20,
+            std::chrono::milliseconds(500)
+        };
+    return default_threadpool;
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace async
