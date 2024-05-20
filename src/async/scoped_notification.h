@@ -92,4 +92,4 @@ private:
     std::function<void()> m_notification_func;
 };
 
-} //namespace asyc
+} //namespace async

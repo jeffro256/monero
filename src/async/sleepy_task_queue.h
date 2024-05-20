@@ -91,4 +91,4 @@ private:
     std::mutex m_mutex;
 };
 
-} //namespace asyc
+} //namespace async
