@@ -274,12 +274,12 @@ bool try_append_legacy_enote_ephemeral_pubkeys_to_tx_extra(const std::vector<rct
 /**
 * brief: extract_legacy_enote_ephemeral_pubkeys_from_tx_extra - find legacy enote ephemeral pubkeys in a tx extra field
 * param: tx_extra - memo field (byte vector)
-* outparam: legacy_main_enote_ephemeral_pubkey_out - r G  (this should always be present, because yucky legacy tx gen code)
+* outparam: legacy_main_enote_ephemeral_pubkeys_out - r G  (this should always be present, because yucky legacy tx gen code)
 * outparam: legacy_additional_enote_ephemeral_pubkeys_out - [empty if no subaddress destinations]
 *                                                           [otherwise r_0 K^v_0, ..., r_n K^v_n]
 */
 void extract_legacy_enote_ephemeral_pubkeys_from_tx_extra(const TxExtra &tx_extra,
-    crypto::public_key &legacy_main_enote_ephemeral_pubkey_out,
+    rct::key_keyV_variant &legacy_main_enote_ephemeral_pubkeys_out,
     std::vector<crypto::public_key> &legacy_additional_enote_ephemeral_pubkeys_out);
 
 } //namespace sp
