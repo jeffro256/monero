@@ -53,6 +53,7 @@ extern "C" {
 #include "serialization/debug_archive.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"
+#include "common/variant.h"
 
 
 //Define this flag when debugging to get additional info on the console
@@ -89,6 +90,7 @@ namespace rct {
     };
     typedef std::vector<key> keyV; //vector of keys
     typedef std::vector<keyV> keyM; //matrix of keys (indexed by column first)
+    using key_keyV_variant = tools::variant<key, keyV>;
 
     //containers For CT operations
     //if it's  representing a private ctkey then "dest" contains the secret key of the address
