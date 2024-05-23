@@ -160,8 +160,8 @@ END_SERIALIZE()
 BEGIN_SERIALIZE_OBJECT_FN(GrootleProof)
     FIELD_F(A)
     FIELD_F(B)
-    FIELD_F(f) // @TODO: sizeless f serialization
-    FIELD_F(X) // @TODO: sizeless X serialization
+    FIELD_F(f) /// @TODO: sizeless f serialization
+    FIELD_F(X) /// @TODO: sizeless X serialization
     FIELD_F(zA)
     FIELD_F(z)
 END_SERIALIZE()
@@ -193,14 +193,148 @@ BEGIN_SERIALIZE_OBJECT_FN(SpBalanceProofV1, const size_t implied_lr_size = SIZE_
     FIELD_F(remainder_blinding_factor)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
+BEGIN_SERIALIZE_OBJECT_FN(LegacyReferenceSetV2, const size_t implied_ring_size = SIZE_MAX)
+    // if writing and we don't match the passed implied ring size, then fail
+    if (W && implied_ring_size != SIZE_MAX && v.indices.size() != implied_ring_size)
+        return false;
+
+    // check that the passed implied ring size is not bigger than the number of remaining bytes
+    if constexpr (!W)
+    {
+        if (implied_ring_size != SIZE_MAX && ar.remaining_bytes() < implied_ring_size)
+            return false;
+    }
+
+    // if we don't have an implied size, serialize the actual size
+    size_t actual_ring_size{v.indices.size()};
+    if (implied_ring_size == SIZE_MAX)
+        VARINT_FIELD_N("ring_size", actual_ring_size)
+    else
+        actual_ring_size = implied_ring_size;
+
+    // if the ring size is 0, we can stop here
+    if (actual_ring_size == 0)
+        return ar.good();
+
+    // start compacted indices data array
+    ar.tag("indices_compressed");
+    ar.begin_array();
+
+    // if storing, construct the number of indices per ledger indexing amount
+    std::vector<std::pair<rct::xmr_amount, size_t>> index_quantities_by_amount;
+    if constexpr (W)
+    {
+        index_quantities_by_amount.reserve(actual_ring_size);
+        index_quantities_by_amount.push_back({v.indices.begin()->ledger_indexing_amount, 0});
+        for (const legacy_output_index_t i : v.indices)
+        {
+            if (i.ledger_indexing_amount != index_quantities_by_amount.back().first)
+                index_quantities_by_amount.push_back({i.ledger_indexing_amount, 0});
+            ++index_quantities_by_amount.back().second;
+        }
+    }
+
+    // serialize the number of unique ledger indexing amounts
+    size_t num_unique_amounts{index_quantities_by_amount.size() - 1};
+    ar.serialize_varint(num_unique_amounts);
+    ++num_unique_amounts;
+
+    // sanity check num_unique_amounts
+    if (num_unique_amounts == 0 || num_unique_amounts > actual_ring_size)
+        return false;
+
+    // for each unique indexing amount...
+    rct::xmr_amount current_amount{0};
+    size_t remaining_indices{actual_ring_size};
+    auto writer_index_it{v.indices.begin()};
+    for (size_t nth_amount{0}; nth_amount < num_unique_amounts; ++nth_amount)
+    {
+        // serialize ledger amount offset (-1 in the data if not the first amount)
+        rct::xmr_amount amount_offset;
+        if constexpr (W)
+        {
+            amount_offset = index_quantities_by_amount[nth_amount].first - current_amount;
+            if (nth_amount)
+                --amount_offset;
+        }
+        ar.delimit_array();
+        ar.serialize_varint(amount_offset);
+        if (nth_amount)
+            ++amount_offset;
+
+        // accumulate the ledger amount, checking for overflow
+        if (amount_offset > MONEY_SUPPLY - current_amount)
+            return false;
+        current_amount += amount_offset;
+
+        // serialize number of indices for this amount (-1 in the data), unless this is the last
+        // amount in the list, we can imply the number as the number of indices not already serialized
+        size_t num_indices_for_this_amount;
+        if (nth_amount == num_unique_amounts - 1)
+        {
+            num_indices_for_this_amount = remaining_indices;
+        }
+        else // not last amount
+        {
+            if constexpr (W)
+                num_indices_for_this_amount = index_quantities_by_amount[nth_amount].second - 1;
+            ar.delimit_array();
+            ar.serialize_varint(num_indices_for_this_amount);
+            ++num_indices_for_this_amount;
+        }
+
+        // sanity check number of indices
+        if (num_indices_for_this_amount > remaining_indices)
+            return false;
+
+        // serialize the indices as a list of cumulative offsets (-1 in the data if not first index)
+        size_t current_index{0};
+        for (size_t nth_index{0}; nth_index < num_indices_for_this_amount; ++nth_index)
+        {
+            // serialize index offset
+            size_t index_offset;
+            if constexpr (W)
+            {
+                index_offset = writer_index_it->index;
+                if (nth_index)
+                {
+                    index_offset -= current_index + 1;
+                }
+            }
+            ar.delimit_array();
+            ar.serialize_varint(index_offset);
+            if (nth_index)
+                ++index_offset;
+
+            // update iterators and check for index overflow
+            --remaining_indices;
+            if constexpr (W)
+                ++writer_index_it;
+            if (index_offset > SIZE_MAX - current_index)
+                return false;
+            current_index += index_offset;
+
+            // if loading, insert legacy output index into the set
+            if constexpr (!W)
+                v.indices.insert({current_amount, current_index});
+        }
+    }
+
+    // check that we loaded the right number of unique legacy indices
+    if (v.indices.size() != actual_ring_size)
+        return false;
+
+    // end compacted indices data array
+    ar.end_array();
+END_SERIALIZE()
+//--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(LegacyRingSignatureV4, const size_t implied_ring_size = SIZE_MAX)
     FIELD_F(clsag_proof, implied_ring_size)
-    // @TODO: accumlate/decumulate CLSAG ref set offsets
-    VEC_FIELD_OPT_EXACT_F(reference_set, implied_ring_size)
+    FIELD_F(reference_set, implied_ring_size)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(SpImageProofV1)
-    // @TODO: sizeless f, X serialization
+    /// @TODO: sizeless f, X serialization
     FIELD_F(composition_proof)
 END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
@@ -239,7 +373,7 @@ BEGIN_SERIALIZE_OBJECT_FN(SpTxSquashedV1)
     FIELD_F(balance_proof, implied_bpp_lr_size)
 
     size_t clsag_ring_size = v.legacy_ring_signatures.size() ?
-        v.legacy_ring_signatures[0].reference_set.size() : 0;
+        v.legacy_ring_signatures[0].reference_set.indices.size() : 0;
     VARINT_FIELD(clsag_ring_size)
 
     VEC_FIELD_EXACT_F(legacy_ring_signatures, num_legacy_inputs, clsag_ring_size)

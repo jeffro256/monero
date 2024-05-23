@@ -160,7 +160,7 @@ std::size_t sp_tx_squashed_v1_size_bytes(const SpTxSquashedV1 &tx)
 {
     const std::size_t legacy_ring_size{
             tx.legacy_ring_signatures.size()
-            ? tx.legacy_ring_signatures[0].reference_set.size()
+            ? tx.legacy_ring_signatures[0].reference_set.indices.size()
             : 0
         };
 
@@ -202,7 +202,7 @@ std::size_t sp_tx_squashed_v1_weight(const SpTxSquashedV1 &tx)
 {
     const std::size_t legacy_ring_size{
             tx.legacy_ring_signatures.size()
-            ? tx.legacy_ring_signatures[0].reference_set.size()
+            ? tx.legacy_ring_signatures[0].reference_set.indices.size()
             : 0
         };
 
@@ -738,7 +738,7 @@ bool try_get_tx_contextual_validation_id(const SpTxSquashedV1 &tx,
         {
             // get the legacy ring members
             tx_validation_context.get_reference_set_proof_elements_v1(
-                legacy_ring_signature.reference_set,
+                legacy_ring_signature.reference_set.indices,
                 tools::add_element(legacy_ring_members));
         }
 

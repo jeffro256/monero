@@ -72,10 +72,11 @@ std::vector<LegacyInputProposalV1> gen_mock_legacy_input_proposals_v1(const cryp
     return input_proposals;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(const std::uint64_t real_reference_index_in_ledger,
+void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(
+    const legacy_output_index_t real_reference_index_in_ledger,
     const std::uint64_t ring_size,
     const MockLedgerContext &ledger_context,
-    std::vector<std::uint64_t> &reference_set_out,
+    LegacyReferenceSetV2 &reference_set_out,
     rct::ctkeyV &referenced_enotes_out,
     std::uint64_t &real_reference_index_out)
 {
@@ -85,7 +86,10 @@ void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(const std::uint6
     LegacyRingSignaturePrepV1 proof_prep;
 
     // 1. flat decoy selector for mock-up
-    const LegacyDecoySelectorFlat decoy_selector{0, ledger_context.max_legacy_enote_index()};
+    const rct::xmr_amount ledger_indexing_amount{real_reference_index_in_ledger.ledger_indexing_amount};
+    const LegacyDecoySelectorFlat decoy_selector{LegacyDecoySelectorFlat::index_bounds_by_amount_t{
+            {ledger_indexing_amount, {0, ledger_context.max_legacy_enote_index(ledger_indexing_amount)}}
+        }};
 
     // 2. reference set
     CHECK_AND_ASSERT_THROW_MES(ring_size > 0,
@@ -93,23 +97,23 @@ void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(const std::uint6
 
     decoy_selector.get_ring_members(real_reference_index_in_ledger,
         ring_size,
-        reference_set_out,
+        reference_set_out.indices,
         real_reference_index_out);
 
-    CHECK_AND_ASSERT_THROW_MES(real_reference_index_out < reference_set_out.size(),
+    CHECK_AND_ASSERT_THROW_MES(real_reference_index_out < reference_set_out.indices.size(),
         "gen mock legacy ring signature members (for enote at pos): real reference index is outside of reference set.");
 
 
     /// copy all referenced legacy enotes from the ledger
-    ledger_context.get_reference_set_proof_elements_v1(reference_set_out, referenced_enotes_out);
+    ledger_context.get_reference_set_proof_elements_v1(reference_set_out.indices, referenced_enotes_out);
 
-    CHECK_AND_ASSERT_THROW_MES(reference_set_out.size() == referenced_enotes_out.size(),
+    CHECK_AND_ASSERT_THROW_MES(reference_set_out.indices.size() == referenced_enotes_out.size(),
         "gen mock legacy ring signature members (for enote at pos): reference set doesn't line up with reference "
         "enotes.");
 }
 //-------------------------------------------------------------------------------------------------------------------
 LegacyRingSignaturePrepV1 gen_mock_legacy_ring_signature_prep_for_enote_at_pos_v1(const rct::key &tx_proposal_prefix,
-    const std::uint64_t real_reference_index_in_ledger,
+    const legacy_output_index_t real_reference_index_in_ledger,
     const LegacyEnoteImageV2 &real_reference_image,
     const crypto::secret_key &real_reference_view_privkey,
     const crypto::secret_key &commitment_mask,
@@ -168,10 +172,11 @@ LegacyRingSignaturePrepV1 gen_mock_legacy_ring_signature_prep_v1(const rct::key 
     }
 
     // 2. add mock legacy enotes as the outputs of a mock legacy coinbase tx
-    const std::uint64_t real_reference_index_in_ledger{
-            ledger_context_inout.max_legacy_enote_index() + add_real_at_pos + 1
+    const legacy_output_index_t real_reference_index_in_ledger{
+            0, // 0 amount since v5 legacy enotes all have ledger indexing amount 0
+            ledger_context_inout.max_legacy_enote_index(0) + add_real_at_pos + 1
         };
-    ledger_context_inout.add_legacy_coinbase(rct::pkGen(), 0, TxExtra{}, {}, std::move(mock_enotes));
+    ledger_context_inout.add_legacy_coinbase(rct::pkGen(), true, 0, TxExtra{}, {}, std::move(mock_enotes));
 
 
     /// finish making the proof prep
@@ -260,7 +265,7 @@ std::vector<LegacyRingSignaturePrepV1> gen_mock_legacy_ring_signature_preps_v1(c
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_mock_legacy_ring_signature_preps_for_inputs_v1(const rct::key &tx_proposal_prefix,
-    const std::unordered_map<crypto::key_image, std::uint64_t> &input_ledger_mappings,
+    const std::unordered_map<crypto::key_image, legacy_output_index_t> &input_ledger_mappings,
     const std::vector<LegacyInputProposalV1> &input_proposals,
     const std::uint64_t ring_size,
     const MockLedgerContext &ledger_context,
@@ -298,7 +303,7 @@ bool try_gen_legacy_multisig_ring_signature_preps_v1(const std::vector<LegacyCon
     std::unordered_map<crypto::key_image, LegacyMultisigRingSignaturePrepV1> &mapped_preps_out)
 {
     // 1. extract map [ legacy KI : enote ledger index ] from contextual records
-    std::unordered_map<crypto::key_image, std::uint64_t> enote_ledger_mappings;
+    std::unordered_map<crypto::key_image, legacy_output_index_t> enote_ledger_mappings;
 
     if (!try_get_membership_proof_real_reference_mappings(contextual_records, enote_ledger_mappings))
         return false;

@@ -170,13 +170,14 @@ bool validate_sp_semantics_legacy_reference_sets_v1(const SemanticConfigLegacyRe
     // check ring size in each ring signature
     for (const LegacyRingSignatureV4 &legacy_ring_signature : legacy_ring_signatures)
     {
+        const std::size_t ring_size{legacy_ring_signature.reference_set.indices.size()};
+
         // reference set
-        if (legacy_ring_signature.reference_set.size() < config.ring_size_min ||
-            legacy_ring_signature.reference_set.size() > config.ring_size_max)
+        if (ring_size < config.ring_size_min || ring_size > config.ring_size_max)
             return false;
 
         // CLSAG signature size
-        if (legacy_ring_signature.reference_set.size() != legacy_ring_signature.clsag_proof.s.size())
+        if (ring_size != legacy_ring_signature.clsag_proof.s.size())
             return false;
     }
 
@@ -312,12 +313,17 @@ bool validate_sp_semantics_layout_v1(const std::vector<LegacyRingSignatureV4> &l
     const std::vector<crypto::x25519_pubkey> &enote_ephemeral_pubkeys,
     const TxExtra &tx_extra)
 {
-    // legacy reference sets should be sorted (ascending) without duplicates
-    for (const LegacyRingSignatureV4 &legacy_ring_signature : legacy_ring_signatures)
-    {
-        if (!tools::is_sorted_and_unique(legacy_ring_signature.reference_set))
-            return false;
-    }
+    using legacy_ring_sig_element_t = 
+        std::remove_cv_t<std::remove_reference_t<decltype(legacy_ring_signatures)>::value_type>;
+    using legacy_indices_t =
+        decltype(decltype(legacy_ring_sig_element_t::reference_set)::indices);
+
+    // legacy ring signature reference sets should be sorted, which is done automatically by having
+    // them in a std::set
+    static_assert(std::is_same_v<legacy_ring_sig_element_t, LegacyRingSignatureV4>,
+        "legacy ring sigs list element type is not LegacyRingSignatureV4");
+    static_assert(std::is_same_v<legacy_indices_t, std::set<legacy_output_index_t>>,
+        "legacy ring sig ref set indices is not a sorted set");
 
     // seraphis membership proof binned reference set bins should be sorted (ascending)
     // note: duplicate bin locations are allowed
@@ -444,7 +450,7 @@ bool validate_sp_legacy_input_proofs_v1(const std::vector<LegacyRingSignatureV4>
         // collect CLSAG ring members
         ring_members_temp.clear();
         tx_validation_context.get_reference_set_proof_elements_v1(
-            legacy_ring_signatures[legacy_input_index].reference_set,
+            legacy_ring_signatures[legacy_input_index].reference_set.indices,
             ring_members_temp);
 
         // make legacy proof message

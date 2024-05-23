@@ -32,6 +32,7 @@
 #include "mock_ledger_context.h"
 
 //local headers
+#include "common/container_helpers.h"
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "cryptonote_basic/subaddress_index.h"
@@ -40,7 +41,7 @@
 #include "misc_log_ex.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/jamtis_enote_utils.h"
-#include "seraphis_core/legacy_enote_types.h"
+#include "seraphis_core/legacy_enote_utils.h"
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
 #include "seraphis_main/scan_balance_recovery_utils.h"
@@ -124,18 +125,21 @@ bool MockLedgerContext::seraphis_key_image_exists_onchain(const crypto::key_imag
     return m_sp_key_images.find(key_image) != m_sp_key_images.end();
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockLedgerContext::get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
+void MockLedgerContext::get_reference_set_proof_elements_v1(const std::set<legacy_output_index_t> &indices,
     rct::ctkeyV &proof_elements_out) const
 {
     // get legacy enotes: {KI, C}
     proof_elements_out.clear();
     proof_elements_out.reserve(indices.size());
 
-    for (const std::uint64_t index : indices)
+    for (const legacy_output_index_t index : indices)
     {
-        CHECK_AND_ASSERT_THROW_MES(index < m_legacy_enote_references.size(),
-            "Tried to get legacy enote that doesn't exist.");
-        proof_elements_out.emplace_back(m_legacy_enote_references.at(index));
+        CHECK_AND_ASSERT_THROW_MES(m_legacy_enote_references.count(index.ledger_indexing_amount),
+            "Tried to get legacy enote for amount that doesn't exist in the ledger.");
+        const auto &amount_outputs = m_legacy_enote_references.at(index.ledger_indexing_amount);
+        CHECK_AND_ASSERT_THROW_MES(index.index < amount_outputs.size(),
+            "Tried to get legacy enote for too high index.");
+        proof_elements_out.emplace_back(amount_outputs[index.index]);
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -153,9 +157,12 @@ void MockLedgerContext::get_reference_set_proof_elements_v2(const std::vector<st
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t MockLedgerContext::max_legacy_enote_index() const
+std::uint64_t MockLedgerContext::max_legacy_enote_index(const rct::xmr_amount ledger_indexing_amount) const
 {
-    return m_legacy_enote_references.size() - 1;
+    if (m_legacy_enote_references.count(ledger_indexing_amount))
+        return m_legacy_enote_references.at(ledger_indexing_amount).size() - 1;
+    else
+        return std::numeric_limits<std::uint64_t>::max();
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t MockLedgerContext::max_sp_enote_index() const
@@ -189,6 +196,7 @@ void MockLedgerContext::clear_unconfirmed_cache()
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t MockLedgerContext::add_legacy_coinbase(const rct::key &tx_id,
+    const bool is_rct,
     const std::uint64_t unlock_time,
     TxExtra memo,
     std::vector<crypto::key_image> legacy_key_images_for_block,
@@ -201,15 +209,27 @@ std::uint64_t MockLedgerContext::add_legacy_coinbase(const rct::key &tx_id,
         "mock tx ledger (adding legacy coinbase tx): chain index is above last block that can have a legacy coinbase "
         "tx.");
 
-    // b. accumulated output count is consistent
-    const std::uint64_t accumulated_output_count =
-        m_accumulated_legacy_output_counts.size()
-        ? (m_accumulated_legacy_output_counts.rbegin())->second  //last block's accumulated legacy output count
-        : 0;
+    // b. accumulated output counts is consistent
+    static const std::map<rct::xmr_amount, std::uint64_t> empty_map{};
+    const std::map<rct::xmr_amount, std::uint64_t> &last_block_legacy_output_counts_per_amount{
+            m_accumulated_legacy_output_counts.empty() ?
+                empty_map : m_accumulated_legacy_output_counts.crbegin()->second
+        };
 
-    CHECK_AND_ASSERT_THROW_MES(accumulated_output_count == m_legacy_enote_references.size(),
-        "mock tx ledger (adding legacy coinbase tx): inconsistent number of accumulated outputs (bug).");
+    CHECK_AND_ASSERT_THROW_MES(last_block_legacy_output_counts_per_amount.size() == m_legacy_enote_references.size(),
+        "mock tx ledger (adding legacy coinbase tx): inconsistent number unique output amounts from last block (bug).");
 
+    for (const auto &amount_and_output_count : last_block_legacy_output_counts_per_amount)
+    {
+        CHECK_AND_ASSERT_THROW_MES(m_legacy_enote_references.count(amount_and_output_count.first),
+            "mock tx ledger (adding legacy coinbase tx): amount key not present in legacy enote references (bug).");
+        
+        const std::uint64_t accumulated_output_count{amount_and_output_count.second};
+        const std::uint64_t reference_set_count{m_legacy_enote_references.at(amount_and_output_count.first).size()};
+
+        CHECK_AND_ASSERT_THROW_MES(accumulated_output_count == reference_set_count,
+            "mock tx ledger (adding legacy coinbase tx): inconsistent number of accumulated outputs (bug).");
+    }
 
     /// update state
     const std::uint64_t new_index{this->top_block_index() + 1};
@@ -222,25 +242,34 @@ std::uint64_t MockLedgerContext::add_legacy_coinbase(const rct::key &tx_id,
 
     // 2. add tx outputs
 
-    // a. initialize with current total legacy output count
-    std::uint64_t total_legacy_output_count{m_legacy_enote_references.size()};
+    // a. initialize the amount -> total legacy output count map for next block
+    std::map<rct::xmr_amount, std::uint64_t> next_block_legacy_output_counts_per_amount{
+            last_block_legacy_output_counts_per_amount
+        };
 
-    // b. insert all legacy enotes to the reference set
+    // b. insert all legacy enotes to the reference set and update output counts for next block
     for (const LegacyEnoteVariant &enote : output_enotes)
     {
-        m_legacy_enote_references[total_legacy_output_count] = {onetime_address_ref(enote), amount_commitment_ref(enote)};
+        const rct::xmr_amount enote_amount{get_legacy_ledger_indexing_amount(enote, is_rct)};
+        m_legacy_enote_references[enote_amount].push_back({onetime_address_ref(enote), amount_commitment_ref(enote)});
 
-        ++total_legacy_output_count;
+        next_block_legacy_output_counts_per_amount[enote_amount] = m_legacy_enote_references[enote_amount].size();
     }
 
     // c. add this block's accumulated output count
-    m_accumulated_legacy_output_counts[new_index] = total_legacy_output_count;
+    m_accumulated_legacy_output_counts[new_index] = std::move(next_block_legacy_output_counts_per_amount);
 
     if (new_index >= m_first_seraphis_allowed_block)
         m_accumulated_sp_output_counts[new_index] = m_sp_squashed_enotes.size();
 
     // d. add this block's tx output contents
-    m_blocks_of_legacy_tx_output_contents[new_index][tx_id] = {unlock_time, std::move(memo), std::move(output_enotes)};
+    m_blocks_of_legacy_tx_output_contents[new_index] = {{
+            tx_id,
+            is_rct,
+            unlock_time,
+            std::move(memo),
+            std::move(output_enotes)
+        }};
 
     if (new_index >= m_first_seraphis_allowed_block)
         m_blocks_of_sp_tx_output_contents[new_index];
@@ -448,7 +477,10 @@ std::uint64_t MockLedgerContext::commit_unconfirmed_txs_v1(const rct::key &coinb
     m_accumulated_sp_output_counts[new_index] = total_sp_output_count;
 
     if (new_index < m_first_seraphis_only_block)
-        m_accumulated_legacy_output_counts[new_index] = m_legacy_enote_references.size();
+    {
+        m_accumulated_legacy_output_counts[new_index] = m_accumulated_legacy_output_counts.empty() ?
+            std::map<rct::xmr_amount, std::uint64_t>() : m_accumulated_legacy_output_counts.crbegin()->second;
+    }
 
     // d. steal the unconfirmed cache's tx output contents
     m_blocks_of_sp_tx_output_contents[new_index] = std::move(m_unconfirmed_tx_output_contents);
@@ -528,16 +560,28 @@ std::uint64_t MockLedgerContext::pop_chain_at_index(const std::uint64_t pop_inde
             CHECK_AND_ASSERT_THROW_MES(m_accumulated_legacy_output_counts.find(pop_index - 1) !=
                     m_accumulated_legacy_output_counts.end(),
                 "mock ledger context (popping chain): accumulated legacy output counts has a hole (bug).");
+
+            const std::map<rct::xmr_amount, std::uint64_t> &accumulated_legacy_output_counts_top_new{
+                m_accumulated_legacy_output_counts.at(pop_index - 1)
+            };
+
+            for (auto &amount_and_enotes : m_legacy_enote_references)
+            {
+                // remove all outputs starting in the pop_index block
+                const std::uint64_t first_output_to_remove =
+                    accumulated_legacy_output_counts_top_new.count(amount_and_enotes.first) ?
+                    accumulated_legacy_output_counts_top_new.at(amount_and_enotes.first) : 0;
+
+                CHECK_AND_ASSERT_THROW_MES(first_output_to_remove <= amount_and_enotes.second.size(),
+                    "mock ledger context (popping chain): accumulated legacy output count too high (bug).");
+
+                amount_and_enotes.second.resize(first_output_to_remove);
+            }
         }
-
-        // remove all outputs starting in the pop_index block
-        const std::uint64_t first_output_to_remove =
-            pop_index > 0
-            ? m_accumulated_legacy_output_counts[pop_index - 1]
-            : 0;
-
-        m_legacy_enote_references.erase(m_legacy_enote_references.find(first_output_to_remove),
-            m_legacy_enote_references.end());
+        else
+        {
+            m_legacy_enote_references.clear();
+        }
     }
 
     // 3. remove squashed enotes
@@ -731,29 +775,19 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
             m_blocks_of_tx_key_images.end(),
         "onchain chunk legacy-view scanning (mock ledger context): end of chunk not known in key images map (bug).");
 
-    // a. initialize output count to the total number of legacy enotes in the ledger before the first block to scan
-    std::uint64_t total_output_count_before_tx{0};
+    // a. setup getters for the count of the total number of legacy enotes in the ledger before the each tx
+    std::map<rct::xmr_amount, std::uint64_t> accumulated_legacy_output_counts_this_chunk;
 
     if (chunk_context_out.start_index > 0)
     {
-        CHECK_AND_ASSERT_THROW_MES(m_accumulated_legacy_output_counts.find(chunk_context_out.start_index - 1) !=
+        const auto previous_accumulated_legacy_output_counts_it{
+                m_accumulated_legacy_output_counts.find(chunk_context_out.start_index - 1)
+            };
+        CHECK_AND_ASSERT_THROW_MES(previous_accumulated_legacy_output_counts_it !=
                 m_accumulated_legacy_output_counts.end(),
             "onchain chunk legacy-view scanning (mock ledger context): output counts missing a block (bug).");
 
-        total_output_count_before_tx = m_accumulated_legacy_output_counts.at(chunk_context_out.start_index - 1);
-    }
-
-    // b. optimization: reserve size in the chunk map
-    // - use output counts as a proxy for the number of txs in the chunk range
-    if (chunk_context_out.block_ids.size() > 0)
-    {
-        CHECK_AND_ASSERT_THROW_MES(m_accumulated_legacy_output_counts.find(chunk_end_index - 1) !=
-                m_accumulated_legacy_output_counts.end(),
-            "onchain chunk legacy-view scanning (mock ledger context): output counts missing a block (bug).");
-
-        chunk_data_out.basic_records_per_tx.reserve(
-                (m_accumulated_legacy_output_counts.at(chunk_end_index - 1) - total_output_count_before_tx) / 2
-            );
+        accumulated_legacy_output_counts_this_chunk = previous_accumulated_legacy_output_counts_it->second;
     }
 
     // c. legacy-view scan each block in the range
@@ -770,7 +804,26 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
 
                 for (const auto &tx_with_output_contents : block_of_tx_output_contents.second)
                 {
-                    const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
+                    const rct::key &tx_id{sortable2rct(std::get<sortable_key>(tx_with_output_contents))};
+                    const bool is_rct{std::get<bool>(tx_with_output_contents)};
+                    const std::vector<LegacyEnoteVariant> &enotes{
+                            std::get<std::vector<LegacyEnoteVariant>>(tx_with_output_contents)
+                        };
+
+                    // calculate the legacy ledger output indices for each enote in this tx
+                    std::vector<legacy_output_index_t> legacy_output_index_per_enote;
+                    for (const LegacyEnoteVariant &enote : enotes)
+                    {
+                        const rct::xmr_amount legacy_ledger_indexing_amount{
+                                get_legacy_ledger_indexing_amount(enote, is_rct)
+                            };
+                        // notice we increment the index for this enote's amount in chunk
+                        const std::uint64_t this_enote_amount_index{
+                                accumulated_legacy_output_counts_this_chunk[legacy_ledger_indexing_amount]++
+                            };
+                        legacy_output_index_per_enote.push_back({legacy_ledger_indexing_amount,
+                            this_enote_amount_index});
+                    }
 
                     // legacy view-scan the tx if in scan mode
                     if (legacy_scan_mode == LegacyScanMode::SCAN)
@@ -781,10 +834,10 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                             block_of_tx_output_contents.first,
                             std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
                             tx_id,
-                            total_output_count_before_tx,
-                            std::get<std::uint64_t>(tx_with_output_contents.second),
-                            std::get<TxExtra>(tx_with_output_contents.second),
-                            std::get<std::vector<LegacyEnoteVariant>>(tx_with_output_contents.second),
+                            legacy_output_index_per_enote,
+                            std::get<std::uint64_t>(tx_with_output_contents),
+                            std::get<TxExtra>(tx_with_output_contents),
+                            enotes,
                             SpEnoteOriginStatus::ONCHAIN,
                             hw::get_device("default"),
                             collected_records))
@@ -796,7 +849,7 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                     }
 
                     // always add an entry for this tx in the basic records map (since we save key images for every tx)
-                    chunk_data_out.basic_records_per_tx[sortable2rct(tx_with_output_contents.first)];
+                    chunk_data_out.basic_records_per_tx[tx_id];
 
                     // collect key images from the tx (always do this for legacy txs)
                     // - optimization not implemented here: only key images of rings which include a received
@@ -804,27 +857,30 @@ void MockLedgerContext::get_onchain_chunk_legacy(const std::uint64_t chunk_start
                     //   include all key images
                     CHECK_AND_ASSERT_THROW_MES(
                         m_blocks_of_tx_key_images
-                            .at(block_of_tx_output_contents.first).find(tx_with_output_contents.first) !=
+                            .at(block_of_tx_output_contents.first).find(tx_id) !=
                         m_blocks_of_tx_key_images
                             .at(block_of_tx_output_contents.first).end(),
                         "onchain chunk legacy-view scanning (mock ledger context): key image map missing tx (bug).");
 
                     if (scanning::try_collect_key_images_from_tx(block_of_tx_output_contents.first,
                             std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
-                            sortable2rct(tx_with_output_contents.first),
+                            tx_id,
                             std::get<0>(m_blocks_of_tx_key_images
                                 .at(block_of_tx_output_contents.first)
-                                .at(tx_with_output_contents.first)),
+                                .at(tx_id)),
                             std::get<1>(m_blocks_of_tx_key_images
                                 .at(block_of_tx_output_contents.first)
-                                .at(tx_with_output_contents.first)),
+                                .at(tx_id)),
                             SpEnoteSpentStatus::SPENT_ONCHAIN,
                             collected_key_images))
                         chunk_data_out.contextual_key_images.emplace_back(std::move(collected_key_images));
 
-                    // add this tx's number of outputs to the total output count
-                    total_output_count_before_tx +=
-                        std::get<std::vector<LegacyEnoteVariant>>(tx_with_output_contents.second).size();
+                    // add this tx's number of outputs to the chunk's total output count per amount
+                    for (const LegacyEnoteVariant &enote : enotes)
+                    {
+                        const rct::xmr_amount enote_amount{get_legacy_ledger_indexing_amount(enote, is_rct)};
+                        accumulated_legacy_output_counts_this_chunk[enote_amount]++;
+                    }
                 }
             }
         );

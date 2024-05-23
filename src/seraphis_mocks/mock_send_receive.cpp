@@ -129,7 +129,7 @@ void send_legacy_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &co
         "send legacy coinbase amounts to user: appending enote ephemeral pubkeys to tx extra failed.");
 
     // 3. commit coinbase enotes as new block
-    ledger_context_inout.add_legacy_coinbase(rct::pkGen(), 0, std::move(tx_extra), {}, std::move(coinbase_enotes));
+    ledger_context_inout.add_legacy_coinbase(rct::pkGen(), true, 0, std::move(tx_extra), {}, std::move(coinbase_enotes));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinbase_amounts,
@@ -285,7 +285,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
 
     // 6. get ledger mappings for the input membership proofs
     // note: do this after making the tx proposal to demo that inputs don't have to be on-chain when proposing a tx
-    std::unordered_map<crypto::key_image, std::uint64_t> legacy_input_ledger_mappings;
+    std::unordered_map<crypto::key_image, legacy_output_index_t> legacy_input_ledger_mappings;
     std::unordered_map<crypto::key_image, std::uint64_t> sp_input_ledger_mappings;
     try_get_membership_proof_real_reference_mappings(legacy_contextual_inputs, legacy_input_ledger_mappings);
     try_get_membership_proof_real_reference_mappings(sp_contextual_inputs, sp_input_ledger_mappings);

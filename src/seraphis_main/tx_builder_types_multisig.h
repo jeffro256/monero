@@ -70,7 +70,7 @@ namespace sp
 struct LegacyMultisigRingSignaturePrepV1 final
 {
     /// ledger indices of legacy enotes referenced by the proof
-    std::vector<std::uint64_t> reference_set;
+    LegacyReferenceSetV2 reference_set;
     /// the referenced enotes ({Ko, C}((legacy)) representation)
     rct::ctkeyV referenced_enotes;
     /// the index of the real enote being referenced within the reference set
@@ -100,7 +100,7 @@ struct LegacyMultisigInputProposalV1 final
     crypto::secret_key commitment_mask;
 
     /// cached legacy enote indices for a legacy ring signature (should include a reference to this input proposal's enote)
-    std::vector<std::uint64_t> reference_set;
+    LegacyReferenceSetV2 reference_set;
 };
 
 ////

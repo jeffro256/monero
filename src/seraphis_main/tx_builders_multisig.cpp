@@ -285,20 +285,27 @@ static void replace_legacy_input_proposal_destinations_for_tx_simulation_v1(
     {
         for (LegacyRingSignaturePrepV1 &prep_to_repair : legacy_ring_signature_preps_out)
         {
-            // a. see if the reference prep's real reference is a decoy in this prep's reference set
-            auto ref_set_it =
-                std::find(prep_to_repair.reference_set.begin(),
-                    prep_to_repair.reference_set.end(),
-                    reference_prep.reference_set.at(reference_prep.real_reference_index));
+            // a. sanity check real_reference_index
+            CHECK_AND_ASSERT_THROW_MES(
+                reference_prep.real_reference_index < reference_prep.reference_set.indices.size(),
+                "real reference index is too large for given reference set prep");
 
-            // b. if not, skip it
-            if (ref_set_it == prep_to_repair.reference_set.end())
+            // b. get legacy output index at "real reference index" into reference set indices
+            const legacy_output_index_t real_reference_index_global{
+                *std::next(reference_prep.reference_set.indices.cbegin(), reference_prep.real_reference_index)
+            };
+
+            // c. see if the reference prep's real reference is a decoy in this prep's reference set, if not skip it
+            const auto ref_set_it = prep_to_repair.reference_set.indices.find(real_reference_index_global);
+
+            // d. if not, skip it
+            if (ref_set_it == prep_to_repair.reference_set.indices.cend())
                 continue;
 
-            // c. otherwise, update the decoy's onetime address
+            // e. otherwise, update the decoy's onetime address
             prep_to_repair
                 .referenced_enotes
-                .at(std::distance(prep_to_repair.reference_set.begin(), ref_set_it))
+                .at(std::distance(prep_to_repair.reference_set.indices.begin(), ref_set_it))
                 .dest = 
                     reference_prep
                         .referenced_enotes
@@ -510,7 +517,7 @@ static void collect_sp_composition_proof_privkeys_for_multisig(const std::vector
 //-------------------------------------------------------------------------------------------------------------------
 static bool try_make_v1_legacy_input_v1(const rct::key &tx_proposal_prefix,
     const LegacyInputProposalV1 &input_proposal,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     rct::ctkeyV referenced_enotes,
     const rct::key &masked_commitment,
     const std::vector<multisig::CLSAGMultisigPartial> &input_proof_partial_sigs,
@@ -626,7 +633,7 @@ static bool try_make_legacy_inputs_for_multisig_v1(const rct::key &tx_proposal_p
     // - map ring signature messages to onetime addresses
     // - map legacy reference sets to onetime addresses
     std::unordered_map<rct::key, rct::key> legacy_proof_contexts;  //[ proof key : proof message ]
-    std::unordered_map<rct::key, std::vector<std::uint64_t>> mapped_reference_sets;
+    std::unordered_map<rct::key, LegacyReferenceSetV2> mapped_reference_sets;
     rct::key message_temp;
 
     for (const LegacyMultisigInputProposalV1 &legacy_multisig_input_proposal : legacy_multisig_input_proposals)
@@ -768,13 +775,6 @@ void check_v1_legacy_multisig_input_proposal_semantics_v1(const LegacyMultisigIn
         "semantics check legacy multisig input proposal v1: bad address mask (zero).");
     CHECK_AND_ASSERT_THROW_MES(sc_check(to_bytes(multisig_input_proposal.commitment_mask)) == 0,
         "semantics check legacy multisig input proposal v1: bad address mask (not canonical).");
-    CHECK_AND_ASSERT_THROW_MES(std::find(multisig_input_proposal.reference_set.begin(),
-                multisig_input_proposal.reference_set.end(),
-                multisig_input_proposal.tx_output_index) !=
-            multisig_input_proposal.reference_set.end(),
-        "semantics check legacy multisig input proposal v1: referenced enote index is not in the reference set.");
-    CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(multisig_input_proposal.reference_set),
-        "semantics check legacy multisig input proposal v1: reference set indices are not sorted and unique.");
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteVariant &enote,
@@ -783,7 +783,7 @@ void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteVariant &enote,
     const std::uint64_t tx_output_index,
     const std::uint64_t unlock_time,
     const crypto::secret_key &commitment_mask,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     LegacyMultisigInputProposalV1 &proposal_out)
 {
     // add components
@@ -798,7 +798,7 @@ void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteVariant &enote,
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_legacy_multisig_input_proposal_v1(const LegacyEnoteRecord &enote_record,
     const crypto::secret_key &commitment_mask,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     LegacyMultisigInputProposalV1 &proposal_out)
 {
     make_v1_legacy_multisig_input_proposal_v1(enote_record.enote,

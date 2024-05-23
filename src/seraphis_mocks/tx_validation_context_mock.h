@@ -98,7 +98,7 @@ public:
     * param: indices -
     * outparam: proof_elements_out - {KI, C}
     */
-    void get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
+    void get_reference_set_proof_elements_v1(const std::set<legacy_output_index_t> &indices,
         rct::ctkeyV &proof_elements_out) const override
     {
         m_mock_ledger_context.get_reference_set_proof_elements_v1(indices, proof_elements_out);

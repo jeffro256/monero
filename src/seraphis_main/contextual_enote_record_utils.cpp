@@ -191,7 +191,7 @@ boost::multiprecision::uint128_t total_amount(const std::vector<SpContextualEnot
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_membership_proof_real_reference_mappings(const std::vector<LegacyContextualEnoteRecordV1> &contextual_records,
-    std::unordered_map<crypto::key_image, std::uint64_t> &enote_ledger_mappings_out)
+    std::unordered_map<crypto::key_image, legacy_output_index_t> &enote_ledger_mappings_out)
 {
     enote_ledger_mappings_out.clear();
     enote_ledger_mappings_out.reserve(contextual_records.size());
@@ -204,7 +204,7 @@ bool try_get_membership_proof_real_reference_mappings(const std::vector<LegacyCo
 
         // 2. save the [ KI : enote ledger index ] entry
         enote_ledger_mappings_out[key_image_ref(contextual_record)] =
-            contextual_record.origin_context.enote_ledger_index;
+            contextual_record.origin_context.legacy_enote_ledger_index;
     }
 
     return true;
@@ -226,6 +226,19 @@ bool try_get_membership_proof_real_reference_mappings(const std::vector<SpContex
         enote_ledger_mappings_out[key_image_ref(contextual_record)] =
             contextual_record.origin_context.enote_ledger_index;
     }
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool try_update_enote_origin_context_v1(const LegacyEnoteOriginContext &fresh_origin_context,
+    LegacyEnoteOriginContext &current_origin_context_inout)
+{
+    // 1. fail if the current context is older than the fresh one
+    if (is_older_than(current_origin_context_inout, fresh_origin_context))
+        return false;
+
+    // 2. overwrite with the fresh context (do this even if the fresh one seems to have the same age)
+    current_origin_context_inout = fresh_origin_context;
 
     return true;
 }
@@ -304,6 +317,35 @@ bool try_bump_enote_record_origin_status_v1(const SpEnoteSpentStatus spent_statu
     origin_status_inout = implied_origin_status;
 
     return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+void update_contextual_enote_record_contexts_v1(const LegacyEnoteOriginContext &new_origin_context,
+    const SpEnoteSpentContextV1 &new_spent_context,
+    LegacyEnoteOriginContext &origin_context_inout,
+    SpEnoteSpentContextV1 &spent_context_inout)
+{
+    // 1. update the origin context, preferring RingCT over pre-RingCT in the case of an age 'tie'
+    try
+    {
+        try_update_enote_origin_context_v1(new_origin_context, origin_context_inout);
+    }
+    catch (...) // age order is undecidable (height is same, ledger indexing amount is not)
+    {
+        const bool new_is_rct{!new_origin_context.legacy_enote_ledger_index.ledger_indexing_amount};
+        const bool old_is_rct{!origin_context_inout.legacy_enote_ledger_index.ledger_indexing_amount};
+        CHECK_AND_ASSERT_THROW_MES(new_is_rct ^ old_is_rct,
+            "update_contextual_enote_record_contexts_v1 [legacy]: invalid argument: origin contexts "
+            "represent enotes with differing pre-RingCT amounts (or there's a bug elsewhere)");
+
+        if (new_is_rct) // && !old_is_rct
+            origin_context_inout = new_origin_context;
+    }
+
+    // 2. update the spent context
+    try_update_enote_spent_context_v1(new_spent_context, spent_context_inout);
+
+    // 3. bump the origin status based on the new spent status
+    try_bump_enote_record_origin_status_v1(spent_context_inout.spent_status, origin_context_inout.origin_status);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void update_contextual_enote_record_contexts_v1(const SpEnoteOriginContextV1 &new_origin_context,

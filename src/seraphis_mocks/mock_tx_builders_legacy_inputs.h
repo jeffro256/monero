@@ -57,14 +57,15 @@ namespace mocks
 std::vector<LegacyInputProposalV1> gen_mock_legacy_input_proposals_v1(const crypto::secret_key &legacy_spend_privkey,
     const std::vector<rct::xmr_amount> &input_amounts);
 /// make mock legacy ring signature preps
-void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(const std::uint64_t real_reference_index_in_ledger,
+void gen_mock_legacy_ring_signature_members_for_enote_at_pos_v1(
+    const legacy_output_index_t real_reference_index_in_ledger,
     const std::uint64_t ring_size,
     const MockLedgerContext &ledger_context,
-    std::vector<std::uint64_t> &reference_set_out,
+    LegacyReferenceSetV2 &reference_set_out,
     rct::ctkeyV &referenced_enotes_out,
     std::uint64_t &real_reference_index_out);
 LegacyRingSignaturePrepV1 gen_mock_legacy_ring_signature_prep_for_enote_at_pos_v1(const rct::key &tx_proposal_prefix,
-    const std::uint64_t real_reference_index_in_ledger,
+    const legacy_output_index_t real_reference_index_in_ledger,
     const LegacyEnoteImageV2 &real_reference_image,
     const crypto::secret_key &real_reference_view_privkey,
     const crypto::secret_key &commitment_mask,
@@ -90,7 +91,7 @@ std::vector<LegacyRingSignaturePrepV1> gen_mock_legacy_ring_signature_preps_v1(c
     MockLedgerContext &ledger_context_inout);
 /// prepare membership proofs for enotes in a mock ledger
 void make_mock_legacy_ring_signature_preps_for_inputs_v1(const rct::key &tx_proposal_prefix,
-    const std::unordered_map<crypto::key_image, std::uint64_t> &input_ledger_mappings,
+    const std::unordered_map<crypto::key_image, legacy_output_index_t> &input_ledger_mappings,
     const std::vector<LegacyInputProposalV1> &input_proposals,
     const std::uint64_t ring_size,
     const MockLedgerContext &ledger_context,
