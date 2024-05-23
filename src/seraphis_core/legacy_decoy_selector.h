@@ -31,12 +31,13 @@
 #pragma once
 
 //local headers
+#include "legacy_output_index.h"
 
 //third party headers
 
 //standard headers
 #include <cstdint>
-#include <vector>
+#include <set>
 
 //forward declarations
 
@@ -60,9 +61,9 @@ public:
 
 //member functions
     /// request a set of ring members as on-chain enote indices
-    virtual void get_ring_members(const std::uint64_t real_ring_member_index,
+    virtual void get_ring_members(const legacy_output_index_t real_ring_member_index,
         const std::uint64_t num_ring_members,
-        std::vector<std::uint64_t> &ring_members_out,
+        std::set<legacy_output_index_t> &ring_members_out,
         std::uint64_t &real_ring_member_index_in_ref_set_out) const = 0;
 };
 

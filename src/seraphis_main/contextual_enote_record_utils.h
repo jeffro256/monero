@@ -33,6 +33,7 @@
 //local headers
 #include "contextual_enote_record_types.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/legacy_output_index.h"
 #include "tx_input_selection.h"
 
 //third party headers
@@ -114,7 +115,7 @@ boost::multiprecision::uint128_t total_amount(const std::vector<SpContextualEnot
 * outparam: enote_ledger_mappings_out -
 */
 bool try_get_membership_proof_real_reference_mappings(const std::vector<LegacyContextualEnoteRecordV1> &contextual_records,
-    std::unordered_map<crypto::key_image, std::uint64_t> &enote_ledger_mappings_out);
+    std::unordered_map<crypto::key_image, legacy_output_index_t> &enote_ledger_mappings_out);
 bool try_get_membership_proof_real_reference_mappings(const std::vector<SpContextualEnoteRecordV1> &contextual_records,
     std::unordered_map<crypto::key_image, std::uint64_t> &enote_ledger_mappings_out);
 /**
@@ -122,7 +123,11 @@ bool try_get_membership_proof_real_reference_mappings(const std::vector<SpContex
 *   - only update our origin context if the fresh context is 'older than' our origin context
 * param: fresh_origin_context -
 * inoutparam: current_origin_context_inout -
+* return: true if origin context was updated, false if not
+* throw: if age order is undecidable (i.e. different legacy ledger indexing amounts)
 */
+bool try_update_enote_origin_context_v1(const LegacyEnoteOriginContext &fresh_origin_context,
+    LegacyEnoteOriginContext &current_origin_context_inout);
 bool try_update_enote_origin_context_v1(const SpEnoteOriginContextV1 &fresh_origin_context,
     SpEnoteOriginContextV1 &current_origin_context_inout);
 /**
@@ -163,6 +168,10 @@ bool try_bump_enote_record_origin_status_v1(const SpEnoteSpentStatus spent_statu
 * inoutparam: origin_context_inout -
 * inoutparam: spent_context_inout -
 */
+void update_contextual_enote_record_contexts_v1(const LegacyEnoteOriginContext &new_origin_context,
+    const SpEnoteSpentContextV1 &new_spent_context,
+    LegacyEnoteOriginContext &origin_context_inout,
+    SpEnoteSpentContextV1 &spent_context_inout);
 void update_contextual_enote_record_contexts_v1(const SpEnoteOriginContextV1 &new_origin_context,
     const SpEnoteSpentContextV1 &new_spent_context,
     SpEnoteOriginContextV1 &origin_context_inout,

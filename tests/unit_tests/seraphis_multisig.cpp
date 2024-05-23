@@ -234,7 +234,7 @@ static bool sp_multisig_input_is_ready_to_spend(const SpMultisigInputProposalV1 
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static bool legacy_ring_members_are_ready_to_spend(const std::vector<std::uint64_t> &reference_set,
+static bool legacy_ring_members_are_ready_to_spend(const std::set<sp::legacy_output_index_t> &reference_set,
     const rct::ctkeyV &legacy_ring_members,
     const MockLedgerContext &ledger_context)
 {
@@ -326,7 +326,7 @@ static void validate_multisig_tx_proposal(const SpMultisigTxProposalV1 &multisig
         ++legacy_input_index)
     {
         ASSERT_TRUE(legacy_ring_members_are_ready_to_spend(
-            multisig_tx_proposal.legacy_multisig_input_proposals[legacy_input_index].reference_set,
+            multisig_tx_proposal.legacy_multisig_input_proposals[legacy_input_index].reference_set.indices,
             multisig_tx_proposal.legacy_input_proof_proposals[legacy_input_index].ring_members,
             ledger_context));
     }

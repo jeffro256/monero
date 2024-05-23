@@ -42,6 +42,7 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "seraphis_core/legacy_enote_types.h"
+#include "seraphis_core/legacy_output_index.h"
 #include "seraphis_crypto/sp_crypto_utils.h"
 #include "seraphis_main/scan_core_types.h"
 #include "seraphis_main/tx_component_types.h"
@@ -106,7 +107,7 @@ public:
     * param: indices -
     * outparam: proof_elements_out - {KI, C}
     */
-    void get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
+    void get_reference_set_proof_elements_v1(const std::set<legacy_output_index_t> &indices,
         rct::ctkeyV &proof_elements_out) const;
     /**
     * brief: get_reference_set_proof_elements_v2 - get seraphis squashed enotes stored in the ledger
@@ -117,9 +118,10 @@ public:
         rct::keyV &proof_elements_out) const;
     /**
     * brief: max_legacy_enote_index - highest index of a legacy enote in the ledger
+    * param: ledger_indexing_amount -
     * return: highest legacy enote index (defaults to std::uint64_t::max if no enotes)
     */
-    std::uint64_t max_legacy_enote_index() const;
+    std::uint64_t max_legacy_enote_index(const rct::xmr_amount ledger_indexing_amount) const;
     /**
     * brief: max_sp_enote_index - highest index of a seraphis enote in the ledger
     * return: highest seraphis enote index (defaults to std::uint64_t::max if no enotes)
@@ -127,9 +129,11 @@ public:
     std::uint64_t max_sp_enote_index() const;
     /**
     * brief: num_legacy_enotes - number of legacy enotes in the ledger
+    * param: ledger_indexing_amount -
     * return: number of legacy enotes in the ledger
     */
-    std::uint64_t num_legacy_enotes() const { return max_legacy_enote_index() + 1; }
+    std::uint64_t num_legacy_enotes(const rct::xmr_amount ledger_indexing_amount) const
+    { return this->max_legacy_enote_index(ledger_indexing_amount) + 1; }
     /**
     * brief: num_sp_enotes - number of seraphis enotes in the ledger
     * return: number of seraphis enotes in the ledger
@@ -147,6 +151,7 @@ public:
     /**
     * brief: add_legacy_coinbase - make a block with a mock legacy coinbase tx (containing legacy key images)
     * param: tx_id -
+    * param: is_rct -
     * param: unlock_time -
     * param: memo -
     * param: legacy_key_images_for_block -
@@ -154,6 +159,7 @@ public:
     * return: block index of newly added block
     */
     std::uint64_t add_legacy_coinbase(const rct::key &tx_id,
+        const bool is_rct,
         const std::uint64_t unlock_time,
         TxExtra memo,
         std::vector<crypto::key_image> legacy_key_images_for_block,
@@ -305,14 +311,14 @@ private:
             >
         >
     > m_blocks_of_tx_key_images;
-    /// legacy enote references {KI, C} (mapped to output index)
-    std::map<std::uint64_t, rct::ctkey> m_legacy_enote_references;
+    /// legacy enote references {KI, C} (mapped by indexable amount, then output index)
+    std::map<rct::xmr_amount, std::vector<rct::ctkey>> m_legacy_enote_references;
     /// seraphis squashed enotes (mapped to output index)
     std::map<std::uint64_t, rct::key> m_sp_squashed_enotes;
     /// map of accumulated output counts (legacy)
     std::map<
-        std::uint64_t,  // block index
-        std::uint64_t   // total number of legacy enotes including those in this block
+        std::uint64_t,                           // block index
+        std::map<rct::xmr_amount, std::uint64_t> // total number of legacy enotes including those in this block, per amount
     > m_accumulated_legacy_output_counts;
     /// map of accumulated output counts (seraphis)
     std::map<
@@ -322,9 +328,10 @@ private:
     /// map of legacy tx outputs
     std::map<
         std::uint64_t,        // block index
-        std::map<
-            sortable_key,     // tx id
-            std::tuple<       // tx output contents
+        std::vector<          // ordered list of txs
+            std::tuple<           // tx contents
+                sortable_key,                     // txid
+                bool,                             // is_rct
                 std::uint64_t,                    // unlock time
                 TxExtra,                          // tx memo
                 std::vector<LegacyEnoteVariant>   // output enotes

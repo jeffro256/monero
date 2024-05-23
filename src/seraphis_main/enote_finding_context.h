@@ -95,7 +95,7 @@ struct LegacyUnscannedTransaction final
     rct::key transaction_id;
     uint64_t unlock_time;
     sp::TxExtra tx_memo;
-    uint64_t total_enotes_before_tx;
+    std::vector<legacy_output_index_t> legacy_output_index_per_enote;
     std::vector<sp::LegacyEnoteVariant> enotes;
     std::vector<crypto::key_image> legacy_key_images;
 };

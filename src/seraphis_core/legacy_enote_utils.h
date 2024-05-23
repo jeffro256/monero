@@ -60,6 +60,13 @@ namespace sp
 */
 void get_legacy_enote_identifier(const rct::key &onetime_address, const rct::xmr_amount amount, rct::key &identifier_out);
 /**
+ * brief: get_legacy_ledger_indexing_amount - get the "amount" key used for indexing this enote in the ledger
+ * param: enote -
+ * param: is_rct - true if this is a RingCT enote
+ * return: the enote's cleartext amount if pre-RingCT or 0 if RingCT
+*/
+rct::xmr_amount get_legacy_ledger_indexing_amount(const LegacyEnoteVariant &enote, const bool is_rct);
+/**
 * brief: make_legacy_enote_v1 - make a v1 legacy enote sending to an address or subaddress
 * param: destination_spendkey - [address: K^s = k^s G] [subaddress: K^{s,i} = (Hn(k^v, i) + k^s) G]
 * param: destination_viewkey - [address: K^v = k^v G] [subaddress: K^{v,i} = k^v*(Hn(k^v, i) + k^s) G]

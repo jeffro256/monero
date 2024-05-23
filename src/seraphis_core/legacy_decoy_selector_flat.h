@@ -36,8 +36,8 @@
 //third party headers
 
 //standard headers
-#include <cstdint>
-#include <vector>
+#include <map>
+#include <utility>
 
 //forward declarations
 
@@ -47,29 +47,37 @@ namespace sp
 
 ////
 // LegacyDecoySelectorFlat
-// - get a set of unique legacy ring members, selected from a flat distribution across the range of available enotes
+// - get a set of unique legacy ring members, selected from a flat distribution across the range of available
+//   enotes with the same ledger indexing amount
 ///
 class LegacyDecoySelectorFlat final : public LegacyDecoySelector
 {
 public:
+//member types
+    ///                                       [ ledger amount : {min index, max index} ]
+    using index_bounds_by_amount_t = std::map<rct::xmr_amount, std::pair<std::uint64_t, std::uint64_t>>;
+
 //constructors
     /// default constructor: disabled
     /// normal constructor
-    LegacyDecoySelectorFlat(const std::uint64_t min_index, const std::uint64_t max_index);
+    LegacyDecoySelectorFlat(index_bounds_by_amount_t index_bounds_by_amount);
 
 //destructor: default
 
 //member functions
     /// request a set of ring members from range [min_index, max_index]
-    void get_ring_members(const std::uint64_t real_ring_member_index,
+    void get_ring_members(const legacy_output_index_t real_ring_member_index,
         const std::uint64_t num_ring_members,
-        std::vector<std::uint64_t> &ring_members_out,
+        std::set<legacy_output_index_t> &ring_members_out,
         std::uint64_t &real_ring_member_index_in_ref_set_out) const override;
 
 //member variables
 private:
-    std::uint64_t m_min_index;
-    std::uint64_t m_max_index;
+    index_bounds_by_amount_t m_index_bounds_by_amount;
+
+//member functions (private)
+    std::uint64_t get_min_index(const rct::xmr_amount amount) const;
+    std::uint64_t get_max_index(const rct::xmr_amount amount) const;
 };
 
 } //namespace sp

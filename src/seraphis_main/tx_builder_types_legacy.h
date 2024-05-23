@@ -80,10 +80,10 @@ struct LegacyRingSignaturePrepV1 final
     /// tx proposal prefix (message to sign in the proof)
     rct::key tx_proposal_prefix;
     /// ledger indices of legacy enotes to be referenced by the proof
-    std::vector<std::uint64_t> reference_set;
+    LegacyReferenceSetV2 reference_set;
     /// the referenced enotes ({Ko, C}((legacy)) representation)
     rct::ctkeyV referenced_enotes;
-    /// the index of the real enote being referenced within the reference set
+    /// the index of the real enote being referenced within the referenced enotes vector
     std::uint64_t real_reference_index;
     /// enote image of the real reference (useful for sorting)
     LegacyEnoteImageV2 reference_image;

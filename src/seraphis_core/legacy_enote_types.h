@@ -47,7 +47,7 @@ namespace sp
 {
 
 ////
-// LegacyEnoteV1
+// LegacyEnoteV1 (all pre-RingCT enotes, then post-RingCT pre-viewtag coinbase)
 // - onetime address
 // - cleartext amount
 ///
@@ -104,7 +104,7 @@ struct LegacyEnoteV3 final
 inline std::size_t legacy_enote_v3_size_bytes() { return 2*32 + 8; }
 
 ////
-// LegacyEnoteV4
+// LegacyEnoteV4 (post-viewtag coinbase, also post-viewtag v1 unmixable dust txs)
 // - onetime address
 // - cleartext amount
 // - view tag
@@ -151,10 +151,12 @@ inline std::size_t legacy_enote_v5_size_bytes() { return 2*32 + 8 + sizeof(crypt
 // onetime_address_ref(): get the enote's onetime address
 // amount_commitment_ref(): get the enote's amount commitment (this is a copy because V1 enotes need to
 //                          compute the commitment)
+// cleartext_amount_ref(): get the enote's cleartext amount if applicable, or 0 otherwise
 ///
 using LegacyEnoteVariant = tools::variant<LegacyEnoteV1, LegacyEnoteV2, LegacyEnoteV3, LegacyEnoteV4, LegacyEnoteV5>;
 const rct::key& onetime_address_ref(const LegacyEnoteVariant &variant);
 rct::key amount_commitment_ref(const LegacyEnoteVariant &variant);
+rct::xmr_amount cleartext_amount_ref(const LegacyEnoteVariant &variant);
 
 /**
 * brief: gen_legacy_enote_v1() - generate a legacy v1 enote (all random)

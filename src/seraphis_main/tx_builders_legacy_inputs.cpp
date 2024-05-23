@@ -155,22 +155,22 @@ void make_v1_legacy_input_proposal_v1(const LegacyEnoteRecord &enote_record,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_tx_legacy_ring_signature_message_v1(const rct::key &tx_proposal_message,
-    const std::vector<std::uint64_t> &reference_set_indices,
+    const LegacyReferenceSetV2 &reference_set,
     rct::key &message_out)
 {
     // m = H_32(tx proposal message, {reference set indices})
     SpFSTranscript transcript{
             config::HASH_KEY_LEGACY_RING_SIGNATURES_MESSAGE_V1,
-            32 + reference_set_indices.size() * 8
+            32 + legacy_ref_set_v2_size_bytes(reference_set)
         };
     transcript.append("tx_proposal_message", tx_proposal_message);
-    transcript.append("reference_set_indices", reference_set_indices);
+    transcript.append("reference_set", reference_set);
 
     sp_hash_to_32(transcript.data(), transcript.size(), message_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v4_legacy_ring_signature(const rct::key &message,
-    std::vector<std::uint64_t> reference_set,
+    LegacyReferenceSetV2 reference_set,
     const rct::ctkeyV &referenced_enotes,
     const std::uint64_t real_reference_index,
     const rct::key &masked_commitment,
@@ -185,9 +185,7 @@ void make_v4_legacy_ring_signature(const rct::key &message,
     /// checks
 
     // 1. reference sets
-    CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(reference_set),
-        "make v4 legacy ring signature: reference set indices are not sorted and unique.");
-    CHECK_AND_ASSERT_THROW_MES(reference_set.size() == referenced_enotes.size(),
+    CHECK_AND_ASSERT_THROW_MES(reference_set.indices.size() == referenced_enotes.size(),
         "make v4 legacy ring signature: reference set indices don't match referenced enotes.");
     CHECK_AND_ASSERT_THROW_MES(real_reference_index < referenced_enotes.size(),
         "make v4 legacy ring signature: real reference index is outside range of referenced enotes.");
@@ -310,9 +308,7 @@ void check_v1_legacy_input_semantics_v1(const LegacyInputV1 &input)
         "legacy input semantics (v1): could not reproduce masked commitment (pseudo-output commitment).");
 
     // 2. ring signature reference indices are sorted and unique and match with the cached reference enotes
-    CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(input.ring_signature.reference_set),
-        "legacy input semantics (v1): reference set indices are not sorted and unique.");
-    CHECK_AND_ASSERT_THROW_MES(input.ring_signature.reference_set.size() == input.ring_members.size(),
+    CHECK_AND_ASSERT_THROW_MES(input.ring_signature.reference_set.indices.size() == input.ring_members.size(),
         "legacy input semantics (v1): reference set indices don't match referenced enotes.");
 
     // 3. ring signature message

@@ -67,7 +67,7 @@ namespace scanning
 * param: block_index -
 * param: block_timestamp -
 * param: transaction_id -
-* param: total_enotes_before_tx - number of legacy enotes ordered before this tx (set to '0' if tx is non-ledger)
+* param: legacy_output_index_per_enote - legacy output indices for each enote in the tx
 * param: unlock_time -
 * param: tx_memo -
 * param: enotes_in_tx -
@@ -81,7 +81,7 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
     const std::uint64_t block_index,
     const std::uint64_t block_timestamp,
     const rct::key &transaction_id,
-    const std::uint64_t total_enotes_before_tx,
+    const std::vector<legacy_output_index_t> &legacy_output_index_per_enote,
     const std::uint64_t unlock_time,
     const TxExtra &tx_memo,
     const std::vector<LegacyEnoteVariant> &enotes_in_tx,

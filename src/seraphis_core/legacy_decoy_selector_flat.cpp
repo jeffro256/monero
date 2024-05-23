@@ -45,56 +45,68 @@
 namespace sp
 {
 //-------------------------------------------------------------------------------------------------------------------
-LegacyDecoySelectorFlat::LegacyDecoySelectorFlat(const std::uint64_t min_index, const std::uint64_t max_index) :
-    m_min_index{min_index},
-    m_max_index{max_index}
+LegacyDecoySelectorFlat::LegacyDecoySelectorFlat(index_bounds_by_amount_t index_bounds_by_amount) :
+    m_index_bounds_by_amount(std::move(index_bounds_by_amount))
 {
     // checks
-    CHECK_AND_ASSERT_THROW_MES(m_max_index >= m_min_index, "legacy decoy selector (flat): invalid element range.");
+    for (const auto &p : m_index_bounds_by_amount)
+    {
+        const std::uint64_t min_ind{p.second.first};
+        const std::uint64_t max_ind{p.second.second};
+        CHECK_AND_ASSERT_THROW_MES(max_ind >= min_ind, "legacy decoy selector (flat): min > max index.");
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void LegacyDecoySelectorFlat::get_ring_members(const std::uint64_t real_ring_member_index,
+void LegacyDecoySelectorFlat::get_ring_members(const legacy_output_index_t real_ring_member_index,
         const std::uint64_t num_ring_members,
-        std::vector<std::uint64_t> &ring_members_out,
+        std::set<legacy_output_index_t> &ring_members_out,
         std::uint64_t &real_ring_member_index_in_ref_set_out) const
 {
-    CHECK_AND_ASSERT_THROW_MES(real_ring_member_index >= m_min_index,
+    const rct::xmr_amount amount{real_ring_member_index.ledger_indexing_amount};
+    const std::uint64_t min_index{this->get_min_index(amount)};
+    const std::uint64_t max_index{this->get_max_index(amount)};
+
+    CHECK_AND_ASSERT_THROW_MES(real_ring_member_index.index >= min_index,
         "legacy decoy selector (flat): real ring member index below available index range.");
-    CHECK_AND_ASSERT_THROW_MES(real_ring_member_index <= m_max_index,
+    CHECK_AND_ASSERT_THROW_MES(real_ring_member_index.index <= max_index,
         "legacy decoy selector (flat): real ring member index above available index range.");
-    CHECK_AND_ASSERT_THROW_MES(num_ring_members <= m_max_index - m_min_index + 1,
+    CHECK_AND_ASSERT_THROW_MES(num_ring_members <= max_index - min_index + 1,
         "legacy decoy selector (flat): insufficient available legacy enotes to have unique ring members.");
 
     // fill in ring members
     ring_members_out.clear();
-    ring_members_out.reserve(num_ring_members);
-    ring_members_out.emplace_back(real_ring_member_index);
+    ring_members_out.insert(real_ring_member_index);
 
     while (ring_members_out.size() < num_ring_members)
     {
-        // select a new ring member from indices in the specified range that aren't used yet (only unique ring members
-        //   are allowed)
-        std::uint64_t new_ring_member;
-        do { new_ring_member = crypto::rand_range<std::uint64_t>(m_min_index, m_max_index); }
-        while (std::find(ring_members_out.begin(), ring_members_out.end(), new_ring_member) != ring_members_out.end());
-
-        ring_members_out.emplace_back(new_ring_member);
+        // select a new ring member from indices in the specified range with uniform distribution
+        const std::uint64_t new_ring_member_index{crypto::rand_range<std::uint64_t>(min_index, max_index)};
+        // add to set (only unique values will remain)
+        ring_members_out.insert({amount, new_ring_member_index});
     }
-
-    // sort reference set
-    std::sort(ring_members_out.begin(), ring_members_out.end());
 
     // find location in reference set where the real reference sits
     // note: the reference set does not contain duplicates, so we don't have to handle the case of multiple real references
+    // note2: `ring_members_out` is a `std::set`, which contains ordered keys, so the index selected will be correct.
     real_ring_member_index_in_ref_set_out = 0;
 
-    for (const std::uint64_t reference : ring_members_out)
+    for (const legacy_output_index_t reference : ring_members_out)
     {
         if (reference == real_ring_member_index)
             return;
 
         ++real_ring_member_index_in_ref_set_out;
     }
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::uint64_t LegacyDecoySelectorFlat::get_min_index(const rct::xmr_amount amount) const
+{
+    return m_index_bounds_by_amount.at(amount).first;
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::uint64_t LegacyDecoySelectorFlat::get_max_index(const rct::xmr_amount amount) const
+{
+    return m_index_bounds_by_amount.at(amount).second;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace sp

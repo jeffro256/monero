@@ -33,6 +33,7 @@
 //local headers
 #include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/legacy_output_index.h"
 #include "txtype_base.h"
 #include "tx_validators.h"
 
@@ -83,7 +84,7 @@ public:
     * param: indices -
     * outparam: proof_elements_out - {KI, C}
     */
-    virtual void get_reference_set_proof_elements_v1(const std::vector<std::uint64_t> &indices,
+    virtual void get_reference_set_proof_elements_v1(const std::set<legacy_output_index_t> &indices,
         rct::ctkeyV &proof_elements_out) const = 0;
     /**
     * brief: get_reference_set_proof_elements_v2 - gets seraphis squashed enotes stored in the validation context
