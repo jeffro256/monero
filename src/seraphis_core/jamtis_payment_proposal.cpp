@@ -279,7 +279,7 @@ void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
 
     // 4. sender-receiver shared secret (selfsend): q = H_32[k_vb](D_e, input_context)  //note: D_e not D^d_vr
     rct::key q; auto q_wiper = auto_wiper(q);
-    make_jamtis_sender_receiver_secret_selfsend(k_view_balance,
+    make_jamtis_sender_receiver_secret(k_view_balance,
         enote_ephemeral_pubkey_out,
         input_context,
         is_jamtis_auxiliary_selfsend_type(proposal.type),

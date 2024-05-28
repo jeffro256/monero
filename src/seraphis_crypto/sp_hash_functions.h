@@ -47,6 +47,8 @@ namespace sp
 void sp_hash_to_1(const void *data, const std::size_t data_length, void *hash_out);
 /// H_2(x): 2-byte output
 void sp_hash_to_2(const void *data, const std::size_t data_length, void *hash_out);
+/// H_3(x): 3-byte output
+void sp_hash_to_3(const void *data, const std::size_t data_length, void *hash_out);
 /// H_8(x): 8-byte output
 void sp_hash_to_8(const void *data, const std::size_t data_length, void *hash_out);
 /// H_16(x): 16-byte output

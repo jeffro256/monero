@@ -28,9 +28,11 @@
 
 ////
 // Core implementation details for making Jamtis privkeys, secrets, and pubkeys.
-// - Jamtis is a specification for Seraphis-compatible addresses
+// - Jamtis is a specification for Seraphis/FCMP-RingCT compatible addresses
 //
-// reference: https://gist.github.com/tevador/50160d160d24cfc6c52ae02eb3d17024
+// references:
+// * https://gist.github.com/tevador/50160d160d24cfc6c52ae02eb3d17024
+// * https://gist.github.com/tevador/d3656a217c0177c160b9b6219d9ebb96
 ///
 
 #pragma once
@@ -52,50 +54,74 @@ namespace jamtis
 {
 
 /**
-* brief: make_jamtis_viewbalance_key - view-balance key, for viewing all balance information
-*   k_vb = H_n[k_m]()
-* param: k_master - k_m
-* outparam: k_view_balance_out - k_vb
+* brief: make_jamtis_provespend_key - prove-spend key, for signing input proofs to spend enotes
+*   k_ps = H_n[s_m]()
+* param: s_master - s_m
+* outparam: k_prove_spend_out - k_ps
 */
-void make_jamtis_viewbalance_key(const crypto::secret_key &k_master,
-    crypto::secret_key &k_view_balance_out);
+void make_jamtis_provespend_key(const crypto::secret_key &s_master,
+    crypto::secret_key &k_prove_spend_out);
 /**
-* brief: make_jamtis_viewreceived_key - view-received key, for locating and viewing amounts of normal enotes
-*   d_vr = H_n_x25519[k_vb]()
-* param: k_view_balance - k_vb
-* outparam: d_view_received_out - d_vr
+* brief: make_jamtis_viewbalance_secret - view-balance secret, for viewing all balance information
+*   s_vb = H_n[s_m]()
+* param: s_master - s_m
+* outparam: s_view_balance_out - s_vb
 */
-void make_jamtis_viewreceived_key(const crypto::secret_key &k_view_balance,
+void make_jamtis_viewbalance_secret(const crypto::secret_key &s_master,
+    crypto::secret_key &s_view_balance_out);
+/**
+* brief: make_jamtis_generateimage_key - generate-image key, for identifying enote spends
+*   k_gi = H_n[s_vb]()
+* param: s_view_balance - s_vb
+* outparam: k_generate_image_out - k_gi
+*/
+void make_jamtis_generateimage_key(const crypto::secret_key &s_view_balance,
+    crypto::secret_key &k_generate_image_out);
+/**
+* brief: make_jamtis_unlockreceived_key - unlock-received key, for Janus and (some) ECDLP protection
+*   d_ur = H_n_x25519[s_vb]()
+* param: s_view_balance - s_vb
+* outparam: d_unlock_received_out - d_ur
+*/
+void make_jamtis_unlockreceived_key(const crypto::secret_key &k_view_balance,
     crypto::x25519_secret_key &d_view_received_out);
 /**
  * brief make_jamtis_exchangebase_pubkey - D_base
- * D_base = d_vr * xG
- * param: d_view_received - d_vr
+ * D_base = d_ur * xG
+ * param: d_unlock_received - d_ur
  * outparam: exchangebase_pubkey_out
  */
-void make_jamtis_exchangebase_pubkey(const crypto::x25519_secret_key &d_view_received,
+void make_jamtis_exchangebase_pubkey(const crypto::x25519_secret_key &d_unlock_received,
     crypto::x25519_pubkey &exchangebase_pubkey_out);
 /**
-* brief: make_jamtis_viewreceived_pubkey - D_vr
-*   - D_vr = D_vr * D_base
-* param: d_view_received - d_vr
-* param: exchangebase_pubkey - D_base
-* outparam: viewreceived_pubkey_out - D_vr
+* brief: make_jamtis_identifyreceived_key - identify-received key, for calculating secondary view tags
+*   d_ir = H_n_x25519[s_vb]()
+* param: s_view_balance - s_vb
+* outparam: d_identify_received_out - d_ir
 */
-void make_jamtis_viewreceived_pubkey(const crypto::x25519_secret_key &d_view_received,
+void make_jamtis_identifyreceived_key(const crypto::secret_key &k_view_balance,
+    crypto::x25519_secret_key &d_identify_received_out);
+/**
+* brief: make_jamtis_identityreceived_pubkey - D_ir
+*   - D_ir = D_ir * D_base
+* param: d_identify_received - d_ir
+* param: exchangebase_pubkey - D_base
+* outparam: identifyreceived_pubkey_out - D_ir
+*/
+void make_jamtis_identityreceived_pubkey(const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_pubkey &exchangebase_pubkey,
-    crypto::x25519_pubkey &viewreceived_pubkey_out);
+    crypto::x25519_pubkey &identifyreceived_pubkey_out);
 /**
 * brief: make_jamtis_filterassist_key - filter-assist key, for calculating primary view tags
-*   d_fa = H_n_x25519[d_vr]()
-* param: d_view_received - d_vr
+*   d_fa = H_n_x25519[s_vb]()
+* param: s_view_balance - s_vb
 * outparam: d_filter_assist_out - d_fa
 */
-void make_jamtis_filterassist_key(const crypto::x25519_secret_key &d_view_received,
+void make_jamtis_filterassist_key(const crypto::secret_key &s_view_balance,
     crypto::x25519_secret_key &d_filter_assist_out);
 /**
 * brief: make_jamtis_filterassist_pubkey - D_fa
-*   - D_fa = d_fa * D_base
+*   D_fa = d_fa * D_base
 * param: d_filter_assist - d_fa
 * param: exchangebase_pubkey - D_base
 * outparam: filterassist_pubky_out - D_fa
@@ -105,11 +131,11 @@ void make_jamtis_filterassist_pubkey(const crypto::x25519_secret_key &d_filter_a
     crypto::x25519_pubkey &filterassist_pubkey_out);
 /**
 * brief: make_jamtis_generateaddress_secret - generate-address secret, for generating addresses
-*   s_ga = H_32[d_vr]()
-* param: d_view_received - d_vr
+*   s_ga = H_32[s_vb]()
+* param: s_view_balance - s_vb
 * outparam: s_generate_address_out - s_ga
 */
-void make_jamtis_generateaddress_secret(const crypto::x25519_secret_key &d_view_received,
+void make_jamtis_generateaddress_secret(const crypto::secret_key &s_view_balance,
     crypto::secret_key &s_generate_address_out);
 /**
 * brief: make_jamtis_ciphertag_secret - cipher-tag secret, for ciphering address indices to/from address tags

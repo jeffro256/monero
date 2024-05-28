@@ -77,39 +77,38 @@ static_assert(
 /// jamtis enote types
 enum class JamtisEnoteType : unsigned char
 {
-    EXCLUSIVE_SELF_SPEND = 0,
-    EXCLUSIVE_CHANGE = 1,
-    AUXILIARY_SELF_SPEND = 2,
-    AUXILIARY_CHANGE = 3,
-    PLAIN = 4
+    SELF_SPEND = 0,
+    CHANGE     = 1,
+    PLAIN      = 2
 };
 
 /// jamtis self-send types, used to define enote-construction procedure for self-sends
 enum class JamtisSelfSendType : unsigned char
 {
-    /// In every outgoing transaction that contains owned self-send enotes, there should be *exactly* ONE enote either
-    /// with type EXCLUSIVE_SELF_SPEND or EXCLUSIVE_CHANGE, but not both. Any other self-send enotes in that transaction
-    /// should have type AUXILIARY_*. Enotes of type EXCLUSIVE_* have primary view tags which are scannable with
-    /// knowledge of the private filter-assist key, whereas AUXILIARY_* enotes do not. This 1) ensures that if you
-    /// delegate primary view tag scanning to a third party, you will always scan these enotes and 2) prevents
-    /// statistical fingerprints of a third-party scanner seeing multiple primary view tag matches in a single
-    /// transaction. The reason that there is a distinction between *_SELF_SPEND and *_CHANGE is for UX.
-    EXCLUSIVE_SELF_SPEND = 0,
-    EXCLUSIVE_CHANGE     = 1,
-    AUXILIARY_SELF_SPEND = 2,
-    AUXILIARY_CHANGE     = 3,
-    MAX                  = AUXILIARY_CHANGE
+    SELF_SPEND = 0,
+    CHANGE     = 1,
+    MAX        = CHANGE
 };
 
-/// jamtis encoded amount
-constexpr std::size_t ENCODED_AMOUNT_BYTES{8};
-struct encoded_amount_t final
+/// jamtis encrypted amount
+constexpr std::size_t ENCRYPTED_AMOUNT_BYTES{8};
+struct encrypted_amount_t final
 {
-    unsigned char bytes[ENCODED_AMOUNT_BYTES];
+    unsigned char bytes[ENCRYPTED_AMOUNT_BYTES];
 };
+
+/// legacy payment ID
+constexpr std::size_t PAYMENT_ID_BYTES{8};
+struct payment_id_t final
+{
+    unsigned char bytes[PAYMENT_ID_BYTES];
+};
+
+/// legacy encrypted payment ID
+using encrypted_payment_id_t = payment_id_t;
 
 /// jamtis view tags
-constexpr std::size_t VIEW_TAG_BYTES{2};
+constexpr std::size_t VIEW_TAG_BYTES{3};
 struct view_tag_t final
 {
     unsigned char bytes[VIEW_TAG_BYTES];
@@ -125,10 +124,15 @@ bool operator==(const address_tag_t &a, const address_tag_t &b);
 inline bool operator!=(const address_tag_t &a, const address_tag_t &b) { return !(a == b); }
 address_tag_t operator^(const address_tag_t &a, const address_tag_t &b);
 
-/// overloaded operators: encoded amount
-bool operator==(const encoded_amount_t &a, const encoded_amount_t &b);
-inline bool operator!=(const encoded_amount_t &a, const encoded_amount_t &b) { return !(a == b); }
-encoded_amount_t operator^(const encoded_amount_t &a, const encoded_amount_t &b);
+/// overloaded operators: encrypted amount
+bool operator==(const encrypted_amount_t &a, const encrypted_amount_t &b);
+inline bool operator!=(const encrypted_amount_t &a, const encrypted_amount_t &b) { return !(a == b); }
+encrypted_amount_t operator^(const encrypted_amount_t &a, const encrypted_amount_t &b);
+
+/// overloaded operators: payment ID
+bool operator==(const payment_id_t &a, const payment_id_t &b);
+inline bool operator!=(const payment_id_t &a, const payment_id_t &b) { return !(a == b); }
+payment_id_t operator^(const payment_id_t &a, const payment_id_t &b);
 
 /// overloaded operators: view tag
 bool operator==(const view_tag_t &a, const view_tag_t &b);
@@ -151,8 +155,6 @@ view_tag_t gen_view_tag();
 bool try_get_jamtis_enote_type(const JamtisSelfSendType self_send_type, JamtisEnoteType &enote_type_out);
 bool try_get_jamtis_self_send_type(const JamtisEnoteType enote_type, JamtisSelfSendType &self_send_type_out);
 bool is_jamtis_selfsend_type(const JamtisEnoteType enote_type);
-bool is_jamtis_auxiliary_selfsend_type(const JamtisSelfSendType self_send_type);
-bool is_jamtis_exclusive_selfsend_type(const JamtisSelfSendType self_send_type);
 
 } //namespace jamtis
 } //namespace sp

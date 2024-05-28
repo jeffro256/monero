@@ -83,12 +83,22 @@ address_tag_t operator^(const address_tag_t &a, const address_tag_t &b)
     return xor_bytes(a, b);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool operator==(const encoded_amount_t &a, const encoded_amount_t &b)
+bool operator==(const encrypted_amount_t &a, const encrypted_amount_t &b)
 {
-    return memcmp(a.bytes, b.bytes, sizeof(encoded_amount_t)) == 0;
+    return memcmp(a.bytes, b.bytes, sizeof(encrypted_amount_t)) == 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
-encoded_amount_t operator^(const encoded_amount_t &a, const encoded_amount_t &b)
+encrypted_amount_t operator^(const encrypted_amount_t &a, const encrypted_amount_t &b)
+{
+    return xor_bytes(a, b);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool operator==(const payment_id_t &a, const payment_id_t &b)
+{
+    return memcmp(a.bytes, b.bytes, sizeof(payment_id_t)) == 0;
+}
+//-------------------------------------------------------------------------------------------------------------------
+encrypted_payment_id_t operator^(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b)
 {
     return xor_bytes(a, b);
 }
@@ -147,11 +157,9 @@ bool try_get_jamtis_enote_type(const JamtisSelfSendType self_send_type, JamtisEn
 {
     switch (self_send_type)
     {
-        case (JamtisSelfSendType::EXCLUSIVE_SELF_SPEND) : enote_type_out = JamtisEnoteType::EXCLUSIVE_SELF_SPEND; return true;
-        case (JamtisSelfSendType::EXCLUSIVE_CHANGE)     : enote_type_out = JamtisEnoteType::EXCLUSIVE_CHANGE;     return true;
-        case (JamtisSelfSendType::AUXILIARY_SELF_SPEND) : enote_type_out = JamtisEnoteType::AUXILIARY_SELF_SPEND; return true;
-        case (JamtisSelfSendType::AUXILIARY_CHANGE)     : enote_type_out = JamtisEnoteType::AUXILIARY_CHANGE;     return true;
-        default                                         :                                                         return false;
+        case (JamtisSelfSendType::SELF_SPEND) : enote_type_out = JamtisEnoteType::SELF_SPEND; return true;
+        case (JamtisSelfSendType::CHANGE)     : enote_type_out = JamtisEnoteType::CHANGE;     return true;
+        default                               :                                               return false;
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -159,11 +167,9 @@ bool try_get_jamtis_self_send_type(const JamtisEnoteType enote_type, JamtisSelfS
 {
     switch (enote_type)
     {
-        case (JamtisEnoteType::EXCLUSIVE_SELF_SPEND) : self_send_type_out = JamtisSelfSendType::EXCLUSIVE_SELF_SPEND; return true;
-        case (JamtisEnoteType::EXCLUSIVE_CHANGE)     : self_send_type_out = JamtisSelfSendType::EXCLUSIVE_CHANGE;     return true;
-        case (JamtisEnoteType::AUXILIARY_SELF_SPEND) : self_send_type_out = JamtisSelfSendType::AUXILIARY_SELF_SPEND; return true;
-        case (JamtisEnoteType::AUXILIARY_CHANGE)     : self_send_type_out = JamtisSelfSendType::AUXILIARY_CHANGE;     return true;
-        default                                      :                                                                return false;
+        case (JamtisEnoteType::SELF_SPEND) : self_send_type_out = JamtisSelfSendType::SELF_SPEND; return true;
+        case (JamtisEnoteType::CHANGE)     : self_send_type_out = JamtisSelfSendType::CHANGE;     return true;
+        default                            :                                                      return false;
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -171,26 +177,6 @@ bool is_jamtis_selfsend_type(const JamtisEnoteType enote_type)
 {
     JamtisSelfSendType dummy;
     return try_get_jamtis_self_send_type(enote_type, dummy);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool is_jamtis_auxiliary_selfsend_type(const JamtisSelfSendType self_send_type)
-{
-    switch (self_send_type)
-    {
-        case JamtisSelfSendType::EXCLUSIVE_SELF_SPEND:
-        case JamtisSelfSendType::EXCLUSIVE_CHANGE:
-            return false;
-        case JamtisSelfSendType::AUXILIARY_SELF_SPEND:
-        case JamtisSelfSendType::AUXILIARY_CHANGE:
-            return true;
-        default:
-            ASSERT_MES_AND_THROW("is auxiliary selfsend type: unrecognized Jamtis self send type");
-    };
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool is_jamtis_exclusive_selfsend_type(const JamtisSelfSendType self_send_type)
-{
-    return !is_jamtis_auxiliary_selfsend_type(self_send_type);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis

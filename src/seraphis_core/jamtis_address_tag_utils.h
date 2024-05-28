@@ -86,16 +86,6 @@ void decipher_address_index(const crypto::secret_key &cipher_key,
     const address_tag_t &addr_tag,
     address_index_t &j_out);
 
-/// addr_tag_enc = addr_tag XOR H_32(q, Ko)
-encrypted_address_tag_t encrypt_address_tag(const rct::key &sender_receiver_secret,
-    const rct::key &onetime_address,
-    const address_tag_t &addr_tag);
-
-/// addr_tag = addr_tag_enc XOR H_32(q, Ko)
-address_tag_t decrypt_address_tag(const rct::key &sender_receiver_secret,
-    const rct::key &onetime_address,
-    const encrypted_address_tag_t &addr_tag_enc);
-
 /// generate a random tag
 void gen_address_tag(address_tag_t &addr_tag_inout);
 
