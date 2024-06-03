@@ -66,8 +66,8 @@ inline std::size_t legacy_enote_v1_size_bytes() { return 32 + 8; }
 // LegacyEnoteV2
 // - onetime address
 // - amount commitment
-// - encoded amount commitment mask
-// - encoded amount (version 1: 32 bytes)
+// - encrypted amount commitment mask
+// - encrypted amount (version 1: 32 bytes)
 ///
 struct LegacyEnoteV2 final
 {
@@ -76,9 +76,9 @@ struct LegacyEnoteV2 final
     /// C
     rct::key amount_commitment;
     /// enc(x)
-    rct::key encoded_amount_blinding_factor;
+    rct::key encrypted_amount_blinding_factor;
     /// enc(a)
-    rct::key encoded_amount;
+    rct::key encrypted_amount;
 };
 
 /// get size in bytes
@@ -88,7 +88,7 @@ inline std::size_t legacy_enote_v2_size_bytes() { return 4*32; }
 // LegacyEnoteV3
 // - onetime address
 // - amount commitment
-// - encoded amount (version 2: 8 bytes)
+// - encrypted amount (version 2: 8 bytes)
 ///
 struct LegacyEnoteV3 final
 {
@@ -97,7 +97,7 @@ struct LegacyEnoteV3 final
     /// C
     rct::key amount_commitment;
     /// enc(a)
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
 };
 
 /// get size in bytes
@@ -126,7 +126,7 @@ inline std::size_t legacy_enote_v4_size_bytes() { return 2*32 + 8 + sizeof(crypt
 // LegacyEnoteV5
 // - onetime address
 // - amount commitment
-// - encoded amount (version 2: 8 bytes)
+// - encrypted amount (version 2: 8 bytes)
 // - view tag
 ///
 struct LegacyEnoteV5 final
@@ -136,7 +136,7 @@ struct LegacyEnoteV5 final
     /// C
     rct::key amount_commitment;
     /// enc(a)
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
     /// view_tag
     crypto::view_tag view_tag;
 };

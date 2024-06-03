@@ -55,15 +55,18 @@ namespace mocks
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_mock_keys(jamtis_mock_keys &keys_out)
 {
-    keys_out.k_m  = rct::rct2sk(rct::skGen());
-    keys_out.k_vb = rct::rct2sk(rct::skGen());
-    make_jamtis_viewreceived_key(keys_out.k_vb, keys_out.d_vr);
-    make_jamtis_filterassist_key(keys_out.d_vr, keys_out.d_fa);
-    make_jamtis_generateaddress_secret(keys_out.d_vr, keys_out.s_ga);
+    keys_out.s_m  = rct::rct2sk(rct::skGen());
+    keys_out.s_vb = rct::rct2sk(rct::skGen());
+    make_jamtis_provespend_key(keys_out.s_m, keys_out.k_ps);
+    make_jamtis_generateimage_key(keys_out.s_vb, keys_out.k_gi);
+    make_jamtis_unlockreceived_key(keys_out.s_vb, keys_out.d_ur);
+    make_jamtis_identifyreceived_key(keys_out.s_vb, keys_out.d_ir);
+    make_jamtis_filterassist_key(keys_out.s_vb, keys_out.d_fa);
+    make_jamtis_generateaddress_secret(keys_out.s_vb, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
-    make_seraphis_spendkey(keys_out.k_vb, keys_out.k_m, keys_out.K_s_base);
-    make_jamtis_exchangebase_pubkey(keys_out.d_vr, keys_out.D_base);
-    make_jamtis_viewreceived_pubkey(keys_out.d_vr, keys_out.D_base, keys_out.D_vr);
+    make_seraphis_spendkey(keys_out.k_gi, keys_out.k_ps, keys_out.K_s_base);
+    make_jamtis_exchangebase_pubkey(keys_out.d_ur, keys_out.D_base);
+    make_jamtis_identifyreceived_pubkey(keys_out.d_ir, keys_out.D_base, keys_out.D_ir);
     make_jamtis_filterassist_pubkey(keys_out.d_fa, keys_out.D_base, keys_out.D_fa);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -73,7 +76,7 @@ void make_address_for_user(const jamtis_mock_keys &user_keys,
 {
     make_jamtis_destination_v1(user_keys.K_s_base,
         user_keys.D_fa,
-        user_keys.D_vr,
+        user_keys.D_ir,
         user_keys.D_base,
         user_keys.s_ga,
         j,

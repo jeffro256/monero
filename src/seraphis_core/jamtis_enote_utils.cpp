@@ -81,6 +81,12 @@ static auto make_derivation_with_wiper(const crypto::x25519_secret_key &privkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static boost::string_ref s256ptr_to_strref(const secret256_ptr_t sp)
+{
+    return {reinterpret_cast<const char*>(sp), 32};
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 static encrypted_amount_t enc_amount(const rct::xmr_amount amount, const encrypted_amount_t &mask)
 {
     static_assert(sizeof(rct::xmr_amount) == sizeof(encrypted_amount_t), "");
@@ -121,16 +127,16 @@ static encrypted_amount_t jamtis_encrypted_amount_mask(const rct::key &sender_re
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static encrypted_address_tag_t jamtis_encrypted_address_tag_mask(const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
+static encrypted_address_tag_t jamtis_encrypted_address_tag_mask(const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
     const rct::key &onetime_address)
 {
     static_assert(sizeof(encrypted_address_tag_t) == 16, "");
 
     // H_16(X_fa, X_ir, Ko)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_ENCRYPTED_ADDRESS_TAG, 3*sizeof(rct::key)};
-    transcript.append("X_fa", x_fa);
-    transcript.append("X_ir", x_ir);
+    transcript.append("X_fa", s256ptr_to_strref(x_fa));
+    transcript.append("X_ir", s256ptr_to_strref(x_ir));
     transcript.append("Ko", onetime_address);
 
     encrypted_address_tag_t mask;
@@ -166,7 +172,7 @@ static inline std::uint32_t vttou32(view_tag_t vt)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void make_jamtis_naked_primary_view_tag(const unsigned char x_fa[32],
+static void make_jamtis_naked_primary_view_tag(const secret256_ptr_t x_fa,
     const rct::key &onetime_address,
     view_tag_t &naked_primary_view_tag_out)
 {
@@ -174,13 +180,13 @@ static void make_jamtis_naked_primary_view_tag(const unsigned char x_fa[32],
 
     // H_3(X_fa, Ko)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG_PRIMARY, 2*sizeof(rct::key)};
-    transcript.append("X_fa", x_fa);
+    transcript.append("X_fa", s256ptr_to_strref(x_fa));
     transcript.append("Ko", onetime_address);
     sp_hash_to_3(transcript.data(), transcript.size(), naked_primary_view_tag_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void make_jamtis_naked_secondary_view_tag(const unsigned char x_ir[32],
+static void make_jamtis_naked_secondary_view_tag(const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     view_tag_t &naked_secondary_view_tag_out)
 {
@@ -188,7 +194,7 @@ static void make_jamtis_naked_secondary_view_tag(const unsigned char x_ir[32],
 
     // H_3(X_ir, Ko)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_VIEW_TAG_SECONDARY, 2*sizeof(rct::key)};
-    transcript.append("X_ir", x_ir);
+    transcript.append("X_ir", s256ptr_to_strref(x_ir));
     transcript.append("Ko", onetime_address);
     sp_hash_to_3(transcript.data(), transcript.size(), naked_secondary_view_tag_out.bytes);
 }
@@ -202,8 +208,8 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     x25519_scmul_key(enote_ephemeral_privkey, addr_Dbase, enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_view_tag(const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
+void make_jamtis_view_tag(const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const std::uint8_t num_primary_view_tag_bits,
     view_tag_t &view_tag_out)
@@ -261,18 +267,18 @@ void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &le
     sp_hash_to_32(transcript.data(), transcript.size(), input_context_out.bytes);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_sender_receiver_secret(const crypto::x25519_pubkey &x_fa,
-    const unsigned char x_ir[32],
-    const unsigned char x_ur[32],
+void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
+    const secret256_ptr_t x_ur,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     rct::key &sender_receiver_secret_out)
 {
     // q = H_32(X_fa, X_ir, X_ur, D_e, input_context)
     SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET, 5*sizeof(rct::key)};
-    transcript.append("X_fa", x_fa);
-    transcript.append("X_ir", x_ir);
-    transcript.append("X_ur", x_ur);
+    transcript.append("X_fa", s256ptr_to_strref(x_fa));
+    transcript.append("X_ir", s256ptr_to_strref(x_ir));
+    transcript.append("X_ur", s256ptr_to_strref(x_ur));
     transcript.append("D_e", enote_ephemeral_pubkey);
     transcript.append("input_context", input_context);
 
@@ -321,7 +327,7 @@ void make_jamtis_onetime_address_extension_u(const rct::key &recipient_address_s
     sp_hash_to_scalar(transcript.data(), transcript.size(), to_bytes(sender_extension_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
+void make_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     rct::key &onetime_address_out)
@@ -351,19 +357,82 @@ void make_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
         onetime_address_out);  //k^o_g G + k^o_x X + k^o_u U + K^j_s
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_amount_blinding_factor(const rct::key &sender_receiver_secret,
-    const rct::key &baked_key,
-    crypto::secret_key &mask_out)
+void make_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    rct::key &onetime_address_out)
 {
-    // x = H_n(q, baked_key)
-    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_AMOUNT_BLINDING_FACTOR, 2*sizeof(rct::key)};
-    transcript.append("q", sender_receiver_secret);
-    transcript.append("baked_key", baked_key);
+    // Ko = k^o_g G + k^o_u U + K^j_s
+    crypto::secret_key extension_g;
+    crypto::secret_key extension_u;
+    make_jamtis_onetime_address_extension_g(recipient_address_spend_key,
+        sender_receiver_secret,
+        amount_commitment,
+        extension_g);  //k^o_g
+    make_jamtis_onetime_address_extension_u(recipient_address_spend_key,
+        sender_receiver_secret,
+        amount_commitment,
+        extension_u);  //k^o_u
 
-    sp_hash_to_scalar(transcript.data(), transcript.size(), to_bytes(mask_out));
+    onetime_address_out = recipient_address_spend_key;  //K^j_s
+    extend_seraphis_spendkey_u(extension_u, onetime_address_out);  //k^o_u U + K^j_s
+    mask_key(extension_g,
+        onetime_address_out,
+        onetime_address_out);  //k^o_g G + k^o_u U + K^j_s
 }
 //-------------------------------------------------------------------------------------------------------------------
-encrypted_amount_t encode_jamtis_amount(const rct::xmr_amount amount,
+void make_jamtis_onetime_address(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    rct::key &onetime_address_out)
+{
+    switch (onetime_address_format)
+    {
+    case JamtisOnetimeAddressFormat::RINGCT_V2:
+        make_jamtis_onetime_address_rct(recipient_address_spend_key,
+            sender_receiver_secret, amount_commitment, onetime_address_out);
+        break;
+    case JamtisOnetimeAddressFormat::SERAPHIS:
+        make_jamtis_onetime_address_sp(recipient_address_spend_key,
+            sender_receiver_secret, amount_commitment, onetime_address_out);
+        break;
+    default:
+        ASSERT_MES_AND_THROW("make jamtis onetime address: unrecognized onetime address format");
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_amount_blinding_factor(const rct::key &sender_receiver_secret,
+    const JamtisEnoteType enote_type,
+    crypto::secret_key &amount_blinding_factor_out)
+{
+    // y = H_n(q, enote_type)
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_AMOUNT_BLINDING_FACTOR, 2*sizeof(rct::key)};
+    transcript.append("q", sender_receiver_secret);
+    transcript.append("enote_type", static_cast<unsigned char>(enote_type));
+
+    sp_hash_to_scalar(transcript.data(), transcript.size(), to_bytes(amount_blinding_factor_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+encrypted_address_tag_t encrypt_jamtis_address_tag(const address_tag_t &addr_tag,
+    const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
+    const rct::key &onetime_address)
+{
+    // addr_tag_enc = addr_tag XOR H_16(X_fa, X_ir, Ko)
+    return addr_tag ^ jamtis_encrypted_address_tag_mask(x_fa, x_ir, onetime_address);
+}
+//-------------------------------------------------------------------------------------------------------------------
+address_tag_t decrypt_jamtis_address_tag(const encrypted_address_tag_t &enc_addr_tag,
+    const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
+    const rct::key &onetime_address)
+{
+    // addr_tag = addr_tag_enc XOR H_16(X_fa, X_ir, Ko)
+    return enc_addr_tag ^ jamtis_encrypted_address_tag_mask(x_fa, x_ir, onetime_address);
+}
+//-------------------------------------------------------------------------------------------------------------------
+encrypted_amount_t encrypt_jamtis_amount(const rct::xmr_amount amount,
     const rct::key &sender_receiver_secret,
     const rct::key &baked_key)
 {
@@ -373,20 +442,36 @@ encrypted_amount_t encode_jamtis_amount(const rct::xmr_amount amount,
 //-------------------------------------------------------------------------------------------------------------------
 rct::xmr_amount decrypt_jamtis_amount(const encrypted_amount_t &encrypted_amount,
     const rct::key &sender_receiver_secret,
-    const rct::key &baked_key)
+    const rct::key &onetime_address)
 {
-    // a = system_endian( a_enc XOR H_8(q, baked_key) )
-    return dec_amount(encrypted_amount, jamtis_encrypted_amount_mask(sender_receiver_secret, baked_key));
+    // a = system_endian( a_enc XOR H_8(q, Ko) )
+    return dec_amount(encrypted_amount, jamtis_encrypted_amount_mask(sender_receiver_secret, onetime_address));
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool test_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
+encrypted_payment_id_t encrypt_legacy_payment_id(const payment_id_t pid,
+    const rct::key &sender_receiver_secret,
+    const rct::key &onetime_address)
+{
+    // pid_enc = pid XOR H_8(q, Ko)
+    return pid ^ jamtis_encrypted_payment_id_mask(sender_receiver_secret, onetime_address);
+}
+//-------------------------------------------------------------------------------------------------------------------
+payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
+    const rct::key &sender_receiver_secret,
+    const rct::key &onetime_address)
+{
+    // pid = pid_enc XOR H_8(q, Ko)
+    return pid_enc ^ jamtis_encrypted_payment_id_mask(sender_receiver_secret, onetime_address);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &expected_onetime_address)
 {
     // compute a nominal onetime address: K'o
     rct::key nominal_onetime_address;
-    make_jamtis_onetime_address(recipient_address_spend_key,
+    make_jamtis_onetime_address_sp(recipient_address_spend_key,
         sender_receiver_secret,
         amount_commitment,
         nominal_onetime_address);
@@ -395,7 +480,23 @@ bool test_jamtis_onetime_address(const rct::key &recipient_address_spend_key,
     return nominal_onetime_address == expected_onetime_address;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool test_jamtis_primary_view_tag(const unsigned char x_fa[32],
+bool test_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &expected_onetime_address)
+{
+    // compute a nominal onetime address: K'o
+    rct::key nominal_onetime_address;
+    make_jamtis_onetime_address_rct(recipient_address_spend_key,
+        sender_receiver_secret,
+        amount_commitment,
+        nominal_onetime_address);
+
+    // check if the nominal onetime address matches the real onetime address: K'o ?= Ko
+    return nominal_onetime_address == expected_onetime_address;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
     const std::uint8_t num_primary_view_tag_bits)
@@ -424,7 +525,7 @@ bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assi
 {
     // X_fa = d_fa D_e
     crypto::x25519_pubkey x_fa;
-    crypto::x25519_scmul_key(d_filter_assist, enote_ephemeral_pubkey, x_fa);
+    auto dhe_wiper = make_derivation_with_wiper(d_filter_assist, enote_ephemeral_pubkey, x_fa);
 
     return test_jamtis_primary_view_tag(to_bytes(x_fa),
         onetime_address,
@@ -432,7 +533,7 @@ bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assi
         num_primary_view_tag_bits);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool test_jamtis_secondary_view_tag(const unsigned char x_ir[32],
+bool test_jamtis_secondary_view_tag(const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
     const std::uint8_t num_primary_view_tag_bits)
@@ -453,17 +554,18 @@ bool test_jamtis_secondary_view_tag(const unsigned char x_ir[32],
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
-    const rct::key &baked_key,
+    const rct::key &onetime_address,
+    const JamtisEnoteType enote_type,
     const rct::key &amount_commitment,
     const encrypted_amount_t &encrypted_amount,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out)
 {
     // 1. a' = dec(enc_a)
-    const rct::xmr_amount nominal_amount{decrypt_jamtis_amount(encrypted_amount, sender_receiver_secret, baked_key)};
+    const rct::xmr_amount nominal_amount{decrypt_jamtis_amount(encrypted_amount, sender_receiver_secret, onetime_address)};
 
-    // 2. C' = x' G + a' H
-    make_jamtis_amount_blinding_factor(sender_receiver_secret, baked_key, amount_blinding_factor_out);  //x'
+    // 2. C' = y' G + a' H
+    make_jamtis_amount_blinding_factor(sender_receiver_secret, enote_type, amount_blinding_factor_out);  //y'
     const rct::key nominal_amount_commitment{rct::commit(nominal_amount, rct::sk2rct(amount_blinding_factor_out))};
 
     // 3. check that recomputed commitment matches original commitment

@@ -55,14 +55,30 @@ namespace jamtis
 *     - Identify-received secret (X_ir): used to calculate the secondary view tag
 *     - Unlock-received secret (X_ur): used to calculate the sender-receiver secret
 *
-* These values are derived differently depending on A) whether you are sending or receiving,
-* B) which address type you use, and C) whether you are trying external vs internal (self-send)
-* Jamtis transfers.
-* 
-* X_fa = [sender: xr D^j_fa] = [recipient: d_fa D_e]
-* X_ir = [plain,sender: xr D^j_ir] = [plain,recipient: d_ir D_e] = [self-send: k_vb]
-* X_ur = 
+* These values are derived differently depending on A) whether you are sending or receiving, B) which address type you
+* use, and C) whether you are trying external vs internal (self-send) Jamtis transfers. Below, we provide a table for
+* how X_fa, X_ir, and X_ur should be derived for a given type of enote scanning / construction.
+*
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |                               |                   X_fa                    |    X_ir     |           X_ur           |
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |  Jamtis, external, sender     |                 xr D^j_fa                 |  xr D^j_ir  |           xr G           |
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |  Jamtis, external, recipient  |                 d_fa D_e                  |  d_ir D_e   |  1 / (d_ir * d^j_a) D_e  |
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |  Jamtis, internal/self-send   |          d_fa D_e  =  xr D^j_fa           |    s_vb     |            ""            |
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |  Cryptonote, sender           |  ConvertPubKey1(xr ConvertPubKey2(8 K2))  |     ""      |            ""            |
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
+* |  Cryptonote, recipient        |   NormalizeX(8 k_v ConvertPubKey1(D_e))   |     ""      |            ""            | 
+* +-------------------------------+-------------------------------------------+-------------+--------------------------+
 */
+
+/**
+ * brief: secret256_ptr_t - tiny type for generic pointer to 32 byte secret buffer
+ *   note: used to pass X_fa, X_ir, and X_ur
+*/
+using secret256_ptr_t = const unsigned char*;
 
 /**
 * brief: make_jamtis_enote_ephemeral_pubkey - enote ephemeral pubkey D_e
@@ -83,8 +99,8 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
 * param: num_primary_view_tag_bits - npbits
 * outparam: view_tag_out - view_tag
 */
-void make_jamtis_view_tag(const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
+void make_jamtis_view_tag(const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const std::uint8_t num_primary_view_tag_bits,
     view_tag_t &view_tag_out);
@@ -116,9 +132,9 @@ void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &le
 * outparam: sender_receiver_secret_out - q
 *   - note: this is 'rct::key' instead of 'crypto::secret_key' for better performance in multithreaded environments
 */
-void make_jamtis_sender_receiver_secret(const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
-    const unsigned char x_ur[32],
+void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
+    const secret256_ptr_t x_ur,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     rct::key &sender_receiver_secret_out);
@@ -174,7 +190,7 @@ void make_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     const rct::key &amount_commitment,
     rct::key &onetime_address_out);
 /**
-* brief: make_jamtis_onetime_address_rct - create a RingCT onetime address
+* brief: make_jamtis_onetime_address_rct - create a RingCTv2 onetime address
 *    Ko = k^o_g G + k^o_u U + K^j_s
 * param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
@@ -182,6 +198,19 @@ void make_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
 * outparam: onetime_address_out - Ko
 */
 void make_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    rct::key &onetime_address_out);
+/**
+* brief: make_jamtis_onetime_address - create a onetime address for given format
+*    Ko = ... + K^j_s
+* param: recipient_address_spend_key - K^j_s
+* param: sender_receiver_secret - q
+* param: amount_commitment - C
+* outparam: onetime_address_out - Ko
+*/
+void make_jamtis_onetime_address(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &recipient_address_spend_key,
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     rct::key &onetime_address_out);
@@ -204,8 +233,8 @@ void make_jamtis_amount_blinding_factor(const rct::key &sender_receiver_secret,
 * return: addr_tag_enc
 */
 encrypted_address_tag_t encrypt_jamtis_address_tag(const address_tag_t &addr_tag,
-    const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
+    const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
     const rct::key &onetime_address);
 /**
 * brief: decrypt_jamtis_address_tag - decrypt an address tag from an enote
@@ -216,8 +245,8 @@ encrypted_address_tag_t encrypt_jamtis_address_tag(const address_tag_t &addr_tag
 * return: addr_tag
 */
 address_tag_t decrypt_jamtis_address_tag(const encrypted_address_tag_t &enc_addr_tag,
-    const unsigned char x_fa[32],
-    const unsigned char x_ir[32],
+    const secret256_ptr_t x_fa,
+    const secret256_ptr_t x_ir,
     const rct::key &onetime_address);
 /**
 * brief: encrypt_jamtis_amount - encrypt an amount for an enote
@@ -232,15 +261,15 @@ encrypted_amount_t encrypt_jamtis_amount(const rct::xmr_amount amount,
     const rct::key &onetime_address);
 /**
 * brief: decrypt_jamtis_amount - decrypt an amount from an enote
-*   a = a_enc XOR H_8(q, baked_key)
+*   a = a_enc XOR H_8(q, Ko)
 * param: encrypted_amount - a_enc
 * param: sender_receiver_secret - q
-* param: baked_key - baked_key
+* param: onetime_address - Ko
 * return: a
 */
 rct::xmr_amount decrypt_jamtis_amount(const encrypted_amount_t &encrypted_amount,
     const rct::key &sender_receiver_secret,
-    const rct::key &baked_key);
+    const rct::key &onetime_address);
 /**
 * brief: encrypt_legacy_payment_id - encrypt a payment ID from an enote
 *   pid_enc = pid XOR H_8(q, Ko)
@@ -260,7 +289,7 @@ encrypted_payment_id_t encrypt_legacy_payment_id(const payment_id_t pid,
 * param: onetime_address - Ko
 * return: pid
 */
-encrypted_payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
+payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
     const rct::key &sender_receiver_secret,
     const rct::key &onetime_address);
 /**
@@ -295,7 +324,7 @@ bool test_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key
 * param: num_primary_view_tag_bits - npbits
 * return: true if successfully recomputed the primary view tag
 */
-bool test_jamtis_primary_view_tag(const unsigned char x_fa[32],
+bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
     const std::uint8_t num_primary_view_tag_bits);
@@ -321,7 +350,7 @@ bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assi
 * param: num_primary_view_tag_bits - npbits
 * return: true if successfully recomputed the secondary view tag
 */
-bool test_jamtis_secondary_view_tag(const unsigned char x_ir[32],
+bool test_jamtis_secondary_view_tag(const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
     const std::uint8_t num_primary_view_tag_bits);

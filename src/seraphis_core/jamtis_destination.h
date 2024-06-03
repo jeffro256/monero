@@ -58,8 +58,8 @@ struct JamtisDestinationV1 final
     rct::key addr_Ks;
     /// D^j_fa   = d^j_a * D_fa                      (address filter-assist key)
     crypto::x25519_pubkey addr_Dfa;
-    /// D^j_vr   = d^j_a * D_vr                      (address view-received key)
-    crypto::x25519_pubkey addr_Dvr;
+    /// D^j_ir   = d^j_a * D_ir                      (address identify-received key)
+    crypto::x25519_pubkey addr_Dir;
     /// D^j_base = d^j_a * D_base                    (address DH base key)
     crypto::x25519_pubkey addr_Dbase;
     /// addr_tag
@@ -70,18 +70,35 @@ struct JamtisDestinationV1 final
 bool operator==(const JamtisDestinationV1 &a, const JamtisDestinationV1 &b);
 
 /**
-* brief: make_jamtis_destination_v1 - make a destination address
-* param: spend_pubkey - K_s = k_vb X + k_m U
+* brief: make_jamtis_destination_v1 - make a destination address for the Seraphis protocol
+* param: spend_pubkey - K_s = k_gi X + k_ps U
 * param: filterassist_pubkey - D_fa = d_fa D_base
-* param: viewreceived_pubkey - D_vr = d_vr D_base
-* param: exchangebase_pubkey - D_base = d_vr xG
+* param: identifyreceived_pubkey - D_ir = d_ir D_base
+* param: exchangebase_pubkey - D_base = d_ur xG
 * param: s_generate_address - s_ga
 * param: j - address_index
 * outparam: destination_out - the full address, with address tag
 */
-void make_jamtis_destination_v1(const rct::key &spend_pubkey,
+void make_jamtis_destination_v1_sp(const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
-    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    JamtisDestinationV1 &destination_out);
+/**
+* brief: make_jamtis_destination_v1 - make a destination address for the RingCTv2 protocol
+* param: spend_pubkey - K_s = k_gi U + k_ps G
+* param: filterassist_pubkey - D_fa = d_fa D_base
+* param: identifyreceived_pubkey - D_ir = d_ir D_base
+* param: exchangebase_pubkey - D_base = d_ur xG
+* param: s_generate_address - s_ga
+* param: j - address_index
+* outparam: destination_out - the full address, with address tag
+*/
+void make_jamtis_destination_v1_rct(const rct::key &spend_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
     const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
@@ -92,8 +109,8 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
 * param: destination - destination address to recreate
 * param: spend_pubkey - K_s
 * param: filterassist_pubkey - D_fa = d_fa xG
-* param: viewreceived_pubkey - D_vr = d_vr xG
-* param: exchangebase_pubkey - D_base = d_vr xG
+* param: identifyreceived_pubkey - D_ir = d_ir xG
+* param: exchangebase_pubkey - D_base = d_ur xG
 * param: s_generate_address - s_ga
 * outparam: j_out - address index (if successful)
 * return: true if the destination can be recreated
@@ -101,7 +118,7 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
 bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
-    const crypto::x25519_pubkey &viewreceived_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
     const crypto::x25519_pubkey &exchangebase_pubkey,
     const crypto::secret_key &s_generate_address,
     address_index_t &j_out);

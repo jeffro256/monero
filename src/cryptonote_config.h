@@ -271,7 +271,7 @@ namespace config
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
   const constexpr char HASH_KEY_MULTISIG_BINONCE_MERGE_FACTOR[] = "multisig_binonce_merge_factor";
   const constexpr char HASH_KEY_SERAPHIS_X[] = "seraphis_X";
-  const constexpr char HASH_KEY_SERAPHIS_U[] = "seraphis_U";
+  const constexpr char HASH_KEY_SERAPHIS_U[] = "Monero Generator T"; // to match https://github.com/kayabaNerve/fcmp-plus-plus/blob/00242acf9a1402d6361f057e51deecebf73e17b4/coins/monero/generators/src/lib.rs#L39-L44
 
   const constexpr char TRANSCRIPT_PREFIX[] = "monero";
 

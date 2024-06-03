@@ -82,7 +82,7 @@ struct SpEnoteV1 final
     SpEnoteCore core;
 
     /// enc(a)
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
     /// view_tag

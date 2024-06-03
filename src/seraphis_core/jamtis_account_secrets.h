@@ -46,6 +46,7 @@
 //standard headers
 
 //forward declarations
+namespace rct { struct key; }
 
 
 namespace sp
@@ -102,13 +103,13 @@ void make_jamtis_exchangebase_pubkey(const crypto::x25519_secret_key &d_unlock_r
 void make_jamtis_identifyreceived_key(const crypto::secret_key &k_view_balance,
     crypto::x25519_secret_key &d_identify_received_out);
 /**
-* brief: make_jamtis_identityreceived_pubkey - D_ir
+* brief: make_jamtis_identifyreceived_pubkey - D_ir
 *   - D_ir = D_ir * D_base
 * param: d_identify_received - d_ir
 * param: exchangebase_pubkey - D_base
 * outparam: identifyreceived_pubkey_out - D_ir
 */
-void make_jamtis_identityreceived_pubkey(const crypto::x25519_secret_key &d_identify_received,
+void make_jamtis_identifyreceived_pubkey(const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_pubkey &exchangebase_pubkey,
     crypto::x25519_pubkey &identifyreceived_pubkey_out);
 /**
@@ -124,7 +125,7 @@ void make_jamtis_filterassist_key(const crypto::secret_key &s_view_balance,
 *   D_fa = d_fa * D_base
 * param: d_filter_assist - d_fa
 * param: exchangebase_pubkey - D_base
-* outparam: filterassist_pubky_out - D_fa
+* outparam: filterassist_pubkey_out - D_fa
 */
 void make_jamtis_filterassist_pubkey(const crypto::x25519_secret_key &d_filter_assist,
     const crypto::x25519_pubkey &exchangebase_pubkey,
@@ -145,6 +146,15 @@ void make_jamtis_generateaddress_secret(const crypto::secret_key &s_view_balance
 */
 void make_jamtis_ciphertag_secret(const crypto::secret_key &s_generate_address,
     crypto::secret_key &s_cipher_tag_out);
-
+/**
+ * brief: make_rct_spendkey - base public spendkey for RingCTv2
+ *   K_s = k_gi U + k_ps G
+ * param: k_generate_image - k_gi
+ * param: k_prove_spend - k_ps
+ * outparam: spend_pubkey_out - K_s
+*/
+void make_rct_spendkey(const crypto::secret_key &k_generate_image,
+    const crypto::secret_key &k_prove_spend,
+    rct::key &spend_pubkey_out);
 } //namespace jamtis
 } //namespace sp

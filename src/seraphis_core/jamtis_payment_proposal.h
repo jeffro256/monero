@@ -63,6 +63,8 @@ struct JamtisPaymentProposalV1 final
     JamtisDestinationV1 destination;
     /// b
     rct::xmr_amount amount;
+    /// onetime address format
+    JamtisOnetimeAddressFormat onetime_address_format;
 
     /// enote ephemeral privkey: xr
     crypto::x25519_secret_key enote_ephemeral_privkey;
@@ -83,12 +85,14 @@ struct JamtisPaymentProposalSelfSendV1 final
     JamtisDestinationV1 destination;
     /// b
     rct::xmr_amount amount;
+    /// onetime address format
+    JamtisOnetimeAddressFormat onetime_address_format;
 
     /// self-send type
     JamtisSelfSendType type;
     /// enote ephemeral privkey: xr
     crypto::x25519_secret_key enote_ephemeral_privkey;
-    /// npbits
+    /// npbits (note: set to 0 for a 'hidden', not visible to filter-assist scanner, enote)
     std::uint8_t num_primary_view_tag_bits;
 
     /// memo elements to add to the tx memo
@@ -135,7 +139,7 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * param: input_context -
 * outparam: output_proposal_core_out -
 * outparam: enote_ephemeral_pubkey_out -
-* outparam: encoded_amount_out -
+* outparam: encrypted_amount_out -
 * outparam: addr_tag_enc_out -
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
@@ -144,49 +148,54 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
-    encoded_amount_t &encoded_amount_out,
+    encrypted_amount_t &encrypted_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
     view_tag_t &view_tag_out,
     TxExtra &partial_memo_out);
 /**
 * brief: get_output_proposal_v1 - convert the jamtis selfsend proposal to an output proposal
 * param: proposal -
-* param: k_view_balance -
+* param: s_view_balance -
 * param: input_context -
 * outparam: output_proposal_core_out -
 * outparam: enote_ephemeral_pubkey_out -
-* outparam: encoded_amount_out -
+* outparam: encrypted_amount_out -
 * outparam: addr_tag_enc_out -
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
 */
 void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
-    encoded_amount_t &encoded_amount_out,
+    encrypted_amount_t &encrypted_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
     view_tag_t &view_tag_out,
     TxExtra &partial_memo_out);
 /**
 * brief: gen_jamtis_payment_proposal_v1 - generate a random proposal
+* param: onetime_address_format -
 * param: amount -
 * param: num_random_memo_elements -
 * param: num_primary_view_tag_bits -
 * return: a random proposal
 */
-JamtisPaymentProposalV1 gen_jamtis_payment_proposal_v1(const rct::xmr_amount amount,
+JamtisPaymentProposalV1 gen_jamtis_payment_proposal_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::xmr_amount amount,
     const std::size_t num_random_memo_elements,
     const std::uint8_t num_primary_view_tag_bits);
 /**
 * brief: gen_jamtis_selfsend_payment_proposal_v1 - generate a random selfsend proposal (with specified parameters)
+* param: onetime_address_format -
 * param: amount -
 * param: type -
 * param: num_random_memo_elements
 * return: a random proposal
 */
-JamtisPaymentProposalSelfSendV1 gen_jamtis_selfsend_payment_proposal_v1(const rct::xmr_amount amount,
+JamtisPaymentProposalSelfSendV1 gen_jamtis_selfsend_payment_proposal_v1(
+    const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::xmr_amount amount,
     const JamtisSelfSendType type,
     const std::size_t num_random_memo_elements);
 

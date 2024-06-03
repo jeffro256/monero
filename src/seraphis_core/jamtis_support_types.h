@@ -90,6 +90,13 @@ enum class JamtisSelfSendType : unsigned char
     MAX        = CHANGE
 };
 
+/// jamtis supported consensus-layer onetime address formats
+enum class JamtisOnetimeAddressFormat : unsigned char
+{
+    RINGCT_V2,  // Ko = x G + y U
+    SERAPHIS    // Ko = x G + y U + z X
+};
+
 /// jamtis encrypted amount
 constexpr std::size_t ENCRYPTED_AMOUNT_BYTES{8};
 struct encrypted_amount_t final
