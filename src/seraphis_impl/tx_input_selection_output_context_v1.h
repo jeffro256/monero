@@ -71,6 +71,7 @@ private:
     std::size_t m_num_outputs;
     bool m_output_ephemeral_pubkeys_are_unique;
     std::vector<jamtis::JamtisSelfSendType> m_self_send_output_types;
+    std::vector<bool> m_self_send_output_is_hidden;
     boost::multiprecision::uint128_t m_total_output_amount;
 };
 

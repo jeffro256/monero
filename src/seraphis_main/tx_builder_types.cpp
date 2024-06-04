@@ -121,9 +121,9 @@ void get_enote_v1(const SpOutputProposalV1 &proposal, SpEnoteV1 &enote_out)
         rct::commit(amount_ref(proposal), rct::sk2rct(proposal.core.amount_blinding_factor));
 
     // enote misc. details
-    enote_out.encoded_amount = proposal.encoded_amount;
-    enote_out.addr_tag_enc   = proposal.addr_tag_enc;
-    enote_out.view_tag       = proposal.view_tag;
+    enote_out.encrypted_amount = proposal.encrypted_amount;
+    enote_out.addr_tag_enc     = proposal.addr_tag_enc;
+    enote_out.view_tag         = proposal.view_tag;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
@@ -295,7 +295,7 @@ SpOutputProposalV1 gen_sp_output_proposal_v1(const rct::xmr_amount amount,
     temp.core = gen_sp_output_proposal_core(amount);
 
     temp.enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
-    crypto::rand(sizeof(temp.encoded_amount), temp.encoded_amount.bytes);
+    crypto::rand(sizeof(temp.encrypted_amount), temp.encrypted_amount.bytes);
     crypto::rand(sizeof(temp.addr_tag_enc), temp.addr_tag_enc.bytes);
     temp.view_tag = jamtis::gen_view_tag();
 

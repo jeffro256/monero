@@ -377,22 +377,31 @@ void make_enote_ownership_proof_v1_sender_selfsend(const crypto::x25519_pubkey &
     const rct::key &onetime_address,
     EnoteOwnershipProofV1 &proof_out)
 {
-    // 1. prepare the sender-receiver secret
+    // 1. helper privkeys
+    crypto::x25519_secret_key d_filter_assist;
+    jamtis::make_jamtis_filterassist_key(s_view_balance, d_filter_assist);
+
+    // 2. prepare X_fa
+    crypto::x25519_pubkey x_fa;
+    crypto::x25519_scmul_key(d_filter_assist, enote_ephemeral_pubkey, x_fa);
+
+    // 3. prepare the sender-receiver secret
     rct::key sender_receiver_secret;
-    jamtis::make_jamtis_sender_receiver_secret_selfsend(s_view_balance,
+    jamtis::make_jamtis_sender_receiver_secret(x_fa.data,
+        reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
         enote_ephemeral_pubkey,
         input_context,
-        jamtis::is_jamtis_auxiliary_selfsend_type(self_send_type),
         sender_receiver_secret);
 
-    // 2. complete the proof
+    // 4. complete the proof
     make_enote_ownership_proof_v1(jamtis_address_spend_key,
         sender_receiver_secret,
         amount_commitment,
         onetime_address,
         proof_out);
 
-    // 3. verify that the proof was created successfully
+    // 5. verify that the proof was created successfully
     // - will fail if the enote is a jamtis plain type
     CHECK_AND_ASSERT_THROW_MES(verify_enote_ownership_proof_v1(proof_out, amount_commitment, onetime_address),
         "make enote ownership proof (v1 sender selfsend): failed to make proof.");
@@ -404,38 +413,48 @@ void make_enote_ownership_proof_v1_receiver(const SpEnoteRecordV1 &enote_record,
     EnoteOwnershipProofV1 &proof_out)
 {
     // 1. helper privkeys
-    crypto::x25519_secret_key d_view_received;
+    crypto::x25519_secret_key d_unlock_received;
+    crypto::x25519_secret_key d_identify_received;
+    crypto::x25519_secret_key d_filter_assist;
     crypto::secret_key s_generate_address;
-    jamtis::make_jamtis_viewreceived_key(s_view_balance, d_view_received);
-    jamtis::make_jamtis_generateaddress_secret(d_view_received, s_generate_address);
+    jamtis::make_jamtis_unlockreceived_key(s_view_balance, d_unlock_received);
+    jamtis::make_jamtis_identifyreceived_key(s_view_balance, d_identify_received);
+    jamtis::make_jamtis_filterassist_key(s_view_balance, d_filter_assist);
+    jamtis::make_jamtis_generateaddress_secret(s_view_balance, s_generate_address);
 
     // 2. get the owning address's spendkey K^j_s
     rct::key jamtis_address_spend_key;
-    jamtis::make_jamtis_address_spend_key(jamtis_spend_pubkey,
+    jamtis::make_jamtis_address_spend_key_sp(jamtis_spend_pubkey,
         s_generate_address,
         enote_record.address_index,
         jamtis_address_spend_key);
+    
+    // 3. get address privkey d^j_a
+    crypto::x25519_secret_key address_privkey;
+    jamtis::make_jamtis_address_privkey(jamtis_spend_pubkey,
+        s_generate_address,
+        enote_record.address_index,
+        address_privkey);
 
-    // 3. prepare the sender-receiver secret
+    // 4. prepare plain X_fa, X_ir, X_ur
+    crypto::x25519_pubkey x_fa;
+    crypto::x25519_scmul_key(d_filter_assist, enote_record.enote_ephemeral_pubkey, x_fa);
+
+    crypto::x25519_pubkey x_ir;
+    crypto::x25519_scmul_key(d_identify_received, enote_record.enote_ephemeral_pubkey, x_ir);
+
+    crypto::x25519_pubkey x_ur;
+    crypto::x25519_invmul_key({d_unlock_received, address_privkey}, enote_record.enote_ephemeral_pubkey, x_ur);
+
+    // 5. prepare the sender-receiver secret
+    const bool is_plain{enote_record.type == jamtis::JamtisEnoteType::PLAIN};
     rct::key sender_receiver_secret;
-    jamtis::JamtisSelfSendType self_send_type;
-
-    if (jamtis::try_get_jamtis_self_send_type(enote_record.type, self_send_type))
-    {
-        jamtis::make_jamtis_sender_receiver_secret_selfsend(s_view_balance,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.input_context,
-            jamtis::is_jamtis_auxiliary_selfsend_type(self_send_type),
-            sender_receiver_secret);
-    }
-    else
-    {
-        jamtis::make_jamtis_sender_receiver_secret_plain(d_view_received,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.enote_ephemeral_pubkey,
-            enote_record.input_context,
-            sender_receiver_secret);
-    }
+    jamtis::make_jamtis_sender_receiver_secret(x_fa.data,
+        is_plain ? x_ir.data : reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        is_plain ? x_ur.data : reinterpret_cast<jamtis::secret256_ptr_t>(s_view_balance.data),
+        enote_record.enote_ephemeral_pubkey,
+        enote_record.input_context,
+        sender_receiver_secret);
 
     // 4. complete the proof
     make_enote_ownership_proof_v1(jamtis_address_spend_key,
