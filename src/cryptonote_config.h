@@ -305,11 +305,14 @@ namespace config
   const constexpr char HASH_KEY_BINNED_REF_SET_GENERATOR_SEED[] = "binned_refset_generator_seed";
   const constexpr char HASH_KEY_BINNED_REF_SET_MEMBER[] = "binned_refset_member";
 
-  const constexpr char HASH_KEY_JAMTIS_VIEWBALANCE_KEY[] = "jamtis_view_balance_key";
-  const constexpr char HASH_KEY_JAMTIS_VIEWRECEIVED_KEY[] = "jamtis_view_received_key";
+  const constexpr char HASH_KEY_JAMTIS_PROVESPEND_KEY[] = "jamtis_prove_spend_key";
+  const constexpr char HASH_KEY_JAMTIS_VIEWBALANCE_SECRET[] = "jamtis_view_balance_secret";
+  const constexpr char HASH_KEY_JAMTIS_GENERATEIMAGE_KEY[] = "jamtis_generate_image_key";
+  const constexpr char HASH_KEY_JAMTIS_UNLOCKRECEIVED_KEY[] = "jamtis_unlock_received_key";
+  const constexpr char HASH_KEY_JAMTIS_IDENTIFYRECEIVED_KEY[] = "jamtis_identify_received_key";
+  const constexpr char HASH_KEY_JAMTIS_FILTERASSIST_KEY[] = "jamtis_filter_assist_key";
   const constexpr char HASH_KEY_JAMTIS_GENERATEADDRESS_SECRET[] = "jamtis_generate_address_secret";
   const constexpr char HASH_KEY_JAMTIS_CIPHERTAG_SECRET[] = "jamtis_cipher_tag_secret";
-  const constexpr char HASH_KEY_JAMTIS_FILTERASSIST_KEY[] = "jamtis_filter_assist_key";
   const constexpr char HASH_KEY_JAMTIS_INDEX_EXTENSION_GENERATOR[] = "jamtis_index_extension_generator";
   const constexpr char HASH_KEY_JAMTIS_ADDRESS_PRIVKEY[] = "jamtis_address_privkey";
   const constexpr char HASH_KEY_JAMTIS_SPENDKEY_EXTENSION_G[] = "jamtis_spendkey_extension_g";

@@ -85,10 +85,10 @@ void make_jamtis_generateimage_key(const crypto::secret_key &s_view_balance,
 * outparam: d_unlock_received_out - d_ur
 */
 void make_jamtis_unlockreceived_key(const crypto::secret_key &s_view_balance,
-    crypto::x25519_secret_key &d_view_received_out);
+    crypto::x25519_secret_key &d_unlock_received_out);
 /**
  * brief make_jamtis_exchangebase_pubkey - D_base
- * D_base = d_ur * xG
+ *   D_base = d_ur * xG
  * param: d_unlock_received - d_ur
  * outparam: exchangebase_pubkey_out
  */
@@ -104,7 +104,7 @@ void make_jamtis_identifyreceived_key(const crypto::secret_key &s_view_balance,
     crypto::x25519_secret_key &d_identify_received_out);
 /**
 * brief: make_jamtis_identifyreceived_pubkey - D_ir
-*   - D_ir = D_ir * D_base
+*   D_ir = d_ir * D_base
 * param: d_identify_received - d_ir
 * param: exchangebase_pubkey - D_base
 * outparam: identifyreceived_pubkey_out - D_ir
