@@ -225,14 +225,11 @@ void make_jamtis_view_tag(const secret256_ptr_t x_fa,
     view_tag_t naked_secondary_view_tag;
     make_jamtis_naked_secondary_view_tag(x_ir, onetime_address, naked_secondary_view_tag);
 
-    const std::uint32_t primary_mask = (1 << num_primary_view_tag_bits) - 1;
-    const std::uint32_t comp_mask = ~primary_mask;
+    const std::uint32_t primary_mask{(static_cast<std::uint32_t>(1) << num_primary_view_tag_bits) - 1};
 
     // view_tag = naked_primary_view_tag[:npbits] || naked_secondary_view_tag[:ncbits]
-    std::uint32_t combined_view_tag_u32 = (vttou32(naked_primary_view_tag) & primary_mask) |
-        ((vttou32(naked_secondary_view_tag) << num_primary_view_tag_bits) & comp_mask);
-
-    combined_view_tag_u32 = SWAP32LE(combined_view_tag_u32);
+    const std::uint32_t combined_view_tag_u32{SWAP32LE((vttou32(naked_primary_view_tag) & primary_mask) |
+        (vttou32(naked_secondary_view_tag) & ~primary_mask))};
     memcpy(view_tag_out.bytes, &combined_view_tag_u32, VIEW_TAG_BYTES);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -512,9 +509,8 @@ bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,
         naked_primary_view_tag);
 
     // primary_view_tag' ?= primary_view_tag
-    const std::uint32_t partial_recomputed_view_tag = vttou32(naked_primary_view_tag);
-    const std::uint32_t primary_mask = (1 << num_primary_view_tag_bits) - 1;
-    return 0 == ((partial_recomputed_view_tag ^ vttou32(view_tag)) & primary_mask);
+    const std::uint32_t primary_mask = (static_cast<std::uint32_t>(1) << num_primary_view_tag_bits) - 1;
+    return 0 == ((vttou32(naked_primary_view_tag) ^ vttou32(view_tag)) & primary_mask);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assist,
@@ -536,7 +532,8 @@ bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assi
 bool test_jamtis_secondary_view_tag(const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
-    const std::uint8_t num_primary_view_tag_bits)
+    const std::uint8_t num_primary_view_tag_bits,
+    bool &matched_all_secondary_bits_out)
 {
     // npbits can't be greater than total tag size (duh)
     CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= 8 * VIEW_TAG_BYTES,
@@ -547,10 +544,10 @@ bool test_jamtis_secondary_view_tag(const secret256_ptr_t x_ir,
     make_jamtis_naked_secondary_view_tag(x_ir, onetime_address, naked_secondary_view_tag);
 
     // secondary_view_tag' ?= secondary_view_tag
-    const std::uint32_t ncbits = 8 * VIEW_TAG_BYTES - num_primary_view_tag_bits;
-    const std::uint32_t secondary_mask = ((1ul << ncbits) - 1) << num_primary_view_tag_bits;
-    const std::uint32_t partial_recomputed_view_tag = vttou32(naked_secondary_view_tag) << num_primary_view_tag_bits;
-    return 0 == ((partial_recomputed_view_tag ^ vttou32(view_tag)) & secondary_mask);
+    const std::uint32_t secondary_mask{~((static_cast<std::uint32_t>(1) << num_primary_view_tag_bits) - 1)};
+
+    matched_all_secondary_bits_out = naked_secondary_view_tag == view_tag;
+    return 0 == ((vttou32(naked_secondary_view_tag) ^ vttou32(view_tag)) & secondary_mask);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,

@@ -88,7 +88,7 @@ void make_jamtis_destination_v1_sp(const rct::key &spend_pubkey,
     JamtisDestinationV1 &destination_out);
 /**
 * brief: make_jamtis_destination_v1 - make a destination address for the RingCTv2 protocol
-* param: spend_pubkey - K_s = k_gi U + k_ps G
+* param: spend_pubkey - K_s = k_gi G + k_ps U
 * param: filterassist_pubkey - D_fa = d_fa D_base
 * param: identifyreceived_pubkey - D_ir = d_ir D_base
 * param: exchangebase_pubkey - D_base = d_ur xG
@@ -97,6 +97,24 @@ void make_jamtis_destination_v1_sp(const rct::key &spend_pubkey,
 * outparam: destination_out - the full address, with address tag
 */
 void make_jamtis_destination_v1_rct(const rct::key &spend_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    JamtisDestinationV1 &destination_out);
+/**
+* brief: make_jamtis_destination_v1 - make a destination address for the RingCTv2 protocol
+* param: spend_pubkey - K_s = [ringct: k_gi G + k_ps U] = [seraphis: k_gi X + k_ps U]
+* param: filterassist_pubkey - D_fa = d_fa D_base
+* param: identifyreceived_pubkey - D_ir = d_ir D_base
+* param: exchangebase_pubkey - D_base = d_ur xG
+* param: s_generate_address - s_ga
+* param: j - address_index
+* outparam: destination_out - the full address, with address tag
+*/
+void make_jamtis_destination_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
     const crypto::x25519_pubkey &identifyreceived_pubkey,
     const crypto::x25519_pubkey &exchangebase_pubkey,
@@ -115,7 +133,8 @@ void make_jamtis_destination_v1_rct(const rct::key &spend_pubkey,
 * outparam: j_out - address index (if successful)
 * return: true if the destination can be recreated
 */
-bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
+bool try_get_jamtis_index_from_destination_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+    const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
     const crypto::x25519_pubkey &identifyreceived_pubkey,

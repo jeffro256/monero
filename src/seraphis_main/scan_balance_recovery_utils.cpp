@@ -390,7 +390,7 @@ std::uint64_t filter_assist_scan_64(const crypto::x25519_secret_key &d_filter_as
         // b. filter-assist scan the enote (in try block in case enote is malformed)
         try
         {
-            if (jamtis::test_jamtis_primary_view_tag(temp_DH_derivation,
+            if (jamtis::test_jamtis_primary_view_tag(temp_DH_derivation.data,
                     onetime_address_ref(enotes[enote_index]),
                     view_tag_ref(enotes[enote_index]),
                     num_primary_view_tag_bits))
@@ -471,7 +471,7 @@ bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &d_filter_assist,
                 .enote_ephemeral_pubkey = *pephemeral_pubkey,
                 .num_primary_view_tag_bits = tx_supplement.num_primary_view_tag_bits,
                 .input_context = input_context,
-                .passed_exclusive_check = enote_passed_exclusive_check[enote_index],
+                .primary_vt_matches = enote_passed_exclusive_check[enote_index],
             };
 
         basic_records_in_tx_out.push_back(SpContextualBasicEnoteRecordV1{
@@ -643,7 +643,8 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
@@ -671,7 +672,8 @@ void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
                 if (!try_get_intermediate_enote_record_v1(
                         sp_contextual_basic_record->record,
                         jamtis_spend_pubkey,
-                        d_view_received,
+                        d_unlock_received,
+                        d_identify_received,
                         d_filter_assist,
                         s_generate_address,
                         cipher_context,
@@ -688,8 +690,10 @@ void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void process_chunk_full_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
@@ -754,8 +758,10 @@ void process_chunk_full_sp(const rct::key &jamtis_spend_pubkey,
                 if (!try_get_enote_record_v1(
                             sp_contextual_basic_record->record,
                             jamtis_spend_pubkey,
-                            k_view_balance,
-                            d_view_received,
+                            s_view_balance,
+                            k_generate_image,
+                            d_unlock_received,
+                            d_identify_received,
                             d_filter_assist,
                             s_generate_address,
                             cipher_context,

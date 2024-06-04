@@ -194,7 +194,8 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 /**
 * brief: process_chunk_intermediate_sp - process a chunk of contextual basic records with seraphis {kx_ua, kx_fr, s_ga}
 * param: jamtis_spend_pubkey -
-* param: d_view_received - d_vr
+* param: d_unlock_received - d_ur
+* param: d_identify_received - d_ir
 * param: d_filter_assist - d_fa
 * param: s_generate_address -
 * param: cipher_context -
@@ -202,7 +203,8 @@ void process_chunk_full_legacy(const rct::key &legacy_base_spend_pubkey,
 * outparam: found_enote_records_out - [ Ko : legacy contextual intermediate enote record ]
 */
 void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
@@ -211,8 +213,9 @@ void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
 /**
 * brief: process_chunk_full_sp - process a chunk of contextual basic/auxiliary records with seraphis view-balance key
 * param: jamtis_spend_pubkey -
-* param: k_view_balance -
-* param: d_view_received -
+* param: s_view_balance -
+* param: d_unlock_received -
+* param: d_identify_received -
 * param: d_filter_assist -
 * param: s_generate_address -
 * param: cipher_context -
@@ -223,8 +226,10 @@ void process_chunk_intermediate_sp(const rct::key &jamtis_spend_pubkey,
 * outparam: legacy_key_images_in_sp_selfsends_out - [ legacy KI : spent context ]
 */
 void process_chunk_full_sp(const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,

@@ -61,7 +61,7 @@ bool operator==(const JamtisDestinationV1 &a, const JamtisDestinationV1 &b)
            (a.addr_tag   == b.addr_tag);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_destination_v1(const rct::key &spend_pubkey,
+void make_jamtis_destination_v1_sp(const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
     const crypto::x25519_pubkey &identifyreceived_pubkey,
     const crypto::x25519_pubkey &exchangebase_pubkey,
@@ -69,8 +69,45 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
     const address_index_t &j,
     JamtisDestinationV1 &destination_out)
 {
-    // K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
-    make_jamtis_address_spend_key(spend_pubkey, s_generate_address, j, destination_out.addr_Ks);
+    make_jamtis_destination_v1(JamtisOnetimeAddressFormat::SERAPHIS,
+        spend_pubkey,
+        filterassist_pubkey,
+        identifyreceived_pubkey,
+        exchangebase_pubkey,
+        s_generate_address,
+        j,
+        destination_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_destination_v1_rct(const rct::key &spend_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    JamtisDestinationV1 &destination_out)
+{
+    make_jamtis_destination_v1(JamtisOnetimeAddressFormat::RINGCT_V2,
+        spend_pubkey,
+        filterassist_pubkey,
+        identifyreceived_pubkey,
+        exchangebase_pubkey,
+        s_generate_address,
+        j,
+        destination_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_destination_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &spend_pubkey,
+    const crypto::x25519_pubkey &filterassist_pubkey,
+    const crypto::x25519_pubkey &identifyreceived_pubkey,
+    const crypto::x25519_pubkey &exchangebase_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    JamtisDestinationV1 &destination_out)
+{
+    // K^j_s = ... + K_s
+    make_jamtis_address_spend_key(onetime_address_format, spend_pubkey, s_generate_address, j, destination_out.addr_Ks);
 
     // d^j_a = H_n_x25519(K_s, j, s^j_gen)
     crypto::x25519_secret_key address_privkey;
@@ -93,7 +130,8 @@ void make_jamtis_destination_v1(const rct::key &spend_pubkey,
     destination_out.addr_tag = cipher_address_index(ciphertag_secret, j);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destination,
+bool try_get_jamtis_index_from_destination_v1(const JamtisOnetimeAddressFormat onetime_address_format,
+    const JamtisDestinationV1 &destination,
     const rct::key &spend_pubkey,
     const crypto::x25519_pubkey &filterassist_pubkey,
     const crypto::x25519_pubkey &identifyreceived_pubkey,
@@ -112,7 +150,8 @@ bool try_get_jamtis_index_from_destination_v1(const JamtisDestinationV1 &destina
     // recreate the destination
     JamtisDestinationV1 test_destination;
 
-    make_jamtis_destination_v1(spend_pubkey,
+    make_jamtis_destination_v1(onetime_address_format,
+        spend_pubkey,
         filterassist_pubkey,
         identifyreceived_pubkey,
         exchangebase_pubkey,

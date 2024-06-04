@@ -106,7 +106,7 @@ struct SpOutputProposalV1 final
     /// npbits
     std::uint8_t num_primary_view_tag_bits;
     /// enc_a
-    jamtis::encoded_amount_t encoded_amount;
+    jamtis::encrypted_amount_t encrypted_amount;
     /// addr_tag_enc
     jamtis::encrypted_address_tag_t addr_tag_enc;
     /// view_tag

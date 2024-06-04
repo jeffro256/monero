@@ -348,12 +348,14 @@ bool test_jamtis_primary_view_tag(const crypto::x25519_secret_key &d_filter_assi
 * param: onetime_address - Ko
 * param: view_tag - view_tag
 * param: num_primary_view_tag_bits - npbits
+* outparam: matched_all_secondary_bits_out - true if all secondary view tag bits match for the entire view tag
 * return: true if successfully recomputed the secondary view tag
 */
 bool test_jamtis_secondary_view_tag(const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
     const view_tag_t view_tag,
-    const std::uint8_t num_primary_view_tag_bits);
+    const std::uint8_t num_primary_view_tag_bits,
+    bool &matched_all_secondary_bits_out);
 /**
 * brief: try_get_jamtis_amount - test recreating the amount commitment; if it is recreate-able, return the amount
 * param: sender_receiver_secret - q

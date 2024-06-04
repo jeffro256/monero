@@ -79,7 +79,8 @@ enum class JamtisEnoteType : unsigned char
 {
     SELF_SPEND = 0,
     CHANGE     = 1,
-    PLAIN      = 2
+    PLAIN      = 2,
+    MAX        = PLAIN
 };
 
 /// jamtis self-send types, used to define enote-construction procedure for self-sends

@@ -128,12 +128,37 @@ void make_jamtis_address_privkey(const rct::key &spend_pubkey,
 /**
 * brief: make_jamtis_address_spend_key - K^j_s
 *   - K^j_s = k^j_g G + k^j_x X + k^j_u U + K_s
-* param: spend_pubkey - K_s = k_vb X + k_m U
+* param: spend_pubkey - K_s = k_gi X + k_ps U
 * param: s_generate_address - s_ga
 * param: j - address index
 * outparam: address_spendkey_out - K^j_s
 */
-void make_jamtis_address_spend_key(const rct::key &spend_pubkey,
+void make_jamtis_address_spend_key_sp(const rct::key &spend_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    rct::key &address_spendkey_out);
+/**
+* brief: make_jamtis_address_spend_key - K^j_s
+*   - K^j_s = k^j_g G + k^j_u U + K_s
+* param: spend_pubkey - K_s = k_gi G + k_ps U
+* param: s_generate_address - s_ga
+* param: j - address index
+* outparam: address_spendkey_out - K^j_s
+*/
+void make_jamtis_address_spend_key_rct(const rct::key &spend_pubkey,
+    const crypto::secret_key &s_generate_address,
+    const address_index_t &j,
+    rct::key &address_spendkey_out);
+/**
+* brief: make_jamtis_address_spend_key - K^j_s
+*   - K^j_s = ... + K_s
+* param: spend_pubkey - K_s
+* param: s_generate_address - s_ga
+* param: j - address index
+* outparam: address_spendkey_out - K^j_s
+*/
+void make_jamtis_address_spend_key(const JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const address_index_t &j,
     rct::key &address_spendkey_out);

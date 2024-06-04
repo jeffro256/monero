@@ -141,9 +141,9 @@ struct SpBasicEnoteRecordV1 final
     std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
     rct::key input_context;
-    /// indicates if this enote passed the exclusive-enote view tag check
-    /// - If it did not pass, then it *might* be an auxiliary enote.
-    bool passed_exclusive_check;
+    /// indicates if this enote passed the primary view tag check
+    /// - If it did not pass, then we only have to check for a 'hidden' self-send enote.
+    bool primary_vt_matches;
 };
 
 ////

@@ -55,7 +55,7 @@ namespace sp
 * param: enote_ephemeral_pubkey -
 * param: num_primary_view_tag_bits - npbits
 * param: input_context -
-* param: dhe_fa - D^d_fa = xr D^j_fa = d_fa D_e
+* param: x_fa - X_fa
 * param: d_filter_assist -
 * outparam: basic_record_out -
 * return: true if extraction succeeded
@@ -64,7 +64,7 @@ bool try_get_basic_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
-    const crypto::x25519_pubkey &dhe_fa,
+    const crypto::x25519_pubkey x_fa,
     SpBasicEnoteRecordV1 &basic_record_out);
 bool try_get_basic_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
@@ -79,7 +79,8 @@ bool try_get_basic_enote_record_v1(const SpEnoteVariant &enote,
 * param: num_primary_view_tag_bits - npbits
 * param: input_context -
 * param: jamtis_spend_pubkey -
-* param: d_view_received -
+* param: d_unlock_received -
+* param: d_identify_received -
 * param: d_filter_assist -
 * param: s_generate_address -
 * param: cipher_context -
@@ -91,7 +92,8 @@ bool try_get_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
@@ -101,20 +103,23 @@ bool try_get_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     SpIntermediateEnoteRecordV1 &record_out);
 bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
     SpIntermediateEnoteRecordV1 &record_out);
 bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     SpIntermediateEnoteRecordV1 &record_out);
@@ -123,8 +128,10 @@ bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_reco
 */
 bool try_get_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
@@ -134,16 +141,18 @@ bool try_get_enote_record_v1(const SpEnoteVariant &enote,
     const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpEnoteRecordV1 &record_out);
 bool try_get_enote_record_v1(const SpIntermediateEnoteRecordV1 &intermediate_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpEnoteRecordV1 &record_out);
 bool try_get_enote_record_plain_v1(const SpBasicEnoteRecordV1 &basic_record,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
