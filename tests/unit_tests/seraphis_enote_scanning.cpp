@@ -248,7 +248,7 @@ TEST(seraphis_enote_scanning, trivial_ledger)
 {
     // make user keys
     jamtis_mock_keys user_keys;
-    make_jamtis_mock_keys(user_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys);
 
     // make user address
     const address_index_t j = sp::jamtis::gen_address_index();
@@ -297,7 +297,7 @@ TEST(seraphis_enote_scanning, trivial_ledger)
     const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
-    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.k_vb, user_enote_store};
+    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.s_vb, user_enote_store};
 
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed,
@@ -312,7 +312,7 @@ TEST(seraphis_enote_scanning, trivial_ledger)
         num_primary_view_tag_bits,
         mock_input_context,
         user_keys.K_s_base,
-        user_keys.k_vb,
+        user_keys.s_vb,
         single_enote_record));
 
     // expect the enote to be found
@@ -334,7 +334,7 @@ TEST(seraphis_enote_scanning, simple_ledger_1)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -370,7 +370,7 @@ TEST(seraphis_enote_scanning, simple_ledger_2)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -407,8 +407,8 @@ TEST(seraphis_enote_scanning, simple_ledger_3)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -455,7 +455,7 @@ TEST(seraphis_enote_scanning, simple_ledger_4)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -499,7 +499,7 @@ TEST(seraphis_enote_scanning, simple_ledger_5)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -559,7 +559,7 @@ TEST(seraphis_enote_scanning, simple_ledger_6)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -636,7 +636,7 @@ TEST(seraphis_enote_scanning, simple_ledger_7)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -734,7 +734,7 @@ TEST(seraphis_enote_scanning, simple_ledger_locked)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -827,8 +827,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_1)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -930,8 +930,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_2)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1023,8 +1023,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_3)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1117,8 +1117,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_4)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1304,8 +1304,8 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_5)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1504,7 +1504,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
 
     // 2. user keys
     jamtis_mock_keys user_keys_A;
-    make_jamtis_mock_keys(user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1769,8 +1769,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1841,7 +1841,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_1)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.k_vb, enote_store_A};
+    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.s_vb, enote_store_A};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_A,
         test_scan_context_A,
@@ -1886,8 +1886,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -1975,7 +1975,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_2)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.k_vb, enote_store_A};
+    ChunkConsumerMockSp chunk_consumer{user_keys_A.K_s_base, user_keys_A.s_vb, enote_store_A};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_A,
         test_scan_context_A,
@@ -2020,8 +2020,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -2108,7 +2108,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_3)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_B,
         test_scan_context_B,
@@ -2156,8 +2156,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -2229,7 +2229,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_4)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_FALSE(refresh_enote_store(refresh_config,
         scan_context_unconfirmed_B,
         test_scan_context_B,
@@ -2265,8 +2265,8 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
     // 2. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // 3. user addresses
     JamtisDestinationV1 destination_A;
@@ -2356,7 +2356,7 @@ TEST(seraphis_enote_scanning, reorgs_while_scanning_5)
         dummy_invocable,
         invocable_get_onchain,
         dummy_invocable);
-    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.k_vb, enote_store_B};
+    ChunkConsumerMockSp chunk_consumer{user_keys_B.K_s_base, user_keys_B.s_vb, enote_store_B};
     ASSERT_NO_THROW(refresh_enote_store(refresh_config,
         test_scan_context_unconfirmed_B,
         test_scan_context_ledger_B,
@@ -6058,7 +6058,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_1)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -7188,7 +7188,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_2)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -8245,7 +8245,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_3)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -8816,7 +8816,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_4)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;
@@ -9441,7 +9441,7 @@ TEST(seraphis_enote_scanning, legacy_sp_transition_5)
 
     // 4. seraphis user keys
     jamtis_mock_keys sp_keys;
-    make_jamtis_mock_keys(sp_keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, sp_keys);
 
     // 5. user seraphis address
     JamtisDestinationV1 sp_destination;

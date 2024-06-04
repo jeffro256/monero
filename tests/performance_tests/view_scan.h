@@ -210,8 +210,10 @@ public:
     {
         m_test_view_tag_check = params.test_view_tag_check;
 
+        const auto onetime_address_format{sp::jamtis::JamtisOnetimeAddressFormat::SERAPHIS};
+
         // user wallet keys
-        make_jamtis_mock_keys(m_keys);
+        make_jamtis_mock_keys(onetime_address_format, m_keys);
 
         // user address
         sp::jamtis::JamtisDestinationV1 user_address;
@@ -223,7 +225,8 @@ public:
 
         // make enote paying to address
         const crypto::x25519_secret_key enote_privkey{crypto::x25519_secret_key_gen()};
-        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0}, enote_privkey};
+        const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0},
+            onetime_address_format, enote_privkey};
         sp::SpOutputProposalV1 output_proposal;
         make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
         m_enote_ephemeral_pubkey = output_proposal.enote_ephemeral_pubkey;
@@ -300,8 +303,10 @@ public:
     {
         m_mode = params.mode;
 
+        const auto onetime_address_format{sp::jamtis::JamtisOnetimeAddressFormat::SERAPHIS};
+
         // user wallet keys
-        make_jamtis_mock_keys(m_keys);
+        make_jamtis_mock_keys(onetime_address_format, m_keys);
 
         // user address
         sp::jamtis::JamtisDestinationV1 user_address;
@@ -318,6 +323,7 @@ public:
         const crypto::x25519_secret_key enote_privkey{crypto::x25519_secret_key_gen()};
         const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address,
             rct::xmr_amount{0},
+            onetime_address_format,
             enote_privkey,
             num_primary_view_tag_bits};
         sp::SpOutputProposalV1 output_proposal;
@@ -384,8 +390,10 @@ public:
             const bool result{
                     try_get_enote_record_plain_v1(m_basic_records[record_index],
                         m_keys.K_s_base,
-                        m_keys.k_vb,
-                        m_keys.d_vr,
+                        m_keys.s_vb,
+                        m_keys.k_gi,
+                        m_keys.d_ur,
+                        m_keys.d_ir,
                         m_keys.d_fa,
                         m_keys.s_ga,
                         *m_cipher_context,

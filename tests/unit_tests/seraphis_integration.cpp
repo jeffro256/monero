@@ -140,8 +140,8 @@ TEST(seraphis_integration, txtype_squashed_v1)
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
     make_legacy_mock_keys(legacy_user_keys_A);
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // b. legacy user address
     rct::key legacy_subaddr_spendkey_A;

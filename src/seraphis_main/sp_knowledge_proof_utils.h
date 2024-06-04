@@ -195,7 +195,7 @@ bool verify_enote_key_image_proof_v1(const EnoteKeyImageProofV1 &proof,
 /**
 * brief: make an enote unspent proof
 * param: enote_record - record of the enote for this proof
-* param: sp_spend_privkey - k_m
+* param: sp_spend_privkey - k_ps
 * param: s_view_balance - k_vb
 * param: test_KI - key image this proof shows does NOT correspond to the proof enote
 * outparam: proof_out - proof created
@@ -221,7 +221,7 @@ bool verify_enote_unspent_proof_v1(const EnoteUnspentProofV1 &proof,
 * param: enote_record - enote_record containing all the mask openings 
 * param: onetime_address - address which has the format xG + yX + zU. 
 * param: k_vb - view_balance secret key 
-* param: k_m - master secret key 
+* param: k_ps - prove spend key 
 * outparam: proof_out - proof created
 */
 void make_tx_funded_proof_v1(const rct::key &message,
@@ -300,7 +300,7 @@ bool reserved_enote_is_reserved_v1(const ReservedEnoteProofV1 &proof, const TxVa
 * param: message - message provided by the verifier
 * param: reserved_enote_records - enotes for the proof
 * param: jamtis_spend_pubkey - K_s
-* param: sp_spend_privkey - k_m
+* param: sp_spend_privkey - k_ps
 * param: s_view_balance - k_vb
 * outparam: proof_out - proof created
 */

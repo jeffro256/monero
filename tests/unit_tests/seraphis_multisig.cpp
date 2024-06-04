@@ -95,16 +95,19 @@ using namespace jamtis::mocks;
 static void make_multisig_jamtis_mock_keys(const multisig::multisig_account &account,
     jamtis_mock_keys &keys_out)
 {
-    keys_out.k_m = rct::rct2sk(rct::Z); //master key is not known in multisig
-    keys_out.k_vb = account.get_common_privkey();
-    make_jamtis_viewreceived_key(keys_out.k_vb, keys_out.d_vr);
-    make_jamtis_filterassist_key(keys_out.d_vr, keys_out.d_fa);
-    make_jamtis_generateaddress_secret(keys_out.d_vr, keys_out.s_ga);
+    keys_out.s_m = rct::rct2sk(rct::Z); //master key is not known in multisig
+    keys_out.k_ps = rct::rct2sk(rct::Z); //prove spend key is not known in multisig
+    keys_out.s_vb = account.get_common_privkey();
+    make_jamtis_generateimage_key(keys_out.s_vb, keys_out.k_gi);
+    make_jamtis_unlockreceived_key(keys_out.s_vb, keys_out.d_ur);
+    make_jamtis_identifyreceived_key(keys_out.s_vb, keys_out.d_ir);
+    make_jamtis_filterassist_key(keys_out.s_vb, keys_out.d_fa);
+    make_jamtis_generateaddress_secret(keys_out.s_vb, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
     keys_out.K_s_base = rct::pk2rct(account.get_multisig_pubkey());
-    extend_seraphis_spendkey_x(keys_out.k_vb, keys_out.K_s_base);
-    make_jamtis_exchangebase_pubkey(keys_out.d_vr, keys_out.D_base);
-    make_jamtis_viewreceived_pubkey(keys_out.d_vr, keys_out.D_base, keys_out.D_vr);
+    extend_seraphis_spendkey_x(keys_out.k_gi, keys_out.K_s_base);
+    make_jamtis_exchangebase_pubkey(keys_out.d_ur, keys_out.D_base);
+    make_jamtis_identifyreceived_pubkey(keys_out.d_ir, keys_out.D_base, keys_out.D_ir);
     make_jamtis_filterassist_pubkey(keys_out.d_fa, keys_out.D_base, keys_out.D_fa);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -494,7 +497,9 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
     normal_payment_proposals.reserve(out_amounts_normal.size());
 
     for (const rct::xmr_amount out_amount : out_amounts_normal)
-        tools::add_element(normal_payment_proposals) = gen_jamtis_payment_proposal_v1(out_amount,
+        tools::add_element(normal_payment_proposals) = gen_jamtis_payment_proposal_v1(
+            JamtisOnetimeAddressFormat::SERAPHIS,
+            out_amount,
             0,
             num_primary_view_tag_bits);
 
@@ -505,17 +510,14 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
     bool first_self_send = true;
     for (const rct::xmr_amount out_amount : out_amounts_selfsend)
     {
-        const JamtisSelfSendType self_send_type = first_self_send
-            ? JamtisSelfSendType::EXCLUSIVE_SELF_SPEND
-            : JamtisSelfSendType::AUXILIARY_SELF_SPEND;
-
         selfsend_payment_proposals.emplace_back(
                 JamtisPaymentProposalSelfSendV1{
                     .destination               = sp_user_address,
                     .amount                    = out_amount,
-                    .type                      = self_send_type,
+                    .onetime_address_format    = JamtisOnetimeAddressFormat::SERAPHIS,
+                    .type                      = JamtisSelfSendType::SELF_SPEND,
                     .enote_ephemeral_privkey   = crypto::x25519_secret_key_gen(),
-                    .num_primary_view_tag_bits = num_primary_view_tag_bits,
+                    .num_primary_view_tag_bits = first_self_send ? num_primary_view_tag_bits : (uint8_t)0,
                     .partial_memo              = TxExtra{}
                 }
             );
@@ -552,7 +554,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
         max_inputs,
         std::move(normal_payment_proposals),
         std::move(selfsend_payment_proposals),
-        shared_sp_keys.k_vb,
+        shared_sp_keys.s_vb,
         legacy_contextual_inputs,
         sp_contextual_inputs,
         normal_payment_proposals,
@@ -584,7 +586,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
         legacy_subaddress_map,
         legacy_accounts[0].get_common_privkey(),
         shared_sp_keys.K_s_base,
-        shared_sp_keys.k_vb,
+        shared_sp_keys.s_vb,
         multisig_tx_proposal));
 
     ASSERT_TRUE(multisig_tx_proposal.tx_fee == fee);
@@ -599,7 +601,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
         legacy_subaddress_map,
         legacy_accounts[0].get_common_privkey(),
         shared_sp_keys.K_s_base,
-        shared_sp_keys.k_vb,
+        shared_sp_keys.s_vb,
         enote_store,
         ledger_context);
 
@@ -627,7 +629,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
                 legacy_subaddress_map,
                 legacy_accounts[0].get_common_privkey(),
                 shared_sp_keys.K_s_base,
-                shared_sp_keys.k_vb,
+                shared_sp_keys.s_vb,
                 signer_nonce_records.back(),
                 legacy_input_init_collections_per_signer[seraphis_accounts[signer_index].get_base_pubkey()],
                 sp_input_init_collections_per_signer[seraphis_accounts[signer_index].get_base_pubkey()]));
@@ -643,7 +645,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
                 legacy_subaddress_map,
                 legacy_accounts[0].get_common_privkey(),
                 shared_sp_keys.K_s_base,
-                shared_sp_keys.k_vb,
+                shared_sp_keys.s_vb,
                 signer_nonce_records.back(),
                 legacy_input_init_collections_per_signer[seraphis_accounts[signer_index].get_base_pubkey()],
                 sp_input_init_collections_per_signer[seraphis_accounts[signer_index].get_base_pubkey()]));
@@ -669,7 +671,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
                 multisig_tx_proposal,
                 legacy_subaddress_map,
                 shared_sp_keys.K_s_base,
-                shared_sp_keys.k_vb,
+                shared_sp_keys.s_vb,
                 tx_version,
                 legacy_input_init_collections_per_signer[legacy_accounts[signer_index].get_base_pubkey()],
                 //don't need to remove the local init (will be filtered out internally)
@@ -701,7 +703,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
                         multisig_tx_proposal,
                         legacy_subaddress_map,
                         shared_sp_keys.K_s_base,
-                        shared_sp_keys.k_vb,
+                        shared_sp_keys.s_vb,
                         tx_version,
                         legacy_input_init_collections_per_signer[legacy_accounts[signer_index].get_base_pubkey()],
                         //don't need to remove the local init (will be filtered out internally)
@@ -744,7 +746,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
                 legacy_subaddress_map,
                 legacy_accounts[0].get_common_privkey(),
                 shared_sp_keys.K_s_base,
-                shared_sp_keys.k_vb,
+                shared_sp_keys.s_vb,
                 legacy_input_partial_sigs_per_signer,
                 sp_input_partial_sigs_per_signer,
                 multisig_make_inputs_errors,
@@ -760,7 +762,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
         legacy_subaddress_map,
         legacy_accounts[0].get_common_privkey(),
         shared_sp_keys.K_s_base,
-        shared_sp_keys.k_vb,
+        shared_sp_keys.s_vb,
         tx_proposal);
 
     SpPartialTxV1 partial_tx;
@@ -770,7 +772,7 @@ static void seraphis_multisig_tx_v1_test(const std::uint32_t threshold,
         tx_version,
         rct::pk2rct(legacy_accounts[0].get_multisig_pubkey()),
         shared_sp_keys.K_s_base,
-        shared_sp_keys.k_vb,
+        shared_sp_keys.s_vb,
         partial_tx));
 
     // c) get ledger mappings for the seraphis input membership proofs

@@ -95,7 +95,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
 
     // 2. RECIPIENT: enote ownership proof
     EnoteOwnershipProofV1 enote_ownership_proof_recipient;
-    make_enote_ownership_proof_v1_receiver(enote_record, keys.K_s_base, keys.k_vb, enote_ownership_proof_recipient);
+    make_enote_ownership_proof_v1_receiver(enote_record, keys.K_s_base, keys.s_vb, enote_ownership_proof_recipient);
 
     ASSERT_TRUE(verify_enote_ownership_proof_v1(enote_ownership_proof_recipient,
         enote_core.amount_commitment,
@@ -112,7 +112,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
 
     // 4. RECIPIENT: enote key image proof
     EnoteKeyImageProofV1 enote_key_image_proof;
-    make_enote_key_image_proof_v1(enote_record, keys.k_m, keys.k_vb, enote_key_image_proof);
+    make_enote_key_image_proof_v1(enote_record, keys.k_ps, keys.s_vb, enote_key_image_proof);
 
     ASSERT_TRUE(verify_enote_key_image_proof_v1(enote_key_image_proof,
         enote_core.onetime_address,
@@ -122,7 +122,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
     const crypto::key_image random_key_image{rct::rct2ki(rct::pkGen())};
 
     EnoteUnspentProofV1 enote_unspent_proof_valid;
-    make_enote_unspent_proof_v1(enote_record, keys.k_m, keys.k_vb, random_key_image, enote_unspent_proof_valid);
+    make_enote_unspent_proof_v1(enote_record, keys.k_ps, keys.s_vb, random_key_image, enote_unspent_proof_valid);
 
     ASSERT_TRUE(verify_enote_unspent_proof_v1(enote_unspent_proof_valid,
         enote_core.onetime_address,
@@ -131,8 +131,8 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
     // 6. RECIPIENT: enote unspent proof for the enote's key image (should fail)
     EnoteUnspentProofV1 enote_unspent_proof_invalid;
     make_enote_unspent_proof_v1(enote_record,
-        keys.k_m,
-        keys.k_vb,
+        keys.k_ps,
+        keys.s_vb,
         enote_record.key_image,
         enote_unspent_proof_invalid);
 
@@ -142,7 +142,7 @@ static void enote_knowledge_proofs_helper(const jamtis_mock_keys &keys,
 
     // 7. SENDER: tx funded proof
     TxFundedProofV1 tx_funded_proof;
-    make_tx_funded_proof_v1(rct::zero(), enote_record, keys.k_m, keys.k_vb, tx_funded_proof);  //with mock message
+    make_tx_funded_proof_v1(rct::zero(), enote_record, keys.k_ps, keys.s_vb, tx_funded_proof);  //with mock message
 
     ASSERT_TRUE(verify_tx_funded_proof_v1(tx_funded_proof, rct::zero(), enote_record.key_image));
 
@@ -171,8 +171,8 @@ static void reserve_proof_helper(const TxValidationContext &validation_context,
     make_reserve_proof_v1(rct::zero(),
         all_enote_records,
         prover_keys.K_s_base,
-        prover_keys.k_m,
-        prover_keys.k_vb,
+        prover_keys.k_ps,
+        prover_keys.s_vb,
         reserve_proof);
 
     // 3. verify the reserve proof against the validation context
@@ -189,11 +189,11 @@ TEST(seraphis_knowledge_proofs, address_ownership_proof_K_s)
 {
     // 1. prepare keys
     jamtis_mock_keys keys;
-    make_jamtis_mock_keys(keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, keys);
 
-    // 2. address ownership proof on K_s = k_vb X + k_m U
+    // 2. address ownership proof on K_s = k_gi X + k_ps U
     AddressOwnershipProofV1 proof;
-    make_address_ownership_proof_v1(rct::zero(), keys.k_m, keys.k_vb, proof);  //with mock message
+    make_address_ownership_proof_v1(rct::zero(), keys.k_ps, keys.s_vb, proof);  //with mock message
 
     // 3. validate the address ownership proof
     ASSERT_TRUE(verify_address_ownership_proof_v1(proof, rct::zero(), keys.K_s_base));
@@ -203,7 +203,7 @@ TEST(seraphis_knowledge_proofs, address_ownership_and_index_proof_K_1)
 {
     // 1. prepare keys
     jamtis_mock_keys keys;
-    make_jamtis_mock_keys(keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, keys);
 
     // 2. make random address index
     const address_index_t j{gen_address_index()};
@@ -214,7 +214,7 @@ TEST(seraphis_knowledge_proofs, address_ownership_and_index_proof_K_1)
 
     // 4. address ownership proof on K_1
     AddressOwnershipProofV1 address_ownership_proof;
-    make_address_ownership_proof_v1(rct::zero(), keys.k_m, keys.k_vb, j, address_ownership_proof);  //with mock message
+    make_address_ownership_proof_v1(rct::zero(), keys.k_ps, keys.k_gi, j, address_ownership_proof);  //with mock message
 
     // 5. validate the address ownership proof
     ASSERT_TRUE(verify_address_ownership_proof_v1(address_ownership_proof, rct::zero(), destination.addr_Ks));
@@ -233,7 +233,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
 
     // 1. user keys
     jamtis_mock_keys keys;
-    make_jamtis_mock_keys(keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, keys);
 
     // 2. user address
     const address_index_t j{gen_address_index()};
@@ -246,14 +246,15 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
     const crypto::x25519_secret_key enote_privkey{crypto::x25519_secret_key_gen()};
     const std::uint8_t num_primary_view_tag_bits{10};
 
-    const jamtis::JamtisSelfSendType self_send_type{JamtisSelfSendType::EXCLUSIVE_SELF_SPEND};
+    const jamtis::JamtisSelfSendType self_send_type{JamtisSelfSendType::SELF_SPEND};
     const JamtisPaymentProposalSelfSendV1 payment_proposal_selfspend{user_address,
         amount,
+        JamtisOnetimeAddressFormat::SERAPHIS,
         self_send_type,
         enote_privkey,
         num_primary_view_tag_bits};
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.k_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.s_vb, rct::zero(), output_proposal);
     SpEnoteV1 enote;
     get_enote_v1(output_proposal, enote);
 
@@ -264,7 +265,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
         num_primary_view_tag_bits,
         rct::zero(),
         keys.K_s_base,
-        keys.k_vb,
+        keys.s_vb,
         enote_record));
 
     // 5. enote ownership proof: sender-selfsend
@@ -272,7 +273,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
         user_address.addr_Ks,
         rct::zero(),
-        keys.k_vb,
+        keys.s_vb,
         self_send_type,
         enote.core.amount_commitment,
         enote.core.onetime_address,
@@ -289,7 +290,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
 
     // 1. user keys
     jamtis_mock_keys keys;
-    make_jamtis_mock_keys(keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, keys);
 
     // 2. user address
     const address_index_t j{gen_address_index()};
@@ -303,15 +304,15 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
     const std::uint8_t num_primary_view_tag_bits{1};
 
     JamtisPaymentProposalSelfSendV1 payment_proposal_special_change;
-    make_additional_output_v1(OutputProposalSetExtraTypeV1::SPECIAL_EXCLUSIVE_CHANGE,
+    make_additional_output_v1(OutputProposalSetExtraTypeV1::SHARED_FLAGGING_CHANGE,
         first_enote_ephemeral_pubkey,
         num_primary_view_tag_bits,
         user_address,
-        keys.k_vb,
+        keys.s_vb,
         amount,
         payment_proposal_special_change);
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal_special_change, keys.k_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_special_change, keys.s_vb, rct::zero(), output_proposal);
     SpEnoteV1 enote;
     get_enote_v1(output_proposal, enote);
 
@@ -322,7 +323,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
         num_primary_view_tag_bits,
         rct::zero(),
         keys.K_s_base,
-        keys.k_vb,
+        keys.s_vb,
         enote_record));
 
     // 5. enote ownership proof: sender-selfsend
@@ -330,7 +331,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
         user_address.addr_Ks,
         rct::zero(),
-        keys.k_vb,
+        keys.s_vb,
         payment_proposal_special_change.type,
         enote.core.amount_commitment,
         enote.core.onetime_address,
@@ -346,7 +347,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
 
     // 1. user keys
     jamtis_mock_keys keys;
-    make_jamtis_mock_keys(keys);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, keys);
 
     // 2. user address
     const address_index_t j{gen_address_index()};
@@ -361,6 +362,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
 
     const JamtisPaymentProposalV1 payment_proposal{user_address,
         amount,
+        JamtisOnetimeAddressFormat::SERAPHIS,
         enote_privkey,
         num_primary_view_tag_bits};
     SpOutputProposalV1 output_proposal;
@@ -375,7 +377,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
         num_primary_view_tag_bits,
         rct::zero(),
         keys.K_s_base,
-        keys.k_vb,
+        keys.s_vb,
         enote_record));
 
     // 5. enote ownership proof: sender-plain
@@ -446,8 +448,8 @@ TEST(seraphis_knowledge_proofs, reserve_proof)
     // a. user keys
     jamtis_mock_keys user_keys_A;
     jamtis_mock_keys user_keys_B;
-    make_jamtis_mock_keys(user_keys_A);
-    make_jamtis_mock_keys(user_keys_B);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_A);
+    make_jamtis_mock_keys(JamtisOnetimeAddressFormat::SERAPHIS, user_keys_B);
 
     // b. seraphis user addresses
     JamtisDestinationV1 destination_A;

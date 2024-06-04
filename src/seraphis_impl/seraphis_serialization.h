@@ -183,7 +183,7 @@ END_SERIALIZE()
 //--------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(SpEnoteV1)
     FIELD_F(core)
-    FIELD_F(encoded_amount)
+    FIELD_F(encrypted_amount)
     FIELD_F(addr_tag_enc)
     FIELD_F(view_tag)
 END_SERIALIZE()
@@ -402,7 +402,7 @@ namespace jamtis
 BEGIN_SERIALIZE_OBJECT_FN(JamtisDestinationV1)
     FIELD_F(addr_Ks)
     FIELD_F(addr_Dfa)
-    FIELD_F(addr_Dvr)
+    FIELD_F(addr_Dir)
     FIELD_F(addr_Dbase)
     FIELD_F(addr_tag)
 END_SERIALIZE()
@@ -427,5 +427,5 @@ END_SERIALIZE()
 
 BLOB_SERIALIZER(sp::jamtis::address_index_t);
 BLOB_SERIALIZER(sp::jamtis::address_tag_t);
-BLOB_SERIALIZER(sp::jamtis::encoded_amount_t);
+BLOB_SERIALIZER(sp::jamtis::encrypted_amount_t);
 BLOB_SERIALIZER(sp::jamtis::view_tag_t);
