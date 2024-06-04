@@ -53,8 +53,10 @@ namespace jamtis
 namespace mocks
 {
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_mock_keys(jamtis_mock_keys &keys_out)
+void make_jamtis_mock_keys(const JamtisOnetimeAddressFormat onetime_address_format,
+    jamtis_mock_keys &keys_out)
 {
+    keys_out.onetime_address_format = onetime_address_format;
     keys_out.s_m  = rct::rct2sk(rct::skGen());
     keys_out.s_vb = rct::rct2sk(rct::skGen());
     make_jamtis_provespend_key(keys_out.s_m, keys_out.k_ps);
@@ -64,7 +66,10 @@ void make_jamtis_mock_keys(jamtis_mock_keys &keys_out)
     make_jamtis_filterassist_key(keys_out.s_vb, keys_out.d_fa);
     make_jamtis_generateaddress_secret(keys_out.s_vb, keys_out.s_ga);
     make_jamtis_ciphertag_secret(keys_out.s_ga, keys_out.s_ct);
-    make_seraphis_spendkey(keys_out.k_gi, keys_out.k_ps, keys_out.K_s_base);
+    if (onetime_address_format == JamtisOnetimeAddressFormat::SERAPHIS)
+        make_seraphis_spendkey(keys_out.k_gi, keys_out.k_ps, keys_out.K_s_base);
+    else // RINGCTv2 onetime address format
+        make_rct_spendkey(keys_out.k_gi, keys_out.k_ps, keys_out.K_s_base);
     make_jamtis_exchangebase_pubkey(keys_out.d_ur, keys_out.D_base);
     make_jamtis_identifyreceived_pubkey(keys_out.d_ir, keys_out.D_base, keys_out.D_ir);
     make_jamtis_filterassist_pubkey(keys_out.d_fa, keys_out.D_base, keys_out.D_fa);
@@ -74,7 +79,8 @@ void make_address_for_user(const jamtis_mock_keys &user_keys,
     const address_index_t &j,
     JamtisDestinationV1 &user_address_out)
 {
-    make_jamtis_destination_v1(user_keys.K_s_base,
+    make_jamtis_destination_v1(user_keys.onetime_address_format,
+        user_keys.K_s_base,
         user_keys.D_fa,
         user_keys.D_ir,
         user_keys.D_base,

@@ -159,7 +159,8 @@ public:
 //constructors
     /// normal constructor
     ChunkConsumerMockSpIntermediate(const rct::key &jamtis_spend_pubkey,
-        const crypto::x25519_secret_key &d_view_received,
+        const crypto::x25519_secret_key &d_unlock_received,
+        const crypto::x25519_secret_key &d_identify_received,
         const crypto::x25519_secret_key &d_filter_assist,
         const crypto::secret_key &s_generate_address,
         SpEnoteStorePaymentValidator &enote_store);
@@ -189,7 +190,8 @@ public:
 //member variables
 private:
     const rct::key &m_jamtis_spend_pubkey;
-    const crypto::x25519_secret_key &m_d_view_received;
+    const crypto::x25519_secret_key &m_d_unlock_received;
+    const crypto::x25519_secret_key &m_d_identify_received;
     const crypto::x25519_secret_key &m_d_filter_assist;
     const crypto::secret_key &m_s_generate_address;
     SpEnoteStorePaymentValidator &m_enote_store;
@@ -204,7 +206,7 @@ public:
 //constructors
     /// normal constructor
     ChunkConsumerMockSp(const rct::key &jamtis_spend_pubkey,
-        const crypto::secret_key &k_view_balance,
+        const crypto::secret_key &s_view_balance,
         SpEnoteStore &enote_store);
 
 //overloaded operators
@@ -232,10 +234,12 @@ public:
 //member variables
 private:
     const rct::key &m_jamtis_spend_pubkey;
-    const crypto::secret_key &m_k_view_balance;
+    const crypto::secret_key &m_s_view_balance;
     SpEnoteStore &m_enote_store;
 
-    crypto::x25519_secret_key m_d_view_received;
+    crypto::secret_key m_k_generate_image;
+    crypto::x25519_secret_key m_d_unlock_received;
+    crypto::x25519_secret_key m_d_identify_received;
     crypto::x25519_secret_key m_d_filter_assist;
     crypto::secret_key m_s_generate_address;
     crypto::secret_key m_s_cipher_tag;

@@ -273,12 +273,14 @@ void ChunkConsumerMockLegacy::consume_onchain_chunk(const scanning::LedgerChunk 
 // Seraphis Intermediate
 //-------------------------------------------------------------------------------------------------------------------
 ChunkConsumerMockSpIntermediate::ChunkConsumerMockSpIntermediate(const rct::key &jamtis_spend_pubkey,
-    const crypto::x25519_secret_key &d_view_received,
+    const crypto::x25519_secret_key &d_unlock_received,
+    const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     SpEnoteStorePaymentValidator &enote_store) :
         m_jamtis_spend_pubkey{jamtis_spend_pubkey},
-        m_d_view_received{d_view_received},
+        m_d_unlock_received{d_unlock_received},
+        m_d_identify_received{d_identify_received},
         m_d_filter_assist{d_filter_assist},
         m_s_generate_address{s_generate_address},
         m_enote_store{enote_store}
@@ -315,7 +317,8 @@ void ChunkConsumerMockSpIntermediate::consume_nonledger_chunk(const SpEnoteOrigi
     std::unordered_map<rct::key, SpContextualIntermediateEnoteRecordV1> found_enote_records;
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
-        m_d_view_received,
+        m_d_unlock_received,
+        m_d_identify_received,
         m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
@@ -340,7 +343,8 @@ void ChunkConsumerMockSpIntermediate::consume_onchain_chunk(const scanning::Ledg
     std::unordered_map<rct::key, SpContextualIntermediateEnoteRecordV1> found_enote_records;
 
     scanning::process_chunk_intermediate_sp(m_jamtis_spend_pubkey,
-        m_d_view_received,
+        m_d_unlock_received,
+        m_d_identify_received,
         m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
@@ -359,15 +363,17 @@ void ChunkConsumerMockSpIntermediate::consume_onchain_chunk(const scanning::Ledg
 // Seraphis
 //-------------------------------------------------------------------------------------------------------------------
 ChunkConsumerMockSp::ChunkConsumerMockSp(const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpEnoteStore &enote_store) :
         m_jamtis_spend_pubkey{jamtis_spend_pubkey},
-        m_k_view_balance{k_view_balance},
+        m_s_view_balance{s_view_balance},
         m_enote_store{enote_store}
 {
-    jamtis::make_jamtis_viewreceived_key(m_k_view_balance, m_d_view_received);
-    jamtis::make_jamtis_filterassist_key(m_d_view_received, m_d_filter_assist);
-    jamtis::make_jamtis_generateaddress_secret(m_d_view_received, m_s_generate_address);
+    jamtis::make_jamtis_generateimage_key(m_s_view_balance, m_k_generate_image);
+    jamtis::make_jamtis_unlockreceived_key(m_s_view_balance, m_d_unlock_received);
+    jamtis::make_jamtis_identifyreceived_key(m_s_view_balance, m_d_identify_received);
+    jamtis::make_jamtis_filterassist_key(m_s_view_balance, m_d_filter_assist);
+    jamtis::make_jamtis_generateaddress_secret(m_s_view_balance, m_s_generate_address);
     jamtis::make_jamtis_ciphertag_secret(m_s_generate_address, m_s_cipher_tag);
 
     m_cipher_context = std::make_unique<jamtis::jamtis_address_tag_cipher_context>(m_s_cipher_tag);
@@ -402,8 +408,10 @@ void ChunkConsumerMockSp::consume_nonledger_chunk(const SpEnoteOriginStatus nonl
     std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> legacy_key_images_in_sp_selfsends;
 
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
-        m_k_view_balance,
-        m_d_view_received,
+        m_s_view_balance,
+        m_k_generate_image,
+        m_d_unlock_received,
+        m_d_identify_received,
         m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,
@@ -447,8 +455,10 @@ void ChunkConsumerMockSp::consume_onchain_chunk(const scanning::LedgerChunk &chu
     std::unordered_map<crypto::key_image, SpEnoteSpentContextV1> legacy_key_images_in_sp_selfsends;
 
     scanning::process_chunk_full_sp(m_jamtis_spend_pubkey,
-        m_k_view_balance,
-        m_d_view_received,
+        m_s_view_balance,
+        m_k_generate_image,
+        m_d_unlock_received,
+        m_d_identify_received,
         m_d_filter_assist,
         m_s_generate_address,
         *m_cipher_context,

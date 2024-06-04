@@ -264,7 +264,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
             max_inputs,
             std::move(normal_payment_proposals),
             std::move(selfsend_payment_proposals),
-            local_user_sp_keys.k_vb,
+            local_user_sp_keys.s_vb,
             legacy_contextual_inputs,
             sp_contextual_inputs,
             normal_payment_proposals,
@@ -288,7 +288,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     const tx_version_t tx_version{tx_version_from(SpTxSquashedV1::SemanticRulesVersion::MOCK)};
 
     rct::key tx_proposal_prefix;
-    get_tx_proposal_prefix_v1(tx_proposal, tx_version, local_user_sp_keys.k_vb, tx_proposal_prefix);
+    get_tx_proposal_prefix_v1(tx_proposal, tx_version, local_user_sp_keys.s_vb, tx_proposal_prefix);
 
     // 6. get ledger mappings for the input membership proofs
     // note: do this after making the tx proposal to demo that inputs don't have to be on-chain when proposing a tx
@@ -322,8 +322,8 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
         std::move(legacy_ring_signature_preps),
         std::move(sp_membership_proof_preps),
         local_user_legacy_keys.k_s,
-        local_user_sp_keys.k_m,
-        local_user_sp_keys.k_vb,
+        local_user_sp_keys.s_m,
+        local_user_sp_keys.s_vb,
         hw::get_device("default"),
         tx_out);
 }
@@ -571,7 +571,8 @@ void refresh_user_enote_store_PV(const jamtis::mocks::jamtis_mock_keys &user_key
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
     ChunkConsumerMockSpIntermediate chunk_consumer{
             user_keys.K_s_base,
-            user_keys.d_vr,
+            user_keys.d_ur,
+            user_keys.d_ir,
             user_keys.d_fa,
             user_keys.s_ga,
             user_enote_store_inout
@@ -592,7 +593,7 @@ void refresh_user_enote_store(const jamtis::mocks::jamtis_mock_keys &user_keys,
     const EnoteFindingContextLedgerMockSp enote_finding_context_ledger{ledger_context, user_keys.d_fa};
     scanning::ScanContextNonLedgerSimple scan_context_unconfirmed{enote_finding_context_unconfirmed};
     scanning::ScanContextLedgerSimple scan_context_ledger{enote_finding_context_ledger};
-    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.k_vb, user_enote_store_inout};
+    ChunkConsumerMockSp chunk_consumer{user_keys.K_s_base, user_keys.s_vb, user_enote_store_inout};
 
     sp::refresh_enote_store(refresh_config,
         scan_context_unconfirmed,
