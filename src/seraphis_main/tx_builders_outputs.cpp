@@ -119,6 +119,7 @@ static void make_additional_output_normal_self_send_v1(const jamtis::JamtisSelfS
     // build payment proposal for a 'normal' self-send
     selfsend_proposal_out.destination               = destination;
     selfsend_proposal_out.amount                    = amount;
+    selfsend_proposal_out.onetime_address_format    = jamtis::JamtisOnetimeAddressFormat::SERAPHIS;
     selfsend_proposal_out.type                      = self_send_type;
     selfsend_proposal_out.enote_ephemeral_privkey   = crypto::x25519_secret_key_gen();
     selfsend_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
@@ -165,6 +166,7 @@ static void make_additional_output_special_self_send_v1(const jamtis::JamtisSelf
 
     // 2. complete the proposal
     selfsend_proposal_out.amount                    = amount;
+    selfsend_proposal_out.onetime_address_format    = jamtis::JamtisOnetimeAddressFormat::SERAPHIS;
     selfsend_proposal_out.type                      = self_send_type;
     selfsend_proposal_out.enote_ephemeral_privkey   = crypto::x25519_eight();  //r = 8 (can't do r = 1 for x25519)
     selfsend_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;

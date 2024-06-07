@@ -70,6 +70,7 @@ namespace mocks
 /// make a payment proposal
 void convert_outlay_to_payment_proposal(const rct::xmr_amount outlay_amount,
     const jamtis::JamtisDestinationV1 &destination,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     const TxExtra &partial_memo_for_destination,
     const std::uint8_t num_primary_view_tag_bits,
     jamtis::JamtisPaymentProposalV1 &payment_proposal_out);

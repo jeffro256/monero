@@ -79,6 +79,7 @@ namespace mocks
 //-------------------------------------------------------------------------------------------------------------------
 void convert_outlay_to_payment_proposal(const rct::xmr_amount outlay_amount,
     const jamtis::JamtisDestinationV1 &destination,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     const TxExtra &partial_memo_for_destination,
     const std::uint8_t num_primary_view_tag_bits,
     jamtis::JamtisPaymentProposalV1 &payment_proposal_out)
@@ -86,6 +87,7 @@ void convert_outlay_to_payment_proposal(const rct::xmr_amount outlay_amount,
     payment_proposal_out = jamtis::JamtisPaymentProposalV1{
             .destination               = destination,
             .amount                    = outlay_amount,
+            .onetime_address_format    = onetime_address_format,
             .enote_ephemeral_privkey   = crypto::x25519_secret_key_gen(),
             .num_primary_view_tag_bits = num_primary_view_tag_bits,
             .partial_memo              = partial_memo_for_destination
@@ -148,6 +150,7 @@ void send_sp_coinbase_amounts_to_user(const std::vector<rct::xmr_amount> &coinba
         // a. make payment proposal
         convert_outlay_to_payment_proposal(coinbase_amount,
             user_address,
+            jamtis::JamtisOnetimeAddressFormat::SERAPHIS,
             TxExtra{},
             num_primary_view_tag_bits,
             tools::add_element(payment_proposals));
@@ -189,6 +192,7 @@ void send_sp_coinbase_amounts_to_users(const std::vector<std::vector<rct::xmr_am
             // a .make payment proposal
             convert_outlay_to_payment_proposal(user_amount,
                 user_addresses[user_index],
+                jamtis::JamtisOnetimeAddressFormat::SERAPHIS,
                 TxExtra{},
                 num_primary_view_tag_bits,
                 tools::add_element(payment_proposals));
@@ -245,6 +249,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
     {
         convert_outlay_to_payment_proposal(std::get<rct::xmr_amount>(outlay),
             std::get<jamtis::JamtisDestinationV1>(outlay),
+            jamtis::JamtisOnetimeAddressFormat::SERAPHIS,
             std::get<TxExtra>(outlay),
             num_primary_view_tag_bits,
             tools::add_element(normal_payment_proposals));
@@ -322,7 +327,7 @@ void construct_tx_for_mock_ledger_v1(const legacy_mock_keys &local_user_legacy_k
         std::move(legacy_ring_signature_preps),
         std::move(sp_membership_proof_preps),
         local_user_legacy_keys.k_s,
-        local_user_sp_keys.s_m,
+        local_user_sp_keys.k_ps,
         local_user_sp_keys.s_vb,
         hw::get_device("default"),
         tx_out);

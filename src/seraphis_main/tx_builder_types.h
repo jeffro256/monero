@@ -286,22 +286,22 @@ void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
 /**
 * brief: get_coinbase_output_proposals_v1 - convert the tx proposal's payment proposals into output proposals
 * param: tx_proposal -
-* param: k_view_balance -
+* param: s_view_balance -
 * outparam: output_proposals_out -
 */
 void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     std::vector<SpOutputProposalV1> &output_proposals_out);
 /**
 * brief: get_tx_proposal_prefix_v1 - get the message to be signed by input spend proofs
 * param: tx_proposal -
 * param: tx_version -
-* param: k_view_balance -
+* param: s_view_balance -
 * outparam: tx_proposal_prefix_out -
 */
 void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     rct::key &tx_proposal_prefix_out);
 /**
 * brief: get_shared_num_primary_view_tag_bits - get single shared value of npbits among payment/output proposals
@@ -317,12 +317,12 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
 /**
 * brief: gen_sp_input_proposal_v1 - generate an input proposal
 * param: sp_spend_privkey -
-* param: k_view_balance -
+* param: k_generate_image -
 * param: amount -
 * return: random input proposal
 */
 SpInputProposalV1 gen_sp_input_proposal_v1(const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const rct::xmr_amount amount);
 /**
 * brief: gen_sp_coinbase_output_proposal_v1 - generate a coinbase output proposal

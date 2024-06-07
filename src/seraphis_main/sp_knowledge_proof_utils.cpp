@@ -150,24 +150,20 @@ void make_address_ownership_proof_v1(const rct::key &message,
 //-------------------------------------------------------------------------------------------------------------------
 void make_address_ownership_proof_v1(const rct::key &message,
     const crypto::secret_key &k_prove_spend,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     AddressOwnershipProofV1 &proof_out)
 {
     // for address ownership of K_s
 
-    // 1. make generate image key: k_gi + H_32[s_vb]()
-    crypto::secret_key k_generate_image;
-    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
-
-    // 2. prepare K_s = k_gi X + k_ps U
+    // 1. prepare K_s = k_gi X + k_ps U
     rct::key jamtis_spend_pubkey;
     make_seraphis_spendkey(k_generate_image, k_prove_spend, jamtis_spend_pubkey);
 
-    // 3. finish the proof
+    // 2. finish the proof
     make_address_ownership_proof_v1(message,
         jamtis_spend_pubkey,
         rct::rct2sk(rct::zero()),
-        s_view_balance,
+        k_generate_image,
         k_prove_spend,
         proof_out);
 }
@@ -195,15 +191,15 @@ void make_address_ownership_proof_v1(const rct::key &message,
     crypto::secret_key x;
     jamtis::make_jamtis_spendkey_extension_g(jamtis_spend_pubkey, s_generate_address, j, x);  //k^j_g
 
-    // b. y = k^j_x + k_vb
+    // b. y = k^j_x + k_gi
     crypto::secret_key y;
     jamtis::make_jamtis_spendkey_extension_x(jamtis_spend_pubkey, s_generate_address, j, y);  //k^j_x
-    sc_add(to_bytes(y), to_bytes(s_view_balance), to_bytes(y));  //+ k_vb
+    sc_add(to_bytes(y), to_bytes(k_generate_image), to_bytes(y));  //+ k_vb
 
-    // c. z = k^j_u + k_m
+    // c. z = k^j_u + k_ps
     crypto::secret_key z;
     jamtis::make_jamtis_spendkey_extension_u(jamtis_spend_pubkey, s_generate_address, j, z);  //k^j_u
-    sc_add(to_bytes(z), to_bytes(k_generate_image), to_bytes(z));  //+ k_m
+    sc_add(to_bytes(z), to_bytes(k_prove_spend), to_bytes(z));  //+ k_m
 
     // 4. compute address
     // K^j_s = x G + y X + z U
@@ -341,7 +337,7 @@ void make_enote_ownership_proof_v1_sender_plain(const crypto::x25519_secret_key 
     crypto::x25519_scmul_key(enote_ephemeral_privkey, recipient_destination.addr_Dfa, x_fa);
 
     crypto::x25519_pubkey x_ir;
-    crypto::x25519_scmul_key(enote_ephemeral_privkey, recipient_destination.addr_Dfa, x_ir);
+    crypto::x25519_scmul_key(enote_ephemeral_privkey, recipient_destination.addr_Dir, x_ir);
 
     crypto::x25519_pubkey x_ur;
     crypto::x25519_scmul_base(enote_ephemeral_privkey, x_ur);
@@ -544,14 +540,14 @@ void make_enote_key_image_proof_v1(const rct::key &onetime_address,
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_key_image_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     EnoteKeyImageProofV1 &proof_out)
 {
-    // 1. y = k_x + k_vb
+    // 1. y = k_x + k_gi
     crypto::secret_key y;
-    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(s_view_balance));
+    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
-    // 2. z = k_u + k_m
+    // 2. z = k_u + k_ps
     crypto::secret_key z;
     sc_add(to_bytes(z), to_bytes(enote_record.enote_view_extension_u), to_bytes(sp_spend_privkey));
 
@@ -591,7 +587,7 @@ bool verify_enote_key_image_proof_v1(const EnoteKeyImageProofV1 &proof,
 //-------------------------------------------------------------------------------------------------------------------
 void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::key_image &test_KI,
     EnoteUnspentProofV1 &proof_out)
 {
@@ -600,11 +596,11 @@ void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     // a. ko_g = k_g
     const crypto::secret_key kog_skey{enote_record.enote_view_extension_g};
 
-    // b. ko_x = (k_x + k_vb)
+    // b. ko_x = (k_x + k_gi)
     crypto::secret_key kox_skey;
-    sc_add(to_bytes(kox_skey), to_bytes(enote_record.enote_view_extension_x), to_bytes(s_view_balance));
+    sc_add(to_bytes(kox_skey), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
-    // c. ko_u = (k_u + k_m)
+    // c. ko_u = (k_u + k_ps)
     crypto::secret_key kou_skey;
     sc_add(to_bytes(kou_skey), to_bytes(enote_record.enote_view_extension_u), to_bytes(sp_spend_privkey));
 
@@ -707,7 +703,7 @@ bool verify_enote_unspent_proof_v1(const EnoteUnspentProofV1 &proof,
 void make_tx_funded_proof_v1(const rct::key &message,
     const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     TxFundedProofV1 &proof_out)
 {
     // 1. prepare a masked version of our enote's onetime address
@@ -721,9 +717,9 @@ void make_tx_funded_proof_v1(const rct::key &message,
     crypto::secret_key x;
     sc_add(to_bytes(x), to_bytes(t_k_new), to_bytes(enote_record.enote_view_extension_g));
 
-    // b. y = k_x + k_vb
+    // b. y = k_x + k_gi
     crypto::secret_key y;
-    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(s_view_balance));
+    sc_add(to_bytes(y), to_bytes(enote_record.enote_view_extension_x), to_bytes(k_generate_image));
 
     // c. z = k_u + k_m
     crypto::secret_key z;
@@ -822,14 +818,18 @@ void make_reserved_enote_proof_v1(const SpContextualEnoteRecordV1 &contextual_re
         amount_commitment_ref(contextual_record.record.enote),
         amount_proof);
 
-    // 3. make key image proof
+    // 3. generate-image
+    crypto::secret_key k_generate_image;
+    jamtis::make_jamtis_generateimage_key(s_view_balance, k_generate_image);
+
+    // 4. make key image proof
     EnoteKeyImageProofV1 key_image_proof;
     make_enote_key_image_proof_v1(contextual_record.record,
         sp_spend_privkey,
-        s_view_balance,
+        k_generate_image,
         key_image_proof);
 
-    // 4. complete full proof
+    // 5. complete full proof
     make_reserved_enote_proof_v1(enote_ownership_proof,
         amount_proof,
         key_image_proof,

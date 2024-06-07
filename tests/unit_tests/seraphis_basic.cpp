@@ -209,7 +209,7 @@ static void check_is_owned(const SpEnoteVariant &enote,
 
     // check key image
     rct::key spendkey_U_component{keys.K_s_base};
-    reduce_seraphis_spendkey_x(keys.s_vb, spendkey_U_component);
+    reduce_seraphis_spendkey_x(keys.k_gi, spendkey_U_component);
     extend_seraphis_spendkey_u(enote_record.enote_view_extension_u, spendkey_U_component);
     crypto::key_image reproduced_key_image;
     make_seraphis_key_image(add_secrets(enote_record.enote_view_extension_x, keys.k_gi),

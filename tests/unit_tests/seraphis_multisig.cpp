@@ -95,6 +95,7 @@ using namespace jamtis::mocks;
 static void make_multisig_jamtis_mock_keys(const multisig::multisig_account &account,
     jamtis_mock_keys &keys_out)
 {
+    keys_out.onetime_address_format = JamtisOnetimeAddressFormat::SERAPHIS;
     keys_out.s_m = rct::rct2sk(rct::Z); //master key is not known in multisig
     keys_out.k_ps = rct::rct2sk(rct::Z); //prove spend key is not known in multisig
     keys_out.s_vb = account.get_common_privkey();

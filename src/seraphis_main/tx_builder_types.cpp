@@ -147,7 +147,7 @@ void get_coinbase_output_proposals_v1(const SpCoinbaseTxProposalV1 &tx_proposal,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     std::vector<SpOutputProposalV1> &output_proposals_out)
 {
     CHECK_AND_ASSERT_THROW_MES(tx_proposal.normal_payment_proposals.size() +
@@ -172,7 +172,7 @@ void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
         tx_proposal.selfsend_payment_proposals)
     {
         make_v1_output_proposal_v1(selfsend_payment_proposal,
-            k_view_balance,
+            s_view_balance,
             input_context,
             tools::add_element(output_proposals_out));
     }
@@ -185,12 +185,12 @@ void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
 //-------------------------------------------------------------------------------------------------------------------
 void get_tx_proposal_prefix_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     rct::key &tx_proposal_prefix_out)
 {
     // get output proposals
     std::vector<SpOutputProposalV1> output_proposals;
-    get_output_proposals_v1(tx_proposal, k_view_balance, output_proposals);
+    get_output_proposals_v1(tx_proposal, s_view_balance, output_proposals);
 
     // sanity check semantics
     check_v1_output_proposal_set_semantics_v1(output_proposals);
@@ -251,11 +251,11 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
 }
 //-------------------------------------------------------------------------------------------------------------------
 SpInputProposalV1 gen_sp_input_proposal_v1(const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const rct::xmr_amount amount)
 {
     SpInputProposalV1 temp;
-    temp.core = gen_sp_input_proposal_core(sp_spend_privkey, k_view_balance, amount);
+    temp.core = gen_sp_input_proposal_core(sp_spend_privkey, k_generate_image, amount);
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------

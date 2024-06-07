@@ -161,7 +161,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
     std::vector<SpMembershipProofPrepV1> sp_membership_proof_preps,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpTxSquashedV1 &tx_out);
 void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion semantic_rules_version,
     const SpTxProposalV1 &tx_proposal,
@@ -169,7 +169,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
     std::vector<SpMembershipProofPrepV1> sp_membership_proof_preps,
     const crypto::secret_key &legacy_spend_privkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     hw::device &hwdev,
     SpTxSquashedV1 &tx_out);
 void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion semantic_rules_version,
@@ -183,7 +183,7 @@ void make_seraphis_tx_squashed_v1(const SpTxSquashedV1::SemanticRulesVersion sem
     std::vector<SpMembershipProofPrepV1> sp_membership_proof_preps,
     const crypto::secret_key &legacy_spend_privkey,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     hw::device &hwdev,
     SpTxSquashedV1 &tx_out);
 

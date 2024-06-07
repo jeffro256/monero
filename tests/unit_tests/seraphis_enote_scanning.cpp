@@ -267,6 +267,7 @@ TEST(seraphis_enote_scanning, trivial_ledger)
     const JamtisPaymentProposalV1 payment_proposal{
             .destination = user_address,
             .amount = enote_amount,
+            .onetime_address_format = JamtisOnetimeAddressFormat::SERAPHIS,
             .enote_ephemeral_privkey = crypto::x25519_secret_key_gen(),
             .num_primary_view_tag_bits = num_primary_view_tag_bits,
             .partial_memo = mock_tx_supplement.tx_extra

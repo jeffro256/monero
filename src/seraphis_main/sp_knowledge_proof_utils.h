@@ -71,7 +71,7 @@ void make_address_ownership_proof_v1(const rct::key &message,
     AddressOwnershipProofV1 &proof_out);
 void make_address_ownership_proof_v1(const rct::key &message,  //for K_s
     const crypto::secret_key &k_prove_spend,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     AddressOwnershipProofV1 &proof_out);
 void make_address_ownership_proof_v1(const rct::key &message,  //for K^j_s
     const crypto::secret_key &k_prove_spend,
@@ -180,7 +180,7 @@ void make_enote_key_image_proof_v1(const rct::key &onetime_address,
     EnoteKeyImageProofV1 &proof_out);
 void make_enote_key_image_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     EnoteKeyImageProofV1 &proof_out);
 /**
 * brief: verify enote key image proof
@@ -196,13 +196,13 @@ bool verify_enote_key_image_proof_v1(const EnoteKeyImageProofV1 &proof,
 * brief: make an enote unspent proof
 * param: enote_record - record of the enote for this proof
 * param: sp_spend_privkey - k_ps
-* param: s_view_balance - k_vb
+* param: k_generate_image - k_gi
 * param: test_KI - key image this proof shows does NOT correspond to the proof enote
 * outparam: proof_out - proof created
 */
 void make_enote_unspent_proof_v1(const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::key_image &test_KI,
     EnoteUnspentProofV1 &proof_out);
 /**
@@ -219,15 +219,14 @@ bool verify_enote_unspent_proof_v1(const EnoteUnspentProofV1 &proof,
 * brief: make a funded tx proof
 * param: message - message provided by verifier
 * param: enote_record - enote_record containing all the mask openings 
-* param: onetime_address - address which has the format xG + yX + zU. 
-* param: k_vb - view_balance secret key 
-* param: k_ps - prove spend key 
+* param: sp_spend_privkey - k_ps
+* param: k_generate_image - k_gi
 * outparam: proof_out - proof created
 */
 void make_tx_funded_proof_v1(const rct::key &message,
     const SpEnoteRecordV1 &enote_record,
     const crypto::secret_key &sp_spend_privkey,
-    const crypto::secret_key &s_view_balance,
+    const crypto::secret_key &k_generate_image,
     TxFundedProofV1 &proof_out);
 /**
 * brief: verify funded tx proof

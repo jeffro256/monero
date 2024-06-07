@@ -144,12 +144,12 @@ void check_v1_coinbase_tx_proposal_semantics_v1(const SpCoinbaseTxProposalV1 &tx
 * param: tx_proposal -
 * param: legacy_spend_pubkey -
 * param: jamtis_spend_pubkey -
-* param: k_view_balance -
+* param: s_view_balance -
 */
 void check_v1_tx_proposal_semantics_v1(const SpTxProposalV1 &tx_proposal,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance);
+    const crypto::secret_key &s_view_balance);
 /**
 * brief: make_v1_coinbase_tx_proposal_v1 - make v1 coinbase tx proposal
 * param: block_height -
@@ -258,7 +258,7 @@ void make_v1_partial_tx_v1(const SpTxProposalV1 &tx_proposal,
     const tx_version_t &tx_version,
     const rct::key &legacy_spend_pubkey,
     const rct::key &jamtis_spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &s_view_balance,
     SpPartialTxV1 &partial_tx_out);
 
 } //namespace sp
