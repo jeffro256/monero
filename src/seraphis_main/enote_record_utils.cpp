@@ -396,10 +396,11 @@ bool try_get_basic_enote_record_v1(const SpEnoteVariant &enote,
         return false;
 
     // 2. copy remaining information
-    basic_record_out.enote                  = enote;
-    basic_record_out.enote_ephemeral_pubkey = enote_ephemeral_pubkey;
-    basic_record_out.input_context          = input_context;
-    basic_record_out.primary_vt_matches     = true;
+    basic_record_out.enote                     = enote;
+    basic_record_out.enote_ephemeral_pubkey    = enote_ephemeral_pubkey;
+    basic_record_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
+    basic_record_out.input_context             = input_context;
+    basic_record_out.primary_vt_matches        = true;
 
     return true;
 }

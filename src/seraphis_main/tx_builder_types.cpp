@@ -211,7 +211,7 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
     const std::vector<SpCoinbaseOutputProposalV1> &coinbase_output_proposals,
     const std::vector<SpOutputProposalV1> &output_proposals)
 {
-    std::unordered_set<std::uint8_t> npbits_values;
+    std::set<std::uint8_t> npbits_values;
 
     // search thru normal payment proposals
     for (const jamtis::JamtisPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
@@ -233,13 +233,14 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
     CHECK_AND_ASSERT_THROW_MES(npbits_values.size(),
         "get shared num primary view tag bits: there are 0 npbits values, so getting the value is undefined");
 
-    // assert that there is only 1 value
-    CHECK_AND_ASSERT_THROW_MES(npbits_values.size() == 1,
+    // assert that the set is {x>0} or {0, x>0} (0 means hidden enote)
+    CHECK_AND_ASSERT_THROW_MES((npbits_values.size() == 1 && *npbits_values.begin() == 0) ||
+            (npbits_values.size() == 2 && *npbits_values.begin() == 0),
         "get shared num primary view tag bits: there are multiple unique values of npbits among these proposals, "
         "so getting the value is undefined");
 
     // get the npbits value
-    const std::uint8_t num_primary_view_tag_bits{*npbits_values.begin()};
+    const std::uint8_t num_primary_view_tag_bits{*npbits_values.crbegin()};
 
     // assert that the value of npbits is in acceptable range
     static constexpr size_t MAX_NPBITS_VALUE = 8 * jamtis::VIEW_TAG_BYTES;
