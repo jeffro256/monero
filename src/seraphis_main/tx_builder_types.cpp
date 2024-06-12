@@ -229,13 +229,12 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
     for (const SpOutputProposalV1 &output_proposal : output_proposals)
         npbits_values.insert(output_proposal.num_primary_view_tag_bits);
 
-    // assert that at least 1 value exists
-    CHECK_AND_ASSERT_THROW_MES(npbits_values.size(),
-        "get shared num primary view tag bits: there are 0 npbits values, so getting the value is undefined");
+    // assert that at least 1 non-zero value exists
+    CHECK_AND_ASSERT_THROW_MES(npbits_values.size() && (npbits_values.size() > 1 || *npbits_values.begin() != 0),
+        "get shared num primary view tag bits: there are no npbits values, so getting the value is undefined");
 
     // assert that the set is {x>0} or {0, x>0} (0 means hidden enote)
-    CHECK_AND_ASSERT_THROW_MES((npbits_values.size() == 1 && *npbits_values.begin() == 0) ||
-            (npbits_values.size() == 2 && *npbits_values.begin() == 0),
+    CHECK_AND_ASSERT_THROW_MES(npbits_values.size() == 1 || (npbits_values.size() == 2 && *npbits_values.begin() == 0),
         "get shared num primary view tag bits: there are multiple unique values of npbits among these proposals, "
         "so getting the value is undefined");
 
