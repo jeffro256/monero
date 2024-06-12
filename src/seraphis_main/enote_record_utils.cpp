@@ -669,7 +669,7 @@ bool try_get_enote_record_plain_v1(const SpBasicEnoteRecordV1 &basic_record,
     crypto::x25519_pubkey x_ir;
     crypto::x25519_scmul_key(d_identify_received, basic_record.enote_ephemeral_pubkey, x_ir);
 
-    if (try_complete_balance_recovery_v1(basic_record.enote,
+    if (!try_complete_balance_recovery_v1(basic_record.enote,
             basic_record.enote_ephemeral_pubkey,
             basic_record.num_primary_view_tag_bits,
             basic_record.input_context,
@@ -682,7 +682,7 @@ bool try_get_enote_record_plain_v1(const SpBasicEnoteRecordV1 &basic_record,
             s_generate_address,
             cipher_context,
             record_out))
-        return true;
+        return false;
 
     return record_out.type == jamtis::JamtisEnoteType::PLAIN;
 }

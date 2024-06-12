@@ -364,13 +364,28 @@ public:
                 continue;
             }
 
-            // mangle the view tag complementary bits so that the enote doesn't scan
+            // mangle the view tag bits so that the enote doesn't scan
             // - re-do the fake ones if they succeed by accident
             sp::jamtis::view_tag_t &last_view_tag =
                 m_basic_records.back().enote.unwrap<sp::SpEnoteV1>().view_tag;
-            const sp::jamtis::view_tag_t og_last_view_tag = last_view_tag;
-            while (last_view_tag == og_last_view_tag)
+            bool needs_mangling{true};
+            while (needs_mangling)
+            {
                 last_view_tag = sp::jamtis::gen_view_tag();
+                needs_mangling = sp::jamtis::test_jamtis_primary_view_tag(m_keys.d_fa,
+                    m_basic_records.back().enote_ephemeral_pubkey,
+                    onetime_address_ref(m_basic_records.back().enote),
+                    last_view_tag,
+                    num_primary_view_tag_bits);
+                crypto::x25519_pubkey x_ir;
+                crypto::x25519_scmul_key(m_keys.d_ir, m_basic_records.back().enote_ephemeral_pubkey, x_ir);
+                bool matched_all_secondary_bits{false};
+                needs_mangling |= sp::jamtis::test_jamtis_secondary_view_tag(x_ir.data,
+                    onetime_address_ref(m_basic_records.back().enote),
+                    last_view_tag,
+                    num_primary_view_tag_bits,
+                    matched_all_secondary_bits);
+            }
         }
 
         return true;
