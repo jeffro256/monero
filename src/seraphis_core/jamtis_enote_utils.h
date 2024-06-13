@@ -317,6 +317,20 @@ bool test_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key
     const rct::key &amount_commitment,
     const rct::key &expected_onetime_address);
 /**
+* brief: test_jamtis_onetime_address - see if a onetime address can be reconstructed for a given format
+* param: onetime_address_format -
+* param: recipient_address_spend_key - recipient's address spendkey K^j_s
+* param: sender_receiver_secret - q
+* param: amount_commitment - amount commtiment C
+* param: expected_onetime_address - onetime address to test Ko
+* return: true if the expected onetime address can be reconstructed
+*/
+bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &expected_onetime_address);
+/**
 * brief: test_jamtis_primary_view_tag - test primary view tag
 * param: x_fa - X_fa
 * param: onetime_address - Ko

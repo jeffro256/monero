@@ -190,7 +190,7 @@ struct SpEnoteRecordV1 final
     jamtis::address_index_t address_index;
     /// k_{g, sender} + k_{g, address}: enote view extension for G component
     crypto::secret_key enote_view_extension_g;
-    /// k_{x, sender} + k_{x, address}: enote view extension for X component (excludes k_vb)
+    /// k_{x, sender} + k_{x, address}: enote view extension for X component (excludes k_gi)
     crypto::secret_key enote_view_extension_x;
     /// k_{u, sender} + k_{u, address}: enote view extension for U component (excludes k_m)
     crypto::secret_key enote_view_extension_u;

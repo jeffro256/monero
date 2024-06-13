@@ -208,27 +208,27 @@ void make_jamtis_address_spend_key(const JamtisOnetimeAddressFormat onetime_addr
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_seraphis_key_image_jamtis_style(const rct::key &spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::secret_key &spendkey_extension_x,
     const crypto::secret_key &spendkey_extension_u,
     const crypto::secret_key &sender_extension_x,
     const crypto::secret_key &sender_extension_u,
     crypto::key_image &key_image_out)
 {
-    // KI = ((k^o_u + k^j_u + k_m)/(k^o_x + k^j_x + k_vb)) U
+    // KI = ((k^o_u + k^j_u + k_m)/(k^o_x + k^j_x + k_gi)) U
 
-    // k_m U = K_s - k_vb X
-    rct::key zU{spend_pubkey};  //K_s = k_vb X + k_m U
-    reduce_seraphis_spendkey_x(k_view_balance, zU);  //k_m U
+    // k_m U = K_s - k_gi X
+    rct::key zU{spend_pubkey};  //K_s = k_gi X + k_m U
+    reduce_seraphis_spendkey_x(k_generate_image, zU);  //k_m U
 
     // z U = (k_u + k_m) U = k^o_u U + k^j_u U + k_m U
     extend_seraphis_spendkey_u(spendkey_extension_u, zU);  //k^j_u U + k_m U
     extend_seraphis_spendkey_u(sender_extension_u, zU);  //k^o_u U + k^j_u U + k_m U
 
-    // y = k^o_x + k^j_x + k_vb
+    // y = k^o_x + k^j_x + k_gi
     crypto::secret_key y;
     sc_add(to_bytes(y), to_bytes(sender_extension_x), to_bytes(spendkey_extension_x));  //k^o_x + k^j_x
-    sc_add(to_bytes(y), to_bytes(y), to_bytes(k_view_balance));  //+ k_vb
+    sc_add(to_bytes(y), to_bytes(y), to_bytes(k_generate_image));  //+ k_gi
 
     // KI = (1/y)*(k_u + k_m)*U
     make_seraphis_key_image(y, rct::rct2pk(zU), key_image_out);

@@ -113,13 +113,14 @@ static bool ephemeral_pubkeys_are_unique(const std::vector<jamtis::JamtisPayment
 static void make_additional_output_normal_self_send_v1(const jamtis::JamtisSelfSendType self_send_type,
     const jamtis::JamtisDestinationV1 &destination,
     const rct::xmr_amount amount,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     const std::uint8_t num_primary_view_tag_bits,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out)
 {
     // build payment proposal for a 'normal' self-send
     selfsend_proposal_out.destination               = destination;
     selfsend_proposal_out.amount                    = amount;
-    selfsend_proposal_out.onetime_address_format    = jamtis::JamtisOnetimeAddressFormat::SERAPHIS;
+    selfsend_proposal_out.onetime_address_format    = onetime_address_format;
     selfsend_proposal_out.type                      = self_send_type;
     selfsend_proposal_out.enote_ephemeral_privkey   = crypto::x25519_secret_key_gen();
     selfsend_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
@@ -133,6 +134,7 @@ static void make_additional_output_special_self_send_v1(const jamtis::JamtisSelf
     const jamtis::JamtisDestinationV1 &destination,
     const crypto::secret_key &s_view_balance,
     const rct::xmr_amount amount,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out)
 {
     // build payment proposal for a 'special' self-send that uses a shared enote ephemeral pubkey
@@ -166,7 +168,7 @@ static void make_additional_output_special_self_send_v1(const jamtis::JamtisSelf
 
     // 2. complete the proposal
     selfsend_proposal_out.amount                    = amount;
-    selfsend_proposal_out.onetime_address_format    = jamtis::JamtisOnetimeAddressFormat::SERAPHIS;
+    selfsend_proposal_out.onetime_address_format    = onetime_address_format;
     selfsend_proposal_out.type                      = self_send_type;
     selfsend_proposal_out.enote_ephemeral_privkey   = crypto::x25519_eight();  //r = 8 (can't do r = 1 for x25519)
     selfsend_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
@@ -550,6 +552,7 @@ void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_out
     const jamtis::JamtisDestinationV1 &change_destination,
     const crypto::secret_key &s_view_balance,
     const rct::xmr_amount change_amount,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out)
 {
     const jamtis::JamtisSelfSendType self_send_enote_type =
@@ -576,6 +579,7 @@ void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_out
         make_additional_output_normal_self_send_v1(self_send_enote_type,
             change_destination,
             change_amount,
+            onetime_address_format,
             effective_npbits,
             selfsend_proposal_out);
     }
@@ -587,6 +591,7 @@ void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_out
             change_destination,
             s_view_balance,
             change_amount,
+            onetime_address_format,
             selfsend_proposal_out);
     }
 }
@@ -640,8 +645,17 @@ void finalize_v1_output_proposal_set_v1(const boost::multiprecision::uint128_t &
         selfsend_payment_proposals_inout,
         {},
         {});
+    
+    // 5. get onetime address format
+    jamtis::JamtisOnetimeAddressFormat onetime_address_format;
+    if (normal_payment_proposals_inout.size())
+        onetime_address_format = normal_payment_proposals_inout[0].onetime_address_format;
+    else if (selfsend_payment_proposals_inout.size())
+        onetime_address_format = selfsend_payment_proposals_inout[0].onetime_address_format;
+    else
+        ASSERT_MES_AND_THROW("finalize v1 output proposal set v1: no payment proposals");
 
-    // 5. add an additional output if necessary
+    // 6. add an additional output if necessary
     if (const auto additional_output_type =
             try_get_additional_output_type_for_output_set_v1(
                 normal_payment_proposals_inout.size() + selfsend_payment_proposals_inout.size(),
@@ -657,6 +671,7 @@ void finalize_v1_output_proposal_set_v1(const boost::multiprecision::uint128_t &
             change_destination,
             s_view_balance,
             change_amount,
+            onetime_address_format,
             tools::add_element(selfsend_payment_proposals_inout));
     }
 }

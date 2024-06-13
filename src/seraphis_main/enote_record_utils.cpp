@@ -102,17 +102,49 @@ static void make_enote_view_extensions_helper(const rct::key &jamtis_spend_pubke
 //-------------------------------------------------------------------------------------------------------------------
 static void make_seraphis_key_image_helper(const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &k_generate_image,
-    const crypto::secret_key &enote_view_extension_x,
-    const crypto::secret_key &enote_view_extension_u,
-    crypto::key_image &key_image_out)
+    SpEnoteRecordV1 &enote_record_inout)
 {
     // make key image: (k_u + k_ps)/(k_x + k_gi) U
     rct::key spend_pubkey_U_component{jamtis_spend_pubkey};  //k_gi X + k_ps U
     reduce_seraphis_spendkey_x(k_generate_image, spend_pubkey_U_component);  //k_ps U
-    extend_seraphis_spendkey_u(enote_view_extension_u, spend_pubkey_U_component);  //(k_u + k_m) U
-    make_seraphis_key_image(add_secrets(enote_view_extension_x, k_generate_image),
+    extend_seraphis_spendkey_u(enote_record_inout.enote_view_extension_u, spend_pubkey_U_component);  //(k_u + k_m) U
+    make_seraphis_key_image(add_secrets(enote_record_inout.enote_view_extension_x, k_generate_image),
         rct::rct2pk(spend_pubkey_U_component),
-        key_image_out);  //(k_u + k_ps)/(k_x + k_gi) U
+        enote_record_inout.key_image);  //(k_u + k_ps)/(k_x + k_gi) U
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static void make_ringct_key_image_helper(const crypto::secret_key &k_generate_image,
+    SpEnoteRecordV1 &enote_record_inout)
+{
+    // x = k_gi + k^view_g where Ko = x G + y T
+    crypto::secret_key x;
+    sc_add(to_bytes(x), to_bytes(k_generate_image), to_bytes(enote_record_inout.enote_view_extension_g));
+
+    // L = x Hp(Ko)
+    crypto::generate_key_image(rct::rct2pk(onetime_address_ref(enote_record_inout.enote)),
+        x,
+        enote_record_inout.key_image);
+
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static void make_key_image_helper(const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &jamtis_spend_pubkey,
+    const crypto::secret_key &k_generate_image,
+    SpEnoteRecordV1 &enote_record_inout)
+{
+    switch (onetime_address_format)
+    {
+    case jamtis::JamtisOnetimeAddressFormat::SERAPHIS:
+        make_seraphis_key_image_helper(jamtis_spend_pubkey, k_generate_image, enote_record_inout);
+        return;
+    case jamtis::JamtisOnetimeAddressFormat::RINGCT_V2:
+        make_ringct_key_image_helper(k_generate_image, enote_record_inout);
+        return;
+    default:
+        ASSERT_MES_AND_THROW("make ringct key image helper: unrecognized onetime address format");
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -207,6 +239,7 @@ static bool try_core_balance_recovery_v1(const SpEnoteVariant &enote,
     MakeXur &&make_x_ur, // (jamtis::address_index_t) -> jamtis::secret256_ptr_t functional object
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     rct::key &nominal_sender_receiver_secret_out,
     rct::key &recipient_address_spendkey_out,
     jamtis::JamtisEnoteType &enote_type_out,
@@ -245,7 +278,8 @@ static bool try_core_balance_recovery_v1(const SpEnoteVariant &enote,
     jamtis::decipher_address_index(cipher_context, addr_tag, record_out.address_index);
 
     // K^j_s' = k^j_g' G + k^j_x' X + k^j_u' U + K_s'
-    jamtis::make_jamtis_address_spend_key_sp(jamtis_spend_pubkey,
+    jamtis::make_jamtis_address_spend_key(onetime_address_format,
+        jamtis_spend_pubkey,
         s_generate_address,
         record_out.address_index,
         recipient_address_spendkey_out);
@@ -258,7 +292,8 @@ static bool try_core_balance_recovery_v1(const SpEnoteVariant &enote,
         nominal_sender_receiver_secret_out);
 
     // [Ko' = k^o_g' G + k^o_x X' + k^o_u U' + K^j_s'] =?= Ko
-    if (!jamtis::test_jamtis_onetime_address_sp(recipient_address_spendkey_out,
+    if (!jamtis::test_jamtis_onetime_address(onetime_address_format,
+            recipient_address_spendkey_out,
             nominal_sender_receiver_secret_out,
             amount_commitment_ref(enote),
             onetime_address_ref(enote)))
@@ -292,6 +327,7 @@ static bool try_plain_core_balance_recovery_v1(const SpEnoteVariant &enote,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     SpIntermediateEnoteRecordV1 &record_out)
 {
     // X_ir = d_ir D_e
@@ -312,6 +348,7 @@ static bool try_plain_core_balance_recovery_v1(const SpEnoteVariant &enote,
             d_unlock_received, enote_ephemeral_pubkey},
         s_generate_address,
         cipher_context,
+        onetime_address_format,
         dummy_sender_receiver_secret,
         dummy_recipient_address_spendkey,
         dummy_enote_type,
@@ -331,6 +368,7 @@ static bool try_complete_balance_recovery_v1(const SpEnoteVariant &enote,
     const crypto::secret_key &k_generate_image,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     SpEnoteRecordV1 &record_out)
 {
     // "complete" balance recovery is the all stages of balance recovery after the primary view tag
@@ -351,6 +389,7 @@ static bool try_complete_balance_recovery_v1(const SpEnoteVariant &enote,
             make_x_ur,
             s_generate_address,
             cipher_context,
+            onetime_address_format,
             nominal_sender_receiver_secret,
             recipient_address_spendkey,
             record_out.type,
@@ -368,12 +407,13 @@ static bool try_complete_balance_recovery_v1(const SpEnoteVariant &enote,
         record_out.enote_view_extension_x,
         record_out.enote_view_extension_u);
 
-    // make key image: (k_u + k_ps)/(k_x + k_gi) U
-    make_seraphis_key_image_helper(jamtis_spend_pubkey,
+    // make key image:
+    //   * Seraphis: (k_u + k_ps)/(k_x + k_gi) U
+    //   * RingCT: (k_g + k_gi) Hp(Ko)
+    make_key_image_helper(onetime_address_format,
+        jamtis_spend_pubkey,
         k_generate_image,
-        record_out.enote_view_extension_x,
-        record_out.enote_view_extension_u,
-        record_out.key_image);
+        record_out);
 
     return true;
 }
@@ -436,7 +476,8 @@ bool try_get_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
-    SpIntermediateEnoteRecordV1 &record_out)
+    SpIntermediateEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     // try to process basic info then get an intermediate record
 
@@ -458,6 +499,7 @@ bool try_get_intermediate_enote_record_v1(const SpEnoteVariant &enote,
         d_filter_assist,
         s_generate_address,
         cipher_context,
+        onetime_address_format,
         record_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -470,7 +512,8 @@ bool try_get_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
-    SpIntermediateEnoteRecordV1 &record_out)
+    SpIntermediateEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     // get cipher context then get an intermediate record
     crypto::secret_key s_cipher_tag;
@@ -498,7 +541,8 @@ bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_reco
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
-    SpIntermediateEnoteRecordV1 &record_out)
+    SpIntermediateEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     // process basic record then get an intermediate record
 
@@ -515,6 +559,7 @@ bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_reco
         d_filter_assist,
         s_generate_address,
         cipher_context,
+        onetime_address_format,
         record_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -524,7 +569,8 @@ bool try_get_intermediate_enote_record_v1(const SpBasicEnoteRecordV1 &basic_reco
     const crypto::x25519_secret_key &d_identify_received,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
-    SpIntermediateEnoteRecordV1 &record_out)
+    SpIntermediateEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     // make cipher context then get an intermediate record
     crypto::secret_key s_cipher_tag;
@@ -551,7 +597,8 @@ bool try_get_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
-    SpEnoteRecordV1 &record_out)
+    SpEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     lazy_scmul_key make_x_fa{d_filter_assist, basic_record.enote_ephemeral_pubkey};
 
@@ -573,6 +620,7 @@ bool try_get_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
                 k_generate_image,
                 s_generate_address,
                 cipher_context,
+                onetime_address_format,
                 record_out))
             return true;
     }
@@ -588,6 +636,7 @@ bool try_get_enote_record_v1(const SpBasicEnoteRecordV1 &basic_record,
             k_generate_image,
             s_generate_address,
             cipher_context,
+            onetime_address_format,
             record_out))
         return true;
     
@@ -600,7 +649,8 @@ bool try_get_enote_record_v1(const SpEnoteVariant &enote,
     const rct::key &input_context,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_view_balance,
-    SpEnoteRecordV1 &record_out)
+    SpEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     // generate account secrets tree from s_vb
     crypto::secret_key k_generate_image;
@@ -634,13 +684,15 @@ bool try_get_enote_record_v1(const SpEnoteVariant &enote,
         d_filter_assist,
         s_generate_address,
         cipher_context,
-        record_out);
+        record_out,
+        onetime_address_format);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_get_enote_record_v1(const SpIntermediateEnoteRecordV1 &intermediate_record,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_view_balance,
-    SpEnoteRecordV1 &record_out)
+    SpEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     return try_get_enote_record_v1(intermediate_record.enote,
         intermediate_record.enote_ephemeral_pubkey,
@@ -660,7 +712,8 @@ bool try_get_enote_record_plain_v1(const SpBasicEnoteRecordV1 &basic_record,
     const crypto::x25519_secret_key &d_filter_assist,
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
-    SpEnoteRecordV1 &record_out)
+    SpEnoteRecordV1 &record_out,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format)
 {
     if (!basic_record.primary_vt_matches)
         return false;
@@ -681,6 +734,7 @@ bool try_get_enote_record_plain_v1(const SpBasicEnoteRecordV1 &basic_record,
             k_generate_image,
             s_generate_address,
             cipher_context,
+            onetime_address_format,
             record_out))
         return false;
 

@@ -574,13 +574,13 @@ TEST(seraphis_basic, information_recovery_keyimage)
     make_seraphis_key_image(y, rct::rct2pk(zU), key_image2);
 
     rct::key jamtis_spend_pubkey{k_bU};
-    crypto::secret_key k_view_balance, spendkey_extension;
-    sc_add(to_bytes(k_view_balance), to_bytes(y), to_bytes(y));  // k_vb = 2*(2*y)
+    crypto::secret_key k_generate_image, spendkey_extension;
+    sc_add(to_bytes(k_generate_image), to_bytes(y), to_bytes(y));  // k_vb = 2*(2*y)
     const rct::key MINUS_ONE{minus_one()};
     sc_mul(to_bytes(spendkey_extension), MINUS_ONE.bytes, to_bytes(k_a_sender_x));  // k^j_x = -y
-    extend_seraphis_spendkey_x(k_view_balance, jamtis_spend_pubkey);  // 4*y X + z U
+    extend_seraphis_spendkey_x(k_generate_image, jamtis_spend_pubkey);  // 4*y X + z U
     make_seraphis_key_image_jamtis_style(jamtis_spend_pubkey,
-        k_view_balance,
+        k_generate_image,
         spendkey_extension,
         rct::rct2sk(rct::zero()),
         spendkey_extension,

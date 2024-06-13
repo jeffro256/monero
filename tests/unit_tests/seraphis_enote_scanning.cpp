@@ -1488,7 +1488,7 @@ TEST(seraphis_enote_scanning, basic_ledger_tx_passing_6)
     const std::size_t fee_per_tx_weight{0};  // 0 fee here
     const std::size_t ref_set_decomp_n{2};
     const std::size_t ref_set_decomp_m{2};
-    const std::uint8_t num_primary_view_tag_bits{0};
+    const std::uint8_t num_primary_view_tag_bits{1};
 
     const scanning::ScanMachineConfig refresh_config{
             .reorg_avoidance_increment = 1,

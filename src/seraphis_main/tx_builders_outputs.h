@@ -200,6 +200,7 @@ void make_additional_output_v1(const OutputProposalSetExtraTypeV1 additional_out
     const jamtis::JamtisDestinationV1 &change_destination,
     const crypto::secret_key &s_view_balance,
     const rct::xmr_amount change_amount,
+    const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
     jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_proposal_out);  //exposed for unit testing
 void finalize_v1_output_proposal_set_v1(const boost::multiprecision::uint128_t &total_input_amount,
     const rct::xmr_amount transaction_fee,

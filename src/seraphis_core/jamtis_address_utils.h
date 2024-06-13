@@ -166,7 +166,7 @@ void make_jamtis_address_spend_key(const JamtisOnetimeAddressFormat onetime_addr
 * brief: make_seraphis_key_image_jamtis_style - KI
 *   - KI = ((k^o_u + k^j_u + k_m)/(k^o_x + k^j_x + k_vb)) U
 * param: spend_pubkey - K_s = k_vb X + k_m U
-* param: k_view_balance - k_vb
+* param: k_generate_image - k_gi
 * param: spendkey_extension_x - k^j_x
 * param: spendkey_extension_u - k^j_u
 * param: sender_extension_x - k^o_x
@@ -174,7 +174,7 @@ void make_jamtis_address_spend_key(const JamtisOnetimeAddressFormat onetime_addr
 * outparam: key_image_out - KI
 */
 void make_seraphis_key_image_jamtis_style(const rct::key &spend_pubkey,
-    const crypto::secret_key &k_view_balance,
+    const crypto::secret_key &k_generate_image,
     const crypto::secret_key &spendkey_extension_x,
     const crypto::secret_key &spendkey_extension_u,
     const crypto::secret_key &sender_extension_x,

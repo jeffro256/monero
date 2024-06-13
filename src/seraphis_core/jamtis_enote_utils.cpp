@@ -493,6 +493,31 @@ bool test_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key
     return nominal_onetime_address == expected_onetime_address;
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetime_address_format,
+    const rct::key &recipient_address_spend_key,
+    const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &expected_onetime_address)
+{
+    switch (onetime_address_format)
+    {
+    case JamtisOnetimeAddressFormat::RINGCT_V2:
+        return test_jamtis_onetime_address_rct(recipient_address_spend_key,
+            sender_receiver_secret,
+            amount_commitment,
+            expected_onetime_address);
+    case JamtisOnetimeAddressFormat::SERAPHIS:
+        return test_jamtis_onetime_address_sp(recipient_address_spend_key,
+            sender_receiver_secret,
+            amount_commitment,
+            expected_onetime_address);
+    default:
+        ASSERT_MES_AND_THROW("test jamtis onetime address: unrecognized onetime address format");
+    }
+
+    return false;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,
     const rct::key &onetime_address,
     const view_tag_t view_tag,

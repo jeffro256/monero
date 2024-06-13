@@ -242,7 +242,7 @@ std::uint8_t get_shared_num_primary_view_tag_bits(
     const std::uint8_t num_primary_view_tag_bits{*npbits_values.crbegin()};
 
     // assert that the value of npbits is in acceptable range
-    static constexpr size_t MAX_NPBITS_VALUE = 8 * jamtis::VIEW_TAG_BYTES;
+    static constexpr size_t MAX_NPBITS_VALUE{8 * jamtis::VIEW_TAG_BYTES};
     CHECK_AND_ASSERT_THROW_MES(num_primary_view_tag_bits <= MAX_NPBITS_VALUE,
         "get shared num primary view tag bits: the value of npbits is too large: "
         << num_primary_view_tag_bits << " vs " << MAX_NPBITS_VALUE);

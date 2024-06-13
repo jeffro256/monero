@@ -310,6 +310,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
         user_address,
         keys.s_vb,
         amount,
+        JamtisOnetimeAddressFormat::SERAPHIS,
         payment_proposal_special_change);
     SpOutputProposalV1 output_proposal;
     make_v1_output_proposal_v1(payment_proposal_special_change, keys.s_vb, rct::zero(), output_proposal);
