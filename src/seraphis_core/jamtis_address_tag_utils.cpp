@@ -34,7 +34,6 @@
 #include "cryptonote_config.h"
 extern "C"
 {
-#include "crypto/blake2b.h"
 #include "crypto/twofish.h"
 }
 #include "jamtis_support_types.h"
