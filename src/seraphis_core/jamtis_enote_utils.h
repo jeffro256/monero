@@ -141,45 +141,59 @@ void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
 /**
 * brief: make_jamtis_onetime_address_extension_g - extension for transforming a recipient spendkey into an
 *        enote one-time address
-*    k_{g, sender} = k^o_g = H_n("..g..", K^j_s, q, C)
-* param: recipient_address_spend_key - K^j_s
+*    k_{g, sender} = k^o_g = H_n("..g..", q, C)
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{g, sender}
 */
-void make_jamtis_onetime_address_extension_g(const rct::key &recipient_address_spend_key,
-    const rct::key &sender_receiver_secret,
+void make_jamtis_onetime_address_extension_g(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
 * brief: make_jamtis_onetime_address_extension_x - extension for transforming a recipient spendkey into an
 *        enote one-time address
-*    k_{x, sender} = k^o_x = H_n("..x..", K^j_s, q, C)
-* param: recipient_address_spend_key - K^j_s
+*    k_{x, sender} = k^o_x = H_n("..x..", q, C)
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{x, sender}
 */
-void make_jamtis_onetime_address_extension_x(const rct::key &recipient_address_spend_key,
-    const rct::key &sender_receiver_secret,
+void make_jamtis_onetime_address_extension_x(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
 * brief: make_jamtis_onetime_address_extension_u - extension for transforming a recipient spendkey into an
 *        enote one-time address
 *    k_{u, sender} = k^o_u = H_n("..u..", K^j_s, q, C)
-* param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
 * outparam: sender_extension_out - k_{u, sender}
 */
-void make_jamtis_onetime_address_extension_u(const rct::key &recipient_address_spend_key,
-    const rct::key &sender_receiver_secret,
+void make_jamtis_onetime_address_extension_u(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
+* brief: make_jamtis_onetime_address_extension_pubkey_sp - create a Seraphis onetime address extension pubkey
+*    K^o_ext = k^o_g G + k^o_x X + k^o_u U
+* param: sender_receiver_secret - q
+* param: amount_commitment - C
+* outparam: onetime_address_out - Ko
+*/
+void make_jamtis_onetime_address_extension_pubkey_sp(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    rct::key &sender_extension_pubkey_out);
+/**
+* brief: make_jamtis_onetime_address_extension_pubkey_rct - create a RingCT onetime address extension pubkey
+*    K^o_ext = k^o_g G + k^o_u U
+* param: sender_receiver_secret - q
+* param: amount_commitment - C
+* outparam: onetime_address_out - Ko
+*/
+void make_jamtis_onetime_address_extension_pubkey_rct(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    rct::key &sender_extension_pubkey_out);
+/**
 * brief: make_jamtis_onetime_address_sp - create a Seraphis onetime address
-*    Ko = k^o_g G + k^o_x X + k^o_u U + K^j_s
+*    Ko = K^o_ext + K^j_s = (k^o_g G + k^o_x X + k^o_u U) + K^j_s
 * param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
@@ -191,7 +205,7 @@ void make_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     rct::key &onetime_address_out);
 /**
 * brief: make_jamtis_onetime_address_rct - create a RingCTv2 onetime address
-*    Ko = k^o_g G + k^o_u U + K^j_s
+*    Ko = K^o_ext + K^j_s = k^o_g G + k^o_u U + K^j_s
 * param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C

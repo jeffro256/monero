@@ -64,7 +64,6 @@ namespace sp
 static void make_enote_view_extensions_helper(const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const jamtis::address_index_t &j,
-    const rct::key &recipient_address_spendkey,  //K^j_s
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     crypto::secret_key &enote_view_extension_g_out,
@@ -76,24 +75,21 @@ static void make_enote_view_extensions_helper(const rct::key &jamtis_spend_pubke
 
     // 1. construct the enote view privkey for the G component: k_g = k^o_g + k^j_g
     jamtis::make_jamtis_spendkey_extension_g(jamtis_spend_pubkey, s_generate_address, j, spendkey_extension_g);
-    jamtis::make_jamtis_onetime_address_extension_g(recipient_address_spendkey,
-        sender_receiver_secret,
+    jamtis::make_jamtis_onetime_address_extension_g(sender_receiver_secret,
         amount_commitment,
         sender_extension_g);
     sc_add(to_bytes(enote_view_extension_g_out), to_bytes(sender_extension_g), to_bytes(spendkey_extension_g));
 
     // 2. construct the enote view privkey for the X component: k_x = k^o_x + k^j_x
     jamtis::make_jamtis_spendkey_extension_x(jamtis_spend_pubkey, s_generate_address, j, spendkey_extension_x);
-    jamtis::make_jamtis_onetime_address_extension_x(recipient_address_spendkey,
-        sender_receiver_secret,
+    jamtis::make_jamtis_onetime_address_extension_x(sender_receiver_secret,
         amount_commitment,
         sender_extension_x);
     sc_add(to_bytes(enote_view_extension_x_out), to_bytes(sender_extension_x), to_bytes(spendkey_extension_x));
 
     // 3. construct the enote view privkey for the U component: k_u = k^o_u + k^j_u
     jamtis::make_jamtis_spendkey_extension_u(jamtis_spend_pubkey, s_generate_address, j, spendkey_extension_u);
-    jamtis::make_jamtis_onetime_address_extension_u(recipient_address_spendkey,
-        sender_receiver_secret,
+    jamtis::make_jamtis_onetime_address_extension_u(sender_receiver_secret,
         amount_commitment,
         sender_extension_u);
     sc_add(to_bytes(enote_view_extension_u_out), to_bytes(sender_extension_u), to_bytes(spendkey_extension_u));
@@ -400,7 +396,6 @@ static bool try_complete_balance_recovery_v1(const SpEnoteVariant &enote,
     make_enote_view_extensions_helper(jamtis_spend_pubkey,
         s_generate_address,
         record_out.address_index,
-        recipient_address_spendkey,
         nominal_sender_receiver_secret,
         amount_commitment_ref(enote),
         record_out.enote_view_extension_g,
