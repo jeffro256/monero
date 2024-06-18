@@ -39,9 +39,10 @@
 //third party headers
 
 //standard headers
+#include <unordered_map>
 
 //forward declarations
-
+namespace cryptonote { struct subaddress_index; }
 
 namespace sp
 {
@@ -205,7 +206,7 @@ void make_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     rct::key &onetime_address_out);
 /**
 * brief: make_jamtis_onetime_address_rct - create a RingCTv2 onetime address
-*    Ko = K^o_ext + K^j_s = k^o_g G + k^o_u U + K^j_s
+*    Ko = K^o_ext + K^j_s = (k^o_g G + k^o_u U) + K^j_s
 * param: recipient_address_spend_key - K^j_s
 * param: sender_receiver_secret - q
 * param: amount_commitment - C
@@ -307,10 +308,36 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
     const rct::key &sender_receiver_secret,
     const rct::key &onetime_address);
 /**
+* brief: recover_recipient_address_spend_key - get the recipient spend key for which this Seraphis onetime address
+*                                              can be reconstructed as 'owned' by
+*   K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_x X + k^o_u U)
+* param: sender_receiver_secret - q
+* param: amount_commitment - amount commitment C
+* param: onetime_address - Ko
+* outparam: recipient_address_spend_key_out: - K^j_s
+*/
+void recover_recipient_address_spend_key_sp(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    rct::key &recipient_address_spend_key_out);
+/**
+* brief: recover_recipient_address_spend_key - get the recipient spend key for which this RingCT onetime address
+*                                              can be reconstructed as 'owned' by
+*   K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_u U)
+* param: sender_receiver_secret - q
+* param: amount_commitment - amount commitment C
+* param: onetime_address - Ko
+* outparam: recipient_address_spend_key_out: - K^j_s
+*/
+void recover_recipient_address_spend_key_rct(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    rct::key &recipient_address_spend_key_out);
+/**
 * brief: test_jamtis_onetime_address_sp - see if a Seraphis onetime address can be reconstructed
 * param: recipient_address_spend_key - recipient's address spendkey K^j_s
 * param: sender_receiver_secret - q
-* param: amount_commitment - amount commtiment C
+* param: amount_commitment - C
 * param: expected_onetime_address - onetime address to test Ko
 * return: true if the expected onetime address can be reconstructed
 */
@@ -322,7 +349,7 @@ bool test_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
 * brief: test_jamtis_onetime_address_rct - see if a RingCT onetime address can be reconstructed
 * param: recipient_address_spend_key - recipient's address spendkey K^j_s
 * param: sender_receiver_secret - q
-* param: amount_commitment - amount commtiment C
+* param: amount_commitment - C
 * param: expected_onetime_address - onetime address to test Ko
 * return: true if the expected onetime address can be reconstructed
 */
@@ -335,7 +362,7 @@ bool test_jamtis_onetime_address_rct(const rct::key &recipient_address_spend_key
 * param: onetime_address_format -
 * param: recipient_address_spend_key - recipient's address spendkey K^j_s
 * param: sender_receiver_secret - q
-* param: amount_commitment - amount commtiment C
+* param: amount_commitment - C
 * param: expected_onetime_address - onetime address to test Ko
 * return: true if the expected onetime address can be reconstructed
 */
@@ -344,6 +371,21 @@ bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetim
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &expected_onetime_address);
+/**
+* brief: test_legacy_onetime_address_rct - see if a RingCT onetime address can be reconstructed as 'owned' by a
+                                           legacy subaddress in the map
+* param: sender_receiver_secret - q
+* param: amount_commitment - C
+* param: onetime_address - Ko
+* param: legacy_subaddress_map -
+* outparam: subaddress_index_out -
+* return: true if the expected onetime address can be reconstructed as 'owned' by a legacy subaddress
+*/
+bool test_legacy_onetime_address_rct(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    const std::unordered_map<rct::key, cryptonote::subaddress_index> &legacy_subaddress_map,
+    cryptonote::subaddress_index &subaddress_index_out);
 /**
 * brief: test_jamtis_primary_view_tag - test primary view tag
 * param: x_fa - X_fa

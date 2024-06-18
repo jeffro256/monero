@@ -232,7 +232,7 @@ static bool try_core_balance_recovery_v1(const SpEnoteVariant &enote,
     const rct::key &jamtis_spend_pubkey,
     MakeXfa &&make_x_fa, // () -> jamtis::secret256_ptr_t functional object
     const jamtis::secret256_ptr_t x_ir,
-    MakeXur &&make_x_ur, // (jamtis::address_index_t) -> jamtis::secret256_ptr_t functional object
+    MakeXur &&make_x_ur, // () -> jamtis::secret256_ptr_t functional object
     const crypto::secret_key &s_generate_address,
     const jamtis::jamtis_address_tag_cipher_context &cipher_context,
     const jamtis::JamtisOnetimeAddressFormat onetime_address_format,

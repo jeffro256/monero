@@ -192,7 +192,7 @@ struct SpEnoteRecordV1 final
     crypto::secret_key enote_view_extension_g;
     /// k_{x, sender} + k_{x, address}: enote view extension for X component (excludes k_gi)
     crypto::secret_key enote_view_extension_x;
-    /// k_{u, sender} + k_{u, address}: enote view extension for U component (excludes k_m)
+    /// k_{u, sender} + k_{u, address}: enote view extension for U component (excludes k_ps)
     crypto::secret_key enote_view_extension_u;
     /// KI: key image
     crypto::key_image key_image;

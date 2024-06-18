@@ -36,6 +36,7 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/x25519.h"
+#include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
 #include "jamtis_support_types.h"
@@ -470,6 +471,36 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
     return pid_enc ^ jamtis_encrypted_payment_id_mask(sender_receiver_secret, onetime_address);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void recover_recipient_address_spend_key_sp(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    rct::key &recipient_address_spend_key_out)
+{
+    // K^o_ext = k^o_g G + k^o_x X + k^o_u U
+    rct::key sender_extension_pubkey;
+    make_jamtis_onetime_address_extension_pubkey_sp(sender_receiver_secret,
+        amount_commitment,
+        sender_extension_pubkey);
+
+    // K^j_s = Ko - K^o_ext
+    rct::subKeys(recipient_address_spend_key_out, onetime_address, sender_extension_pubkey);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void recover_recipient_address_spend_key_rct(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    rct::key &recipient_address_spend_key_out)
+{
+    // K^o_ext = k^o_g G + k^o_u U
+    rct::key sender_extension_pubkey;
+    make_jamtis_onetime_address_extension_pubkey_rct(sender_receiver_secret,
+        amount_commitment,
+        sender_extension_pubkey);
+
+    // K^j_s = Ko - K^o_ext
+    rct::subKeys(recipient_address_spend_key_out, onetime_address, sender_extension_pubkey);
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
@@ -525,6 +556,28 @@ bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetim
     }
 
     return false;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool test_legacy_onetime_address_rct(const rct::key &sender_receiver_secret,
+    const rct::key &amount_commitment,
+    const rct::key &onetime_address,
+    const std::unordered_map<rct::key, cryptonote::subaddress_index> &legacy_subaddress_map,
+    cryptonote::subaddress_index &subaddress_index_out)
+{
+    // K^j_s = Ko - K^o_ext
+    rct::key nominal_recipient_address_spend_key;
+    recover_recipient_address_spend_key_rct(sender_receiver_secret,
+        amount_commitment,
+        onetime_address,
+        nominal_recipient_address_spend_key);
+
+    // is K^j_s in map?
+    const auto it{legacy_subaddress_map.find(nominal_recipient_address_spend_key)};
+    if (it == legacy_subaddress_map.cend())
+        return false;
+
+    subaddress_index_out = it->second;
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,
