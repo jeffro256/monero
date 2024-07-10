@@ -60,7 +60,7 @@ namespace sp
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-bool try_add_legacy_subaddress_spendkey(const boost::optional<cryptonote::subaddress_index> &address_index,
+bool try_add_legacy_subaddress_spendkey(const std::optional<cryptonote::subaddress_index> &address_index,
     const rct::key &legacy_base_spend_pubkey,
     const crypto::secret_key &legacy_view_privkey,
     hw::device &hwdev,
@@ -93,17 +93,17 @@ static bool try_check_legacy_view_tag(const LegacyEnoteVariant &enote,
 {
     // 1. obtain the view tag
     // - only legacy enotes v4 and v5 have a view tag
-    struct visitor final : public tools::variant_static_visitor<boost::optional<crypto::view_tag>>
+    struct visitor final : public tools::variant_static_visitor<std::optional<crypto::view_tag>>
     {
         using variant_static_visitor::operator();  //for blank overload
-        boost::optional<crypto::view_tag> operator()(const LegacyEnoteV1 &enote) const { return boost::none; }
-        boost::optional<crypto::view_tag> operator()(const LegacyEnoteV2 &enote) const { return boost::none; }
-        boost::optional<crypto::view_tag> operator()(const LegacyEnoteV3 &enote) const { return boost::none; }
-        boost::optional<crypto::view_tag> operator()(const LegacyEnoteV4 &enote) const { return enote.view_tag; }
-        boost::optional<crypto::view_tag> operator()(const LegacyEnoteV5 &enote) const { return enote.view_tag; }
+        std::optional<crypto::view_tag> operator()(const LegacyEnoteV1 &enote) const { return std::nullopt; }
+        std::optional<crypto::view_tag> operator()(const LegacyEnoteV2 &enote) const { return std::nullopt; }
+        std::optional<crypto::view_tag> operator()(const LegacyEnoteV3 &enote) const { return std::nullopt; }
+        std::optional<crypto::view_tag> operator()(const LegacyEnoteV4 &enote) const { return enote.view_tag; }
+        std::optional<crypto::view_tag> operator()(const LegacyEnoteV5 &enote) const { return enote.view_tag; }
     };
 
-    const boost::optional<crypto::view_tag> enote_view_tag{enote.visit(visitor())};
+    const std::optional<crypto::view_tag> enote_view_tag{enote.visit(visitor())};
 
     if (!enote_view_tag)
         return true;  //check succeeds automatically for enotes with no view tag
@@ -126,7 +126,7 @@ static bool try_check_legacy_nominal_spendkey(const rct::key &onetime_address,
     const rct::key &legacy_base_spend_pubkey,
     const std::unordered_map<rct::key, cryptonote::subaddress_index> &legacy_subaddress_map,
     hw::device &hwdev,
-    boost::optional<cryptonote::subaddress_index> &address_index_out)
+    std::optional<cryptonote::subaddress_index> &address_index_out)
 {
     // 1. nominal spendkey = Ko - Hn(r Kv, t) G
     crypto::public_key nominal_spendkey;
@@ -138,7 +138,7 @@ static bool try_check_legacy_nominal_spendkey(const rct::key &onetime_address,
     // 2. check base spendkey
     if (rct::pk2rct(nominal_spendkey) == legacy_base_spend_pubkey)
     {
-        address_index_out = boost::none;
+        address_index_out = std::nullopt;
         return true;
     }
 
@@ -283,7 +283,7 @@ static bool try_get_intermediate_legacy_enote_record_info(const LegacyEnoteVaria
     crypto::secret_key &enote_view_extension_out,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    boost::optional<cryptonote::subaddress_index> &subaddress_index_out)
+    std::optional<cryptonote::subaddress_index> &subaddress_index_out)
 {
     // 1. r K^v = k^v R
     crypto::key_derivation sender_receiver_DH_derivation;

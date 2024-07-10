@@ -40,7 +40,7 @@
 #include "tx_component_types.h"
 
 //third party headers
-#include <boost/optional/optional.hpp>
+#include <optional>
 
 //standard headers
 #include <vector>
@@ -66,7 +66,7 @@ struct LegacyBasicEnoteRecord final
     /// the enote's ephemeral pubkey
     rct::key enote_ephemeral_pubkey;
     /// i: legacy address index (if true, then it's owned by a subaddress)
-    boost::optional<cryptonote::subaddress_index> address_index;
+    std::optional<cryptonote::subaddress_index> address_index;
     /// t: the enote's index in its transaction
     std::uint64_t tx_output_index;
     /// u: the enote's unlock time
@@ -90,7 +90,7 @@ struct LegacyIntermediateEnoteRecord final
     /// x: amount blinding factor
     crypto::secret_key amount_blinding_factor;
     /// i: legacy address index (if true, then it's owned by a subaddress)
-    boost::optional<cryptonote::subaddress_index> address_index;
+    std::optional<cryptonote::subaddress_index> address_index;
     /// t: the enote's index in its transaction
     std::uint64_t tx_output_index;
     /// u: the enote's unlock time
@@ -116,12 +116,63 @@ struct LegacyEnoteRecord final
     /// KI: key image
     crypto::key_image key_image;
     /// i: legacy address index (if true, then it's owned by a subaddress)
-    boost::optional<cryptonote::subaddress_index> address_index;
+    std::optional<cryptonote::subaddress_index> address_index;
     /// t: the enote's index in its transaction
     std::uint64_t tx_output_index;
     /// u: the enote's unlock time
     std::uint64_t unlock_time;
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////// Cryptonote Addressing For Rerandomizable-RingCT-Output Transactions (CARROT) /////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////
+// CarrotIntermediateEnoteRecordV1
+///
+struct CarrotIntermediateEnoteRecordV1 final
+{
+    /// original enote
+    SpEnoteVariant enote;
+    /// the enote's ephemeral pubkey
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// context of the tx input(s) associated with this enote
+    rct::key input_context;
+    /// a: amount
+    rct::xmr_amount amount;
+    /// x: amount blinding factor
+    crypto::secret_key amount_blinding_factor;
+    /// K1': nominal recipient address spend pubkey
+    crypto::public_key nominal_address_spend_pubkey;
+};
+
+////
+// CarrotEnoteRecordV1
+///
+struct CarrotEnoteRecordV1 final
+{
+    /// original enote
+    SpEnoteVariant enote;
+    /// the enote's ephemeral pubkey
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
+    /// context of the tx input(s) associated with this enote
+    rct::key input_context;
+    /// a: amount
+    rct::xmr_amount amount;
+    /// x: amount blinding factor
+    crypto::secret_key amount_blinding_factor;
+    /// K1': nominal recipient address spend pubkey
+    crypto::public_key nominal_address_spend_pubkey;
+    /// i: legacy address index (nullopt if unknown)
+    std::optional<cryptonote::subaddress_index> address_index;
+    /// L: key image (point at infinity if unknown)
+    crypto::key_image key_image;
+    /// k_{g, sender} + k_{g, address}: enote view extension for G component (excludes k_gi/k_s)
+    crypto::secret_key enote_view_extension_g;
+    /// k_{u, sender} + k_{u, address}: enote view extension for U component (excludes k_ps)
+    crypto::secret_key enote_view_extension_u;
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Seraphis ///////////////////////////////////////////////////

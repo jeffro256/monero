@@ -340,3 +340,32 @@ TEST(Crypto, generator_consistency)
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
 }
+
+TEST(Crypto, verify_fe_fffb5)
+{
+  // verify that (fe_fffb5 * fe_fffb5) * (-1) + (-2) is equal to A
+  //     where A = 2 * (1 - d) / (1 + d) = 486662
+  const fe neg_one{-1};
+  const fe neg_two{-2};
+
+  fe temp;
+  fe_mul(temp, fe_fffb5, fe_fffb5);
+  fe_mul(temp, temp, neg_one);
+  fe_add(temp, temp, neg_two);
+
+  std::uint8_t res[32];
+  fe_tobytes(res, temp);
+
+  for (int i = 4; i < 32; ++i)
+    EXPECT_EQ(0, res[i]);
+  
+  std::uint32_t res32;
+  memcpy(&res32, res, sizeof(res32));
+
+  EXPECT_EQ(486662, res32);
+}
+
+TEST(Crypto, )
+{
+
+}

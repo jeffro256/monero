@@ -42,6 +42,7 @@
 //third party headers
 
 //standard headers
+#include <optional>
 
 //forward declarations
 
@@ -92,7 +93,7 @@ void make_legacy_sender_receiver_secret(const rct::key &base_key,
 void make_legacy_enote_view_extension(const std::uint64_t tx_output_index,
     const crypto::key_derivation &sender_receiver_DH_derivation,
     const crypto::secret_key &legacy_view_privkey,
-    const boost::optional<cryptonote::subaddress_index> &subaddress_index,
+    const std::optional<cryptonote::subaddress_index> &subaddress_index,
     hw::device &hwdev,
     crypto::secret_key &enote_view_extension_out);
 /**
