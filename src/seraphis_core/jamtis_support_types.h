@@ -40,7 +40,7 @@
 #include <functional>
 
 //forward declarations
-
+namespace sp { class SpTranscriptBuilder; }
 
 namespace sp
 {
@@ -65,6 +65,13 @@ struct address_tag_t final
 
 /// address tag XORd with a user-defined secret: addr_tag_enc = addr_tag XOR addr_tag_enc_secret
 using encrypted_address_tag_t = address_tag_t;
+/// uniform random bytes which encodes seed to derive the ephemeral private key for a Carrot enote
+/// this should be the same size as the Jamtis address tag to prevent fingerprinting
+using carrot_randomness_t = address_tag_t;
+/// carrot randomness XORd with a user-defined secret, much like encrypted_address_tag_t
+using carrot_encrypted_randomness_t = carrot_randomness_t;
+static_assert(sizeof(carrot_randomness_t) >= 16,
+    "Jamtis address tag not big enough for sufficient random entropy");
 
 /// sizes must be consistent
 static_assert(
@@ -111,6 +118,7 @@ struct payment_id_t final
 {
     unsigned char bytes[PAYMENT_ID_BYTES];
 };
+static constexpr payment_id_t null_payment_id{{0}};
 
 /// legacy encrypted payment ID
 using encrypted_payment_id_t = payment_id_t;
@@ -155,8 +163,11 @@ inline address_index_t make_address_index(std::uint64_t half1) { return make_add
 address_tag_t make_address_tag(const address_index_t &enc_j);
 /// generate a random address index
 address_index_t gen_address_index();
-
-// generate a random view tag
+/// generate a random address tag
+address_tag_t gen_address_tag();
+/// generate a random (non-zero) payment ID
+payment_id_t gen_payment_id();
+/// generate a random view tag
 view_tag_t gen_view_tag();
 
 /// convert between jamtis enote types and self-send types

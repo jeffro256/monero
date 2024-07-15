@@ -29,6 +29,7 @@
 set(seraphis_core_sources
   binned_reference_set.cpp
   binned_reference_set_utils.cpp
+  carrot_payment_proposal.cpp
   discretized_fee.cpp
   jamtis_account_secrets.cpp
   jamtis_address_tag_utils.cpp

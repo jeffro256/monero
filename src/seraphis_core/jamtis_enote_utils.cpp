@@ -209,6 +209,26 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     x25519_scmul_key(enote_ephemeral_privkey, addr_Dbase, enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
+    const rct::xmr_amount &amount,
+    const crypto::public_key &address_spend_pubkey,
+    const crypto::public_key &address_view_pubkey,
+    const payment_id_t payment_id,
+    crypto::secret_key &enote_ephemeral_privkey_out)
+{
+    // k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
+    SpKDFTranscript transcript{config::HASH_KEY_CARROT_ENOTE_EPHEMERAL_PRIVKEY,
+        sizeof(carrot_randomness_t) + sizeof(rct::xmr_amount) + 2*sizeof(rct::key) + PAYMENT_ID_BYTES};
+    transcript.append("n", n.bytes);
+    transcript.append("b", amount);
+    transcript.append("K^j_s", address_spend_pubkey);
+    transcript.append("K^j_v", address_view_pubkey);
+    transcript.append("pid", payment_id.bytes);
+    sp_hash_to_scalar(transcript.data(), transcript.size(), enote_ephemeral_privkey_out.data);
+
+    assert(transcript.size() < 128); // for performance (should be 1 block size transcript)
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_view_tag(const secret256_ptr_t x_fa,
     const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
@@ -556,28 +576,6 @@ bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetim
     }
 
     return false;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool test_legacy_onetime_address_rct(const rct::key &sender_receiver_secret,
-    const rct::key &amount_commitment,
-    const rct::key &onetime_address,
-    const std::unordered_map<rct::key, cryptonote::subaddress_index> &legacy_subaddress_map,
-    cryptonote::subaddress_index &subaddress_index_out)
-{
-    // K^j_s = Ko - K^o_ext
-    rct::key nominal_recipient_address_spend_key;
-    recover_recipient_address_spend_key_rct(sender_receiver_secret,
-        amount_commitment,
-        onetime_address,
-        nominal_recipient_address_spend_key);
-
-    // is K^j_s in map?
-    const auto it{legacy_subaddress_map.find(nominal_recipient_address_spend_key)};
-    if (it == legacy_subaddress_map.cend())
-        return false;
-
-    subaddress_index_out = it->second;
-    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_primary_view_tag(const secret256_ptr_t x_fa,

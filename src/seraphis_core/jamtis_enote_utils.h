@@ -92,6 +92,22 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     const crypto::x25519_pubkey &addr_Dbase,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
+ * make_carrot_enote_ephemeral_privkey - enote ephemeral privkey k_e for Carrot enotes
+ *   k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
+ * param: n
+ * param: amount - b
+ * param: address_spend_pubkey - K^j_s
+ * param: address_view_pubkey - K^j_v
+ * param: payment_id - pid
+ * outparam: enote_ephemeral_privkey_out - k_e
+ */
+void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
+    const rct::xmr_amount &amount,
+    const crypto::public_key &address_spend_pubkey,
+    const crypto::public_key &address_view_pubkey,
+    const payment_id_t payment_id,
+    crypto::secret_key &enote_ephemeral_privkey_out);
+/**
 * brief: make_jamtis_view_tag - used for optimized identification of enotes
 *    view_tag = H_npbits(D^d_fa, Ko) || H_ncbits(s_svt, Ko)
 * param: x_fa - X_fa
@@ -371,21 +387,6 @@ bool test_jamtis_onetime_address(const jamtis::JamtisOnetimeAddressFormat onetim
     const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &expected_onetime_address);
-/**
-* brief: test_legacy_onetime_address_rct - see if a RingCT onetime address can be reconstructed as 'owned' by a
-                                           legacy subaddress in the map
-* param: sender_receiver_secret - q
-* param: amount_commitment - C
-* param: onetime_address - Ko
-* param: legacy_subaddress_map -
-* outparam: subaddress_index_out -
-* return: true if the expected onetime address can be reconstructed as 'owned' by a legacy subaddress
-*/
-bool test_legacy_onetime_address_rct(const rct::key &sender_receiver_secret,
-    const rct::key &amount_commitment,
-    const rct::key &onetime_address,
-    const std::unordered_map<rct::key, cryptonote::subaddress_index> &legacy_subaddress_map,
-    cryptonote::subaddress_index &subaddress_index_out);
 /**
 * brief: test_jamtis_primary_view_tag - test primary view tag
 * param: x_fa - X_fa

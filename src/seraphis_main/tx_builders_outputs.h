@@ -32,6 +32,7 @@
 #include "crypto/crypto.h"
 #include "crypto/x25519.h"
 #include "ringct/rctTypes.h"
+#include "seraphis_core/carrot_payment_proposal.h"
 #include "seraphis_core/jamtis_destination.h"
 #include "seraphis_core/jamtis_payment_proposal.h"
 #include "seraphis_core/jamtis_support_types.h"
@@ -124,7 +125,6 @@ void make_v1_coinbase_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &
 * brief: make_v1_output_proposal_v1 - convert a jamtis proposal to an output proposal
 * param: proposal -
 * param: input_context -
-* param: num_primary_view_tag_bits -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
@@ -135,11 +135,19 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
 * param: proposal -
 * param: s_view_balance -
 * param: input_context -
-* param: num_primary_view_tag_bits -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &s_view_balance,
+    const rct::key &input_context,
+    SpOutputProposalV1 &output_proposal_out);
+/**
+* brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
+* param: proposal -
+* param: input_context -
+* outparam: output_proposal_out -
+*/
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**

@@ -152,5 +152,13 @@ void make_rct_spendkey(const crypto::secret_key &k_generate_image,
     rct::addKeys1(spend_pubkey_out, rct::sk2rct(k_generate_image), U_term);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_carrot_secret_change_spend_extension_g(const crypto::secret_key &k_view,
+    crypto::secret_key &k_secret_change_spend_extension_g_out)
+{
+    // k^change_g = H_n[k_v]("G")
+
+    
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis
 } //namespace sp

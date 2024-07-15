@@ -146,14 +146,23 @@ static void get_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_ep
 /// equality operators
 bool operator==(const JamtisPaymentProposalV1 a, const JamtisPaymentProposalV1 b)
 {
-    return a.destination == b.destination && a.amount == b.amount &&
-        a.enote_ephemeral_privkey == b.enote_ephemeral_privkey && a.partial_memo == b.partial_memo;
+    return a.destination == b.destination &&
+        a.amount == b.amount &&
+        a.onetime_address_format == b.onetime_address_format &&
+        a.enote_ephemeral_privkey == b.enote_ephemeral_privkey &&
+        a.num_primary_view_tag_bits == b.num_primary_view_tag_bits &&
+        a.partial_memo == b.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const JamtisPaymentProposalSelfSendV1 a, const JamtisPaymentProposalSelfSendV1 b)
 {
-    return a.destination == b.destination && a.amount == b.amount && a.type == b.type &&
-        a.enote_ephemeral_privkey == b.enote_ephemeral_privkey && a.partial_memo == b.partial_memo;
+    return a.destination == b.destination &&
+        a.amount == b.amount &&
+        a.onetime_address_format == b.onetime_address_format &&
+        a.type == b.type &&
+        a.enote_ephemeral_privkey == b.enote_ephemeral_privkey &&
+        a.num_primary_view_tag_bits == b.num_primary_view_tag_bits &&
+        a.partial_memo == b.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_enote_ephemeral_pubkey(const JamtisPaymentProposalV1 &proposal,

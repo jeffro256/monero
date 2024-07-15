@@ -30,6 +30,7 @@ set(seraphis_main_sources
   contextual_enote_record_types.cpp
   contextual_enote_record_utils.cpp
   enote_record_utils.cpp
+  enote_record_utils_carrot.cpp
   enote_record_utils_legacy.cpp
   scan_balance_recovery_utils.cpp
   scan_machine.cpp

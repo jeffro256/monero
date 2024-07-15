@@ -124,7 +124,7 @@ struct LegacyEnoteRecord final
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////// Cryptonote Addressing For Rerandomizable-RingCT-Output Transactions (CARROT) /////////////////
+/////////////// Cryptonote Address For Rerandomizable-RingCT-Output Transactions (CARROT) //////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////
@@ -143,7 +143,7 @@ struct CarrotIntermediateEnoteRecordV1 final
     /// x: amount blinding factor
     crypto::secret_key amount_blinding_factor;
     /// K1': nominal recipient address spend pubkey
-    crypto::public_key nominal_address_spend_pubkey;
+    rct::key nominal_address_spend_pubkey;
 };
 
 ////
@@ -162,7 +162,7 @@ struct CarrotEnoteRecordV1 final
     /// x: amount blinding factor
     crypto::secret_key amount_blinding_factor;
     /// K1': nominal recipient address spend pubkey
-    crypto::public_key nominal_address_spend_pubkey;
+    rct::key nominal_address_spend_pubkey;
     /// i: legacy address index (nullopt if unknown)
     std::optional<cryptonote::subaddress_index> address_index;
     /// L: key image (point at infinity if unknown)

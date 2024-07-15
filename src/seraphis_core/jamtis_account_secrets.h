@@ -156,5 +156,13 @@ void make_jamtis_ciphertag_secret(const crypto::secret_key &s_generate_address,
 void make_rct_spendkey(const crypto::secret_key &k_generate_image,
     const crypto::secret_key &k_prove_spend,
     rct::key &spend_pubkey_out);
+/**
+ * brief: make_carrot_secret_change_spend_extension_g - spend pubkey extension for Janus-protected change (G)
+ *   k^change_g = H_n[k_v]("G")
+ * param: k_view - k_v
+ * outparam: k_secret_change_spend_extension_g_out - k^change_g
+ */
+void make_carrot_secret_change_spend_extension_g(const crypto::secret_key &k_view,
+    crypto::secret_key &k_secret_change_spend_extension_g_out);
 } //namespace jamtis
 } //namespace sp

@@ -331,6 +331,8 @@ namespace config
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_COINBASE[] = "jamtis_input_context_coinbase";
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_STANDARD[] = "jamtis_input_context_standard";
 
+  const constexpr char HASH_KEY_CARROT_ENOTE_EPHEMERAL_PRIVKEY[] = "carrot_enote_ephemeral_privkey";
+
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};
 

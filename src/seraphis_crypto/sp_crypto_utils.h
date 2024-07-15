@@ -126,6 +126,12 @@ void subtract_secret_key_vectors(const std::vector<crypto::secret_key> &keys_A,
     const std::vector<crypto::secret_key> &keys_B,
     crypto::secret_key &result_out);
 /**
+ * brief: normalize_x - if the x coordinate of an ed25519 point is 'negative'/'odd', negate it
+ * note: constant-time
+ */
+void normalize_x(rct::key &P);
+rct::key normalize_x(const rct::key &P);
+/**
 * brief: mask_key - commit to an EC key
 *   K" = mask G + K
 * param: mask - commitment mask/blinding factor

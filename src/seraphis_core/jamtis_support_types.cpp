@@ -146,6 +146,23 @@ address_index_t gen_address_index()
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------
+address_tag_t gen_address_tag()
+{
+    address_tag_t temp;
+    crypto::rand(ADDRESS_INDEX_BYTES, temp.bytes);
+    return temp;
+}
+//-------------------------------------------------------------------------------------------------------------------
+payment_id_t gen_payment_id()
+{
+    payment_id_t temp;
+    do
+    {
+        crypto::rand(PAYMENT_ID_BYTES, temp.bytes);
+    } while (temp == null_payment_id);
+    return temp;
+}
+//-------------------------------------------------------------------------------------------------------------------
 view_tag_t gen_view_tag()
 {
     view_tag_t temp;
