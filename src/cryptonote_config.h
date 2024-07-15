@@ -331,6 +331,8 @@ namespace config
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_COINBASE[] = "jamtis_input_context_coinbase";
   const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_STANDARD[] = "jamtis_input_context_standard";
 
+  const constexpr char HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_G[] = "carrot_change_spend_extension_g";
+  const constexpr char HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_U[] = "carrot_change_spend_extension_u";
   const constexpr char HASH_KEY_CARROT_ENOTE_EPHEMERAL_PRIVKEY[] = "carrot_enote_ephemeral_privkey";
 
   // Multisig
