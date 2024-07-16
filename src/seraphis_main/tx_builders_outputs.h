@@ -144,10 +144,27 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &p
 /**
 * brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
 * param: proposal -
+* param: num_primary_view_tag_bits -
 * param: input_context -
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
+    const rct::key &input_context,
+    SpOutputProposalV1 &output_proposal_out);
+/**
+* brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
+* param: proposal -
+* param: num_primary_view_tag_bits -
+* param: k_view -
+* param: primary_address_spend_pubkey -
+* param: input_context -
+* outparam: output_proposal_out -
+*/
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalChangeV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**

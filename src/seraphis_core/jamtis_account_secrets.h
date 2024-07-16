@@ -164,5 +164,23 @@ void make_rct_spendkey(const crypto::secret_key &k_generate_image,
  */
 void make_carrot_secret_change_spend_extension_g(const crypto::secret_key &k_view,
     crypto::secret_key &k_secret_change_spend_extension_g_out);
+/**
+ * brief: make_carrot_secret_change_spend_extension_u - spend pubkey extension for Janus-protected change (U)
+ *   k^change_u = H_n[k_v]("U")
+ * param: k_view - k_v
+ * outparam: k_secret_change_spend_extension_g_out - k^change_u
+ */
+void make_carrot_secret_change_spend_extension_u(const crypto::secret_key &k_view,
+    crypto::secret_key &k_secret_change_spend_extension_u_out);
+/**
+ * brief: make_carrot_secret_change_spend_pubkey - carrot spend pubkey for Janus-protected change
+ *   K^change_s = K_s + k^change_g G + k^change_u U
+ * param: primary_address_spend_pubkey - K_s
+ * param: k_view - k_v
+ * outparam: secret_change_spend_pubkey_out - K^change_s
+ */
+void make_carrot_secret_change_spend_pubkey(const crypto::public_key &primary_address_spend_pubkey,
+    const crypto::secret_key &k_view,
+    crypto::public_key &secret_change_spend_pubkey_out);
 } //namespace jamtis
 } //namespace sp

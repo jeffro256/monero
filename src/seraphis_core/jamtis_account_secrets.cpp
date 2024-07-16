@@ -156,8 +156,41 @@ void make_carrot_secret_change_spend_extension_g(const crypto::secret_key &k_vie
     crypto::secret_key &k_secret_change_spend_extension_g_out)
 {
     // k^change_g = H_n[k_v]("G")
-
+    SpKDFTranscript transcript{config::HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_G, 0};
+    sp_derive_key(to_bytes(k_view),
+        transcript.data(),
+        transcript.size(),
+        to_bytes(k_secret_change_spend_extension_g_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_secret_change_spend_extension_u(const crypto::secret_key &k_view,
+    crypto::secret_key &k_secret_change_spend_extension_u_out)
+{
+    // k^change_u = H_n[k_v]("U")
+    SpKDFTranscript transcript{config::HASH_KEY_CARROT_CHANGE_SPEND_EXTENSION_U, 0};
+    sp_derive_key(to_bytes(k_view),
+        transcript.data(),
+        transcript.size(),
+        to_bytes(k_secret_change_spend_extension_u_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_secret_change_spend_pubkey(const crypto::public_key &primary_address_spend_pubkey,
+    const crypto::secret_key &k_view,
+    crypto::public_key &secret_change_spend_pubkey_out)
+{
+    // k^change_g = H_n[k_v]("G")
+    crypto::secret_key k_secret_change_spend_extension_g;
+    make_carrot_secret_change_spend_extension_g(k_view,
+        k_secret_change_spend_extension_g);
     
+    // k^change_u = H_n[k_v]("U")
+    crypto::secret_key k_secret_change_spend_extension_u;
+    make_carrot_secret_change_spend_extension_u(k_view,
+        k_secret_change_spend_extension_u);
+
+    // K^change_s = K_s + k^change_g G + k^change_u U
+    mask_key(k_secret_change_spend_extension_g, primary_address_spend_pubkey, secret_change_spend_pubkey_out);
+    extend_seraphis_spendkey_u(k_secret_change_spend_extension_u, secret_change_spend_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis

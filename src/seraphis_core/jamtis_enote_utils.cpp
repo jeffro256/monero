@@ -229,6 +229,32 @@ void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
     assert(transcript.size() < 128); // for performance (should be 1 block size transcript)
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool make_carrot_x_all_recipient(const crypto::secret_key &k_view,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    crypto::public_key &x_all_out)
+{
+    // @TODO: this is slow as hell, replace with accelerated SUPERCOP impl
+    // @TODO: HW device support
+
+    ge_p3 p3;
+    if (0 != ge_fromx25519_vartime(&p3, enote_ephemeral_pubkey.data)) // K_e
+        return false;
+
+    ge_p2 p2;
+    ge_scalarmult(&p2, to_bytes(k_view), &p3); // k_v K_e
+
+    ge_p1p1 p1p1;
+    ge_mul8(&p1p1, &p2); // 8 k_v K_e
+
+    ge_p1p1_to_p2(&p2, &p1p1);
+
+    ge_tobytes(to_bytes(x_all_out), &p2);
+
+    normalize_x(x_all_out);
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_view_tag(const secret256_ptr_t x_fa,
     const secret256_ptr_t x_ir,
     const rct::key &onetime_address,
@@ -509,7 +535,7 @@ void recover_recipient_address_spend_key_sp(const rct::key &sender_receiver_secr
 void recover_recipient_address_spend_key_rct(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &onetime_address,
-    rct::key &recipient_address_spend_key_out)
+    crypto::public_key &recipient_address_spend_key_out)
 {
     // K^o_ext = k^o_g G + k^o_u U
     rct::key sender_extension_pubkey;
@@ -518,7 +544,9 @@ void recover_recipient_address_spend_key_rct(const rct::key &sender_receiver_sec
         sender_extension_pubkey);
 
     // K^j_s = Ko - K^o_ext
-    rct::subKeys(recipient_address_spend_key_out, onetime_address, sender_extension_pubkey);
+    rct::key recipient_address_spend_key_rct;
+    rct::subKeys(recipient_address_spend_key_rct, onetime_address, sender_extension_pubkey);
+    recipient_address_spend_key_out = rct::rct2pk(recipient_address_spend_key_rct);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool test_jamtis_onetime_address_sp(const rct::key &recipient_address_spend_key,

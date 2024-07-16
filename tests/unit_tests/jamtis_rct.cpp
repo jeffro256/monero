@@ -260,19 +260,16 @@ static void make_jamtis_rct_transaction_pruned(
 
 static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     const rct::xmr_amount fee,
-    const cryptonote::account_public_address &change_address,
-    const crypto::secret_key &k_view,
-    std::vector<sp::jamtis::CarrotPaymentProposalV1> &payment_proposals)
+    std::vector<sp::jamtis::CarrotPaymentProposalV1> &payment_proposals_inout,
+    std::optional<sp::jamtis::CarrotPaymentProposalChangeV1> &change_proposal_out)
 {
-    // @TODO: handle 2-output shared D_e optimization, as right now Janus check will fail (also this is why k_view is passed)
-    // @TODO: handle 1 input proposal
     // @TODO: handle proposal amount overfloe
 
-    CHECK_AND_ASSERT_THROW_MES(!payment_proposals.empty(),
+    CHECK_AND_ASSERT_THROW_MES(!payment_proposals_inout.empty(),
         "finalize payment proposal set: no payment proposals");
 
     rct::xmr_amount out_amount{0};
-    for (const sp::jamtis::CarrotPaymentProposalV1 &payment_proposal : payment_proposals)
+    for (const sp::jamtis::CarrotPaymentProposalV1 &payment_proposal : payment_proposals_inout)
         out_amount += payment_proposal.amount;
 
     CHECK_AND_ASSERT_THROW_MES(out_amount <= in_amount + fee,
@@ -281,30 +278,28 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     const rct::xmr_amount change_amount{in_amount - out_amount - fee};
     if (change_amount)
     {
-        const sp::jamtis::carrot_randomness_t randomness{
-                payment_proposals.size() == 1
-                    ? payment_proposals[0].randomness
-                    : sp::jamtis::gen_address_tag()
-            };
+        crypto::x25519_pubkey enote_ephemeral_pubkey;
+        if (payment_proposals_inout.size() == 1)
+            sp::jamtis::get_enote_ephemeral_pubkey(payment_proposals_inout[0], enote_ephemeral_pubkey);
+        else
+            enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
 
-        const sp::jamtis::CarrotPaymentProposalV1 change_proposal{
-                .destination = change_address,
-                .is_subaddress = false,
-                .payment_id = sp::jamtis::null_payment_id,
+        change_proposal_out = sp::jamtis::CarrotPaymentProposalChangeV1{
                 .amount = change_amount,
-                .randomness = randomness,
+                .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
                 .partial_memo = {}
             };
-
-        payment_proposals.push_back(change_proposal);
     }
+    else
+        change_proposal_out = std::nullopt;
 }
 
+static constexpr std::uint8_t DUMMY_NPBITS{8};
 static void make_carrot_rct_transaction_pruned(
     const std::vector<rct::xmr_amount>& inputs,
     const rct::xmr_amount fee,
     std::vector<sp::jamtis::CarrotPaymentProposalV1> payment_proposals,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     const crypto::secret_key &k_view,
     cryptonote::transaction& tx)
 {
@@ -343,20 +338,13 @@ static void make_carrot_rct_transaction_pruned(
     CHECK_AND_ASSERT_THROW_MES(out_amount + fee <= in_amount,
         "output amount sum plus fee is greater than input sum!");
 
-    // make change destination
-    const sp::jamtis::address_index_t change_address_index{sp::jamtis::gen_address_index()};
-    const cryptonote::account_public_address change_destination{
-            .m_spend_public_key = rct::rct2pk(primary_recipient_spend_pubkey),
-            .m_view_public_key = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k_view)))
-        };
-
     // finalize output proposals
     std::vector<sp::jamtis::JamtisPaymentProposalSelfSendV1> selfsend_payment_proposals;
+    std::optional<sp::jamtis::CarrotPaymentProposalChangeV1> change_proposal;
     finalize_payment_proposal_set(in_amount,
         fee,
-        change_destination,
-        k_view,
-        payment_proposals);
+        payment_proposals,
+        change_proposal);
 
     // input context
     rct::key input_context;
@@ -368,6 +356,15 @@ static void make_carrot_rct_transaction_pruned(
 
     for (const sp::jamtis::CarrotPaymentProposalV1 &payment_proposal : payment_proposals)
         sp::make_v1_output_proposal_v1(payment_proposal,
+            DUMMY_NPBITS,
+            input_context,
+            tools::add_element(output_proposals));
+    
+    if (change_proposal)
+        sp::make_v1_output_proposal_v1(*change_proposal,
+            DUMMY_NPBITS,
+            k_view,
+            primary_address_spend_pubkey,
             input_context,
             tools::add_element(output_proposals));
 
@@ -546,7 +543,7 @@ static bool try_get_enote_records_rct_tx(const cryptonote::transaction &tx,
 
 static bool try_get_carrot_enote_records_rct_tx(const cryptonote::transaction &tx,
     const crypto::secret_key &k_view,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_recipient_spend_pubkey,
     std::vector<sp::CarrotIntermediateEnoteRecordV1> &enote_records_out)
 {
     enote_records_out.clear();
@@ -667,7 +664,7 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
     make_carrot_rct_transaction_pruned(input_amounts,
         fee,
         {payment_proposal},
-        rct::pk2rct(account.get_keys().m_account_address.m_spend_public_key),
+        account.get_keys().m_account_address.m_spend_public_key,
         account.get_keys().m_view_secret_key,
         tx);
     ASSERT_EQ(2, tx.version);
@@ -679,34 +676,19 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
     std::vector<sp::CarrotIntermediateEnoteRecordV1> enote_records;
     ASSERT_TRUE(try_get_carrot_enote_records_rct_tx(tx,
         account.get_keys().m_view_secret_key,
-        rct::pk2rct(account.get_keys().m_account_address.m_spend_public_key),
+        account.get_keys().m_account_address.m_spend_public_key,
         enote_records));
     ASSERT_EQ(2, enote_records.size());
 
-    /*
-    // @TODO: Uncomment rest of test
-
     // assert values of plain record
-    const bool first_is_plain{enote_records[0].type == sp::jamtis::JamtisEnoteType::PLAIN};
-    const sp::SpEnoteRecordV1 &plain_enote_record{first_is_plain ? enote_records[0] : enote_records[1]};
+    const bool first_is_plain{enote_records[0].nominal_address_spend_pubkey == account.get_keys().m_account_address.m_spend_public_key};
+    const sp::CarrotIntermediateEnoteRecordV1 &plain_enote_record{first_is_plain ? enote_records[0] : enote_records[1]};
     EXPECT_EQ(payment_proposal.amount, plain_enote_record.amount);
-    crypto::secret_key plain_x;
-    crypto::secret_key plain_y;
-    sc_add(to_bytes(plain_x), to_bytes(keys.k_gi), to_bytes(plain_enote_record.enote_view_extension_g)); // x = k_gi + k^view_g
-    sc_add(to_bytes(plain_y), to_bytes(keys.k_ps), to_bytes(plain_enote_record.enote_view_extension_u)); // y = k_ps + k^view_u
-    EXPECT_TRUE(check_fcmppp_key_image(plain_x, plain_y, onetime_address_ref(plain_enote_record.enote), plain_enote_record.key_image));
 
-    // assert values of selfsend change record
-    const sp::SpEnoteRecordV1 &change_enote_record{first_is_plain ? enote_records[1] : enote_records[0]};
+    // assert values of change record
+    const sp::CarrotIntermediateEnoteRecordV1 &change_enote_record{first_is_plain ? enote_records[1] : enote_records[0]};
     rct::xmr_amount in_amount{0};
     for (const auto &i : input_amounts) in_amount += i;
     const rct::xmr_amount expected_change{in_amount - payment_proposal.amount - fee};
     EXPECT_EQ(expected_change, change_enote_record.amount);
-    crypto::secret_key change_x;
-    crypto::secret_key change_y;
-    sc_add(to_bytes(change_x), to_bytes(keys.k_gi), to_bytes(change_enote_record.enote_view_extension_g)); // x = k_gi + k^view_g
-    sc_add(to_bytes(change_y), to_bytes(keys.k_ps), to_bytes(change_enote_record.enote_view_extension_u)); // y = k_ps + k^view_u
-    EXPECT_TRUE(check_fcmppp_key_image(change_x, change_y, onetime_address_ref(change_enote_record.enote), change_enote_record.key_image));
-
-    */
 }

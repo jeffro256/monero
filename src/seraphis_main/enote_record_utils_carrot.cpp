@@ -44,32 +44,6 @@ namespace sp
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static bool derive_x_all(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const crypto::secret_key &k_view,
-    rct::key &x_all_out)
-{
-    // @TODO: this is slow as hell, use accelerated SUPERCOP impl
-
-    ge_p3 p3;
-    if (0 != ge_fromx25519_vartime(&p3, enote_ephemeral_pubkey.data)) // K_e
-        return false;
-
-    ge_p2 p2;
-    ge_scalarmult(&p2, to_bytes(k_view), &p3); // k_v K_e
-
-    ge_p1p1 p1p1;
-    ge_mul8(&p1p1, &p2); // 8 k_v K_e
-
-    ge_p1p1_to_p2(&p2, &p1p1);
-
-    ge_tobytes(x_all_out.bytes, &p2);
-
-    normalize_x(x_all_out);
-
-    return true;
-}
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
 static bool x25519_point_is_in_main_subgroup(const crypto::x25519_pubkey &P)
 {
     // @TODO: could be faster, but also isn't used much
@@ -90,10 +64,10 @@ static bool x25519_point_is_in_main_subgroup(const crypto::x25519_pubkey &P)
 //----------------------------------------------------------------------------------------------------------------------
 static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnoteV1 &enote,
     const rct::key &sender_receiver_secret,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_recipient_spend_pubkey,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    rct::key &nominal_address_spend_pubkey_out)
+    crypto::public_key &nominal_address_spend_pubkey_out)
 {
     // a = a
     amount_out = enote.core.amount;
@@ -117,7 +91,7 @@ static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &
     const rct::key &sender_receiver_secret,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    rct::key &nominal_address_spend_pubkey_out)
+    crypto::public_key &nominal_address_spend_pubkey_out)
 {
     // a = a_enc XOR H_8(q, Ko)
     amount_out = jamtis::decrypt_jamtis_amount(enote.encrypted_amount,
@@ -177,7 +151,7 @@ struct try_intermediate_enote_record_recovery_visitor
     { ASSERT_MES_AND_THROW("try_intermediate_enote_record_recovery_visitor: visited blank"); }
 
     const rct::key &sender_receiver_secret;
-    const rct::key &primary_recipient_spend_pubkey;
+    const crypto::public_key &primary_recipient_spend_pubkey;
     const crypto::x25519_pubkey &enote_ephemeral_pubkey;
     IntermediateLikeRecord &record_out;
 };
@@ -188,16 +162,16 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_recipient_spend_pubkey,
     IntermediateLikeRecord &record_out)
 {
-    // derive X_fa = X_ir = X_ur = 8 * k_v * x2ed(D_e)
-    rct::key x_all;
-    derive_x_all(enote_ephemeral_pubkey, k_view, x_all);
+    // X_fa = X_ir = X_ur = NormalizeX(8 * k_v * ConvertPubkey1(D_e))
+    crypto::public_key x_all;
+    jamtis::make_carrot_x_all_recipient(k_view, enote_ephemeral_pubkey, x_all);
 
     // check view tag (note: we check the whole view tag at once with npbits=0)
     bool matched_all_secondary_bits{false};
-    if (!jamtis::test_jamtis_secondary_view_tag(x_all.bytes,
+    if (!jamtis::test_jamtis_secondary_view_tag(to_bytes(x_all),
             onetime_address_ref(enote),
             view_tag_ref(enote),
             /*num_primary_view_tag_bits=*/0,
@@ -210,9 +184,9 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
 
     // make sender receiver secret
     rct::key nominal_sender_receiver_secret;
-    jamtis::make_jamtis_sender_receiver_secret(x_all.bytes,
-        x_all.bytes,
-        x_all.bytes,
+    jamtis::make_jamtis_sender_receiver_secret(to_bytes(x_all),
+        to_bytes(x_all),
+        to_bytes(x_all),
         enote_ephemeral_pubkey,
         input_context,
         nominal_sender_receiver_secret);
@@ -239,7 +213,7 @@ bool try_get_carrot_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_recipient_spend_pubkey,
     CarrotIntermediateEnoteRecordV1 &record_out)
 {
     return try_get_carrot_intermediate_like_enote_record(enote,
@@ -255,7 +229,7 @@ bool try_get_carrot_enote_record_v1(const SpEnoteVariant &enote,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
     const crypto::secret_key &k_spend,
-    const rct::key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_recipient_spend_pubkey,
     CarrotEnoteRecordV1 &record_out)
 {
     return false;

@@ -30,8 +30,10 @@
 #include "carrot_payment_proposal.h"
 
 //local headers
+#include "jamtis_account_secrets.h"
 #include "jamtis_enote_utils.h"
 #include "ringct/rctOps.h"
+#include "seraphis_crypto/sp_crypto_utils.h"
 
 //third party headers
 
@@ -76,20 +78,21 @@ static crypto::secret_key get_enote_ephemeal_privkey(const CarrotPaymentProposal
 static void get_output_proposal_plain_root_secrets_and_ephem_pubkey(const CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
-    rct::key &x_all_out,
+    crypto::public_key &x_all_out,
     rct::key &q_out)
 {
     // 1. enote ephemeral pubkey: D_e = ed_to_x(k_e K_base)
     get_enote_ephemeral_pubkey(proposal, enote_ephemeral_pubkey_out);
 
     // 2. X_fa = X_ir = X_ur = 8 * k_e * K^j_v
-    x_all_out = rct::scalarmultKey(rct::scalarmult8(rct::pk2rct(proposal.destination.m_view_public_key)),
-        rct::sk2rct(get_enote_ephemeal_privkey(proposal)));
+    x_all_out = rct::rct2pk(rct::scalarmultKey(rct::scalarmult8(rct::pk2rct(proposal.destination.m_view_public_key)),
+        rct::sk2rct(get_enote_ephemeal_privkey(proposal))));
+    normalize_x(x_all_out);
 
     // 5. q = H_32(X_fa, X_ir, X_ur, D_e, input_context)
-    make_jamtis_sender_receiver_secret(x_all_out.bytes,
-        x_all_out.bytes,
-        x_all_out.bytes,
+    make_jamtis_sender_receiver_secret(to_bytes(x_all_out),
+        to_bytes(x_all_out),
+        to_bytes(x_all_out),
         enote_ephemeral_pubkey_out,
         input_context,
         q_out);
@@ -98,20 +101,21 @@ static void get_output_proposal_plain_root_secrets_and_ephem_pubkey(const Carrot
 //-------------------------------------------------------------------------------------------------------------------
 static void get_output_proposal_address_parts_v1(const rct::key &q,
     const secret256_ptr_t x_all,
-    const CarrotPaymentProposalV1 &output_destination,
+    const crypto::public_key &destination_spend_pubkey,
+    const carrot_randomness_t &randomness,
     const rct::key &amount_commitment,
     rct::key &onetime_address_out,
     carrot_encrypted_randomness_t &randomness_enc_out,
     view_tag_t &view_tag_out)
 {
     // 1. onetime address: Ko = ... + K^j_s
-    make_jamtis_onetime_address_rct(rct::pk2rct(output_destination.destination.m_spend_public_key),
+    make_jamtis_onetime_address_rct(rct::pk2rct(destination_spend_pubkey),
         q,
         amount_commitment,
         onetime_address_out);
 
     // 2. encrypt address tag: addr_tag_enc = addr_tag XOR H_16(X_fa, X_ir, Ko)
-    randomness_enc_out = encrypt_jamtis_address_tag(output_destination.randomness,
+    randomness_enc_out = encrypt_jamtis_address_tag(randomness,
         x_all,
         x_all,
         onetime_address_out);
@@ -131,6 +135,13 @@ bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 
     return a.destination == b.destination &&
         a.amount == b.amount &&
         a.randomness == b.randomness &&
+        a.partial_memo == b.partial_memo;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool operator==(const CarrotPaymentProposalChangeV1 &a, const CarrotPaymentProposalChangeV1 &b)
+{
+    return a.amount == b.amount &&
+        a.enote_ephemeral_pubkey == b.enote_ephemeral_pubkey &&
         a.partial_memo == b.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -174,15 +185,16 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     make_jamtis_input_context_coinbase(block_height, input_context);
 
     // 3. plain enote ephemeral pubkey and root secrets: D_e, X_fa, X_ir, q
-    rct::key x_all; auto dhe_wiper = auto_wiper(x_all);
+    crypto::public_key x_all; auto dhe_wiper = auto_wiper(x_all);
     rct::key q; auto q_wiper = auto_wiper(q);
     get_output_proposal_plain_root_secrets_and_ephem_pubkey(proposal,
         input_context, enote_ephemeral_pubkey_out, x_all, q);
 
     // 4. build the output enote address pieces
     get_output_proposal_address_parts_v1(q,
-        x_all.bytes,
-        proposal,
+        to_bytes(x_all),
+        proposal.destination.m_spend_public_key,
+        proposal.randomness,
         rct::commit(proposal.amount, rct::I),
         output_enote_core_out.onetime_address,
         addr_tag_enc_out,
@@ -207,7 +219,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
         "jamtis payment proposal: invalid enote ephemeral privkey randomness (zero).");
 
     // 2. plain enote ephemeral pubkey and root secrets: D_e, X_fa, X_ir, q
-    rct::key x_all; auto dhe1_wiper = auto_wiper(x_all);
+    crypto::public_key x_all; auto dhe1_wiper = auto_wiper(x_all);
     rct::key q; auto q_wiper = auto_wiper(q);
     get_output_proposal_plain_root_secrets_and_ephem_pubkey(proposal,
         input_context, enote_ephemeral_pubkey_out, x_all, q);
@@ -217,8 +229,9 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 
     // 4. build the output enote address pieces
     get_output_proposal_address_parts_v1(q,
-        x_all.bytes,
-        proposal,
+        to_bytes(x_all),
+        proposal.destination.m_spend_public_key,
+        proposal.randomness,
         rct::commit(proposal.amount, rct::sk2rct(output_proposal_core_out.amount_blinding_factor)),
         output_proposal_core_out.onetime_address,
         addr_tag_enc_out,
@@ -229,6 +242,64 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 
     // 6. save the amount and partial memo
     output_proposal_core_out.amount = proposal.amount;
+    partial_memo_out                = proposal.partial_memo;
+}
+//-------------------------------------------------------------------------------------------------------------------
+void get_output_proposal_v1(const CarrotPaymentProposalChangeV1 &proposal,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
+    const rct::key &input_context,
+    SpOutputProposalCore &output_proposal_core_out,
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
+    encrypted_amount_t &encrypted_amount_out,
+    encrypted_address_tag_t &addr_tag_enc_out,
+    view_tag_t &view_tag_out,
+    TxExtra &partial_memo_out)
+{
+    // 1. X_fa = X_ir = X_ur = NormalizeX(8 * k_v * ConvertPubkey1(D_e))
+    crypto::public_key x_all;
+    CHECK_AND_ASSERT_THROW_MES(make_carrot_x_all_recipient(k_view,
+        proposal.enote_ephemeral_pubkey,
+        x_all), "get output proposal v1: carrot enote ephemeral pubkey failed to deserialize");
+    
+    // 2. q = H_32(X_fa, X_ir, X_ur, D_e, input_context)
+    rct::key sender_receiver_secret;
+    make_jamtis_sender_receiver_secret(to_bytes(x_all),
+        to_bytes(x_all),
+        to_bytes(x_all),
+        proposal.enote_ephemeral_pubkey,
+        input_context,
+        sender_receiver_secret);
+
+    // 3. amount blinding factor: y = Hn(q, enote_type)
+    make_jamtis_amount_blinding_factor(sender_receiver_secret,
+        JamtisEnoteType::PLAIN,
+        output_proposal_core_out.amount_blinding_factor);
+    
+    // 4. make secret change destination
+    crypto::public_key secret_change_spend_pubkey;
+    make_carrot_secret_change_spend_pubkey(primary_address_spend_pubkey,
+        k_view,
+        secret_change_spend_pubkey);
+
+    // 5. build the output enote address pieces
+    get_output_proposal_address_parts_v1(sender_receiver_secret,
+        to_bytes(x_all),
+        secret_change_spend_pubkey,
+        gen_address_tag(),
+        rct::commit(proposal.amount, rct::sk2rct(output_proposal_core_out.amount_blinding_factor)),
+        output_proposal_core_out.onetime_address,
+        addr_tag_enc_out,
+        view_tag_out);
+    
+    // 6. make encryped amount
+    encrypted_amount_out = encrypt_jamtis_amount(proposal.amount,
+        sender_receiver_secret,
+        output_proposal_core_out.onetime_address);
+
+    // 7. save the amount, enote ephemeral pubkey, and partial memo
+    output_proposal_core_out.amount = proposal.amount;
+    enote_ephemeral_pubkey_out      = proposal.enote_ephemeral_pubkey;
     partial_memo_out                = proposal.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------

@@ -350,6 +350,7 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &p
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
     const rct::key &input_context,
     SpOutputProposalV1 &output_proposal_out)
 {
@@ -362,7 +363,28 @@ void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
         output_proposal_out.view_tag,
         output_proposal_out.partial_memo);
 
-    output_proposal_out.num_primary_view_tag_bits = 0;
+    output_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
+}
+//-------------------------------------------------------------------------------------------------------------------   
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalChangeV1 &proposal,
+    const std::uint8_t num_primary_view_tag_bits,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
+    const rct::key &input_context,
+    SpOutputProposalV1 &output_proposal_out)
+{
+    jamtis::get_output_proposal_v1(proposal,
+        k_view,
+        primary_address_spend_pubkey,
+        input_context,
+        output_proposal_out.core,
+        output_proposal_out.enote_ephemeral_pubkey,
+        output_proposal_out.encrypted_amount,
+        output_proposal_out.addr_tag_enc,
+        output_proposal_out.view_tag,
+        output_proposal_out.partial_memo);
+
+    output_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_coinbase_outputs_v1(const std::vector<SpCoinbaseOutputProposalV1> &output_proposals,

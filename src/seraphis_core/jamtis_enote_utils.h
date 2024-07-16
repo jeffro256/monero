@@ -92,7 +92,7 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     const crypto::x25519_pubkey &addr_Dbase,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
- * make_carrot_enote_ephemeral_privkey - enote ephemeral privkey k_e for Carrot enotes
+ * brief: make_carrot_enote_ephemeral_privkey - enote ephemeral privkey k_e for Carrot enotes
  *   k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
  * param: n
  * param: amount - b
@@ -107,6 +107,17 @@ void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
     const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out);
+/**
+ * brief: make_carrot_x_all_recipient - perform the recipient-side ECDH exchange for Carrot enotes
+ *   X_fa = X_ir = X_ur = NormalizeX(8 * k_v * ConvertPubkey1(D_e))
+ * param: k_view - k_v
+ * param: enote_ephemeral_pubkey - D_e
+ * outparam: x_all_out - X_fa = X_ir = X_ur
+ * return: true if successful, false if a failure occured in point decompression
+ */
+bool make_carrot_x_all_recipient(const crypto::secret_key &k_view,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    crypto::public_key &x_all_out);
 /**
 * brief: make_jamtis_view_tag - used for optimized identification of enotes
 *    view_tag = H_npbits(D^d_fa, Ko) || H_ncbits(s_svt, Ko)
@@ -348,7 +359,7 @@ void recover_recipient_address_spend_key_sp(const rct::key &sender_receiver_secr
 void recover_recipient_address_spend_key_rct(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &onetime_address,
-    rct::key &recipient_address_spend_key_out);
+    crypto::public_key &recipient_address_spend_key_out);
 /**
 * brief: test_jamtis_onetime_address_sp - see if a Seraphis onetime address can be reconstructed
 * param: recipient_address_spend_key - recipient's address spendkey K^j_s

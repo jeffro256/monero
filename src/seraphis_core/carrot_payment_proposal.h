@@ -70,8 +70,26 @@ struct CarrotPaymentProposalV1 final
     TxExtra partial_memo;
 };
 
+////
+// CarrotPaymentProposaChangelV1
+// - for creating an output proposal to send an change to yourself
+///
+struct CarrotPaymentProposalChangeV1 final
+{
+    /// b
+    rct::xmr_amount amount;
+
+    /// enote ephemeral pubkey: xr G
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
+
+    /// memo elements to add to the tx memo
+    TxExtra partial_memo;
+};
+
 /// equality operators
 bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 &b);
+/// equality operators
+bool operator==(const CarrotPaymentProposalChangeV1 &a, const CarrotPaymentProposalChangeV1 &b);
 
 /**
 * brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
@@ -80,7 +98,6 @@ bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 
 */
 void get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
-
 /**
 * brief: get_coinbase_output_proposal_v1 - convert the jamtis proposal to a coinbase output proposal
 * param: proposal -
@@ -110,6 +127,29 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 * outparam: partial_memo_out -
 */
 void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
+    const rct::key &input_context,
+    SpOutputProposalCore &output_proposal_core_out,
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
+    encrypted_amount_t &encrypted_amount_out,
+    encrypted_address_tag_t &addr_tag_enc_out,
+    view_tag_t &view_tag_out,
+    TxExtra &partial_memo_out);
+/**
+* brief: get_output_proposal_v1 - convert the jamtis proposal to an output proposal
+* param: proposal -
+* param: k_view -
+* param: primary_address_spend_pubkey -
+* param: input_context -
+* outparam: output_proposal_core_out -
+* outparam: enote_ephemeral_pubkey_out -
+* outparam: encrypted_amount_out -
+* outparam: addr_tag_enc_out -
+* outparam: view_tag_out -
+* outparam: partial_memo_out -
+*/
+void get_output_proposal_v1(const CarrotPaymentProposalChangeV1 &proposal,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
