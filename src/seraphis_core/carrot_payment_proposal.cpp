@@ -138,7 +138,7 @@ bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 
         a.partial_memo == b.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool operator==(const CarrotPaymentProposalChangeV1 &a, const CarrotPaymentProposalChangeV1 &b)
+bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentProposalSelfSendV1 &b)
 {
     return a.amount == b.amount &&
         a.enote_ephemeral_pubkey == b.enote_ephemeral_pubkey &&
@@ -245,7 +245,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     partial_memo_out                = proposal.partial_memo;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void get_output_proposal_v1(const CarrotPaymentProposalChangeV1 &proposal,
+void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,

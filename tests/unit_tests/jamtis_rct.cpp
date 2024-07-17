@@ -261,7 +261,7 @@ static void make_jamtis_rct_transaction_pruned(
 static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     const rct::xmr_amount fee,
     std::vector<sp::jamtis::CarrotPaymentProposalV1> &payment_proposals_inout,
-    std::optional<sp::jamtis::CarrotPaymentProposalChangeV1> &change_proposal_out)
+    std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> &selfsend_proposals_inout)
 {
     // @TODO: handle proposal amount overfloe
 
@@ -274,9 +274,11 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
 
     CHECK_AND_ASSERT_THROW_MES(out_amount <= in_amount + fee,
         "finalize payment proposal set: proposals output amount is too high");
-    
-    const rct::xmr_amount change_amount{in_amount - out_amount - fee};
-    if (change_amount)
+
+    const rct::xmr_amount change_remaining{in_amount - out_amount - fee};
+    const bool missing_selfsend{selfsend_proposals_inout.empty()};
+    const bool needs_selfsend{change_remaining || missing_selfsend};
+    if (needs_selfsend)
     {
         crypto::x25519_pubkey enote_ephemeral_pubkey;
         if (payment_proposals_inout.size() == 1)
@@ -284,14 +286,12 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
         else
             enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
 
-        change_proposal_out = sp::jamtis::CarrotPaymentProposalChangeV1{
-                .amount = change_amount,
+        selfsend_proposals_inout.push_back(sp::jamtis::CarrotPaymentProposalSelfSendV1{
+                .amount = change_remaining,
                 .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
                 .partial_memo = {}
-            };
+            });
     }
-    else
-        change_proposal_out = std::nullopt;
 }
 
 static constexpr std::uint8_t DUMMY_NPBITS{8};
@@ -339,12 +339,11 @@ static void make_carrot_rct_transaction_pruned(
         "output amount sum plus fee is greater than input sum!");
 
     // finalize output proposals
-    std::vector<sp::jamtis::JamtisPaymentProposalSelfSendV1> selfsend_payment_proposals;
-    std::optional<sp::jamtis::CarrotPaymentProposalChangeV1> change_proposal;
+    std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> selfsend_proposals;
     finalize_payment_proposal_set(in_amount,
         fee,
         payment_proposals,
-        change_proposal);
+        selfsend_proposals);
 
     // input context
     rct::key input_context;
@@ -360,8 +359,8 @@ static void make_carrot_rct_transaction_pruned(
             input_context,
             tools::add_element(output_proposals));
     
-    if (change_proposal)
-        sp::make_v1_output_proposal_v1(*change_proposal,
+    for (const sp::jamtis::CarrotPaymentProposalSelfSendV1 &selfsend_proposal : selfsend_proposals)
+        sp::make_v1_output_proposal_v1(selfsend_proposal,
             DUMMY_NPBITS,
             k_view,
             primary_address_spend_pubkey,
@@ -691,4 +690,38 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
     for (const auto &i : input_amounts) in_amount += i;
     const rct::xmr_amount expected_change{in_amount - payment_proposal.amount - fee};
     EXPECT_EQ(expected_change, change_enote_record.amount);
+}
+
+TEST(jamtis_rct, finalize_carrot_0_change)
+{
+    {
+        const rct::xmr_amount in_amount{17};
+        const rct::xmr_amount fee{1};
+        std::vector<sp::jamtis::CarrotPaymentProposalV1> payment_proposals{
+            sp::jamtis::CarrotPaymentProposalV1{
+                .destination = {},
+                .is_subaddress = true,
+                .payment_id = sp::jamtis::null_payment_id,
+                .amount = 6,
+                .randomness = sp::jamtis::gen_address_tag(),
+                .partial_memo = {}
+            },
+            sp::jamtis::CarrotPaymentProposalV1{
+                .destination = {},
+                .is_subaddress = true,
+                .payment_id = sp::jamtis::null_payment_id,
+                .amount = 10,
+                .randomness = sp::jamtis::gen_address_tag(),
+                .partial_memo = {}
+            }
+        };
+        std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> selfsend_proposals;
+        finalize_payment_proposal_set(in_amount,
+            fee,
+            payment_proposals,
+            selfsend_proposals);
+        EXPECT_EQ(2, payment_proposals.size());
+        ASSERT_EQ(1, selfsend_proposals.size());
+        EXPECT_EQ(0, selfsend_proposals.front().amount);
+    }
 }

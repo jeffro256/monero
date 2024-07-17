@@ -71,10 +71,10 @@ struct CarrotPaymentProposalV1 final
 };
 
 ////
-// CarrotPaymentProposaChangelV1
+// CarrotPaymentProposalSelfSendV1
 // - for creating an output proposal to send an change to yourself
 ///
-struct CarrotPaymentProposalChangeV1 final
+struct CarrotPaymentProposalSelfSendV1 final
 {
     /// b
     rct::xmr_amount amount;
@@ -89,7 +89,7 @@ struct CarrotPaymentProposalChangeV1 final
 /// equality operators
 bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 &b);
 /// equality operators
-bool operator==(const CarrotPaymentProposalChangeV1 &a, const CarrotPaymentProposalChangeV1 &b);
+bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentProposalSelfSendV1 &b);
 
 /**
 * brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
@@ -147,7 +147,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 * outparam: view_tag_out -
 * outparam: partial_memo_out -
 */
-void get_output_proposal_v1(const CarrotPaymentProposalChangeV1 &proposal,
+void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
     const rct::key &input_context,

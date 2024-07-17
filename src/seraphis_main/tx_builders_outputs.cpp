@@ -366,7 +366,7 @@ void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
     output_proposal_out.num_primary_view_tag_bits = num_primary_view_tag_bits;
 }
 //-------------------------------------------------------------------------------------------------------------------   
-void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalChangeV1 &proposal,
+void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalSelfSendV1 &proposal,
     const std::uint8_t num_primary_view_tag_bits,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
