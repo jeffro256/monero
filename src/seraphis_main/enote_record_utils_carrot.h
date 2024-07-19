@@ -56,7 +56,7 @@ bool try_get_carrot_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     CarrotIntermediateEnoteRecordV1 &record_out);
 /**
 * brief: try_get_carrot_enote_record_v1 - try to extract an enote record from an enote
@@ -66,7 +66,7 @@ bool try_get_carrot_enote_record_v1(const SpEnoteVariant &enote,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
     const crypto::secret_key &k_spend,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     CarrotEnoteRecordV1 &record_out);
 
 } //namespace sp

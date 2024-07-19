@@ -151,21 +151,11 @@ void get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     // k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
     const crypto::secret_key enote_ephemeral_privkey{get_enote_ephemeal_privkey(proposal)};
 
-    // K_base = G if main address OR K^j_s if subaddress
-    const rct::key addr_base_pubkey{proposal.is_subaddress
-            ? rct::pk2rct(proposal.destination.m_spend_public_key)
-            : rct::G
-        };
-
-    // K_e = k_e K_base
-    const rct::key enote_ephemeral_pubkey_ed25519{
-            rct::scalarmultKey(addr_base_pubkey, rct::sk2rct(enote_ephemeral_privkey))
-        };
-
-    // convert K_e to X25519 (AKA D_e)
-    ge_p3 ge_p3_Ke;
-    ge_frombytes_vartime(&ge_p3_Ke, enote_ephemeral_pubkey_ed25519.bytes);
-    ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &ge_p3_Ke);
+    // D_e = ConvertPubkey2(k_e ([subaddress: K^j_s] [primary address: G])
+    make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
+        proposal.destination.m_spend_public_key,
+        proposal.is_subaddress,
+        enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
@@ -222,7 +212,10 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     crypto::public_key x_all; auto dhe1_wiper = auto_wiper(x_all);
     rct::key q; auto q_wiper = auto_wiper(q);
     get_output_proposal_plain_root_secrets_and_ephem_pubkey(proposal,
-        input_context, enote_ephemeral_pubkey_out, x_all, q);
+        input_context,
+        enote_ephemeral_pubkey_out,
+        x_all,
+        q);
 
     // 3. amount blinding factor: y = Hn(q, enote_type)
     make_jamtis_amount_blinding_factor(q, JamtisEnoteType::PLAIN, output_proposal_core_out.amount_blinding_factor);

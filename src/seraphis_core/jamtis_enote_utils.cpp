@@ -39,6 +39,7 @@ extern "C"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
+#include "jamtis_account_secrets.h"
 #include "jamtis_support_types.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
@@ -227,6 +228,25 @@ void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
     sp_hash_to_scalar(transcript.data(), transcript.size(), enote_ephemeral_privkey_out.data);
 
     assert(transcript.size() < 128); // for performance (should be 1 block size transcript)
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+    const crypto::public_key &address_spend_pubkey,
+    const bool is_subaddress,
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
+{
+    // K_ebase = [subaddress K^j_s] [primary address G]
+    const crypto::public_key ephemeral_base_key{is_subaddress ? address_spend_pubkey : rct::rct2pk(rct::G)};
+
+    // K_e = k_e K_ebase
+    ge_p3 enote_ephemeral_pubkey_ed25519;
+    ge_frombytes_vartime(&enote_ephemeral_pubkey_ed25519, to_bytes(ephemeral_base_key));
+    ge_scalarmult_p3(&enote_ephemeral_pubkey_ed25519,
+        to_bytes(enote_ephemeral_privkey),
+        &enote_ephemeral_pubkey_ed25519);
+
+    // D_e = ConvertPubkey2(K_e)
+    ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &enote_ephemeral_pubkey_ed25519);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool make_carrot_x_all_recipient(const crypto::secret_key &k_view,
@@ -687,6 +707,86 @@ bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
     amount_out = nominal_amount;
 
     return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::xmr_amount &amount,
+    const crypto::public_key &nominal_address_spend_pubkey,
+    const carrot_randomness_t &nominal_n,
+    const payment_id_t nominal_payment_id,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
+    bool &payment_id_is_null_out)
+{
+    // 1. K^change_s = K_s + k^change_g G + k^change_u U
+    crypto::public_key secret_change_spend_pubkey;
+    make_carrot_secret_change_spend_pubkey(primary_address_spend_pubkey,
+            k_view,
+            secret_change_spend_pubkey);
+
+    // 2. check if enote is selfsend change
+    if (nominal_address_spend_pubkey == secret_change_spend_pubkey)
+    {
+        payment_id_is_null_out = true;
+        return true;
+    }
+
+    // 3. recompute K^j_v
+    const bool is_to_subaddress{nominal_address_spend_pubkey != primary_address_spend_pubkey};
+    crypto::public_key nominal_address_view_pubkey;
+    if (is_to_subaddress)
+    {
+        // K^j_v = k_v K^j_s
+        nominal_address_view_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(nominal_address_spend_pubkey),
+            rct::sk2rct(k_view)));
+    }
+    else // is to primary address
+    {
+        // K^j_v = k_v G
+        nominal_address_view_pubkey = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k_view)));
+    }
+
+    // 4. recompte k_e' = (H_64(n', a, K^j_s', K^j_v', pid')) mod l
+    crypto::secret_key recomputed_enote_ephemeral_privkey;
+    make_carrot_enote_ephemeral_privkey(nominal_n,
+        amount,
+        nominal_address_spend_pubkey,
+        nominal_address_view_pubkey,
+        nominal_payment_id,
+        recomputed_enote_ephemeral_privkey);
+
+    // 5. recompute D_e' = ConvertPubkey2(k_e' ([subaddress: K^j_s'] [primary address: G])
+    crypto::x25519_pubkey recomputed_enote_ephemeral_pubkey;
+    make_carrot_enote_ephemeral_pubkey(recomputed_enote_ephemeral_privkey,
+        nominal_address_spend_pubkey,
+        is_to_subaddress,
+        recomputed_enote_ephemeral_pubkey);
+    
+    // 6. pass the test if D_e' ?= D_e
+    payment_id_is_null_out = false;
+    if (recomputed_enote_ephemeral_pubkey == enote_ephemeral_pubkey)
+        return true;
+    
+    // 7. retry step 4 with null payment id
+    make_carrot_enote_ephemeral_privkey(nominal_n,
+        amount,
+        nominal_address_spend_pubkey,
+        nominal_address_view_pubkey,
+        null_payment_id,
+        recomputed_enote_ephemeral_privkey);
+    
+    // 8. retry step 5 with null payment id
+    make_carrot_enote_ephemeral_pubkey(recomputed_enote_ephemeral_privkey,
+        nominal_address_spend_pubkey,
+        is_to_subaddress,
+        recomputed_enote_ephemeral_pubkey);
+    
+    // 9. pass the test if D_e' ?= D_e
+    payment_id_is_null_out = true;
+    if (recomputed_enote_ephemeral_pubkey == enote_ephemeral_pubkey)
+        return true;
+
+    return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace jamtis

@@ -108,6 +108,18 @@ void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out);
 /**
+ * brief: make_carrot_enote_ephemeral_pubkey - make enote ephemeral pubkey D_e from privkey and destination address
+ *   D_e = ConvertPubkey2(k_e ([subaddress: K^j_s] [primary address: G])
+ * param: enote_ephemeral_privkey - k_e
+ * param: address_spend_pubkey - K^j_s
+ * param: is_subaddress - is destination address a subaddress?
+ * outparam: enote_ephemeral_pubkey_out - D_e
+ */
+void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+    const crypto::public_key &address_spend_pubkey,
+    const bool is_subaddress,
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
+/**
  * brief: make_carrot_x_all_recipient - perform the recipient-side ECDH exchange for Carrot enotes
  *   X_fa = X_ir = X_ur = NormalizeX(8 * k_v * ConvertPubkey1(D_e))
  * param: k_view - k_v
@@ -456,6 +468,26 @@ bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
     const encrypted_amount_t &encrypted_amount,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out);
+/**
+ * brief: verify_carrot_janus_protection - check whether a received Carrot enote is Janus protected
+ * param: enote_ephemeral_pubkey - D_e
+ * param: amount - a
+ * param: nominal_address_spend_pubkey - K^j_s'
+ * param: nominal_n - n'
+ * param: nominal_payment_id - pid'
+ * param: k_view - k_v
+ * param: primary_address_spend_pubkey - K_s
+ * outparam: payment_id_is_null_out - whether nominal payment id should be ignored
+ * return: true if this received enote is safe from Janus attacks
+ */
+bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::xmr_amount &amount,
+    const crypto::public_key &nominal_address_spend_pubkey,
+    const carrot_randomness_t &nominal_n,
+    const payment_id_t nominal_payment_id,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &primary_address_spend_pubkey,
+    bool &payment_id_is_null_out);
 
 } //namespace jamtis
 } //namespace sp

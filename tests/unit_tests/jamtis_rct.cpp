@@ -542,7 +542,7 @@ static bool try_get_enote_records_rct_tx(const cryptonote::transaction &tx,
 
 static bool try_get_carrot_enote_records_rct_tx(const cryptonote::transaction &tx,
     const crypto::secret_key &k_view,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     std::vector<sp::CarrotIntermediateEnoteRecordV1> &enote_records_out)
 {
     enote_records_out.clear();
@@ -571,7 +571,7 @@ static bool try_get_carrot_enote_records_rct_tx(const cryptonote::transaction &t
                 enote_ephemeral_pubkey,
                 input_context,
                 k_view,
-                primary_recipient_spend_pubkey,
+                primary_address_spend_pubkey,
                 intermediate_enote_record))
             enote_records_out.push_back(intermediate_enote_record);
     }
@@ -723,5 +723,102 @@ TEST(jamtis_rct, finalize_carrot_0_change)
         EXPECT_EQ(2, payment_proposals.size());
         ASSERT_EQ(1, selfsend_proposals.size());
         EXPECT_EQ(0, selfsend_proposals.front().amount);
+    }
+}
+
+TEST(jamtis_rct, janus_attack)
+{
+    // make jamtis keys
+    cryptonote::account_base account;
+    account.generate();
+    hw::device &hwdev{hw::get_device("default")};
+
+    // make subaddresses
+    const cryptonote::account_public_address subaddress_1{
+            hwdev.get_subaddress(account.get_keys(), cryptonote::subaddress_index{0, 1})
+        };
+    const cryptonote::account_public_address subaddress_2{
+            hwdev.get_subaddress(account.get_keys(), cryptonote::subaddress_index{0, 1})
+        };
+
+    // test case core
+    const auto construct_enote_and_scan = [&account, &subaddress_1, &subaddress_2](
+        const cryptonote::account_public_address &dest,
+        const bool treat_as_subaddr
+    ) -> bool {
+        // 1. payment proposal
+        const sp::jamtis::CarrotPaymentProposalV1 payment_proposal{
+                .destination = dest,
+                .is_subaddress = treat_as_subaddr,
+                .payment_id = sp::jamtis::null_payment_id,
+                .amount = 69,
+                .randomness = sp::jamtis::gen_address_tag(),
+                .partial_memo = {}
+            };
+        // 2. output proposal
+        const rct::key input_context{};
+        sp::SpOutputProposalV1 output_proposal;
+        sp::make_v1_output_proposal_v1(payment_proposal,
+            DUMMY_NPBITS,
+            input_context,
+            output_proposal);
+        // 3. enote
+        sp::SpEnoteV1 enote;
+        get_enote_v1(output_proposal, enote);
+        // 4. scan enote and return false on scan failure
+        sp::CarrotIntermediateEnoteRecordV1 enote_record;
+        if (!sp::try_get_carrot_intermediate_enote_record_v1(enote,
+                output_proposal.enote_ephemeral_pubkey,
+                input_context,
+                account.get_keys().m_view_secret_key,
+                account.get_keys().m_account_address.m_spend_public_key,
+                enote_record))
+            return false;
+        // 5. check to see if nominal address spend pubkey is one already generated
+        //    (this is basically a subaddress table lookup)
+        return enote_record.nominal_address_spend_pubkey == account.get_keys().m_account_address.m_spend_public_key
+            || enote_record.nominal_address_spend_pubkey == subaddress_1.m_spend_public_key
+            || enote_record.nominal_address_spend_pubkey == subaddress_2.m_spend_public_key;
+    };
+
+    // control group test case instances
+    EXPECT_TRUE(construct_enote_and_scan(account.get_keys().m_account_address, false)); // main address with normal D_e
+    EXPECT_TRUE(construct_enote_and_scan(subaddress_1, true)); // subaddress 1 address with normal D_e
+    EXPECT_TRUE(construct_enote_and_scan(subaddress_2, true)); // subaddress 2 address with normal D_e
+    EXPECT_FALSE(construct_enote_and_scan(account.get_keys().m_account_address, true)); // main address with funky D_e
+    EXPECT_FALSE(construct_enote_and_scan(subaddress_1, false)); // subaddress 1 address with funky D_e
+    EXPECT_FALSE(construct_enote_and_scan(subaddress_2, false)); // subaddress 2 address with funky D_e
+
+    // mix all addresses together
+    const std::vector<crypto::public_key> spendpubs{
+        account.get_keys().m_account_address.m_spend_public_key,
+        subaddress_1.m_spend_public_key,
+        subaddress_2.m_spend_public_key,
+    };
+    const std::vector<crypto::public_key> viewpubs{
+        account.get_keys().m_account_address.m_view_public_key,
+        subaddress_1.m_view_public_key,
+        subaddress_2.m_view_public_key,
+    };
+    std::vector<cryptonote::account_public_address> mixed_addresses;
+    for (int i = 0; i < spendpubs.size(); ++i)
+    {
+        for (int j = 0; j < viewpubs.size(); ++j)
+        {
+            if (i == j) continue; // skip correct addresses
+            std::cout << i << ' ' << j << std::endl;
+            mixed_addresses.push_back({spendpubs[i], viewpubs[i]});
+        }
+    }
+
+    // run Janus tests on mixed addresses
+    int idx{0};
+    for (const cryptonote::account_public_address &mixed_address : mixed_addresses)
+    {
+        std::cout << idx++ << std::endl;
+        // NOTE TO READER: use a debugger to watch these tests fail on verify_carrot_janus_protection()
+        EXPECT_FALSE(construct_enote_and_scan(mixed_address, true)); // mixed janus address with subaddress D_e
+        std::cout << "--" << std::endl;
+        EXPECT_FALSE(construct_enote_and_scan(mixed_address, false)); // mixed janus address with main D_e
     }
 }

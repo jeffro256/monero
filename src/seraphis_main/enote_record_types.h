@@ -144,6 +144,8 @@ struct CarrotIntermediateEnoteRecordV1 final
     crypto::secret_key amount_blinding_factor;
     /// K1': nominal recipient address spend pubkey
     crypto::public_key nominal_address_spend_pubkey;
+    /// pid: payment id
+    jamtis::payment_id_t payment_id;
 };
 
 ////
@@ -163,6 +165,8 @@ struct CarrotEnoteRecordV1 final
     crypto::secret_key amount_blinding_factor;
     /// K1': nominal recipient address spend pubkey
     crypto::public_key nominal_address_spend_pubkey;
+    // pid: payment id
+    jamtis::payment_id_t payment_id;
     /// i: legacy address index (nullopt if unknown)
     std::optional<cryptonote::subaddress_index> address_index;
     /// L: key image (point at infinity if unknown)

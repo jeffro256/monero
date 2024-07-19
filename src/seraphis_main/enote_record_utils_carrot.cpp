@@ -63,11 +63,13 @@ static bool x25519_point_is_in_main_subgroup(const crypto::x25519_pubkey &P)
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnoteV1 &enote,
+    const jamtis::secret256_ptr_t x_all,
     const rct::key &sender_receiver_secret,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out)
+    crypto::public_key &nominal_address_spend_pubkey_out,
+    jamtis::carrot_randomness_t &nominal_n_out)
 {
     // a = a
     amount_out = enote.core.amount;
@@ -82,16 +84,27 @@ static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnot
         nominal_address_spend_pubkey_out);
 
     // check K^j_s' ?= K^{0}_s since miners only supports primary addresses
-    return nominal_address_spend_pubkey_out == primary_recipient_spend_pubkey;
+    if (nominal_address_spend_pubkey_out != primary_address_spend_pubkey)
+        return false;
+
+    // n' = n_enc XOR H_16(X_fa, X_ir, Ko)
+    nominal_n_out = jamtis::decrypt_jamtis_address_tag(enote.addr_tag_enc,
+        x_all,
+        x_all,
+        enote.core.onetime_address);
+
+    return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const jamtis::secret256_ptr_t x_all,
     const rct::key &sender_receiver_secret,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out)
+    crypto::public_key &nominal_address_spend_pubkey_out,
+    jamtis::carrot_randomness_t &nominal_n_out)
 {
     // a = a_enc XOR H_8(q, Ko)
     amount_out = jamtis::decrypt_jamtis_amount(enote.encrypted_amount,
@@ -117,53 +130,23 @@ static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &
         enote.core.amount_commitment,
         enote.core.onetime_address,
         nominal_address_spend_pubkey_out);
-    
+
+    // n' = n_enc XOR H_16(X_fa, X_ir, Ko)
+    nominal_n_out = jamtis::decrypt_jamtis_address_tag(enote.addr_tag_enc,
+        x_all,
+        x_all,
+        enote.core.onetime_address);
+
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-template <class IntermediateLikeRecord>
-struct try_intermediate_enote_record_recovery_visitor
-{
-    using result_type = bool;
-
-    bool operator()(const SpCoinbaseEnoteV1 &enote) const
-    {
-        return try_intermediate_enote_record_recovery_coinbase(enote,
-            sender_receiver_secret,
-            primary_recipient_spend_pubkey,
-            record_out.amount,
-            record_out.amount_blinding_factor,
-            record_out.nominal_address_spend_pubkey);
-    }
-
-    bool operator()(const SpEnoteV1 &enote) const
-    {
-        return try_intermediate_enote_record_recovery_noncoinbase(enote,
-            enote_ephemeral_pubkey,
-            sender_receiver_secret,
-            record_out.amount,
-            record_out.amount_blinding_factor,
-            record_out.nominal_address_spend_pubkey);
-    }
-
-    bool operator()(boost::blank) const
-    { ASSERT_MES_AND_THROW("try_intermediate_enote_record_recovery_visitor: visited blank"); }
-
-    const rct::key &sender_receiver_secret;
-    const crypto::public_key &primary_recipient_spend_pubkey;
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey;
-    IntermediateLikeRecord &record_out;
-};
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-template <class IntermediateLikeRecord>
 static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
-    const crypto::public_key &primary_recipient_spend_pubkey,
-    IntermediateLikeRecord &record_out)
+    const crypto::public_key &primary_address_spend_pubkey,
+    CarrotIntermediateEnoteRecordV1 &record_out)
 {
     // X_fa = X_ir = X_ur = NormalizeX(8 * k_v * ConvertPubkey1(D_e))
     crypto::public_key x_all;
@@ -191,16 +174,48 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
         input_context,
         nominal_sender_receiver_secret);
 
-    try_intermediate_enote_record_recovery_visitor<IntermediateLikeRecord> recovery_vis{
-            .sender_receiver_secret = nominal_sender_receiver_secret,
-            .primary_recipient_spend_pubkey = primary_recipient_spend_pubkey,
-            .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
-            .record_out = record_out
-        };
-    if (!enote.visit(std::move(recovery_vis)))
+    jamtis::carrot_randomness_t nominal_n;
+    if (enote.is_type<SpEnoteV1>()) // if is non-coinbase
+    {
+        if (!try_intermediate_enote_record_recovery_noncoinbase(enote.unwrap<SpEnoteV1>(),
+                enote_ephemeral_pubkey,
+                to_bytes(x_all),
+                nominal_sender_receiver_secret,
+                record_out.amount,
+                record_out.amount_blinding_factor,
+                record_out.nominal_address_spend_pubkey,
+                nominal_n))
+            return false;
+    }
+    else // is type SpCoinbaseEnoteV1
+    {
+        if (!try_intermediate_enote_record_recovery_coinbase(enote.unwrap<SpCoinbaseEnoteV1>(),
+                to_bytes(x_all),
+                nominal_sender_receiver_secret,
+                primary_address_spend_pubkey,
+                record_out.amount,
+                record_out.amount_blinding_factor,
+                record_out.nominal_address_spend_pubkey,
+                nominal_n))
+            return false;
+    }
+
+    // @TODO: payment ID decrypt
+    record_out.payment_id = jamtis::null_payment_id;
+
+    bool payment_id_is_null{false};
+    if (!jamtis::verify_carrot_janus_protection(enote_ephemeral_pubkey,
+            record_out.amount,
+            record_out.nominal_address_spend_pubkey,
+            nominal_n,
+            record_out.payment_id,
+            k_view,
+            primary_address_spend_pubkey,
+            payment_id_is_null))
         return false;
 
-    // @TODO: Do Janus protection check here!
+    if (payment_id_is_null)
+        record_out.payment_id = jamtis::null_payment_id;
 
     record_out.enote = enote;
     record_out.enote_ephemeral_pubkey = enote_ephemeral_pubkey;
@@ -213,14 +228,14 @@ bool try_get_carrot_intermediate_enote_record_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     CarrotIntermediateEnoteRecordV1 &record_out)
 {
     return try_get_carrot_intermediate_like_enote_record(enote,
         enote_ephemeral_pubkey,
         input_context,
         k_view,
-        primary_recipient_spend_pubkey,
+        primary_address_spend_pubkey,
         record_out);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -229,7 +244,7 @@ bool try_get_carrot_enote_record_v1(const SpEnoteVariant &enote,
     const rct::key &input_context,
     const crypto::secret_key &k_view,
     const crypto::secret_key &k_spend,
-    const crypto::public_key &primary_recipient_spend_pubkey,
+    const crypto::public_key &primary_address_spend_pubkey,
     CarrotEnoteRecordV1 &record_out)
 {
     return false;
