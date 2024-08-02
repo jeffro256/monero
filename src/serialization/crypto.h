@@ -90,7 +90,7 @@ BLOB_SERIALIZER(crypto::signature);
 BLOB_SERIALIZER(crypto::view_tag);
 BLOB_SERIALIZER(crypto::x25519_pubkey);
 BLOB_SERIALIZER(crypto::x25519_scalar);
-BLOB_SERIALIZER(crypto::x25519_secret_key);
+BLOB_SERIALIZER_FORCED(crypto::x25519_secret_key);
 VARIANT_TAG(debug_archive, crypto::hash, "hash");
 VARIANT_TAG(debug_archive, crypto::hash8, "hash8");
 VARIANT_TAG(debug_archive, crypto::public_key, "public_key");
@@ -101,6 +101,7 @@ VARIANT_TAG(debug_archive, crypto::signature, "signature");
 VARIANT_TAG(debug_archive, crypto::view_tag, "view_tag");
 VARIANT_TAG(debug_archive, crypto::x25519_pubkey, "x25519_pubkey");
 VARIANT_TAG(debug_archive, crypto::x25519_scalar, "x25519_scalar");
+VARIANT_TAG(debug_archive, crypto::x25519_secret_key, "x25519_secret_key");
 
 VARIANT_TAG(binary_archive, crypto::x25519_pubkey, 0xb1);
 VARIANT_TAG(binary_archive, crypto::x25519_scalar, 0xb2);

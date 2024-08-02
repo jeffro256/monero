@@ -195,7 +195,7 @@ void WalletScannerTest::transfer(const std::size_t wallet_idx,
     dsts.push_back(de);
 
     std::vector<tools::wallet2::pending_tx> ptx;
-    ptx = this->wallet(wallet_idx)->create_transactions_2(dsts, FAKE_OUTS_COUNT, 0, 0, std::vector<uint8_t>(), 0, {});
+    ptx = this->wallet(wallet_idx)->create_transactions_2(dsts, FAKE_OUTS_COUNT, 0, std::vector<uint8_t>(), 0, {});
     CHECK_AND_ASSERT_THROW_MES(ptx.size() == 1, "unexpected num pending txs");
     this->wallet(wallet_idx)->commit_tx(ptx[0]);
 
@@ -426,7 +426,6 @@ ExpectedScanResults WalletScannerTest::init_sweep_single_test()
             false /*is_subaddress*/,
             1 /*outputs*/,
             FAKE_OUTS_COUNT,
-            0 /*unlock_time*/,
             0 /*priority*/,
             std::vector<uint8_t>() /*extra*/
         );
@@ -525,7 +524,7 @@ ExpectedScanResults WalletScannerTest::init_multiple_subaddresses_test()
         }
 
         std::vector<tools::wallet2::pending_tx> ptx;
-        ptx = sendr_wallet->create_transactions_2(dsts, FAKE_OUTS_COUNT, 0, 0, std::vector<uint8_t>(), 0, {});
+        ptx = sendr_wallet->create_transactions_2(dsts, FAKE_OUTS_COUNT, 0, std::vector<uint8_t>(), 0, {});
         CHECK_AND_ASSERT_THROW_MES(ptx.size() == 1, "unexpected num pending txs");
         sendr_wallet->commit_tx(ptx[0]);
 
