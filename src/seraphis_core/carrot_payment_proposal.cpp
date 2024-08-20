@@ -199,6 +199,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
+    std::optional<encrypted_payment_id_t> &encrypted_payment_id_out,
     encrypted_amount_t &encrypted_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
     view_tag_t &view_tag_out,
@@ -230,10 +231,15 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
         addr_tag_enc_out,
         view_tag_out);
     
-    // 5. make encryped amount
+    // 5. make encrypted amount
     encrypted_amount_out = encrypt_jamtis_amount(proposal.amount, q, output_proposal_core_out.onetime_address);
 
-    // 6. save the amount and partial memo
+    // 6. make encrypted payment ID if applicable
+    encrypted_payment_id_out = (proposal.payment_id == null_payment_id)
+        ? std::optional<encrypted_payment_id_t>()
+        : encrypt_legacy_payment_id(proposal.payment_id, q, output_proposal_core_out.onetime_address);
+
+    // 7. save the amount and partial memo
     output_proposal_core_out.amount = proposal.amount;
     partial_memo_out                = proposal.partial_memo;
 }

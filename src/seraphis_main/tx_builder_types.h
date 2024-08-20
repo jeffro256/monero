@@ -85,8 +85,6 @@ struct SpCoinbaseOutputProposalV1 final
 
     /// D_e: enote ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
-    /// pid_enc: encrypted payment id
-    std::optional<sp::jamtis::encrypted_payment_id_t> payment_id_enc;
     /// npbits
     std::uint8_t num_primary_view_tag_bits;
     /// memo elements to add to the tx memo

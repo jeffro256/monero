@@ -40,6 +40,7 @@
 //third party headers
 
 //standard headers
+#include <optional>
 
 //forward declarations
 
@@ -121,6 +122,7 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 * param: input_context -
 * outparam: output_proposal_core_out -
 * outparam: enote_ephemeral_pubkey_out -
+* outparam: encrypted_payment_id_out -
 * outparam: encrypted_amount_out -
 * outparam: addr_tag_enc_out -
 * outparam: view_tag_out -
@@ -130,6 +132,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
+    std::optional<encrypted_payment_id_t> &encrypted_payment_id_out,
     encrypted_amount_t &encrypted_amount_out,
     encrypted_address_tag_t &addr_tag_enc_out,
     view_tag_t &view_tag_out,
@@ -159,7 +162,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     TxExtra &partial_memo_out);
 /**
 * brief: gen_jamtis_payment_proposal_v1 - generate a random proposal
-* param: is_subaddress - whether to generate a prooposal to subaddress
+* param: is_subaddress - whether to generate a proposal to subaddress
 * param: has_payment_id - true to generate non-zero payment ID, false for null payment ID
 * param: amount -
 * param: num_random_memo_elements -

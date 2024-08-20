@@ -725,7 +725,12 @@ bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral
 
     // 2. PASS: if enote is addressed to secret change pubkey
     if (nominal_address_spend_pubkey == secret_change_spend_pubkey)
+    {
+        // set payment id to null on a selfsend
+        nominal_payment_id_inout = null_payment_id;
+
         return true;
+    }
 
     // 3. recompute K^j_v
     const bool is_to_subaddress{nominal_address_spend_pubkey != primary_address_spend_pubkey};

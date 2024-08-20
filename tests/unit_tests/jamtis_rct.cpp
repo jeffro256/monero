@@ -692,6 +692,70 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
     EXPECT_EQ(expected_change, change_enote_record.amount);
 }
 
+TEST(jamtis_rct, pruned_tx_enote_record_pid_carrot)
+{
+    // make jamtis keys
+    cryptonote::account_base account;
+    account.generate();
+
+    const sp::jamtis::payment_id_t payment_id{sp::jamtis::gen_payment_id()};
+
+    // make payment proposal
+    const sp::jamtis::CarrotPaymentProposalV1 payment_proposal{
+            .destination = account.get_keys().m_account_address,
+            .is_subaddress = false,
+            .payment_id = payment_id,
+            .amount = 4,
+            .randomness = sp::jamtis::gen_address_tag(),
+            .partial_memo = {}
+        };
+
+    // make transaction with payment proposal
+    const std::vector<rct::xmr_amount> input_amounts{5, 6};
+    const rct::xmr_amount fee{1};
+    cryptonote::transaction tx;
+    make_carrot_rct_transaction_pruned(input_amounts,
+        fee,
+        {payment_proposal},
+        account.get_keys().m_account_address.m_spend_public_key,
+        account.get_keys().m_view_secret_key,
+        tx);
+    ASSERT_EQ(2, tx.version);
+    ASSERT_EQ(2, tx.vout.size());
+    ASSERT_EQ(2, tx.rct_signatures.outPk.size());
+    ASSERT_EQ(2, tx.rct_signatures.ecdhInfo.size());
+
+    // scan transaction
+    std::vector<sp::CarrotIntermediateEnoteRecordV1> enote_records;
+    ASSERT_TRUE(try_get_carrot_enote_records_rct_tx(tx,
+        account.get_keys().m_view_secret_key,
+        account.get_keys().m_account_address.m_spend_public_key,
+        enote_records));
+    ASSERT_EQ(2, enote_records.size());
+
+    // assert values of plain record
+    const bool first_is_plain{enote_records[0].nominal_address_spend_pubkey == account.get_keys().m_account_address.m_spend_public_key};
+    const sp::CarrotIntermediateEnoteRecordV1 &plain_enote_record{first_is_plain ? enote_records[0] : enote_records[1]};
+    EXPECT_EQ(payment_proposal.amount, plain_enote_record.amount);
+    EXPECT_EQ(payment_id, plain_enote_record.payment_id);
+
+    // make secret change spend pubkey
+    crypto::public_key secret_change_spend_pubkey;
+    sp::jamtis::make_carrot_secret_change_spend_pubkey(account.get_keys().m_account_address.m_spend_public_key,
+        account.get_keys().m_view_secret_key,
+        secret_change_spend_pubkey);
+
+    // assert values of change record
+    const sp::CarrotIntermediateEnoteRecordV1 &change_enote_record{first_is_plain ? enote_records[1] : enote_records[0]};
+    rct::xmr_amount in_amount{0};
+    for (const auto &i : input_amounts) in_amount += i;
+    const rct::xmr_amount expected_change{in_amount - payment_proposal.amount - fee};
+    ASSERT_NE(payment_proposal.amount, expected_change); // makes testing ambiguous
+    EXPECT_EQ(secret_change_spend_pubkey, change_enote_record.nominal_address_spend_pubkey);
+    EXPECT_EQ(expected_change, change_enote_record.amount);
+    EXPECT_EQ(sp::jamtis::null_payment_id, change_enote_record.payment_id);
+}
+
 TEST(jamtis_rct, finalize_carrot_0_change)
 {
     {
