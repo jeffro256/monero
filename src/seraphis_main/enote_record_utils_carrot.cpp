@@ -68,8 +68,7 @@ static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnot
     const crypto::public_key &primary_address_spend_pubkey,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out,
-    jamtis::carrot_randomness_t &nominal_n_out)
+    crypto::public_key &nominal_address_spend_pubkey_out)
 {
     // a = a
     amount_out = enote.core.amount;
@@ -87,12 +86,6 @@ static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnot
     if (nominal_address_spend_pubkey_out != primary_address_spend_pubkey)
         return false;
 
-    // n' = n_enc XOR H_16(X_fa, X_ir, Ko)
-    nominal_n_out = jamtis::decrypt_jamtis_address_tag(enote.addr_tag_enc,
-        x_all,
-        x_all,
-        enote.core.onetime_address);
-
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -103,8 +96,7 @@ static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &
     const rct::key &sender_receiver_secret,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out,
-    jamtis::carrot_randomness_t &nominal_n_out)
+    crypto::public_key &nominal_address_spend_pubkey_out)
 {
     // a = a_enc XOR H_8(q, Ko)
     amount_out = jamtis::decrypt_jamtis_amount(enote.encrypted_amount,
@@ -130,12 +122,6 @@ static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &
         enote.core.amount_commitment,
         enote.core.onetime_address,
         nominal_address_spend_pubkey_out);
-
-    // n' = n_enc XOR H_16(X_fa, X_ir, Ko)
-    nominal_n_out = jamtis::decrypt_jamtis_address_tag(enote.addr_tag_enc,
-        x_all,
-        x_all,
-        enote.core.onetime_address);
 
     return true;
 }
@@ -175,7 +161,6 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
         input_context,
         nominal_sender_receiver_secret);
 
-    jamtis::carrot_randomness_t nominal_n;
     if (enote.is_type<SpEnoteV1>()) // if is non-coinbase
     {
         if (!try_intermediate_enote_record_recovery_noncoinbase(enote.unwrap<SpEnoteV1>(),
@@ -184,8 +169,7 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
                 nominal_sender_receiver_secret,
                 record_out.amount,
                 record_out.amount_blinding_factor,
-                record_out.nominal_address_spend_pubkey,
-                nominal_n))
+                record_out.nominal_address_spend_pubkey))
             return false;
     }
     else // is type SpCoinbaseEnoteV1
@@ -196,19 +180,30 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
                 primary_address_spend_pubkey,
                 record_out.amount,
                 record_out.amount_blinding_factor,
-                record_out.nominal_address_spend_pubkey,
-                nominal_n))
+                record_out.nominal_address_spend_pubkey))
             return false;
     }
 
+    // anchor' = anchor_enc XOR H_16(q, q, Ko)
+    jamtis::carrot_anchor_t nominal_anchor{
+            jamtis::decrypt_jamtis_address_tag(addr_tag_enc_ref(enote),
+                nominal_sender_receiver_secret.bytes,
+                nominal_sender_receiver_secret.bytes,
+                onetime_address_ref(enote))
+        };
+
+    // decrypt payment id if applicable
     record_out.payment_id = payment_id_enc
         ? jamtis::decrypt_legacy_payment_id(*payment_id_enc, nominal_sender_receiver_secret, onetime_address_ref(enote))
         : jamtis::null_payment_id;
 
+    // verify that no Janus attack occurred
     if (!jamtis::verify_carrot_janus_protection(enote_ephemeral_pubkey,
+            onetime_address_ref(enote),
+            nominal_sender_receiver_secret,
             record_out.amount,
             record_out.nominal_address_spend_pubkey,
-            nominal_n,
+            nominal_anchor,
             k_view,
             primary_address_spend_pubkey,
             record_out.payment_id /*inout param*/))

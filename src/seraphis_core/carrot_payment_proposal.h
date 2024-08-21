@@ -33,6 +33,7 @@
 
 //local headers
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/subaddress_index.h"
 #include "jamtis_support_types.h"
 #include "sp_core_types.h"
 #include "tx_extra.h"
@@ -64,8 +65,8 @@ struct CarrotPaymentProposalV1 final
     payment_id_t payment_id;
     /// b
     rct::xmr_amount amount;
-    /// secret 16-byte randomness n
-    carrot_randomness_t randomness;
+    /// secret 16-byte randomness for Janus anchor
+    carrot_anchor_t randomness;
 
     /// memo elements to add to the tx memo
     TxExtra partial_memo;
@@ -77,6 +78,8 @@ struct CarrotPaymentProposalV1 final
 ///
 struct CarrotPaymentProposalSelfSendV1 final
 {
+    /// subaddress index within account for destination of funds: j
+    cryptonote::subaddress_index destination_index;
     /// b
     rct::xmr_amount amount;
 

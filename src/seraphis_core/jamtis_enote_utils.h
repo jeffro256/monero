@@ -93,15 +93,15 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * brief: make_carrot_enote_ephemeral_privkey - enote ephemeral privkey k_e for Carrot enotes
- *   k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
- * param: n
+ *   k_e = (H_64(anchor, b, K^j_s, K^j_v, pid)) mod l
+ * param: anchor - anchor
  * param: amount - b
  * param: address_spend_pubkey - K^j_s
  * param: address_view_pubkey - K^j_v
  * param: payment_id - pid
  * outparam: enote_ephemeral_privkey_out - k_e
  */
-void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
+void make_carrot_enote_ephemeral_privkey(const carrot_anchor_t &anchor,
     const rct::xmr_amount &amount,
     const crypto::public_key &address_spend_pubkey,
     const crypto::public_key &address_view_pubkey,
@@ -347,6 +347,21 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
     const rct::key &sender_receiver_secret,
     const rct::key &onetime_address);
 /**
+ * brief: make_carrot_janus_anchor_special - make a janus anchor for "special" enotes
+ *   anchor_sp = H_16(q, Ko, k_v, K_s)
+ * param: sender_receiver_secret - q
+ * param: onetime_address - Ko
+ * param: k_view - k_v
+ * param: spend_pubkey - K_s
+ * outparam: anchor_special_out - anchor_sp
+ * note: only to be used for external selfsend enotes in 2-out txs
+ */
+void make_carrot_janus_anchor_special(const rct::key &sender_receiver_secret,
+    const rct::key &onetime_address,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &spend_pubkey,
+    carrot_anchor_t &anchor_special_out);
+/**
 * brief: recover_recipient_address_spend_key - get the recipient spend key for which this Seraphis onetime address
 *                                              can be reconstructed as 'owned' by
 *   K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_x X + k^o_u U)
@@ -471,9 +486,11 @@ bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
 /**
  * brief: verify_carrot_janus_protection - check whether a received Carrot enote is Janus protected
  * param: enote_ephemeral_pubkey - D_e
+ * param: onetime_address - Ko
+ * param: sender_receiver_secret - q
  * param: amount - a
  * param: nominal_address_spend_pubkey - K^j_s'
- * param: nominal_n - n'
+ * param: nominal_anchor - anchor'
  * param: nominal_payment_id - pid'
  * param: k_view - k_v
  * param: primary_address_spend_pubkey - K_s
@@ -481,9 +498,11 @@ bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
  * return: true if this received enote is safe from Janus attacks
  */
 bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::key onetime_address,
+    const rct::key sender_receiver_secret,
     const rct::xmr_amount &amount,
     const crypto::public_key &nominal_address_spend_pubkey,
-    const carrot_randomness_t &nominal_n,
+    const carrot_anchor_t &nominal_anchor,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
     payment_id_t &nominal_payment_id_inout);

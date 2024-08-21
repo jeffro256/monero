@@ -279,6 +279,7 @@ static void make_jamtis_rct_transaction_pruned(
 
 static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     const rct::xmr_amount fee,
+    const cryptonote::subaddress_index change_index,
     std::vector<sp::jamtis::CarrotPaymentProposalV1> &payment_proposals_inout,
     std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> &selfsend_proposals_inout)
 {
@@ -306,6 +307,7 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
             enote_ephemeral_pubkey = crypto::x25519_pubkey_gen();
 
         selfsend_proposals_inout.push_back(sp::jamtis::CarrotPaymentProposalSelfSendV1{
+                .destination_index = change_index,
                 .amount = change_remaining,
                 .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
                 .partial_memo = {}
@@ -335,6 +337,7 @@ static void make_carrot_rct_transaction_pruned(
     std::vector<sp::jamtis::CarrotPaymentProposalV1> payment_proposals,
     const crypto::public_key &primary_address_spend_pubkey,
     const crypto::secret_key &k_view,
+    const cryptonote::subaddress_index change_index,
     cryptonote::transaction& tx)
 {
     CHECK_AND_ASSERT_THROW_MES(inputs.size(), "no inputs");
@@ -363,6 +366,7 @@ static void make_carrot_rct_transaction_pruned(
     std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> selfsend_proposals;
     finalize_payment_proposal_set(in_amount,
         fee,
+        change_index,
         payment_proposals,
         selfsend_proposals);
 
@@ -665,6 +669,7 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
         {payment_proposal},
         account.get_keys().m_account_address.m_spend_public_key,
         account.get_keys().m_view_secret_key,
+        cryptonote::subaddress_index{0, 0},
         tx);
     ASSERT_EQ(2, tx.version);
     ASSERT_EQ(2, tx.vout.size());
@@ -679,17 +684,18 @@ TEST(jamtis_rct, pruned_tx_enote_record_basic_carrot)
         enote_records));
     ASSERT_EQ(2, enote_records.size());
 
-    // assert values of plain record
-    const bool first_is_plain{enote_records[0].nominal_address_spend_pubkey == account.get_keys().m_account_address.m_spend_public_key};
-    const sp::CarrotIntermediateEnoteRecordV1 &plain_enote_record{first_is_plain ? enote_records[0] : enote_records[1]};
-    EXPECT_EQ(payment_proposal.amount, plain_enote_record.amount);
+    // assert destination spend pubkeys are both the main one
+    EXPECT_EQ(account.get_keys().m_account_address.m_spend_public_key,
+        enote_records[0].nominal_address_spend_pubkey);
+    EXPECT_EQ(account.get_keys().m_account_address.m_spend_public_key,
+        enote_records[1].nominal_address_spend_pubkey);
 
-    // assert values of change record
-    const sp::CarrotIntermediateEnoteRecordV1 &change_enote_record{first_is_plain ? enote_records[1] : enote_records[0]};
+    // assert amounts in each record
     rct::xmr_amount in_amount{0};
     for (const auto &i : input_amounts) in_amount += i;
     const rct::xmr_amount expected_change{in_amount - payment_proposal.amount - fee};
-    EXPECT_EQ(expected_change, change_enote_record.amount);
+    EXPECT_TRUE((enote_records[0].amount == payment_proposal.amount && enote_records[1].amount == expected_change)
+        || (enote_records[1].amount == payment_proposal.amount && enote_records[0].amount == expected_change));
 }
 
 TEST(jamtis_rct, pruned_tx_enote_record_pid_carrot)
@@ -719,6 +725,7 @@ TEST(jamtis_rct, pruned_tx_enote_record_pid_carrot)
         {payment_proposal},
         account.get_keys().m_account_address.m_spend_public_key,
         account.get_keys().m_view_secret_key,
+        cryptonote::subaddress_index{0, 0},
         tx);
     ASSERT_EQ(2, tx.version);
     ASSERT_EQ(2, tx.vout.size());
@@ -734,16 +741,11 @@ TEST(jamtis_rct, pruned_tx_enote_record_pid_carrot)
     ASSERT_EQ(2, enote_records.size());
 
     // assert values of plain record
-    const bool first_is_plain{enote_records[0].nominal_address_spend_pubkey == account.get_keys().m_account_address.m_spend_public_key};
+    const bool first_is_plain{enote_records[0].payment_id == payment_id};
     const sp::CarrotIntermediateEnoteRecordV1 &plain_enote_record{first_is_plain ? enote_records[0] : enote_records[1]};
     EXPECT_EQ(payment_proposal.amount, plain_enote_record.amount);
+    EXPECT_EQ(account.get_keys().m_account_address.m_spend_public_key, plain_enote_record.nominal_address_spend_pubkey);
     EXPECT_EQ(payment_id, plain_enote_record.payment_id);
-
-    // make secret change spend pubkey
-    crypto::public_key secret_change_spend_pubkey;
-    sp::jamtis::make_carrot_secret_change_spend_pubkey(account.get_keys().m_account_address.m_spend_public_key,
-        account.get_keys().m_view_secret_key,
-        secret_change_spend_pubkey);
 
     // assert values of change record
     const sp::CarrotIntermediateEnoteRecordV1 &change_enote_record{first_is_plain ? enote_records[1] : enote_records[0]};
@@ -751,7 +753,7 @@ TEST(jamtis_rct, pruned_tx_enote_record_pid_carrot)
     for (const auto &i : input_amounts) in_amount += i;
     const rct::xmr_amount expected_change{in_amount - payment_proposal.amount - fee};
     ASSERT_NE(payment_proposal.amount, expected_change); // makes testing ambiguous
-    EXPECT_EQ(secret_change_spend_pubkey, change_enote_record.nominal_address_spend_pubkey);
+    EXPECT_EQ(account.get_keys().m_account_address.m_spend_public_key, change_enote_record.nominal_address_spend_pubkey);
     EXPECT_EQ(expected_change, change_enote_record.amount);
     EXPECT_EQ(sp::jamtis::null_payment_id, change_enote_record.payment_id);
 }
@@ -782,6 +784,7 @@ TEST(jamtis_rct, finalize_carrot_0_change)
         std::vector<sp::jamtis::CarrotPaymentProposalSelfSendV1> selfsend_proposals;
         finalize_payment_proposal_set(in_amount,
             fee,
+            cryptonote::subaddress_index{0, 0},
             payment_proposals,
             selfsend_proposals);
         EXPECT_EQ(2, payment_proposals.size());
@@ -790,7 +793,7 @@ TEST(jamtis_rct, finalize_carrot_0_change)
     }
 }
 
-TEST(jamtis_rct, janus_attack_stupid)
+TEST(jamtis_rct, carrot_janus_attack_stupid)
 {
     // make jamtis keys
     cryptonote::account_base account;
@@ -883,7 +886,7 @@ TEST(jamtis_rct, janus_attack_stupid)
     }
 }
 
-static void get_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 &proposal,
+static void get_carrot_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 &proposal,
     const rct::key &input_context,
     const crypto::public_key &second_address_spend_pubkey,
     sp::SpOutputProposalCore &output_proposal_core_out,
@@ -894,7 +897,7 @@ static void get_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 
     sp::TxExtra &partial_memo_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(proposal.randomness != sp::jamtis::carrot_randomness_t{},
+    CHECK_AND_ASSERT_THROW_MES(proposal.randomness != sp::jamtis::carrot_anchor_t{},
         "jamtis payment proposal: invalid enote ephemeral privkey randomness (zero).");
 
     // 2. enote ephemeral privkey
@@ -941,8 +944,8 @@ static void get_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 
 
     // 8. make encrypted address tag
     addr_tag_enc_out = encrypt_jamtis_address_tag(proposal.randomness,
-        to_bytes(x_all),
-        to_bytes(x_all),
+        sender_receiver_secret.bytes,
+        sender_receiver_secret.bytes,
         output_proposal_core_out.onetime_address);
 
     // 9. view tag
@@ -962,7 +965,7 @@ static void get_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 
     partial_memo_out                = proposal.partial_memo;
 }
 
-TEST(jamtis_rct, janus_attack_actual)
+TEST(jamtis_rct, carrot_janus_attack_actual)
 {
     // make jamtis keys
     cryptonote::account_base account;
@@ -999,7 +1002,7 @@ TEST(jamtis_rct, janus_attack_actual)
         // 2. output proposal
         const rct::key input_context{};
         sp::SpOutputProposalV1 output_proposal;
-        get_output_proposal_janus(payment_proposal,
+        get_carrot_output_proposal_janus(payment_proposal,
             input_context,
             second_address_spend_pubkey,
             output_proposal.core,

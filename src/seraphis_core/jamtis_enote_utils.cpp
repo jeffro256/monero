@@ -39,7 +39,6 @@ extern "C"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
-#include "jamtis_account_secrets.h"
 #include "jamtis_support_types.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
@@ -210,17 +209,17 @@ void make_jamtis_enote_ephemeral_pubkey(const crypto::x25519_secret_key &enote_e
     x25519_scmul_key(enote_ephemeral_privkey, addr_Dbase, enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_enote_ephemeral_privkey(const carrot_randomness_t &n,
+void make_carrot_enote_ephemeral_privkey(const carrot_anchor_t &anchor,
     const rct::xmr_amount &amount,
     const crypto::public_key &address_spend_pubkey,
     const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out)
 {
-    // k_e = (H_64(n, b, K^j_s, K^j_v, pid)) mod l
-    SpKDFTranscript transcript{config::HASH_KEY_CARROT_ENOTE_EPHEMERAL_PRIVKEY,
-        sizeof(carrot_randomness_t) + sizeof(rct::xmr_amount) + 2*sizeof(rct::key) + PAYMENT_ID_BYTES};
-    transcript.append("n", n.bytes);
+    // k_e = (H_64(anchor, b, K^j_s, K^j_v, pid)) mod l
+    SpKDFTranscript transcript{config::HASH_KEY_CARROT_EPHEMERAL_PRIVKEY,
+        sizeof(carrot_anchor_t) + sizeof(rct::xmr_amount) + 2*sizeof(rct::key) + PAYMENT_ID_BYTES};
+    transcript.append("anchor", anchor.bytes);
     transcript.append("b", amount);
     transcript.append("K^j_s", address_spend_pubkey);
     transcript.append("K^j_v", address_view_pubkey);
@@ -537,6 +536,22 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t pid_enc,
     return pid_enc ^ jamtis_encrypted_payment_id_mask(sender_receiver_secret, onetime_address);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_carrot_janus_anchor_special(const rct::key &sender_receiver_secret,
+    const rct::key &onetime_address,
+    const crypto::secret_key &k_view,
+    const crypto::public_key &spend_pubkey,
+    carrot_anchor_t &anchor_special_out)
+{
+    // anchor_sp = H_16(q, Ko, k_v, K_s)
+    SpKDFTranscript transcript{config::HASH_KEY_JAMTIS_SENDER_RECEIVER_SECRET, 4*sizeof(rct::key)};
+    transcript.append("q", sender_receiver_secret);
+    transcript.append("Ko", onetime_address);
+    transcript.append("k_v", k_view);
+    transcript.append("K_s", spend_pubkey);
+
+    sp_hash_to_16(transcript.data(), transcript.size(), anchor_special_out.bytes);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void recover_recipient_address_spend_key_sp(const rct::key &sender_receiver_secret,
     const rct::key &amount_commitment,
     const rct::key &onetime_address,
@@ -710,25 +725,28 @@ bool try_get_jamtis_amount(const rct::key &sender_receiver_secret,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const rct::key onetime_address,
+    const rct::key sender_receiver_secret,
     const rct::xmr_amount &amount,
     const crypto::public_key &nominal_address_spend_pubkey,
-    const carrot_randomness_t &nominal_n,
+    const carrot_anchor_t &nominal_anchor,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
     payment_id_t &nominal_payment_id_inout)
 {
-    // 1. K^change_s = K_s + k^change_g G + k^change_u U
-    crypto::public_key secret_change_spend_pubkey;
-    make_carrot_secret_change_spend_pubkey(primary_address_spend_pubkey,
-            k_view,
-            secret_change_spend_pubkey);
+    // 1. anchor_sp' = H_16(q, Ko, k_v, K_s)
+    carrot_anchor_t janus_anchor_special;
+    make_carrot_janus_anchor_special(sender_receiver_secret,
+        onetime_address,
+        k_view,
+        primary_address_spend_pubkey,
+        janus_anchor_special);
 
-    // 2. PASS: if enote is addressed to secret change pubkey
-    if (nominal_address_spend_pubkey == secret_change_spend_pubkey)
+    // 2. PASS: if anchor' == anchor_sp
+    if (janus_anchor_special == nominal_anchor)
     {
         // set payment id to null on a selfsend
         nominal_payment_id_inout = null_payment_id;
-
         return true;
     }
 
@@ -750,9 +768,9 @@ bool verify_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral
     // first attempt with passed nominal_payment_id_inout, second attempt with null...
     for (int attempt = 0; attempt < 2; ++attempt)
     {
-        // 4. recompte k_e' = (H_64(n', a, K^j_s', K^j_v', pid')) mod l
+        // 4. recompute k_e' = (H_64(n', a, K^j_s', K^j_v', pid')) mod l
         crypto::secret_key recomputed_enote_ephemeral_privkey;
-        make_carrot_enote_ephemeral_privkey(nominal_n,
+        make_carrot_enote_ephemeral_privkey(nominal_anchor,
             amount,
             nominal_address_spend_pubkey,
             nominal_address_view_pubkey,

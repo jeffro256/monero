@@ -65,12 +65,13 @@ struct address_tag_t final
 
 /// address tag XORd with a user-defined secret: addr_tag_enc = addr_tag XOR addr_tag_enc_secret
 using encrypted_address_tag_t = address_tag_t;
-/// uniform random bytes which encodes seed to derive the ephemeral private key for a Carrot enote
+/// use in Janus protection as either a) random seed to rederive the ephemeral privkey or b) a hash
+///   of the ephemeral pubkey and private viewkey for external selfsend enotes in 2-out txs
 /// this should be the same size as the Jamtis address tag to prevent fingerprinting
-using carrot_randomness_t = address_tag_t;
-/// carrot randomness XORd with a user-defined secret, much like encrypted_address_tag_t
-using carrot_encrypted_randomness_t = carrot_randomness_t;
-static_assert(sizeof(carrot_randomness_t) >= 16,
+using carrot_anchor_t = address_tag_t;
+/// carrot janus anchor XORd with a user-defined secret, much like encrypted_address_tag_t
+using carrot_encrypted_anchor_t = carrot_anchor_t;
+static_assert(sizeof(carrot_anchor_t) >= 16,
     "Jamtis address tag not big enough for sufficient random entropy");
 
 /// sizes must be consistent
