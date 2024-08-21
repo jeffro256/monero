@@ -277,6 +277,20 @@ static void make_jamtis_rct_transaction_pruned(
         tx);
 }
 
+static bool destination_is_ours(const cryptonote::account_public_address &address,
+    const crypto::secret_key &k_view)
+{
+    crypto::public_key recomputed_addr_Kv{rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k_view)))};
+    if (recomputed_addr_Kv == address.m_view_public_key)
+        return true;
+
+    recomputed_addr_Kv = rct::rct2pk(
+            rct::scalarmultKey(rct::pk2rct(address.m_spend_public_key), rct::sk2rct(k_view))
+        );
+
+    return recomputed_addr_Kv == address.m_view_public_key;
+}
+
 static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     const rct::xmr_amount fee,
     const cryptonote::subaddress_index change_index,
@@ -291,6 +305,12 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
     rct::xmr_amount out_amount{0};
     for (const sp::jamtis::CarrotPaymentProposalV1 &payment_proposal : payment_proposals_inout)
         out_amount += payment_proposal.amount;
+
+    const bool add_plain_selfsend{
+            payment_proposals_inout.empty()
+            && selfsend_proposals_inout.size() == 1
+            && !selfsend_proposals_inout.at(0).is_plain_type
+        };
 
     CHECK_AND_ASSERT_THROW_MES(out_amount <= in_amount + fee,
         "finalize payment proposal set: proposals output amount is too high");
@@ -309,6 +329,7 @@ static void finalize_payment_proposal_set(const rct::xmr_amount in_amount,
         selfsend_proposals_inout.push_back(sp::jamtis::CarrotPaymentProposalSelfSendV1{
                 .destination_index = change_index,
                 .amount = change_remaining,
+                .is_plain_type = add_plain_selfsend,
                 .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
                 .partial_memo = {}
             });

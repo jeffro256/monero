@@ -62,69 +62,61 @@ static bool x25519_point_is_in_main_subgroup(const crypto::x25519_pubkey &P)
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static bool try_intermediate_enote_record_recovery_coinbase(const SpCoinbaseEnoteV1 &enote,
-    const jamtis::secret256_ptr_t x_all,
-    const rct::key &sender_receiver_secret,
-    const crypto::public_key &primary_address_spend_pubkey,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out)
+struct amount_commitment_recompute_visitor
 {
-    // a = a
-    amount_out = enote.core.amount;
+    using result_type = bool;
 
-    // y = 1
-    amount_blinding_factor_out = rct::rct2sk(rct::I);
+    bool operator()(const SpEnoteV1 &enote) const
+    {
+        // a' = a_enc XOR H_8(q, Ko)
+        amount_out = jamtis::decrypt_jamtis_amount(enote.encrypted_amount,
+            sender_receiver_secret,
+            enote.core.onetime_address);
 
-    // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_u U)
-    jamtis::recover_recipient_address_spend_key_rct(sender_receiver_secret,
-        rct::zeroCommit(amount_out),
-        enote.core.onetime_address,
-        nominal_address_spend_pubkey_out);
+        // cache a' H
+        const rct::key aH{rct::scalarmultH(rct::d2h(amount_out))};
 
-    // check K^j_s' ?= K^{0}_s since miners only supports primary addresses
-    if (nominal_address_spend_pubkey_out != primary_address_spend_pubkey)
+        static constexpr jamtis::JamtisEnoteType check_types[]{
+            jamtis::JamtisEnoteType::PLAIN, jamtis::JamtisEnoteType::CHANGE
+        };
+
+        // for each enote_type...
+        for (size_t i = 0; i < sizeof(check_types)/sizeof(check_types[0]); ++i)
+        {
+            const jamtis::JamtisEnoteType enote_type{check_types[i]};
+
+            // y' = H_n(q, enote_type)
+            jamtis::make_jamtis_amount_blinding_factor(sender_receiver_secret,
+                enote_type,
+                amount_blinding_factor_out);
+
+            // C' = y' G + a' H
+            rct::key recomputed_amount_commitment;
+            rct::addKeys1(recomputed_amount_commitment,
+                rct::sk2rct(amount_blinding_factor_out),
+                aH);
+
+            // PASS if C' == C
+            if (recomputed_amount_commitment == enote.core.amount_commitment)
+                return true;
+        }
+
         return false;
+    }
 
-    return true;
-}
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-static bool try_intermediate_enote_record_recovery_noncoinbase(const SpEnoteV1 &enote,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const jamtis::secret256_ptr_t x_all,
-    const rct::key &sender_receiver_secret,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    crypto::public_key &nominal_address_spend_pubkey_out)
-{
-    // a = a_enc XOR H_8(q, Ko)
-    amount_out = jamtis::decrypt_jamtis_amount(enote.encrypted_amount,
-        sender_receiver_secret,
-        enote.core.onetime_address);
+    bool operator()(const SpCoinbaseEnoteV1 &enote) const
+    {
+        amount_out = enote.core.amount;
+        amount_blinding_factor_out = rct::rct2sk(rct::I);
+        enote_type_out = jamtis::JamtisEnoteType::PLAIN;
+        return true;
+    }
 
-    // y = H_n(q, PLAIN)
-    jamtis::make_jamtis_amount_blinding_factor(sender_receiver_secret,
-        jamtis::JamtisEnoteType::PLAIN,
-        amount_blinding_factor_out);
-
-    // check (a H + y G) ?= C
-    if (!(rct::commit(amount_out, rct::sk2rct(amount_blinding_factor_out)) == enote.core.amount_commitment))
-        return false;
-
-    // check that the enote ephemeral pubkey is in the prime subgroup, else the shared secret
-    // won't be unique to us
-    if (!x25519_point_is_in_main_subgroup(enote_ephemeral_pubkey))
-        return false;
-
-    // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_u U)
-    jamtis::recover_recipient_address_spend_key_rct(sender_receiver_secret,
-        enote.core.amount_commitment,
-        enote.core.onetime_address,
-        nominal_address_spend_pubkey_out);
-
-    return true;
-}
+    const rct::key &sender_receiver_secret;
+    rct::xmr_amount &amount_out;
+    crypto::secret_key &amount_blinding_factor_out;
+    jamtis::JamtisEnoteType &enote_type_out;
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &enote,
@@ -161,31 +153,31 @@ static bool try_get_carrot_intermediate_like_enote_record(const SpEnoteVariant &
         input_context,
         nominal_sender_receiver_secret);
 
-    if (enote.is_type<SpEnoteV1>()) // if is non-coinbase
-    {
-        if (!try_intermediate_enote_record_recovery_noncoinbase(enote.unwrap<SpEnoteV1>(),
-                enote_ephemeral_pubkey,
-                to_bytes(x_all),
-                nominal_sender_receiver_secret,
-                record_out.amount,
-                record_out.amount_blinding_factor,
-                record_out.nominal_address_spend_pubkey))
-            return false;
-    }
-    else // is type SpCoinbaseEnoteV1
-    {
-        if (!try_intermediate_enote_record_recovery_coinbase(enote.unwrap<SpCoinbaseEnoteV1>(),
-                to_bytes(x_all),
-                nominal_sender_receiver_secret,
-                primary_address_spend_pubkey,
-                record_out.amount,
-                record_out.amount_blinding_factor,
-                record_out.nominal_address_spend_pubkey))
-            return false;
-    }
+    // open amount commitment
+    if (!enote.visit(amount_commitment_recompute_visitor{nominal_sender_receiver_secret,
+            record_out.amount,
+            record_out.amount_blinding_factor,
+            record_out.enote_type}))
+        return false;
+
+    // check that the enote ephemeral pubkey is in the prime subgroup, else the shared secret
+    // won't be unique to us
+    if (!x25519_point_is_in_main_subgroup(enote_ephemeral_pubkey))
+        return false;
+
+    // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_u U)
+    jamtis::recover_recipient_address_spend_key_rct(nominal_sender_receiver_secret,
+        amount_commitment_ref(enote),
+        onetime_address_ref(enote),
+        record_out.nominal_address_spend_pubkey);
+
+    // if coinbase tx, assert K^j_s' ?= K^{0}_s since miners only supports primary addresses
+    if (enote.is_type<SpCoinbaseEnoteV1>()
+            && record_out.nominal_address_spend_pubkey != primary_address_spend_pubkey)
+        return false;
 
     // anchor' = anchor_enc XOR H_16(q, q, Ko)
-    jamtis::carrot_anchor_t nominal_anchor{
+    const jamtis::carrot_anchor_t nominal_anchor{
             jamtis::decrypt_jamtis_address_tag(addr_tag_enc_ref(enote),
                 nominal_sender_receiver_secret.bytes,
                 nominal_sender_receiver_secret.bytes,

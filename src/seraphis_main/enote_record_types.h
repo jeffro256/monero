@@ -142,6 +142,8 @@ struct CarrotIntermediateEnoteRecordV1 final
     rct::xmr_amount amount;
     /// x: amount blinding factor
     crypto::secret_key amount_blinding_factor;
+    /// enote type
+    jamtis::JamtisEnoteType enote_type;
     /// K1': nominal recipient address spend pubkey
     crypto::public_key nominal_address_spend_pubkey;
     /// pid: payment id
@@ -163,6 +165,8 @@ struct CarrotEnoteRecordV1 final
     rct::xmr_amount amount;
     /// x: amount blinding factor
     crypto::secret_key amount_blinding_factor;
+    /// enote type
+    jamtis::JamtisEnoteType enote_type;
     /// K1': nominal recipient address spend pubkey
     crypto::public_key nominal_address_spend_pubkey;
     // pid: payment id

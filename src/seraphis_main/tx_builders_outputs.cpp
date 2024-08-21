@@ -296,7 +296,14 @@ void check_v1_output_proposal_set_semantics_v1(const std::vector<SpOutputProposa
             "Semantics check output proposals v1: an output onetime address is not in the prime subgroup.");
     }
 
-    // 6. assert that proposals share same npbits value
+    // 6. amount blinding factors should be unique (so we don't end up with trivially related commitments)
+    std::unordered_set<crypto::secret_key> blinding_factors;
+    for (const SpOutputProposalV1 &output_proposal : output_proposals)
+        blinding_factors.insert(output_proposal.core.amount_blinding_factor);
+    CHECK_AND_ASSERT_THROW_MES(blinding_factors.size() == output_proposals.size(),
+        "Semantics check output proposals v1: output amount blinding factors are not unique.");
+
+    // 7. assert that proposals share same npbits value
     get_shared_num_primary_view_tag_bits({}, {}, {}, output_proposals);
 }
 //-------------------------------------------------------------------------------------------------------------------

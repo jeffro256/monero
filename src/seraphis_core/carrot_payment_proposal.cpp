@@ -306,17 +306,22 @@ void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
         input_context,
         sender_receiver_secret);
 
-    // 3. amount blinding factor: y = Hn(q, enote_type)
+    // 3. get enote_type
+    const JamtisEnoteType enote_type{
+            proposal.is_plain_type ? JamtisEnoteType::PLAIN : JamtisEnoteType::CHANGE
+        };
+
+    // 4. amount blinding factor: y = Hn(q, enote_type)
     make_jamtis_amount_blinding_factor(sender_receiver_secret,
-        JamtisEnoteType::PLAIN,
+        enote_type,
         output_proposal_core_out.amount_blinding_factor);
 
-    // 4. K^j_s (we do this here instead of allowing the user to specify the pubkey for robustness)
+    // 5. K^j_s (we do this here instead of allowing the user to specify the pubkey for robustness)
     const crypto::public_key destination_spend_pubkey{
             get_subaddress_spend_public_key(k_view, primary_address_spend_pubkey, proposal.destination_index)
         };
 
-    // 5. build the output enote address pieces
+    // 6. build the output enote address pieces
     carrot_encrypted_anchor_t dummy_anchor_enc;
     get_output_proposal_address_parts_v1(sender_receiver_secret,
         to_bytes(x_all),
@@ -327,12 +332,12 @@ void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
         dummy_anchor_enc,
         view_tag_out);
     
-    // 6. make encrypted amount
+    // 7. make encrypted amount
     encrypted_amount_out = encrypt_jamtis_amount(proposal.amount,
         sender_receiver_secret,
         output_proposal_core_out.onetime_address);
     
-    // 7. make encrypted special janus anchor
+    // 8. make encrypted special janus anchor
     carrot_anchor_t janus_anchor_special;
     make_carrot_janus_anchor_special(sender_receiver_secret,
         output_proposal_core_out.onetime_address,
@@ -344,7 +349,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
         sender_receiver_secret.bytes,
         output_proposal_core_out.onetime_address);
 
-    // 8. save the amount, enote ephemeral pubkey, and partial memo
+    // 9. save the amount, enote ephemeral pubkey, and partial memo
     output_proposal_core_out.amount = proposal.amount;
     enote_ephemeral_pubkey_out      = proposal.enote_ephemeral_pubkey;
     partial_memo_out                = proposal.partial_memo;

@@ -83,6 +83,8 @@ struct CarrotPaymentProposalSelfSendV1 final
     /// b
     rct::xmr_amount amount;
 
+    /// true if PLAIN enote_type, false if CHANGE enote_type
+    bool is_plain_type;
     /// enote ephemeral pubkey: xr G
     crypto::x25519_pubkey enote_ephemeral_pubkey;
 
