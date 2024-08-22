@@ -111,7 +111,7 @@ static crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposa
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static void get_output_proposal_plain_root_secrets_and_ephem_pubkey(const CarrotPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     crypto::public_key &x_all_out,
     rct::key &q_out)
@@ -207,7 +207,7 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
         "jamtis payment proposal: invalid randomness for janus anchor (zero).");
 
     // 2. coinbase input context
-    rct::key input_context;
+    input_context_t input_context;
     make_jamtis_input_context_coinbase(block_height, input_context);
 
     // 3. plain enote ephemeral pubkey and root secrets: D_e, X_fa, X_ir, q
@@ -232,7 +232,7 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out,
@@ -283,7 +283,7 @@ void get_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
 void get_output_proposal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_amount_t &encrypted_amount_out,

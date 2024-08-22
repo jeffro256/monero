@@ -85,7 +85,7 @@ enum class OutputProposalSetExtraTypeV1
 */
 void check_jamtis_payment_proposal_selfsend_semantics_v1(
     const jamtis::JamtisPaymentProposalSelfSendV1 &selfsend_payment_proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const rct::key &spend_pubkey,
     const crypto::secret_key &s_view_balance);
 /**
@@ -128,7 +128,7 @@ void make_v1_coinbase_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &
 * outparam: output_proposal_out -
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**
 * brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
@@ -139,7 +139,7 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalV1 &proposal,
 */
 void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &s_view_balance,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**
 * brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
@@ -150,7 +150,7 @@ void make_v1_output_proposal_v1(const jamtis::JamtisPaymentProposalSelfSendV1 &p
 */
 void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalV1 &proposal,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**
 * brief: make_v1_output_proposal_v1 - convert a jamtis selfsend proposal to an output proposal
@@ -165,7 +165,7 @@ void make_v1_output_proposal_v1(const jamtis::CarrotPaymentProposalSelfSendV1 &p
     const std::uint8_t num_primary_view_tag_bits,
     const crypto::secret_key &k_view,
     const crypto::public_key &primary_address_spend_pubkey,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalV1 &output_proposal_out);
 /**
 * brief: make_v1_coinbase_outputs_v1 - make v1 coinbase tx outputs

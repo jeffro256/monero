@@ -414,7 +414,7 @@ static void check_tx_proposal_semantics_inputs_v1(const std::vector<LegacyInputP
 //-------------------------------------------------------------------------------------------------------------------
 static void check_tx_proposal_semantics_selfsend_outputs_v1(const std::size_t num_normal_payment_proposals,
     const std::vector<jamtis::JamtisPaymentProposalSelfSendV1> &selfsend_payment_proposals,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_view_balance)
 {
@@ -820,7 +820,7 @@ void check_v1_tx_proposal_semantics_v1(const SpTxProposalV1 &tx_proposal,
         in_amounts);
 
     // 2. check self-send payment proposals
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     make_standard_input_context_v1(tx_proposal.legacy_input_proposals, tx_proposal.sp_input_proposals, input_context);
 
     check_tx_proposal_semantics_selfsend_outputs_v1(tx_proposal.normal_payment_proposals.size(),

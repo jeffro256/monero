@@ -299,42 +299,40 @@ void make_jamtis_view_tag(const secret256_ptr_t x_fa,
     memcpy(view_tag_out.bytes, &combined_view_tag_u32, VIEW_TAG_BYTES);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_input_context_coinbase(const std::uint64_t block_height, rct::key &input_context_out)
+void make_jamtis_input_context_coinbase(std::uint64_t block_height, input_context_t &input_context_out)
 {
-    // block height as varint
-    SpFSTranscript transcript{config::HASH_KEY_JAMTIS_INPUT_CONTEXT_COINBASE, 4};
-    transcript.append("height", block_height);
+    // "C"
+    input_context_out.bytes[0] = config::JAMTIS_INPUT_CONTEXT_PREFIX_COINBASE;
 
-    // input_context (coinbase) = H_32(block height)
-    sp_hash_to_32(transcript.data(), transcript.size(), input_context_out.bytes);
+    // BytesToInt256(block height)
+    block_height = SWAP64LE(block_height);
+    memcpy(input_context_out.bytes + 1, &block_height, 8);
+    memset(input_context_out.bytes + 9, 0, 24);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &legacy_input_key_images,
-    const std::vector<crypto::key_image> &sp_input_key_images,
-    rct::key &input_context_out)
+void make_jamtis_input_context_rct(const crypto::key_image &first_rct_key_image, input_context_t &input_context_out)
 {
-    CHECK_AND_ASSERT_THROW_MES(std::is_sorted(legacy_input_key_images.begin(), legacy_input_key_images.end()),
-        "jamtis input context (standard): legacy key images are not sorted.");
-    CHECK_AND_ASSERT_THROW_MES(std::is_sorted(sp_input_key_images.begin(), sp_input_key_images.end()),
-        "jamtis input context (standard): seraphis key images are not sorted.");
+    // "R"
+    input_context_out.bytes[0] = config::JAMTIS_INPUT_CONTEXT_PREFIX_RINGCT;
 
-    // {legacy KI} || {seraphis KI}
-    SpFSTranscript transcript{
-            config::HASH_KEY_JAMTIS_INPUT_CONTEXT_STANDARD,
-            (legacy_input_key_images.size() + sp_input_key_images.size())*sizeof(crypto::key_image)
-        };
-    transcript.append("legacy_input_KI", legacy_input_key_images);
-    transcript.append("sp_input_KI", sp_input_key_images);
+    // KI_1
+    memcpy(input_context_out.bytes + 1, first_rct_key_image.data, sizeof(crypto::key_image));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_jamtis_input_context_sp(const crypto::key_image &first_sp_key_image, input_context_t &input_context_out)
+{
+    // "S"
+    input_context_out.bytes[0] = config::JAMTIS_INPUT_CONTEXT_PREFIX_SERAPHIS;
 
-    // input_context (standard) = H_32({legacy KI}, {seraphis KI})
-    sp_hash_to_32(transcript.data(), transcript.size(), input_context_out.bytes);
+    // L_1
+    memcpy(input_context_out.bytes + 1, first_sp_key_image.data, sizeof(crypto::key_image));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
     const secret256_ptr_t x_ir,
     const secret256_ptr_t x_ur,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     rct::key &sender_receiver_secret_out)
 {
     // q = H_32(X_fa, X_ir, X_ur, D_e, input_context)
@@ -343,7 +341,7 @@ void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
     transcript.append("X_ir", s256ptr_to_strref(x_ir));
     transcript.append("X_ur", s256ptr_to_strref(x_ur));
     transcript.append("D_e", enote_ephemeral_pubkey);
-    transcript.append("input_context", input_context);
+    transcript.append("input_context", input_context.bytes);
 
     sp_hash_to_32(transcript.data(), transcript.size(), sender_receiver_secret_out.bytes);
 }

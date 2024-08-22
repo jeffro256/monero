@@ -228,7 +228,7 @@ public:
         const sp::jamtis::JamtisPaymentProposalV1 payment_proposal{user_address, rct::xmr_amount{0},
             onetime_address_format, enote_privkey};
         sp::SpOutputProposalV1 output_proposal;
-        make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
+        make_v1_output_proposal_v1(payment_proposal, sp::jamtis::input_context_t{}, output_proposal);
         m_enote_ephemeral_pubkey = output_proposal.enote_ephemeral_pubkey;
         get_enote_v1(output_proposal, m_enote);
 
@@ -251,7 +251,7 @@ public:
         if (!sp::try_get_basic_enote_record_v1(m_enote,
                 m_enote_ephemeral_pubkey,
                 num_primary_view_tag_bits,
-                rct::zero(),
+                sp::jamtis::input_context_t{},
                 m_keys.d_fa,
                 basic_enote_record))
             return m_test_view_tag_check;  //note: this branch is only valid if trying to trigger the view tag check
@@ -327,7 +327,7 @@ public:
             enote_privkey,
             num_primary_view_tag_bits};
         sp::SpOutputProposalV1 output_proposal;
-        make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
+        make_v1_output_proposal_v1(payment_proposal, sp::jamtis::input_context_t{}, output_proposal);
         sp::SpEnoteV1 real_enote;
         get_enote_v1(output_proposal, real_enote);
 
@@ -336,7 +336,7 @@ public:
         if (!sp::try_get_basic_enote_record_v1(real_enote,
                 output_proposal.enote_ephemeral_pubkey,
                 num_primary_view_tag_bits,
-                rct::zero(),
+                sp::jamtis::input_context_t{},
                 m_keys.d_fa,
                 basic_record))
             return false;

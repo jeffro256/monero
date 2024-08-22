@@ -33,6 +33,7 @@
 //local headers
 
 //third party headers
+#include <boost/functional/hash.hpp>
 
 //standard headers
 #include <cstdint>
@@ -133,6 +134,13 @@ struct view_tag_t final
 
 static_assert(sizeof(view_tag_t) < 32, "uint8_t cannot index all view tag bits");
 
+/// jamtis input context
+constexpr std::size_t INPUT_CONTEXT_BYTES{1 + 32};
+struct input_context_t final
+{
+    unsigned char bytes[INPUT_CONTEXT_BYTES];
+};
+
 /// overloaded operators: address index
 bool operator==(const address_index_t &a, const address_index_t &b);
 inline bool operator!=(const address_index_t &a, const address_index_t &b) { return !(a == b); }
@@ -150,6 +158,10 @@ encrypted_amount_t operator^(const encrypted_amount_t &a, const encrypted_amount
 bool operator==(const payment_id_t &a, const payment_id_t &b);
 inline bool operator!=(const payment_id_t &a, const payment_id_t &b) { return !(a == b); }
 payment_id_t operator^(const payment_id_t &a, const payment_id_t &b);
+
+/// overloaded operators: input context
+bool operator==(const input_context_t &a, const input_context_t &b);
+inline bool operator!=(const input_context_t &a, const input_context_t &b) { return !(a == b); }
 
 /// overloaded operators: view tag
 bool operator==(const view_tag_t &a, const view_tag_t &b);
@@ -170,6 +182,8 @@ address_tag_t gen_address_tag();
 payment_id_t gen_payment_id();
 /// generate a random view tag
 view_tag_t gen_view_tag();
+/// generate a random input context
+input_context_t gen_input_context();
 
 /// convert between jamtis enote types and self-send types
 bool try_get_jamtis_enote_type(const JamtisSelfSendType self_send_type, JamtisEnoteType &enote_type_out);
@@ -179,26 +193,24 @@ bool is_jamtis_selfsend_type(const JamtisEnoteType enote_type);
 } //namespace jamtis
 } //namespace sp
 
-/// make jamtis address index hashable
-namespace sp
-{
-namespace jamtis
-{
-static_assert(sizeof(std::size_t) <= sizeof(address_index_t), "");
-inline std::size_t hash_value(const address_index_t &_v)
-{
-    return reinterpret_cast<const std::size_t&>(_v);
-}
-} //namespace jamtis
-} //namespace sp
 namespace std
 {
+/// implement STL hashing for address_index_t
 template<>
 struct hash<sp::jamtis::address_index_t>
 {
     std::size_t operator()(const sp::jamtis::address_index_t &_v) const
     {
-        return reinterpret_cast<const std::size_t&>(_v);
+        return boost::hash_range(_v.bytes, _v.bytes + sp::jamtis::ADDRESS_INDEX_BYTES);
+    }
+};
+/// implement STL hashing for input_context_t
+template<>
+struct hash<sp::jamtis::input_context_t>
+{
+    std::size_t operator()(const sp::jamtis::input_context_t &_v) const
+    {
+        return boost::hash_range(_v.bytes, _v.bytes + sp::jamtis::INPUT_CONTEXT_BYTES);
     }
 };
 } //namespace std

@@ -43,7 +43,6 @@ extern "C"
 #include "seraphis_main/enote_record_utils_legacy.h"
 #include "seraphis_mocks/seraphis_mocks.h"
 
-#include "boost/multiprecision/cpp_int.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
@@ -67,7 +66,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
     const LegacyEnoteVariant &legacy_enote,
     const rct::key &enote_ephemeral_pubkey,
     const std::uint64_t tx_output_index,
-    const boost::optional<cryptonote::subaddress_index> &expected_recieving_index,
+    const std::optional<cryptonote::subaddress_index> &expected_receiving_index,
     const rct::xmr_amount &expected_amount)
 {
     // basic enote record: full
@@ -83,7 +82,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         basic_record_recovered)));
 
-    ASSERT_TRUE(basic_record_recovered.address_index == expected_recieving_index);
+    ASSERT_TRUE(basic_record_recovered.address_index == expected_receiving_index);
 
     // intermediate enote record: from basic record
     LegacyIntermediateEnoteRecord intermediate_record_recovered_from_basic;
@@ -94,7 +93,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         intermediate_record_recovered_from_basic)));
 
-    ASSERT_TRUE(intermediate_record_recovered_from_basic.address_index == expected_recieving_index);
+    ASSERT_TRUE(intermediate_record_recovered_from_basic.address_index == expected_receiving_index);
     ASSERT_TRUE(intermediate_record_recovered_from_basic.amount        == expected_amount);
 
     // intermediate enote record: full
@@ -110,7 +109,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         intermediate_record_recovered)));
 
-    ASSERT_TRUE(intermediate_record_recovered.address_index == expected_recieving_index);
+    ASSERT_TRUE(intermediate_record_recovered.address_index == expected_receiving_index);
     ASSERT_TRUE(intermediate_record_recovered.amount        == expected_amount);
 
     // full enote record: from basic record
@@ -123,7 +122,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         full_record_recovered_from_basic)));
 
-    ASSERT_TRUE(full_record_recovered_from_basic.address_index == expected_recieving_index);
+    ASSERT_TRUE(full_record_recovered_from_basic.address_index == expected_receiving_index);
     ASSERT_TRUE(full_record_recovered_from_basic.amount        == expected_amount);
 
     // full enote record: from intermediate record
@@ -134,7 +133,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         full_record_recovered_from_intermediate));
 
-    ASSERT_TRUE(full_record_recovered_from_intermediate.address_index == expected_recieving_index);
+    ASSERT_TRUE(full_record_recovered_from_intermediate.address_index == expected_receiving_index);
     ASSERT_TRUE(full_record_recovered_from_intermediate.amount        == expected_amount);
     ASSERT_TRUE(full_record_recovered_from_intermediate.key_image     == full_record_recovered_from_basic.key_image);
 
@@ -152,7 +151,7 @@ static void test_information_recovery(const crypto::secret_key &legacy_spend_pri
         hw::get_device("default"),
         full_record_recovered));
 
-    ASSERT_TRUE(full_record_recovered.address_index == expected_recieving_index);
+    ASSERT_TRUE(full_record_recovered.address_index == expected_receiving_index);
     ASSERT_TRUE(full_record_recovered.amount        == expected_amount);
     ASSERT_TRUE(full_record_recovered.key_image     == full_record_recovered_from_basic.key_image);
 }
@@ -204,7 +203,7 @@ static void legacy_enote_information_recovery_test(MakeEnoteFuncT make_enote_fun
         legacy_enote_normal_dest,
         enote_ephemeral_pubkey_normal_dest,
         0,
-        boost::none,
+        std::nullopt,
         amount_normal_dest);
 
     // send enote (subaddress destination)

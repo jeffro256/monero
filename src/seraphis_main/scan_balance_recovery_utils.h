@@ -95,7 +95,7 @@ bool try_find_legacy_enotes_in_tx(const rct::key &legacy_base_spend_pubkey,
  * threading. This function could potentially be used directly by light wallet servers to cache the
  * results of filter-assist scanning for many clients, with the contextual information being added
  * later when clients actually request scanning information. In reality, the number of outputs per
- * transaction will be capped to 16 in real-world rulesets, so this function's cap of 64 enotes
+ * transaction will be capped to 16 in real-world rule sets, so this function's cap of 64 enotes
  * should be more than enough.
  *
  * param: d_filter_assist - d_fa
@@ -126,7 +126,7 @@ bool try_find_sp_enotes_in_tx(const crypto::x25519_secret_key &d_filter_assist,
     const std::uint64_t block_timestamp,
     const rct::key &transaction_id,
     const std::uint64_t total_enotes_before_tx,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const SpTxSupplementV1 &tx_supplement,
     const std::vector<SpEnoteVariant> &enotes_in_tx,
     const SpEnoteOriginStatus origin_status,

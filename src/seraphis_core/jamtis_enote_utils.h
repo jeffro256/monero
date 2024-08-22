@@ -146,21 +146,25 @@ void make_jamtis_view_tag(const secret256_ptr_t x_fa,
     view_tag_t &view_tag_out);
 /**
 * brief: make_jamtis_input_context_coinbase - input context for a sender-receiver secret (coinbase txs)
-*    input_context = H_32(block_height)
+*    input_context = "C" || IntToBytes256(block_height)
 * param: block_height - block height of the coinbase tx
-* outparam: input_context_out - H_32(block height)
+* outparam: input_context_out - "C" || IntToBytes256(block_height)
 */
-void make_jamtis_input_context_coinbase(const std::uint64_t block_height, rct::key &input_context_out);
+void make_jamtis_input_context_coinbase(const std::uint64_t block_height, input_context_t &input_context_out);
 /**
-* brief: make_jamtis_input_context_standard - input context for a sender-receiver secret (standard txs)
-*    input_context = H_32({legacy KI}, {seraphis KI})
-* param: legacy_input_key_images - {KI} from the legacy inputs of a tx (sorted)
-* param: sp_input_key_images - {KI} from the seraphis inputs of a tx (sorted)
-* outparam: input_context_out - H_32({legacy KI}, {seraphis KI}})
+* brief: make_jamtis_input_context_rct - input context for a sender-receiver secret (standard RingCT txs)
+*    input_context = "R" || KI_1
+* param: first_rct_key_image - KI_1, the first spent RingCT key image in a tx
+* outparam: input_context_out - "S" || KI_1
 */
-void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &legacy_input_key_images,
-    const std::vector<crypto::key_image> &sp_input_key_images,
-    rct::key &input_context_out);
+void make_jamtis_input_context_rct(const crypto::key_image &first_rct_key_image, input_context_t &input_context_out);
+/**
+* brief: make_jamtis_input_context_sp - input context for a sender-receiver secret (standard Seraphis txs)
+*    input_context = "S" || L_1
+* param: first_sp_key_image - L_1, the first spent Seraphis key image in a tx
+* outparam: input_context_out - "S" || L_1
+*/
+void make_jamtis_input_context_sp(const crypto::key_image &first_sp_key_image, input_context_t &input_context_out);
 /**
 * brief: make_jamtis_sender_receiver_secret - sender-receiver secret q
 *    q = H_32(X_fa, X_ir, X_ur, D_e, input_context)
@@ -168,7 +172,7 @@ void make_jamtis_input_context_standard(const std::vector<crypto::key_image> &le
 * param: x_ir - X_ir
 * param: x_ur - X_ur
 * param: enote_ephemeral_pubkey - D_e
-* param: input_context - [normal: H_32({legacy KI}, {seraphis KI})] [coinbase: H_32(block height)]
+* param: input_context - [standard: KI_1] [coinbase: block height]
 * outparam: sender_receiver_secret_out - q
 *   - note: this is 'rct::key' instead of 'crypto::secret_key' for better performance in multithreaded environments
 */
@@ -176,7 +180,7 @@ void make_jamtis_sender_receiver_secret(const secret256_ptr_t x_fa,
     const secret256_ptr_t x_ir,
     const secret256_ptr_t x_ur,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     rct::key &sender_receiver_secret_out);
 /**
 * brief: make_jamtis_onetime_address_extension_g - extension for transforming a recipient spendkey into an

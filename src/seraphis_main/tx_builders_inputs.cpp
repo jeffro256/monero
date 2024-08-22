@@ -189,7 +189,7 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_view_balance,
     const crypto::secret_key &address_mask,
@@ -214,50 +214,54 @@ bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
 //-------------------------------------------------------------------------------------------------------------------
 void make_standard_input_context_v1(const std::vector<LegacyInputProposalV1> &legacy_input_proposals,
     const std::vector<SpInputProposalV1> &sp_input_proposals,
-    rct::key &input_context_out)
+    jamtis::input_context_t &input_context_out)
 {
-    // collect key images
-    std::vector<crypto::key_image> legacy_key_images_collected;
-    std::vector<crypto::key_image> sp_key_images_collected;
-    legacy_key_images_collected.reserve(legacy_input_proposals.size());
-    sp_key_images_collected.reserve(sp_input_proposals.size());
+    // make an input context using a Seraphis key image if available, falling back to a legacy key image
+    crypto::key_image first_spent_key_image;
+    memset(first_spent_key_image.data, 0xFF, sizeof(crypto::key_image));
 
-    for (const LegacyInputProposalV1 &legacy_input_proposal : legacy_input_proposals)
-        legacy_key_images_collected.emplace_back(legacy_input_proposal.key_image);
+    if (sp_input_proposals.size())
+    {
+        for (const SpInputProposalV1 &sp_input_proposal : sp_input_proposals)
+            if (sp_input_proposal.core.key_image < first_spent_key_image)
+                first_spent_key_image = sp_input_proposal.core.key_image;
 
-    for (const SpInputProposalV1 &sp_input_proposal : sp_input_proposals)
-        sp_key_images_collected.emplace_back(key_image_ref(sp_input_proposal));
+        jamtis::make_jamtis_input_context_sp(first_spent_key_image, input_context_out);
+    }
+    else
+    {
+        for (const LegacyInputProposalV1 &legacy_input_proposal : legacy_input_proposals)
+            if (legacy_input_proposal.key_image < first_spent_key_image)
+                first_spent_key_image = legacy_input_proposal.key_image;
 
-    // sort the key images
-    std::sort(legacy_key_images_collected.begin(), legacy_key_images_collected.end());
-    std::sort(sp_key_images_collected.begin(), sp_key_images_collected.end());
-
-    // make the input context
-    jamtis::make_jamtis_input_context_standard(legacy_key_images_collected, sp_key_images_collected, input_context_out);
+        jamtis::make_jamtis_input_context_rct(first_spent_key_image, input_context_out);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_standard_input_context_v1(const std::vector<LegacyEnoteImageV2> &legacy_input_images,
     const std::vector<SpEnoteImageV1> &sp_input_images,
-    rct::key &input_context_out)
+    jamtis::input_context_t &input_context_out)
 {
-    // collect key images
-    std::vector<crypto::key_image> legacy_key_images_collected;
-    std::vector<crypto::key_image> sp_key_images_collected;
-    legacy_key_images_collected.reserve(legacy_input_images.size());
-    sp_key_images_collected.reserve(sp_input_images.size());
+    // make an input context using a Seraphis key image if available, falling back to a legacy key image
+    crypto::key_image first_spent_key_image;
+    memset(first_spent_key_image.data, 0xFF, sizeof(crypto::key_image));
 
-    for (const LegacyEnoteImageV2 &legacy_input_image : legacy_input_images)
-        legacy_key_images_collected.emplace_back(legacy_input_image.key_image);
+    if (sp_input_images.size())
+    {
+        for (const SpEnoteImageV1 &sp_input_image : sp_input_images)
+            if (sp_input_image.core.key_image < first_spent_key_image)
+                first_spent_key_image = sp_input_image.core.key_image;
 
-    for (const SpEnoteImageV1 &sp_input_image : sp_input_images)
-        sp_key_images_collected.emplace_back(key_image_ref(sp_input_image));
+        jamtis::make_jamtis_input_context_sp(first_spent_key_image, input_context_out);
+    }
+    else
+    {
+        for (const LegacyEnoteImageV2 &legacy_input_image : legacy_input_images)
+            if (legacy_input_image.key_image < first_spent_key_image)
+                first_spent_key_image = legacy_input_image.key_image;
 
-    // sort the key images
-    std::sort(legacy_key_images_collected.begin(), legacy_key_images_collected.end());
-    std::sort(sp_key_images_collected.begin(), sp_key_images_collected.end());
-
-    // make the input context
-    jamtis::make_jamtis_input_context_standard(legacy_key_images_collected, sp_key_images_collected, input_context_out);
+        jamtis::make_jamtis_input_context_rct(first_spent_key_image, input_context_out);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_v1_image_proof_v1(const SpInputProposalCore &input_proposal,

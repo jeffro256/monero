@@ -98,7 +98,7 @@ public:
     * brief: remove_tx_from_cache - remove a tx or partial tx from the offchain cache
     * param: input_context - input context of tx/partial tx to remove
     */
-    void remove_tx_from_cache(const rct::key &input_context);
+    void remove_tx_from_cache(const jamtis::input_context_t &input_context);
     /**
     * brief: remove_tx_with_key_image_from_cache - remove the tx with a specified key image from the offchain cache
     * param: key_image - key image in tx/partial tx to remove
@@ -129,15 +129,15 @@ private:
     std::unordered_set<crypto::key_image> m_sp_key_images;
     /// map of tx outputs
     std::unordered_map<
-        rct::key,     // input context
-        std::tuple<       // tx output contents
+        jamtis::input_context_t,     // input context
+        std::tuple<                  // tx output contents
             SpTxSupplementV1,             // tx supplement
             std::vector<SpEnoteVariant>   // output enotes
         >
     > m_output_contents;
     /// map of tx key images
     std::unordered_map<
-        rct::key,     // input context
+        jamtis::input_context_t,     // input context
         std::pair<
             std::vector<crypto::key_image>,  // legacy key images in tx
             std::vector<crypto::key_image>   // seraphis key images in tx

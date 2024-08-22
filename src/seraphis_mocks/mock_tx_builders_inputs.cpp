@@ -174,14 +174,14 @@ SpMembershipProofPrepV1 gen_mock_sp_membership_proof_prep_v1(
 
     // 2. clear any txs lingering unconfirmed
     ledger_context_inout.commit_unconfirmed_txs_v1(rct::pkGen(),
-        rct::pkGen(),
+        jamtis::gen_input_context(),
         SpTxSupplementV1{},
         std::vector<SpEnoteVariant>{});
 
     // 3. add mock enotes as the outputs of a mock coinbase tx
     const std::uint64_t real_reference_index_in_ledger{ledger_context_inout.max_sp_enote_index() + add_real_at_pos + 1};
     ledger_context_inout.commit_unconfirmed_txs_v1(rct::pkGen(),
-        rct::pkGen(),
+        jamtis::gen_input_context(),
         SpTxSupplementV1{},
         std::move(mock_enotes));
 

@@ -79,14 +79,24 @@ static bool check_fcmppp_key_image(const crypto::secret_key &x,
 }
 
 static void make_jamtis_rct_input_context(const cryptonote::transaction_prefix &tx_prefix,
-    rct::key &input_context_out)
+    sp::jamtis::input_context_t &input_context_out)
 {
-    std::vector<crypto::key_image> legacy_key_images;
-    legacy_key_images.reserve(tx_prefix.vin.size());
-    for (const cryptonote::txin_v &in_v : tx_prefix.vin)
-        legacy_key_images.push_back(boost::get<cryptonote::txin_to_key>(in_v).k_image);
-    
-    sp::jamtis::make_jamtis_input_context_standard(legacy_key_images, {}, input_context_out);
+    CHECK_AND_ASSERT_THROW_MES(!tx_prefix.vin.empty(),
+        "make jamtis rct input context: cannot make input context from tx with no inputs");
+
+    const cryptonote::txin_v in0{tx_prefix.vin.at(0)};
+    if (in0.type() == typeid(cryptonote::txin_to_key))
+    {
+        sp::jamtis::make_jamtis_input_context_rct(boost::get<txin_to_key>(in0).k_image, input_context_out);
+    }
+    else if (in0.type() == typeid(cryptonote::txin_gen))
+    {
+        sp::jamtis::make_jamtis_input_context_coinbase(boost::get<txin_gen>(in0).height, input_context_out);
+    }
+    else
+    {
+        ASSERT_MES_AND_THROW("make jamtis rct input context: tx has input of unrecognized type");
+    }
 }
 
 static void instantiate_jamtis_tx(
@@ -233,8 +243,8 @@ static void make_jamtis_rct_transaction_pruned(
         selfsend_payment_proposals);
 
     // input context
-    rct::key input_context;
-    sp::jamtis::make_jamtis_input_context_standard(key_images, {}, input_context);
+    sp::jamtis::input_context_t input_context;
+    sp::jamtis::make_jamtis_input_context_rct(key_images.at(0), input_context);
 
     // output proposals
     std::vector<sp::SpOutputProposalV1> output_proposals;
@@ -392,8 +402,8 @@ static void make_carrot_rct_transaction_pruned(
         selfsend_proposals);
 
     // input context
-    rct::key input_context;
-    sp::jamtis::make_jamtis_input_context_standard(key_images, {}, input_context);
+    sp::jamtis::input_context_t input_context;
+    sp::jamtis::make_jamtis_input_context_rct(key_images.at(0), input_context);
 
     // output proposals
     std::vector<sp::SpOutputProposalV1> output_proposals;
@@ -537,7 +547,7 @@ static bool try_get_enote_records_rct_tx(const cryptonote::transaction &tx,
     else if (enote_ephemeral_pubkeys.empty())
         return false;
 
-    rct::key input_context;
+    sp::jamtis::input_context_t input_context;
     make_jamtis_rct_input_context(tx, input_context);
 
     enote_records_out.reserve(enotes.size());
@@ -579,7 +589,7 @@ static bool try_get_carrot_enote_records_rct_tx(const cryptonote::transaction &t
     else if (enote_ephemeral_pubkeys.empty())
         return false;
 
-    rct::key input_context;
+    sp::jamtis::input_context_t input_context;
     make_jamtis_rct_input_context(tx, input_context);
 
     enote_records_out.reserve(enotes.size());
@@ -844,7 +854,7 @@ TEST(jamtis_rct, carrot_janus_attack_stupid)
                 .partial_memo = {}
             };
         // 2. output proposal
-        const rct::key input_context{};
+        const sp::jamtis::input_context_t input_context{};
         sp::SpOutputProposalV1 output_proposal;
         sp::make_v1_output_proposal_v1(payment_proposal,
             DUMMY_NPBITS,
@@ -908,7 +918,7 @@ TEST(jamtis_rct, carrot_janus_attack_stupid)
 }
 
 static void get_carrot_output_proposal_janus(const sp::jamtis::CarrotPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const sp::jamtis::input_context_t &input_context,
     const crypto::public_key &second_address_spend_pubkey,
     sp::SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
@@ -1021,7 +1031,7 @@ TEST(jamtis_rct, carrot_janus_attack_actual)
                 .partial_memo = {}
             };
         // 2. output proposal
-        const rct::key input_context{};
+        const sp::jamtis::input_context_t input_context{};
         sp::SpOutputProposalV1 output_proposal;
         get_carrot_output_proposal_janus(payment_proposal,
             input_context,

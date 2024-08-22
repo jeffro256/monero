@@ -46,6 +46,7 @@
 #include "seraphis_crypto/sp_crypto_utils.h"
 #include "seraphis_main/scan_balance_recovery_utils.h"
 #include "seraphis_main/scan_core_types.h"
+#include "seraphis_main/tx_builders_inputs.h"
 #include "seraphis_main/tx_component_types.h"
 #include "seraphis_main/txtype_coinbase_v1.h"
 #include "seraphis_main/txtype_squashed_v1.h"
@@ -284,7 +285,7 @@ std::uint64_t MockLedgerContext::add_legacy_coinbase(const rct::key &tx_id,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool MockLedgerContext::try_add_unconfirmed_coinbase_v1(const rct::key &coinbase_tx_id,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpTxSupplementV1 tx_supplement,
     std::vector<SpEnoteVariant> output_enotes)
 {
@@ -350,9 +351,8 @@ bool MockLedgerContext::try_add_unconfirmed_tx_v1(const SpTxSquashedV1 &tx)
         "mock tx ledger (adding unconfirmed tx): tx id already exists in output contents map (bug).");
 
     // 3. prepare input context
-    rct::key input_context;
-    jamtis::make_jamtis_input_context_standard(legacy_key_images_collected, sp_key_images_collected, input_context);
-
+    jamtis::input_context_t input_context;
+    make_standard_input_context_v1(tx.legacy_input_images, tx.sp_input_images, input_context);
 
     /// update state
 
@@ -378,7 +378,7 @@ bool MockLedgerContext::try_add_unconfirmed_tx_v1(const SpTxSquashedV1 &tx)
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t MockLedgerContext::commit_unconfirmed_txs_v1(const rct::key &coinbase_tx_id,
-    const rct::key &mock_coinbase_input_context,
+    const jamtis::input_context_t &mock_coinbase_input_context,
     SpTxSupplementV1 mock_coinbase_tx_supplement,
     std::vector<SpEnoteVariant> mock_coinbase_output_enotes)
 {
@@ -491,7 +491,7 @@ std::uint64_t MockLedgerContext::commit_unconfirmed_txs_v1(const rct::key &coinb
     // 3. add block info (random block ID and zero timestamp in mockup)
     m_block_infos[new_index] = {rct::pkGen(), 0};
 
-    // 4. clear unconfirmed chache
+    // 4. clear unconfirmed cache
     this->clear_unconfirmed_cache();
 
     return new_index;
@@ -514,7 +514,7 @@ std::uint64_t MockLedgerContext::commit_unconfirmed_txs_v1(const SpTxCoinbaseV1 
         coinbase_output_enotes.emplace_back(coinbase_enote);
 
     // 2. compute coinbase input context
-    rct::key coinbase_input_context;
+    jamtis::input_context_t coinbase_input_context;
     jamtis::make_jamtis_input_context_coinbase(coinbase_tx.block_height, coinbase_input_context);
 
     // 3. coinbase tx id
@@ -638,7 +638,7 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
             m_unconfirmed_tx_output_contents.size() * 2 * 140 / 100 / sizeof(sp::jamtis::view_tag_t)
         );
 
-    // filter-assist scan each tx in the unconfirmed chache
+    // filter-assist scan each tx in the unconfirmed cache
     for (const auto &tx_with_output_contents : m_unconfirmed_tx_output_contents)
     {
         const rct::key &tx_id{sortable2rct(tx_with_output_contents.first)};
@@ -650,7 +650,7 @@ void MockLedgerContext::get_unconfirmed_chunk_sp(const crypto::x25519_secret_key
             -1,
             tx_id,
             0,
-            std::get<rct::key>(tx_with_output_contents.second),
+            std::get<jamtis::input_context_t>(tx_with_output_contents.second),
             std::get<SpTxSupplementV1>(tx_with_output_contents.second),
             std::get<std::vector<SpEnoteVariant>>(tx_with_output_contents.second),
             SpEnoteOriginStatus::UNCONFIRMED,
@@ -1028,7 +1028,7 @@ void MockLedgerContext::get_onchain_chunk_sp(const std::uint64_t chunk_start_ind
                         std::get<std::uint64_t>(m_block_infos.at(block_of_tx_output_contents.first)),
                         tx_id,
                         total_output_count_before_tx,
-                        std::get<rct::key>(tx_with_output_contents.second),
+                        std::get<jamtis::input_context_t>(tx_with_output_contents.second),
                         std::get<SpTxSupplementV1>(tx_with_output_contents.second),
                         std::get<std::vector<SpEnoteVariant>>(tx_with_output_contents.second),
                         SpEnoteOriginStatus::ONCHAIN,
@@ -1082,7 +1082,7 @@ bool try_add_tx_to_ledger(const SpTxSquashedV1 &tx_to_add, MockLedgerContext &le
         return false;
 
     ledger_context_inout.commit_unconfirmed_txs_v1(rct::pkGen(),
-        rct::pkGen(),
+        jamtis::gen_input_context(),
         SpTxSupplementV1{},
         std::vector<SpEnoteVariant>{});
 

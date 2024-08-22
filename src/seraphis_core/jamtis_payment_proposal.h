@@ -145,7 +145,7 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 * outparam: partial_memo_out -
 */
 void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_amount_t &encrypted_amount_out,
@@ -166,7 +166,7 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 */
 void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &s_view_balance,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_amount_t &encrypted_amount_out,

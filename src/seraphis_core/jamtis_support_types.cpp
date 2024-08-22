@@ -108,6 +108,11 @@ bool operator==(const view_tag_t &a, const view_tag_t &b)
     return memcmp(a.bytes, b.bytes, sizeof(view_tag_t)) == 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool operator==(const input_context_t &a, const input_context_t &b)
+{
+    return memcmp(a.bytes, b.bytes, sizeof(input_context_t)) == 0;
+}
+//-------------------------------------------------------------------------------------------------------------------
 address_index_t max_address_index()
 {
     address_index_t temp;
@@ -167,6 +172,13 @@ view_tag_t gen_view_tag()
 {
     view_tag_t temp;
     crypto::rand(VIEW_TAG_BYTES, temp.bytes);
+    return temp;
+}
+//-------------------------------------------------------------------------------------------------------------------
+input_context_t gen_input_context()
+{
+    input_context_t temp;
+    crypto::generate_random_bytes_thread_safe(INPUT_CONTEXT_BYTES, temp.bytes);
     return temp;
 }
 //-------------------------------------------------------------------------------------------------------------------

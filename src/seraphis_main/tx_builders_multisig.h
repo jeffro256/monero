@@ -126,7 +126,7 @@ void check_v1_sp_multisig_input_proposal_semantics_v1(const SpMultisigInputPropo
 void make_v1_sp_multisig_input_proposal_v1(const SpEnoteV1 &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const crypto::secret_key &address_mask,
     const crypto::secret_key &commitment_mask,
     SpMultisigInputProposalV1 &proposal_out);

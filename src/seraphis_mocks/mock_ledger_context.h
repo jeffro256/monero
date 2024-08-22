@@ -173,7 +173,7 @@ public:
     * return: true if adding the tx succeeded
     */
     bool try_add_unconfirmed_coinbase_v1(const rct::key &coinbase_tx_id,
-        const rct::key &input_context,
+        const jamtis::input_context_t &input_context,
         SpTxSupplementV1 tx_supplement,
         std::vector<SpEnoteVariant> output_enotes);
     /**
@@ -196,7 +196,7 @@ public:
     * return: block index of newly added block
     */
     std::uint64_t commit_unconfirmed_txs_v1(const rct::key &coinbase_tx_id,
-        const rct::key &mock_coinbase_input_context,
+        const jamtis::input_context_t &mock_coinbase_input_context,
         SpTxSupplementV1 mock_coinbase_tx_supplement,
         std::vector<SpEnoteVariant> mock_coinbase_output_enotes);
     /**
@@ -287,7 +287,7 @@ private:
     std::map<
         sortable_key,     // tx id
         std::tuple<       // tx output contents
-            rct::key,                     // input context
+            jamtis::input_context_t,      // input context
             SpTxSupplementV1,             // tx supplement
             std::vector<SpEnoteVariant>   // output enotes
         >
@@ -344,7 +344,7 @@ private:
         std::map<
             sortable_key,     // tx id
             std::tuple<       // tx output contents
-                rct::key,                     // input context
+                jamtis::input_context_t,      // input context
                 SpTxSupplementV1,             // tx supplement
                 std::vector<SpEnoteVariant>   // output enotes
             >

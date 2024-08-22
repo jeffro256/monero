@@ -116,7 +116,7 @@ struct SpMultisigInputProposalV1 final
     /// npbits
     std::uint8_t num_primary_view_tag_bits;
     /// the enote's input context
-    rct::key input_context;
+    jamtis::input_context_t input_context;
 
     /// t_k
     crypto::secret_key address_mask;

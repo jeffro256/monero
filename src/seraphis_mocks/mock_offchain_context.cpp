@@ -41,6 +41,7 @@
 #include "seraphis_core/sp_core_enote_utils.h"
 #include "seraphis_main/scan_balance_recovery_utils.h"
 #include "seraphis_main/scan_core_types.h"
+#include "seraphis_main/tx_builders_inputs.h"
 #include "seraphis_main/tx_component_types.h"
 #include "seraphis_main/tx_component_types_legacy.h"
 #include "seraphis_main/txtype_squashed_v1.h"
@@ -81,7 +82,7 @@ bool MockOffchainContext::try_add_tx_v1(const SpTxSquashedV1 &tx)
     return this->try_add_v1_impl(tx.legacy_input_images, tx.sp_input_images, tx.tx_supplement, tx.outputs);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void MockOffchainContext::remove_tx_from_cache(const rct::key &input_context)
+void MockOffchainContext::remove_tx_from_cache(const jamtis::input_context_t &input_context)
 {
     // 1. clear key images
     if (m_tx_key_images.find(input_context) != m_tx_key_images.end())
@@ -149,10 +150,13 @@ void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key 
     if (m_output_contents.size() == 0)
         return;
 
-    // 2. filter-assist scan each tx in the unconfirmed chache
+    // 2. filter-assist scan each tx in the unconfirmed cache
     for (const auto &tx_with_output_contents : m_output_contents)
     {
-        const rct::key &tx_id{tx_with_output_contents.first};  //use input context as proxy for tx id
+        // use first 32 bytes of input context as proxy for tx id
+        const jamtis::input_context_t &input_context{tx_with_output_contents.first};
+        rct::key tx_id;
+        memcpy(tx_id.bytes, input_context.bytes, sizeof(rct::key));
 
         // if this tx contains at least one view-tag match, then add the tx's key images to the chunk
         std::list<ContextualBasicRecordVariant> collected_records;
@@ -161,7 +165,7 @@ void MockOffchainContext::get_offchain_chunk_sp(const crypto::x25519_secret_key 
             -1,
             tx_id,
             0,
-            tx_with_output_contents.first,
+            input_context,
             std::get<SpTxSupplementV1>(tx_with_output_contents.second),
             std::get<std::vector<SpEnoteVariant>>(tx_with_output_contents.second),
             SpEnoteOriginStatus::OFFCHAIN,
@@ -213,8 +217,8 @@ bool MockOffchainContext::try_add_v1_impl(const std::vector<LegacyEnoteImageV2> 
         sp_key_images_collected.emplace_back(key_image_ref(sp_enote_image));
     }
 
-    rct::key input_context;
-    jamtis::make_jamtis_input_context_standard(legacy_key_images_collected, sp_key_images_collected, input_context);
+    jamtis::input_context_t input_context;
+    make_standard_input_context_v1(legacy_input_images, sp_input_images, input_context);
 
     // 2. fail if input context is duplicated (bug since key image check should prevent this)
     CHECK_AND_ASSERT_THROW_MES(m_tx_key_images.find(input_context) == m_tx_key_images.end(),

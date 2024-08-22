@@ -254,7 +254,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
         enote_privkey,
         num_primary_view_tag_bits};
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.s_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.s_vb, sp::jamtis::input_context_t{}, output_proposal);
     SpEnoteV1 enote;
     get_enote_v1(output_proposal, enote);
 
@@ -263,7 +263,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
     ASSERT_TRUE(try_get_enote_record_v1(enote,
         output_proposal.enote_ephemeral_pubkey,
         num_primary_view_tag_bits,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         keys.K_s_base,
         keys.s_vb,
         enote_record));
@@ -272,7 +272,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_normal)
     EnoteOwnershipProofV1 enote_ownership_proof_sender_selfsend;
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
         user_address.addr_Ks,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         keys.s_vb,
         self_send_type,
         enote.core.amount_commitment,
@@ -313,7 +313,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
         JamtisOnetimeAddressFormat::SERAPHIS,
         payment_proposal_special_change);
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal_special_change, keys.s_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_special_change, keys.s_vb, sp::jamtis::input_context_t{}, output_proposal);
     SpEnoteV1 enote;
     get_enote_v1(output_proposal, enote);
 
@@ -322,7 +322,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
     ASSERT_TRUE(try_get_enote_record_v1(enote,
         output_proposal.enote_ephemeral_pubkey,
         num_primary_view_tag_bits,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         keys.K_s_base,
         keys.s_vb,
         enote_record));
@@ -331,7 +331,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_selfsend_special)
     EnoteOwnershipProofV1 enote_ownership_proof_sender_selfsend;
     make_enote_ownership_proof_v1_sender_selfsend(output_proposal.enote_ephemeral_pubkey,
         user_address.addr_Ks,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         keys.s_vb,
         payment_proposal_special_change.type,
         enote.core.amount_commitment,
@@ -367,7 +367,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
         enote_privkey,
         num_primary_view_tag_bits};
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal, sp::jamtis::input_context_t{}, output_proposal);
     SpEnoteV1 enote;
     get_enote_v1(output_proposal, enote);
 
@@ -376,7 +376,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
     ASSERT_TRUE(try_get_enote_record_v1(enote,
         output_proposal.enote_ephemeral_pubkey,
         num_primary_view_tag_bits,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         keys.K_s_base,
         keys.s_vb,
         enote_record));
@@ -385,7 +385,7 @@ TEST(seraphis_knowledge_proofs, enote_proofs_normal_enote)
     EnoteOwnershipProofV1 enote_ownership_proof_sender_plain;
     make_enote_ownership_proof_v1_sender_plain(payment_proposal.enote_ephemeral_privkey,
         user_address,
-        rct::zero(),
+        sp::jamtis::input_context_t{},
         enote.core.amount_commitment,
         enote.core.onetime_address,
         enote_ownership_proof_sender_plain);

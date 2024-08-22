@@ -124,7 +124,7 @@ void make_v1_input_proposal_v1(const SpEnoteRecordV1 &enote_record,
 bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const rct::key &jamtis_spend_pubkey,
     const crypto::secret_key &s_view_balance,
     const crypto::secret_key &address_mask,
@@ -138,10 +138,10 @@ bool try_make_v1_input_proposal_v1(const SpEnoteVariant &enote,
 */
 void make_standard_input_context_v1(const std::vector<LegacyInputProposalV1> &legacy_input_proposals,
     const std::vector<SpInputProposalV1> &sp_input_proposals,
-    rct::key &input_context_out);
+    jamtis::input_context_t &input_context_out);
 void make_standard_input_context_v1(const std::vector<LegacyEnoteImageV2> &legacy_input_images,
     const std::vector<SpEnoteImageV1> &sp_input_images,
-    rct::key &input_context_out);
+    jamtis::input_context_t &input_context_out);
 /**
 * brief: make_v1_image_proof_v1 - make a seraphis composition proof for an enote image in the squashed enote model
 * param: input_proposal -

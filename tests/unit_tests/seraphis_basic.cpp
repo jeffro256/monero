@@ -105,7 +105,7 @@ static void make_secret_key(crypto::x25519_secret_key &skey_out)
 static void check_is_owned_with_intermediate_record(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const jamtis_mock_keys &keys,
     const address_index_t &j_expected,
     const rct::xmr_amount amount_expected)
@@ -152,7 +152,7 @@ static void check_is_owned_with_intermediate_record(const SpEnoteVariant &enote,
 static void check_is_owned(const SpEnoteVariant &enote,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const std::uint8_t num_primary_view_tag_bits,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     const jamtis_mock_keys &keys,
     const address_index_t &j_expected,
     const rct::xmr_amount amount_expected,
@@ -239,7 +239,7 @@ static void check_is_owned(const SpCoinbaseOutputProposalV1 &test_proposal,
     const JamtisEnoteType type_expected)
 {
     // prepare coinbase input context
-    rct::key input_context;
+    input_context_t input_context;
     make_jamtis_input_context_coinbase(block_height, input_context);
 
     // check info
@@ -268,7 +268,7 @@ static void check_is_owned(const SpOutputProposalV1 &test_proposal,
     check_is_owned(enote,
         test_proposal.enote_ephemeral_pubkey,
         test_proposal.num_primary_view_tag_bits,
-        rct::zero(),
+        input_context_t{},
         keys,
         j_expected,
         amount_expected,
@@ -284,7 +284,7 @@ static void check_is_owned(const JamtisPaymentProposalSelfSendV1 &test_proposal,
 {
     // convert to output proposal
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(test_proposal, keys.s_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(test_proposal, keys.s_vb, input_context_t{}, output_proposal);
 
     // check ownership
     check_is_owned(output_proposal, keys, j_expected, amount_expected, type_expected);
@@ -710,7 +710,7 @@ TEST(seraphis_basic, information_recovery_enote_v1_plain)
     JamtisPaymentProposalV1 payment_proposal{user_address, amount,
         JamtisOnetimeAddressFormat::SERAPHIS, enote_privkey};
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal, input_context_t{}, output_proposal);
 
     // check the enote
     check_is_owned(output_proposal, keys, j, amount, JamtisEnoteType::PLAIN);
@@ -742,7 +742,7 @@ TEST(seraphis_basic, information_recovery_enote_v1_selfsend)
         enote_privkey,
         num_primary_view_tag_bits};
     SpOutputProposalV1 output_proposal;
-    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.s_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_selfspend, keys.s_vb, input_context_t{}, output_proposal);
 
     // check the enote
     check_is_owned(output_proposal, keys, j, amount, JamtisEnoteType::SELF_SPEND);
@@ -757,7 +757,7 @@ TEST(seraphis_basic, information_recovery_enote_v1_selfsend)
         JamtisSelfSendType::CHANGE,
         enote_privkey,
         num_primary_view_tag_bits};
-    make_v1_output_proposal_v1(payment_proposal_change, keys.s_vb, rct::zero(), output_proposal);
+    make_v1_output_proposal_v1(payment_proposal_change, keys.s_vb, input_context_t{}, output_proposal);
 
     // check the enote
     check_is_owned(output_proposal, keys, j, amount, JamtisEnoteType::CHANGE);

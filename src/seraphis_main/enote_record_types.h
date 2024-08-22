@@ -137,7 +137,7 @@ struct CarrotIntermediateEnoteRecordV1 final
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
     /// context of the tx input(s) associated with this enote
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     /// a: amount
     rct::xmr_amount amount;
     /// x: amount blinding factor
@@ -160,7 +160,7 @@ struct CarrotEnoteRecordV1 final
     /// the enote's ephemeral pubkey
     crypto::x25519_pubkey enote_ephemeral_pubkey;
     /// context of the tx input(s) associated with this enote
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     /// a: amount
     rct::xmr_amount amount;
     /// x: amount blinding factor
@@ -199,7 +199,7 @@ struct SpBasicEnoteRecordV1 final
     // the transaction primary view tag size
     std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     /// indicates if this enote passed the primary view tag check
     /// - If it did not pass, then we only have to check for a 'hidden' self-send enote.
     bool primary_vt_matches;
@@ -218,7 +218,7 @@ struct SpIntermediateEnoteRecordV1 final
     // the transaction primary view tag size
     std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     /// a: amount
     rct::xmr_amount amount;
     /// x: amount blinding factor
@@ -240,7 +240,7 @@ struct SpEnoteRecordV1 final
     // the transaction primary view tag size
     std::uint8_t num_primary_view_tag_bits;
     /// context of the tx input(s) associated with this enote
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     /// a: amount
     rct::xmr_amount amount;
     /// x: amount blinding factor

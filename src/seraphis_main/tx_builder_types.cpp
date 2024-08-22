@@ -155,7 +155,7 @@ void get_output_proposals_v1(const SpTxProposalV1 &tx_proposal,
         "Tried to get output proposals for a tx proposal with no outputs!");
 
     // input context
-    rct::key input_context;
+    jamtis::input_context_t input_context;
     make_standard_input_context_v1(tx_proposal.legacy_input_proposals, tx_proposal.sp_input_proposals, input_context);
 
     // output proposals

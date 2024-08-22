@@ -330,11 +330,13 @@ namespace config
   const constexpr char HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_X[] = "jamtis_sender_extension_x";
   const constexpr char HASH_KEY_JAMTIS_SENDER_ONETIME_ADDRESS_EXTENSION_U[] = "jamtis_sender_extension_u";
   const constexpr char HASH_KEY_JAMTIS_AMOUNT_BLINDING_FACTOR[] = "jamtis_amount_commitment_blinding_factor";
-  const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_COINBASE[] = "jamtis_input_context_coinbase";
-  const constexpr char HASH_KEY_JAMTIS_INPUT_CONTEXT_STANDARD[] = "jamtis_input_context_standard";
 
   const constexpr char HASH_KEY_CARROT_EPHEMERAL_PRIVKEY[] = "carrot_ephemeral_privkey";
   const constexpr char HASH_KEY_CARROT_JANUS_ANCHOR_SPECIAL[] = "carrot_janus_anchor_special";
+
+  const constexpr unsigned char JAMTIS_INPUT_CONTEXT_PREFIX_COINBASE = 'C';
+  const constexpr unsigned char JAMTIS_INPUT_CONTEXT_PREFIX_RINGCT = 'R';
+  const constexpr unsigned char JAMTIS_INPUT_CONTEXT_PREFIX_SERAPHIS = 'S';
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};

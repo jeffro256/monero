@@ -67,7 +67,7 @@ static auto auto_wiper(T &obj)
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static void get_output_proposal_plain_root_secrets_and_ephem_pubkey(const JamtisPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     crypto::x25519_pubkey &x_fa_out,
     crypto::x25519_pubkey &x_ir_out,
@@ -192,7 +192,7 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
         "jamtis payment proposal: invalid enote ephemeral privkey (not canonical).");
 
     // 2. coinbase input context
-    rct::key input_context;
+    input_context_t input_context;
     make_jamtis_input_context_coinbase(block_height, input_context);
 
     // 3. plain enote ephemeral pubkey and root secrets: D_e, X_fa, X_ir, q
@@ -220,7 +220,7 @@ void get_coinbase_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_amount_t &encrypted_amount_out,
@@ -266,7 +266,7 @@ void get_output_proposal_v1(const JamtisPaymentProposalV1 &proposal,
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposal_v1(const JamtisPaymentProposalSelfSendV1 &proposal,
     const crypto::secret_key &s_view_balance,
-    const rct::key &input_context,
+    const jamtis::input_context_t &input_context,
     SpOutputProposalCore &output_proposal_core_out,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     encrypted_amount_t &encrypted_amount_out,
