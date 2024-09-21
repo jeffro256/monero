@@ -480,14 +480,14 @@ namespace cryptonote
     };
 
     /**
-     * @brief get infornation about a single transaction
+     * @brief get information about a single transaction
      */
     bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
 
     /**
      * @brief get information about multiple transactions
      */
-    bool get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t limit_size = 0) const;
+    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t limit_size = 0) const;
 
     /**
      * @brief get transactions not in the passed set

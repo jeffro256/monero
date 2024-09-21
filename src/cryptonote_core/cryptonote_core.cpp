@@ -1462,7 +1462,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes, size_t limit_size) const
   {
-    return m_mempool.get_transactions_info(txids, txs, include_sensitive_txes, limit_size);
+    return m_mempool.get_transactions_info(epee::to_span(txids), txs, include_sensitive_txes, limit_size);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions(std::vector<transaction>& txs, bool include_sensitive_data) const
