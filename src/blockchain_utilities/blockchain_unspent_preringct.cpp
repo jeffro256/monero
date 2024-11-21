@@ -28,6 +28,7 @@
 
 #include <filesystem>
 
+#include "blockchain_db/lmdb/db_lmdb.h"
 #include "common/command_line.h"
 #include "cryptonote_core/blockchain_and_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -42,6 +43,102 @@ using namespace epee;
 using namespace cryptonote;
 
 static std::atomic<bool> stop_requested = false;
+
+#define TXN_PREFIX_RDONLY() \
+  MDB_txn *m_txn; \
+  mdb_txn_cursors *m_cursors; \
+  mdb_txn_safe auto_txn; \
+  bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors); \
+  if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get(); \
+  else auto_txn.uncheck()
+#define TXN_POSTFIX_RDONLY()
+
+#define RCURSOR(name) \
+	if (!m_cur_ ## name) { \
+	  int result = mdb_cursor_open(m_txn, m_ ## name, (MDB_cursor **)&m_cur_ ## name); \
+	  if (result) \
+        throw0(DB_ERROR(lmdb_error("Failed to open cursor: ", result).c_str())); \
+	  if (m_cursors != &m_wcursors) \
+	    m_tinfo->m_ti_rflags.m_rf_ ## name = true; \
+	} else if (m_cursors != &m_wcursors && !m_tinfo->m_ti_rflags.m_rf_ ## name) { \
+	  int result = mdb_cursor_renew(m_txn, m_cur_ ## name); \
+      if (result) \
+        throw0(DB_ERROR(lmdb_error("Failed to renew cursor: ", result).c_str())); \
+	  m_tinfo->m_ti_rflags.m_rf_ ## name = true; \
+	}
+
+static std::string lmdb_error(const std::string& error_string, int mdb_res)
+{
+  const std::string full_string = error_string + mdb_strerror(mdb_res);
+  return full_string;
+}
+
+template <typename T>
+inline void throw0(const T &e)
+{
+  LOG_PRINT_L0(e.what());
+  throw e;
+}
+
+class UnspentPreRingCTBlockchain: public cryptonote::BlockchainLMDB
+{
+public:
+  void report_unspent_preringct(std::map<rct::xmr_amount, std::pair<uint32_t, uint32_t>> &report) const
+  {
+    LOG_PRINT_L3("UnspentPreRingCTBlockchain::" << __func__);
+    if (!m_open)
+      throw0(DB_ERROR("DB operation attempted on a not-open DB instance"));
+
+    TXN_PREFIX_RDONLY();
+    RCURSOR(txs_pruned);
+
+    MDB_val k;
+    MDB_val v;
+
+    transaction tx;
+
+    MDB_cursor_op op = MDB_FIRST;
+    while (!stop_requested.load())
+    {
+      int ret = mdb_cursor_get(m_cur_txs_pruned, &k, &v, op);
+      op = MDB_NEXT;
+      if (ret == MDB_NOTFOUND)
+        break;
+      if (ret)
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate transactions: ", ret).c_str()));
+
+      blobdata_ref bd{reinterpret_cast<char*>(v.mv_data), v.mv_size};
+      if (!parse_and_validate_tx_base_from_blob(bd, tx))
+        throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+
+      for (const cryptonote::txin_v &in : tx.vin)
+      {
+        if (in.type() == typeid(cryptonote::txin_gen))
+        {
+          const uint64_t block_height = boost::get<txin_gen>(in).height;
+          if (block_height % 10000 == 0)
+          {
+            std::cout << block_height << '\r';
+            std::cout.flush();
+          }
+          break;
+        }
+
+        const rct::xmr_amount amount_spent = boost::get<cryptonote::txin_to_key>(in).amount;
+        if (amount_spent)
+          ++report[amount_spent].second;
+      }
+
+      if (tx.version == 1) // i.e. NOT RingCT
+      {
+        for (const cryptonote::tx_out &out : tx.vout)
+          ++report[out.amount].first;
+      }
+    }
+
+    TXN_POSTFIX_RDONLY();
+  }
+};
 
 int main(int argc, char* argv[])
 {
@@ -120,7 +217,7 @@ int main(int argc, char* argv[])
   // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   std::unique_ptr<BlockchainAndPool> core_storage = std::make_unique<BlockchainAndPool>();
-  BlockchainDB *db = new_db();
+  UnspentPreRingCTBlockchain *db = new UnspentPreRingCTBlockchain();
   if (db == NULL)
   {
     LOG_ERROR("Failed to initialize a database");
@@ -160,39 +257,9 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Blockchain height: " << db_height);
 
   LOG_PRINT_L0("Starting main output iteration loop...");
-  std::cout << "0 / " << db_height << "\r"; std::cout.flush();
 
   // perform main data processing on all outputs
-  db->for_all_transactions([&](const crypto::hash &tx_hash, const cryptonote::transaction &tx) -> bool
-    {
-      for (const cryptonote::txin_v &in : tx.vin)
-      {
-        if (in.type() == typeid(cryptonote::txin_gen))
-        {
-          const uint64_t block_height = boost::get<cryptonote::txin_gen>(in).height;
-          if (block_height % 1000 == 0)
-          {
-            std::cout << block_height << " / " << db_height << "\r"; std::cout.flush();
-          }
-          break;
-        }
-
-        const rct::xmr_amount amount_spent = boost::get<cryptonote::txin_to_key>(in).amount;
-        if (amount_spent)
-          ++report_by_amount[amount_spent].second;
-      }
-
-      if (tx.version == 1) // i.e. NOT RingCT
-      {
-        for (const cryptonote::tx_out &out : tx.vout)
-          ++report_by_amount[out.amount].first;
-      }
-
-      // goto next tx if interrupt signal not received
-      return !stop_requested.load();
-    },
-    true // pruned
-  );
+  db->report_unspent_preringct(report_by_amount);
 
   LOG_PRINT_L0("Writing report to CSV file...");
 

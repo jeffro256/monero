@@ -356,7 +356,7 @@ public:
   static int compare_hash32(const MDB_val *a, const MDB_val *b);
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
-private:
+protected:
   void do_resize(uint64_t size_increase=0);
 
   bool need_resize(uint64_t threshold_size=0) const;
@@ -443,7 +443,7 @@ private:
 
   void cleanup_batch();
 
-private:
+protected:
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
