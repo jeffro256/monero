@@ -33,6 +33,7 @@
 #include "cryptonote_core/blockchain_and_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "hardforks/hardforks.h"
+#include "serialization/serialization.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -92,14 +93,18 @@ public:
     TXN_PREFIX_RDONLY();
     RCURSOR(txs_pruned);
 
+    mdb_size_t num_chain_txs = 0;
+    if (!mdb_cursor_count(m_cur_txs_pruned, &num_chain_txs))
+      throw0(DB_ERROR("Failed to get number of on-chain transactions"));
+
     MDB_val k;
     MDB_val v;
 
-    transaction tx;
-
+    transaction_prefix tx_prefix;
     MDB_cursor_op op = MDB_FIRST;
     while (!stop_requested.load())
     {
+      // iterate cursor
       int ret = mdb_cursor_get(m_cur_txs_pruned, &k, &v, op);
       op = MDB_NEXT;
       if (ret == MDB_NOTFOUND)
@@ -107,31 +112,38 @@ public:
       if (ret)
         throw0(DB_ERROR(lmdb_error("Failed to enumerate transactions: ", ret).c_str()));
 
-      blobdata_ref bd{reinterpret_cast<char*>(v.mv_data), v.mv_size};
-      if (!parse_and_validate_tx_base_from_blob(bd, tx))
+      // parse tx prefix
+      binary_archive<false> ar({reinterpret_cast<const uint8_t*>(v.mv_data), v.mv_size});
+      if (!::serialization::serialize_noeof(ar, tx_prefix))
         throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
 
-      for (const cryptonote::txin_v &in : tx.vin)
+      // print progress
+      uint64_t tx_idx = 0;
+      if (k.mv_size != sizeof(uint64_t))
+        throw0(DB_ERROR("Got wrong size for txs_pruned LMDB key"));
+      memcpy(&tx_idx, k.mv_data, sizeof(uint64_t));
+      if (tx_idx % 10000 == 0)
       {
-        if (in.type() == typeid(cryptonote::txin_gen))
-        {
-          const uint64_t block_height = boost::get<txin_gen>(in).height;
-          if (block_height % 10000 == 0)
-          {
-            std::cout << block_height << '\r';
-            std::cout.flush();
-          }
+        const int prog_percent = (int) (((double) tx_idx / num_chain_txs) * 100.0);
+        std::cout << tx_idx << " / " << num_chain_txs << " (" << prog_percent << "%)\r";
+        std::cout.flush();
+      }
+
+      // iterate thru tx inputs for pre-RingCT spends
+      for (const cryptonote::txin_v &in : tx_prefix.vin)
+      {
+        if (in.type() != typeid(cryptonote::txin_to_key))
           break;
-        }
 
         const rct::xmr_amount amount_spent = boost::get<cryptonote::txin_to_key>(in).amount;
         if (amount_spent)
           ++report[amount_spent].second;
       }
 
-      if (tx.version == 1) // i.e. NOT RingCT
+      // iterate thru tx outputs for pre-RingCT creations
+      if (tx_prefix.version == 1) // i.e. NOT RingCT
       {
-        for (const cryptonote::tx_out &out : tx.vout)
+        for (const cryptonote::tx_out &out : tx_prefix.vout)
           ++report[out.amount].first;
       }
     }
