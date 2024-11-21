@@ -93,18 +93,23 @@ public:
     TXN_PREFIX_RDONLY();
     RCURSOR(txs_pruned);
 
-    mdb_size_t num_chain_txs = 0;
-    if (!mdb_cursor_count(m_cur_txs_pruned, &num_chain_txs))
-      throw0(DB_ERROR("Failed to get number of on-chain transactions"));
-
     MDB_val k;
     MDB_val v;
+
+    // get total number of txs
+    if (mdb_cursor_get(m_cur_txs_pruned, &k, &v, MDB_LAST))
+      throw0(DB_ERROR("Failed to get last element of txs_pruned"));
+    mdb_size_t num_chain_txs = 0;
+    if (k.mv_size != sizeof(uint64_t))
+        throw0(DB_ERROR("Got wrong size for txs_pruned LMDB key"));
+    memcpy(&num_chain_txs, k.mv_data, sizeof(uint64_t));
+    ++num_chain_txs;
 
     transaction_prefix tx_prefix;
     MDB_cursor_op op = MDB_FIRST;
     while (!stop_requested.load())
     {
-      // iterate cursor
+      // step cursor
       int ret = mdb_cursor_get(m_cur_txs_pruned, &k, &v, op);
       op = MDB_NEXT;
       if (ret == MDB_NOTFOUND)
