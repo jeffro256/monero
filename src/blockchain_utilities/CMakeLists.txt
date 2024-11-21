@@ -143,14 +143,14 @@ monero_private_headers(blockchain_stats
 
 ####################
 
-set(blockchain_find_locked_sources
-  blockchain_find_locked.cpp
+set(blockchain_unspent_preringct_sources
+  blockchain_unspent_preringct.cpp
   )
 
-set(blockchain_find_locked_private_headers)
+set(blockchain_unspent_preringct_private_headers)
 
-monero_private_headers(blockchain_find_locked
-	  ${blockchain_find_locked_private_headers})
+monero_private_headers(blockchain_unspent_preringct
+	  ${blockchain_unspent_preringct_private_headers})
 
 ################################################################################
 
@@ -322,11 +322,11 @@ install(TARGETS blockchain_stats DESTINATION bin)
 
 ####################
 
-monero_add_executable(blockchain_find_locked
-  ${blockchain_find_locked_sources}
-  ${blockchain_find_locked_private_headers})
+monero_add_executable(blockchain_unspent_preringct
+  ${blockchain_unspent_preringct_sources}
+  ${blockchain_unspent_preringct_private_headers})
 
-target_link_libraries(blockchain_find_locked
+target_link_libraries(blockchain_unspent_preringct
   PRIVATE
     cryptonote_core
     blockchain_db
@@ -338,10 +338,10 @@ target_link_libraries(blockchain_find_locked
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
-set_property(TARGET blockchain_find_locked
+set_property(TARGET blockchain_unspent_preringct
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-find-locked")
-install(TARGETS blockchain_find_locked DESTINATION bin)
+	OUTPUT_NAME "monero-blockchain-unspent-preringct")
+install(TARGETS blockchain_unspent_preringct DESTINATION bin)
 
 ####################
 
