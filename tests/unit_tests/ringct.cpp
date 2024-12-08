@@ -34,6 +34,10 @@
 #include <algorithm>
 #include <sstream>
 
+extern "C"
+{
+#include "ringct/clsag_c_api.h"
+}
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
@@ -1267,4 +1271,73 @@ TEST(ringct, aggregated)
   }
 
   ASSERT_TRUE(verRctSemanticsSimple(sp));
+}
+
+static monero_c_key rct2c(const key &k)
+{
+  monero_c_key res;
+  memcpy(&res, &k, sizeof(res));
+  return res;
+}
+
+static key c2rct(const monero_c_key &c)
+{
+  key res;
+  memcpy(&res, &c, sizeof(res));
+  return res;
+}
+
+TEST(ringct, monero_c_clsag_api)
+{
+  static constexpr const size_t max_ring_size = 100;
+
+  std::vector<key> privkeys(max_ring_size);
+  for (auto &k : privkeys) k = skGen();
+
+  std::vector<key> blinders(max_ring_size);
+  for (auto &b : blinders) b = skGen();
+
+  std::vector<xmr_amount> amounts(max_ring_size);
+  for (auto &a : amounts) a = crypto::rand<xmr_amount>();
+
+  std::vector<monero_c_key> pubkeys(max_ring_size);
+  for (size_t i = 0; i < max_ring_size; ++i) pubkeys[i] = rct2c(scalarmultBase(privkeys[i]));
+
+  std::vector<monero_c_key> commitments(max_ring_size);
+  for (size_t i = 0; i < max_ring_size; ++i) commitments[i] = rct2c(commit(amounts[i], blinders[i]));
+
+  const monero_c_key msg = crypto::rand<monero_c_key>();
+
+  for (size_t ring_size = 1; ring_size <= max_ring_size; ++ring_size)
+  {
+    const size_t index_in_ring = crypto::rand_idx<size_t>(ring_size);
+    const monero_c_key true_privkey = rct2c(privkeys.at(index_in_ring));
+    const key &true_blinder = blinders.at(index_in_ring);
+    const xmr_amount true_amount = amounts.at(index_in_ring);
+
+    const monero_c_key blinding_factor_diff = rct2c(skGen());
+    key psuedo_blinding_factor;
+    sc_sub(psuedo_blinding_factor.bytes, true_blinder.bytes, blinding_factor_diff.data);
+    const monero_c_key psuedo_out = rct2c(commit(true_amount, psuedo_blinding_factor));
+
+    std::vector<monero_c_key> commits_to_zero(ring_size);
+    for (size_t i = 0; i < ring_size; ++i)
+    {
+      key tmp;
+      subKeys(tmp, c2rct(commitments.at(i)), c2rct(psuedo_out));
+      commits_to_zero[i] = rct2c(tmp);
+    }
+
+    monero_c_clsag* sig = monero_c_clsag_prove(&msg,
+      pubkeys.data(),
+      &true_privkey,
+      commits_to_zero.data(),
+      commitments.data(),
+      &psuedo_out,
+      &blinding_factor_diff,
+      index_in_ring,
+      ring_size);
+    ASSERT_TRUE(monero_c_clsag_verify(&msg, sig, pubkeys.data(), commitments.data(), &psuedo_out, ring_size));
+    monero_c_clsag_destroy(sig);
+  }
 }

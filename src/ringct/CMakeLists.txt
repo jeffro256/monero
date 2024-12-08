@@ -50,12 +50,14 @@ target_link_libraries(ringct_basic
     ${EXTRA_LIBRARIES})
 
 set(ringct_sources
+  clsag_c_api.cpp
   rctSigs.cpp
 )
 
 set(ringct_headers)
 
 set(ringct_private_headers
+  clsag_c_api.h
   rctSigs.h
 )
 
