@@ -563,6 +563,27 @@ int main(int argc, char** argv)
     p.core_params.td->save(false);
   /// TEST: SpTxSquashedV1 (end)
 
+  // CLSAG verification
+  //TEST_PERFORMANCE3(filter, p, test_sig_clsag, 1, 2, 2); // broken for N=1
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 2, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 3, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 4, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 8, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 16, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 24, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 32, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 40, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 48, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 56, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 64, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 80, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 96, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 112, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 128, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 160, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 192, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 224, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 256, 2, 2);
 
 /*
   TEST_PERFORMANCE3(filter, p, test_balance_check, BalanceCheckType::MultiexpSub, 1, 1);
@@ -714,13 +735,6 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 64, 2, 2);
   TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 128, 2, 2);
   TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 256, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 4, 2, 2); // CLSAG verification
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 8, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 16, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 32, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 64, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 128, 2, 2);
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 256, 2, 2);
 
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, false);
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, true);

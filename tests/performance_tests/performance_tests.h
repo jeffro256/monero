@@ -30,12 +30,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <type_traits>
 #include <stdint.h>
 
-#include <boost/chrono.hpp>
 #include <boost/regex.hpp>
 
 #include "misc_language.h"
@@ -46,27 +46,33 @@
 class performance_timer final
 {
 public:
-  typedef boost::chrono::high_resolution_clock clock;
+  using clock_t = std::chrono::high_resolution_clock;
 
   performance_timer()
-  {
-    m_base = clock::now();
-  }
+  {}
 
   void start()
   {
-    m_start = clock::now();
+    m_start = clock_t::now();
   }
 
-  int elapsed_ms()
+  clock_t::duration get_elapsed() const
   {
-    clock::duration elapsed = clock::now() - m_start;
-    return static_cast<int>(boost::chrono::duration_cast<boost::chrono::milliseconds>(elapsed).count());
+    return clock_t::now() - m_start;
+  }
+
+  uint64_t elapsed_ms()
+  {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(get_elapsed()).count();
+  }
+
+  uint64_t elapsed_us()
+  {
+    return std::chrono::duration_cast<std::chrono::microseconds>(get_elapsed()).count();
   }
 
 private:
-  clock::time_point m_base;
-  clock::time_point m_start;
+  clock_t::time_point m_start;
 };
 
 struct Params final
@@ -114,8 +120,10 @@ template <typename T, typename ParamsT>
 class test_runner final
 {
 public:
+  using clock_t = performance_timer::clock_t;
+
   test_runner(const ParamsT &params_shuttle)
-    : m_elapsed(0)
+    : m_elapsed()
     , m_params_shuttle(params_shuttle)
     , m_core_params(params_shuttle.core_params)
     , m_per_call_timers(T::loop_count * params_shuttle.core_params.loop_multiplier, {true})
@@ -137,28 +145,38 @@ public:
       std::cout << "Warm up: " << timer.elapsed_ms() << " ms" << std::endl;
 
     timer.start();
-    for (size_t i = 0; i < T::loop_count * m_core_params.loop_multiplier; ++i)
+
+    if (m_core_params.stats) // per-call stats
     {
-      if (m_core_params.stats)
+      for (size_t i = 0; i < T::loop_count * m_core_params.loop_multiplier; ++i)
+      {
         m_per_call_timers[i].resume();
-      if (!test.test())
-        return i + 1;
-      if (m_core_params.stats)
+        if (!test.test())
+          return i + 1;
         m_per_call_timers[i].pause();
+      }
     }
-    m_elapsed = timer.elapsed_ms();
+    else // no per-call stats
+    {
+      for (size_t i = 0; i < T::loop_count * m_core_params.loop_multiplier; ++i)
+        if (!test.test())
+          return i + 1;
+    }
+  
+    m_elapsed = timer.get_elapsed();
     m_stats.reset(new Stats<tools::PerformanceTimer, uint64_t>(m_per_call_timers));
 
     return 0;
   }
 
-  int elapsed_time() const { return m_elapsed; }
+  clock_t::duration elapsed_time() const { return m_elapsed; }
+  uint64_t elapsed_ms() const { return std::chrono::duration_cast<std::chrono::milliseconds>(m_elapsed).count(); }
   size_t get_size() const { return m_stats->get_size(); }
 
-  int time_per_call(int scale = 1) const
+  uint64_t us_per_call() const
   {
     static_assert(0 < T::loop_count, "T::loop_count must be greater than 0");
-    return m_elapsed * scale / (T::loop_count * m_core_params.loop_multiplier);
+    return std::chrono::duration_cast<std::chrono::microseconds>(m_elapsed).count() / (T::loop_count * m_core_params.loop_multiplier);
   }
 
   uint64_t get_min() const { return m_stats->get_min(); }
@@ -191,7 +209,7 @@ private:
 
 private:
   volatile uint64_t m_warm_up;  ///<! This field is intended for preclude compiler optimizations
-  int m_elapsed;
+  clock_t::duration m_elapsed;
   Params m_core_params;
   ParamsT m_params_shuttle;
   std::vector<tools::PerformanceTimer> m_per_call_timers;
@@ -216,7 +234,7 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
     {
       std::cout << test_name << " - OK:\n";
       std::cout << "  loop count:    " << T::loop_count * params.loop_multiplier << '\n';
-      std::cout << "  elapsed:       " << runner.elapsed_time() << " ms\n";
+      std::cout << "  elapsed:       " << runner.elapsed_ms() << " ms\n";
       if (params.stats)
       {
         std::cout << "  min:       " << runner.get_min() << " ns\n";
@@ -229,18 +247,14 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
     {
       std::cout << test_name << " (" << T::loop_count * params.loop_multiplier << " calls) - OK:";
     }
-    const char *unit = "ms";
-    double scale = 1000000;
-    uint64_t time_per_call = runner.time_per_call();
-    if (time_per_call < 100) {
-     scale = 1000;
-     time_per_call = runner.time_per_call(1000);
+
 #ifdef _WIN32
-     unit = "us";
+    const char * const unit = "us";
 #else
-     unit = "µs";
+    const char * const unit = "µs";
 #endif
-    }
+    const uint64_t time_per_call = runner.us_per_call();
+
     const auto quantiles = runner.get_quantiles(10);
     double min = runner.get_min();
     double max = runner.get_max();
@@ -260,11 +274,6 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
     std::cout << (params.verbose ? "  time per call: " : " ") << time_per_call << " " << unit << "/call" << (params.verbose ? "\n" : "");
     if (params.stats)
     {
-      uint64_t mins = min / scale;
-      uint64_t meds = med / scale;
-      uint64_t p95s = quantiles[9] / scale;
-      uint64_t stddevs = stddev / scale;
-      std::string cmp;
       /*
       if (!prev_instances.empty())
       {
@@ -276,7 +285,7 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
         cmp += "  -- " + std::to_string(prev_instance->mean);
       }
       */
-      std::cout << " (min " << mins << " " << unit << ", 90th " << p95s << " " << unit << ", median " << meds << " " << unit << ", std dev " << stddevs << " " << unit << ")" << cmp;
+      std::cout << " (min " << min << " " << unit << ", 90th " << quantiles[9] << " " << unit << ", median " << med << " " << unit << ", std dev " << stddev << " " << unit << ")";
     }
     std::cout << std::endl;
   }
