@@ -112,6 +112,8 @@ static void get_output_proposal_parts(const crypto::hash &s_sender_receiver,
         amount_blinding_factor_out = rct::rct2sk(rct::I);
     else
         make_carrot_amount_blinding_factor(s_sender_receiver,
+            amount,
+            destination_spend_pubkey,
             enote_type,
             amount_blinding_factor_out);
 

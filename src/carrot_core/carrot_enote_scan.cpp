@@ -57,16 +57,6 @@ static bool try_scan_carrot_non_coinbase_core(const CarrotEnoteV1 &enote,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &nominal_janus_anchor_out)
 {
-    // if cannot recompute C_a, then FAIL
-    if (!try_get_carrot_amount(s_sender_receiver,
-            enote.amount_enc,
-            enote.onetime_address,
-            enote.amount_commitment,
-            enote_type_out,
-            amount_out,
-            amount_blinding_factor_out))
-        return false;
-
     // k^o_g = H_n("..g..", s^ctx_sr, C_a)
     make_carrot_onetime_address_extension_g(s_sender_receiver,
         enote.amount_commitment,
@@ -82,6 +72,17 @@ static bool try_scan_carrot_non_coinbase_core(const CarrotEnoteV1 &enote,
         s_sender_receiver,
         enote.amount_commitment,
         address_spend_pubkey_out);
+
+    // if cannot recompute C_a, then FAIL
+    if (!try_get_carrot_amount(s_sender_receiver,
+            enote.amount_enc,
+            enote.onetime_address,
+            address_spend_pubkey_out,
+            enote.amount_commitment,
+            enote_type_out,
+            amount_out,
+            amount_blinding_factor_out))
+        return false;
 
     // pid = pid_enc XOR m_pid, if applicable
     if (encrypted_payment_id)

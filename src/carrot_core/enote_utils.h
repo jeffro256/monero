@@ -186,12 +186,16 @@ void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
     crypto::public_key &onetime_address_out);
 /**
 * brief: make_carrot_amount_blinding_factor - create blinding factor for enote's amount commitment C_a
-*   k_a = H_n(s^ctx_sr, enote_type)
+*   k_a = H_n(s^ctx_sr, a, K^j_s, enote_type)
 * param: s_sender_receiver - s^ctx_sr
+* param: amount - a
+* param: address_spend_pubkey - K^j_s
 * param: enote_type - enote_type
 * outparam: amount_blinding_factor_out - k_a
 */
 void make_carrot_amount_blinding_factor(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &address_spend_pubkey,
     const CarrotEnoteType enote_type,
     crypto::secret_key &amount_blinding_factor_out);
 /**
@@ -334,15 +338,17 @@ bool test_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
 /**
 * brief: try_recompute_carrot_amount_commitment - test recreating the amount commitment for given enote_type and amount
 * param: s_sender_receiver - s^ctx_sr
-* param: nominal_enote_type - enote_type'
 * param: nominal_amount - a'
+* param: nominal_address_spend_pubkey - K^j_s'
+* param: nominal_enote_type - enote_type'
 * param: amount_commitment - C_a
 * outparam: amount_blinding_factor_out - k_a' = H_n(s^ctx_sr, enote_type')
 * return: true if successfully recomputed the amount commitment (C_a ?= k_a' G + a' H)
 */
 bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receiver,
-    const CarrotEnoteType nominal_enote_type,
     const rct::xmr_amount nominal_amount,
+    const crypto::public_key &nominal_address_spend_pubkey,
+    const CarrotEnoteType nominal_enote_type,
     const rct::key &amount_commitment,
     crypto::secret_key &amount_blinding_factor_out);
 /**
@@ -350,6 +356,7 @@ bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receive
 * param: s_sender_receiver - s^ctx_sr
 * param: encrypted_amount - a_enc
 * param: onetime_address - Ko
+* param: address_spend_pubkey - K^j_s
 * param: amount_commitment - C_a
 * outparam: enote_type_out - enote_type'
 * outparam: amount_out - a' = a_enc XOR m_a
@@ -359,6 +366,7 @@ bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receive
 bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
     const encrypted_amount_t &encrypted_amount,
     const crypto::public_key &onetime_address,
+    const crypto::public_key &address_spend_pubkey,
     const rct::key &amount_commitment,
     CarrotEnoteType &enote_type_out,
     rct::xmr_amount &amount_out,

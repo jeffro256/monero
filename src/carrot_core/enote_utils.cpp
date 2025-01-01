@@ -260,12 +260,14 @@ void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_amount_blinding_factor(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &address_spend_pubkey,
     const CarrotEnoteType enote_type,
     crypto::secret_key &amount_blinding_factor_out)
 {
-    // k_a = H_n(s^ctx_sr, enote_type)
+    // k_a = H_n(s^ctx_sr, a, K^j_s, enote_type)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_AMOUNT_BLINDING_FACTOR>(
-        static_cast<unsigned char>(enote_type));
+        amount, address_spend_pubkey, static_cast<unsigned char>(enote_type));
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &amount_blinding_factor_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -410,13 +412,18 @@ bool test_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receiver,
-    const CarrotEnoteType nominal_enote_type,
     const rct::xmr_amount nominal_amount,
+    const crypto::public_key &nominal_address_spend_pubkey,
+    const CarrotEnoteType nominal_enote_type,
     const rct::key &amount_commitment,
     crypto::secret_key &amount_blinding_factor_out)
 {
-    // k_a' = H_n(s^ctx_sr, enote_type')
-    make_carrot_amount_blinding_factor(s_sender_receiver, nominal_enote_type, amount_blinding_factor_out);
+    // k_a' = H_n(s^ctx_sr, a', K^j_s', enote_type')
+    make_carrot_amount_blinding_factor(s_sender_receiver,
+        nominal_amount,
+        nominal_address_spend_pubkey,
+        nominal_enote_type,
+        amount_blinding_factor_out);
 
     // C_a' = k_a' G + a' H
     const rct::key nominal_amount_commitment = rct::commit(nominal_amount, rct::sk2rct(amount_blinding_factor_out));
@@ -428,6 +435,7 @@ bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receive
 bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
     const encrypted_amount_t &encrypted_amount,
     const crypto::public_key &onetime_address,
+    const crypto::public_key &address_spend_pubkey,
     const rct::key &amount_commitment,
     CarrotEnoteType &enote_type_out,
     rct::xmr_amount &amount_out,
@@ -441,8 +449,9 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
 
     // if C_a ?= k_a' G + a' H, then PASS
     if (try_recompute_carrot_amount_commitment(s_sender_receiver,
-            enote_type_out,
             amount_out,
+            address_spend_pubkey,
+            enote_type_out,
             amount_commitment,
             amount_blinding_factor_out))
         return true;
@@ -452,8 +461,9 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
 
     // if C_a ?= k_a' G + a' H, then PASS
     if (try_recompute_carrot_amount_commitment(s_sender_receiver,
-            enote_type_out,
             amount_out,
+            address_spend_pubkey,
+            enote_type_out,
             amount_commitment,
             amount_blinding_factor_out))
         return true;
