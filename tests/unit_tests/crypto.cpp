@@ -37,10 +37,13 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/generators.h"
+#include "cryptonote_config.h"
+#include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "ringct/rctOps.h"
-#include "ringct/rctTypes.h"
+#include "ringct/rctSigs.h"
 
 namespace
 {
@@ -344,4 +347,146 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+class discrete_log_oracle
+{
+  // Map of Q -> (a, P) s.t. Q = a P
+  std::unordered_map<rct::key, std::pair<rct::key, rct::key>> data;
+
+public:
+  void add(const rct::key &a, const rct::key &P)
+  {
+    const rct::key Q = rct::scalarmultKey(P, a);
+    data.insert({Q, {a, P}});
+  }
+
+  std::optional<std::pair<rct::key, rct::key>> get(const rct::key &Q) const
+  {
+    const auto it = data.find(Q);
+    if (it == data.cend())
+      return std::nullopt;
+    return it->second;
+  }
+};
+
+// Most known quantum scanning attacks need (K^j_s, K^j_v). This only needs K^j_s
+bool try_quantum_viewkey_less_scan(const discrete_log_oracle &dlog,
+  const rct::key &onetime_address,
+  const rct::key &amount_commitment,
+  const rct::key &encrypted_amount,
+  const rct::key &address_spend_pubkey,
+  rct::xmr_amount &amount_out)
+{
+  // K_ext = K_o - K^j_s
+  rct::key sender_extension_pubkey;
+  rct::subKeys(sender_extension_pubkey, onetime_address, address_spend_pubkey);
+
+  // peek at k_ext s.t. K_ext = k_ext G
+  const auto dlog_res = dlog.get(sender_extension_pubkey);
+  if (!dlog_res || dlog_res->second != rct::G)
+    return false;
+  const rct::key sender_extension_privkey = dlog_res->first;
+
+  // a = a_enc XOR H("amount" || k_ext)
+  // z = H("commitment_mask" || k_ext)
+  rct::ecdhTuple ecdh_tuple{.amount = encrypted_amount};
+  rct::ecdhDecode(ecdh_tuple, sender_extension_privkey, /*v2=*/true);
+  amount_out = rct::h2d(ecdh_tuple.amount);
+
+  // check that C ?= z G + a H
+  const rct::key recomputed_amount_commitment = rct::commit(amount_out, ecdh_tuple.mask);
+  if (recomputed_amount_commitment != amount_commitment)
+    return false;
+
+  return true;
+}
+
+TEST(Crypto, try_quantum_viewkey_less_scan)
+{
+  cryptonote::account_base acb;
+  acb.generate();
+
+  hw::device &hwdev = hw::get_device("default");
+
+  // (r, R = r G)
+  crypto::secret_key ephemeral_tx_privkey;
+  crypto::public_key ephemeral_tx_pubkey;
+  crypto::generate_keys(ephemeral_tx_pubkey, ephemeral_tx_privkey);
+
+  const rct::xmr_amount fake_fee = 21;
+  const rct::xmr_amount amount = crypto::rand_range<rct::xmr_amount>(10, MONEY_SUPPLY - fake_fee);
+
+  const std::size_t output_index = crypto::rand_idx<std::size_t>(16);
+
+  // destination with main address
+  const cryptonote::tx_destination_entry dest(amount, acb.get_keys().m_account_address, false);
+
+  std::vector<rct::key> amount_keys;
+  std::vector<crypto::public_key> dummy_additional_tx_pubkeys;
+  crypto::view_tag dummy_view_tag;
+  crypto::public_key onetime_address;
+  ASSERT_TRUE(hwdev.generate_output_ephemeral_keys(/*tx_version=*/2,
+    acb.get_keys(),
+    ephemeral_tx_pubkey,
+    ephemeral_tx_privkey,
+    dest,
+    /*change_addr=*/boost::none,
+    output_index,
+    /*need_additional_txkeys=*/false,
+    /*additional_tx_privkeys=*/{},
+    dummy_additional_tx_pubkeys,
+    amount_keys,
+    onetime_address,
+    /*use_view_tag=*/false,
+    dummy_view_tag));
+
+  const rct::key message = crypto::rand<rct::key>();
+  const int mixin = 15;
+  const rct::xmr_amount fee = 21;
+  const rct::RCTConfig rct_config{
+    .range_proof_type = rct::RangeProofPaddedBulletproof,
+    .bp_version = 4
+  };
+
+  // generate a bunch of information about our fake input
+  crypto::secret_key fake_in_privkey;
+  crypto::public_key fake_in_pubkey;
+  crypto::generate_keys(fake_in_pubkey, fake_in_privkey);
+  const rct::key fake_in_amount_blinding_factor = rct::skGen();
+  const rct::xmr_amount fake_in_amount = fake_fee + amount;
+  const rct::key fake_in_amount_commitment = rct::commit(fake_in_amount, fake_in_amount_blinding_factor);
+
+  const rct::rctSig rct_sig = rct::genRctSimple(message,
+    {{rct::sk2rct(fake_in_privkey), fake_in_amount_blinding_factor}},
+    {{rct::pk2rct(fake_in_pubkey), fake_in_amount_commitment}},
+    {rct::pk2rct(onetime_address)},
+    {fake_in_amount},
+    {amount},
+    amount_keys,
+    fee,
+    mixin,
+    rct_config,
+    hwdev);
+
+  // double-check that the "amount key" (terrible name) is equal to the sender extension privkey
+  rct::key recomputed_onetime_address;
+  rct::addKeys1(recomputed_onetime_address,
+    amount_keys.at(0),
+    rct::pk2rct(dest.addr.m_spend_public_key));
+  ASSERT_EQ(onetime_address, rct::rct2pk(recomputed_onetime_address));
+
+  // add K_ext = k_ext G to the discrete log oracle
+  discrete_log_oracle dlog;
+  dlog.add(amount_keys.at(0), rct::G);
+
+  rct::xmr_amount rescanned_amount;
+  ASSERT_TRUE(try_quantum_viewkey_less_scan(dlog,
+    rct_sig.outPk.at(0).dest,
+    rct_sig.outPk.at(0).mask,
+    rct_sig.ecdhInfo.at(0).amount,
+    rct::pk2rct(dest.addr.m_spend_public_key),
+    rescanned_amount));
+
+  EXPECT_EQ(amount, rescanned_amount);
 }
