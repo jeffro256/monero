@@ -865,7 +865,8 @@ void TreeCache<C1, C2>::prepare_to_sync_blocks(const uint64_t start_block_idx,
     tree_extension_out = TreeSync<C1, C2>::m_curve_trees->get_tree_extension(
         this->get_n_leaf_tuples(),
         this->get_last_hashes(),
-        std::move(unlocked_outputs));
+        std::move(unlocked_outputs),
+        true/*use_fast_torsion_check*/);
 
     CHECK_AND_ASSERT_THROW_MES(n_unlocked_outputs >= tree_extension_out.leaves.tuples.size(), "unexpected new n tuples");
 
