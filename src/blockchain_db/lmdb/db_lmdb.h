@@ -342,6 +342,8 @@ public:
                             , const std::vector<std::pair<transaction, blobdata>>& txs
                             );
 
+  virtual void advance_tree_one_block(const uint64_t blk_idx);
+
   virtual void set_batch_transactions(bool batch_transactions);
   virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0);
   virtual void batch_commit();
