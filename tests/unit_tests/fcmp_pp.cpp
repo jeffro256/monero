@@ -189,7 +189,8 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
 static cryptonote::transaction make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
     const size_t n_outputs,
     const size_t extra_len,
-    const uint8_t n_tree_layers)
+    const uint8_t n_tree_layers,
+    const bool max_int_fields)
 {
     const cryptonote::txin_to_key in{};
     const cryptonote::txin_v in_v{in};
@@ -207,7 +208,7 @@ static cryptonote::transaction make_empty_fcmp_pp_tx_of_size(const size_t n_inpu
     // rctSigBase
     rct::rctSig &rv = tx.rct_signatures;
     rv.type = rct::RCTTypeFcmpPlusPlus;
-    rv.txnFee = std::numeric_limits<rct::xmr_amount>::max();
+    rv.txnFee = max_int_fields ? std::numeric_limits<rct::xmr_amount>::max() : 0;
     rv.outPk.resize(n_outputs);
     rv.ecdhInfo.resize(n_outputs);
 
@@ -223,7 +224,7 @@ static cryptonote::transaction make_empty_fcmp_pp_tx_of_size(const size_t n_inpu
     // rctSigPrunable
     rv.p.bulletproofs_plus = {bpp};
     rv.p.pseudoOuts.resize(n_inputs);
-    rv.p.reference_block = CRYPTONOTE_MAX_BLOCK_NUMBER;
+    rv.p.reference_block = max_int_fields ? CRYPTONOTE_MAX_BLOCK_NUMBER : 0;
     rv.p.n_tree_layers = n_tree_layers;
     rv.p.fcmp_pp.resize(fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers));
 
@@ -821,10 +822,11 @@ TEST(fcmp_pp, tx_weight_pessimism_and_api_integration)
         std::tie(m, n) = inout_count;
 
         cryptonote::transaction example_tx = make_empty_fcmp_pp_tx_of_size(
-            m,            ASSERT_EQ(el, example_tx.extra.size());
+            m,
             n,
             /*extra_len=*/0,
-            fake_n_tree_layers);
+            fake_n_tree_layers,
+            true);
         ASSERT_TRUE(is_canonical_serializable_fcmp_pp_tx(example_tx));
         ASSERT_EQ(m, example_tx.vin.size());
         ASSERT_EQ(n, example_tx.vout.size());
@@ -836,8 +838,8 @@ TEST(fcmp_pp, tx_weight_pessimism_and_api_integration)
         // for each valid length of tx_extra...
         for (size_t el = 0; el <= MAX_TX_EXTRA_SIZE; ++el)
         {
-            MDEBUG("Testing weight for " << m << "-in " << n << "-out " << el << "-byte extra");
             const uint64_t tx_weight = tx_weights.at({m, n, el});
+            MDEBUG("Testing full tx weight for " << m << "-in " << n << "-out " << el << "-byte-extra tx: " << tx_weight);
 
             // make tx_extra the right size
             example_tx.extra.resize(el);
@@ -853,6 +855,67 @@ TEST(fcmp_pp, tx_weight_pessimism_and_api_integration)
             // Check that the weight calculation is "pessimistic": it should
             // always be greater than or equal to the actual bytesize
             EXPECT_GE(tx_weight, example_tx_blob.size());
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, tx_weight_prefix_and_unprunable_byte_accuracy)
+{
+    // build up table of weight by in/out/extra count
+    const auto tx_weights = get_all_fcmp_tx_weights();
+
+    // collect all pairs of valid (n_inputs, n_outputs)
+    std::set<std::pair<size_t, size_t>> valid_inout_counts;
+    for (const auto &p : tx_weights)
+        valid_inout_counts.insert({std::get<0>(p.first), std::get<1>(p.first)});
+    ASSERT_EQ(FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_OUTPUTS - 1), valid_inout_counts.size());
+
+    // for each valid value of tx in/out count...
+    for (const auto &inout_count : valid_inout_counts)
+    {
+        size_t m, n;
+        std::tie(m, n) = inout_count;
+
+        // once with max_int_fields=false, once with max_int_fields=true...
+        for (unsigned max_int_fields = 0; max_int_fields < 2; ++max_int_fields)
+        {
+            cryptonote::transaction example_tx = make_empty_fcmp_pp_tx_of_size(
+                m,
+                n,
+                /*extra_len=*/0,
+                /*n_tree_layers=*/1,
+                max_int_fields);
+            ASSERT_TRUE(is_canonical_serializable_fcmp_pp_tx(example_tx));
+            ASSERT_EQ(m, example_tx.vin.size());
+            ASSERT_EQ(n, example_tx.vout.size());
+            ASSERT_EQ(1, example_tx.rct_signatures.p.n_tree_layers);
+            ASSERT_EQ(2, example_tx.version);
+            ASSERT_EQ(rct::RCTTypeFcmpPlusPlus, example_tx.rct_signatures.type);
+            example_tx.extra.reserve(MAX_TX_EXTRA_SIZE);
+
+            example_tx.pruned = true; // we don't care about prunable stuff in this test
+
+            // for each valid length of tx_extra...
+            for (size_t el = 0; el <= MAX_TX_EXTRA_SIZE; ++el)
+            {
+                MDEBUG("Testing prefix/unprunable weight accuracy for " << m << "-in " << n << "-out " << el << "-byte-extra tx");
+
+                // make tx_extra the right size
+                example_tx.extra.resize(el);
+
+                // serialize example tx
+                const cryptonote::blobdata example_tx_blob = cryptonote::tx_to_blob(example_tx);
+
+                // check that prefix weight is always equal to actual byte size
+                EXPECT_EQ(example_tx.prefix_size, cryptonote::get_fcmp_pp_prefix_weight_v1(m, n, el));
+
+                // check that the unprunable weight is equal to actual byte size when integer fields
+                // are maxed out, and ever so slightly pessimistic (within 9 bytes) if not
+                const uint64_t unprunable_weight = cryptonote::get_fcmp_pp_unprunable_weight_v1(m, n, el);
+                const uint64_t allowed_weight_margin = max_int_fields ? 0 : 9;
+                ASSERT_GE(unprunable_weight, example_tx.unprunable_size);
+                ASSERT_LE(unprunable_weight - example_tx.unprunable_size, allowed_weight_margin);
+            }
         }
     }
 }

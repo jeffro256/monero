@@ -424,7 +424,7 @@ namespace cryptonote
     return string_tools::get_xtype_from_string(amount, str_amount);
   }
   //---------------------------------------------------------------
-  uint64_t get_fcmp_pp_transaction_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  uint64_t get_fcmp_pp_prefix_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
   {
     MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
 
@@ -438,14 +438,11 @@ namespace cryptonote
       std::numeric_limits<uint64_t>::max(),
       "get_fcmp_pp_transaction_weight_v1: invalid extra_len");
 
-    static constexpr uint64_t max_u64_varint_len = 10;        // size of varint storing 2**64-1
-    static constexpr uint64_t max_block_index_varint_len = 5; // size of varint storing CRYPTONOTE_MAX_BLOCK_NUMBER
-
     static constexpr uint64_t txin_to_key_weight = 1 /*amount*/ + 1 /*key_offsets.size()*/ + 32 /*k_image*/;
     static constexpr uint64_t txout_to_carrot_weight = 32 /*key*/ + 3 /*view_tag*/ + 16 /*encrypted_janus_anchor*/;
     static constexpr uint64_t tx_out_weight = 1 /*amount*/ + txout_to_carrot_weight + 1 /*txout_target_v tag*/;
 
-    const uint64_t prefix_weight =
+    return
       1 /*version*/
       + 1 /*unlock_time*/
       + 1 /*vin.size()*/
@@ -454,13 +451,34 @@ namespace cryptonote
       + (n_outputs * tx_out_weight /*tx_out*/)
       + (extra_len >= 128 ? 2 : 1) /*extra.size()*/
       + extra_len;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_unprunable_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
 
+    const uint64_t prefix_weight = get_fcmp_pp_prefix_weight_v1(n_inputs, n_outputs, extra_len);
+    if (prefix_weight == std::numeric_limits<uint64_t>::max())
+      return prefix_weight;
+
+    static constexpr uint64_t max_u64_varint_len = 10;        // size of varint storing 2**64-1
     static constexpr uint64_t rct_sig_base_per_out_weight = 8 /*ecdhInfo.at(i).amount*/ + 32 /*outPk.at(i).mask*/;
 
-    const uint64_t rct_sig_base_weight =
-      1 /*type*/
+    return prefix_weight
+      + 1 /*type*/
       + max_u64_varint_len /*txnFee*/
       + (n_outputs * rct_sig_base_per_out_weight);
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_transaction_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    const uint64_t unprunable_weight = get_fcmp_pp_unprunable_weight_v1(n_inputs, n_outputs, extra_len);
+    if (unprunable_weight == std::numeric_limits<uint64_t>::max())
+      return unprunable_weight;
+
+    static constexpr uint64_t max_block_index_varint_len = 5; // size of varint storing CRYPTONOTE_MAX_BLOCK_NUMBER
 
     static constexpr uint64_t rerandomized_output_weight = FCMP_PP_INPUT_TUPLE_SIZE_V1 + 32 /*C~ AKA pseudoOut*/;
 
@@ -518,9 +536,7 @@ namespace cryptonote
 
     const uint64_t rct_sig_prunable_weight = bp_weight + total_sal_weight + misc_fcmp_pp_weight + fcmp_weight;
 
-    const uint64_t weight = prefix_weight + rct_sig_base_weight + rct_sig_prunable_weight;
-
-    return weight;
+    return unprunable_weight + rct_sig_prunable_weight;
   }
   //---------------------------------------------------------------
   uint64_t get_fcmp_pp_transaction_weight_v1(const transaction_prefix &tx_prefix)
