@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(fcmp_pp_sources
+  branch_blinds_cache.cpp
   curve_trees.cpp
   fcmp_pp_crypto.cpp
   proof_len.cpp
