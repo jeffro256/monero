@@ -314,7 +314,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 const uint64_t global_output_index =
                     parsed_block_with_unlocked_miner_tx.o_indices.indices.at(0).indices.at(local_output_index);
                 new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, output_pair
+                    global_output_index, false/*torsion_checked*/, output_pair
                 });
             }
         }
@@ -338,7 +338,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 const uint64_t global_output_index =
                     parsed_block_with_unlocked_txs.o_indices.indices.at(tx_index + 1).indices.at(local_output_index);
                 new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, output_pair
+                    global_output_index, false/*torsion_checked*/, output_pair
                 });
             }
         }

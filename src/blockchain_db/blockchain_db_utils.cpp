@@ -30,10 +30,11 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
 
 #include "profile_tools.h"
 
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Helper function to group outputs by last locked block idx
 static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
@@ -55,31 +56,27 @@ static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &
         crypto::public_key output_public_key;
         if (!cryptonote::get_output_public_key(out, output_public_key))
             throw std::runtime_error("Could not get an output public key from a tx output.");
-
         static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
             "Revisit this section and update for the new tx version.");
         CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
 
-        if (!miner_tx && tx.version == 2)
-            CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
-
         TIME_MEASURE_NS_START(getting_commitment);
 
-        rct::key commitment = (miner_tx || tx.version < 2)
-            ? rct::zeroCommitVartime(out.amount)
-            : tx.rct_signatures.outPk[i].mask;
+        rct::key commitment;
+        CHECK_AND_ASSERT_THROW_MES(rct::getCommitment(tx, i, commitment), "failed to get tx commitment");
 
         TIME_MEASURE_NS_FINISH(getting_commitment);
 
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                .output_pubkey = std::move(output_public_key),
-                .commitment    = std::move(commitment)
+        const fcmp_pp::curve_trees::OutputPair output_pair{
+                .output_pubkey = output_public_key,
+                .commitment    = commitment
             };
 
         const uint64_t output_id = first_output_id + i;
-        auto output_context = fcmp_pp::curve_trees::OutputContext{
-                .output_id   = output_id,
-                .output_pair = std::move(output_pair)
+        const fcmp_pp::curve_trees::OutputContext output_context{
+                .output_id       = output_id,
+                .torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx),
+                .output_pair     = output_pair
             };
 
         if (has_custom_timelock)
@@ -87,15 +84,7 @@ static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &
             timelocked_outputs_inout[output_id] = last_locked_block;
         }
 
-        if (outs_by_last_locked_block_inout.find(last_locked_block) == outs_by_last_locked_block_inout.end())
-        {
-            auto new_vec = std::vector<fcmp_pp::curve_trees::OutputContext>{std::move(output_context)};
-            outs_by_last_locked_block_inout[last_locked_block] = std::move(new_vec);
-        }
-        else
-        {
-            outs_by_last_locked_block_inout[last_locked_block].emplace_back(std::move(output_context));
-        }
+        outs_by_last_locked_block_inout[last_locked_block].emplace_back(output_context);
 
         getting_commitment_ns += getting_commitment;
     }

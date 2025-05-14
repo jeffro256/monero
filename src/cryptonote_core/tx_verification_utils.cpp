@@ -225,7 +225,9 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
         tx_verification_context& tvc, std::uint8_t hf_version)
 {
     std::vector<const rct::rctSig*> rvv;
+    std::vector<rct::key> pubkeys_and_commitments;
     rvv.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)));
+    pubkeys_and_commitments.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)) * 2);
 
     // We assume transactions have an unmixable ring since it's more permissive. The version is
     // checked again in Blockchain::check_tx_inputs() with `has_unmixable_ring` actually resolved.
@@ -290,6 +292,14 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
         // We only want to check RingCT semantics if this is actually a RingCT transaction
         if (tx.version >= 2)
             rvv.push_back(&tx.rct_signatures);
+
+        // Collect pubkeys and commitments for torsion check
+        if (cryptonote::tx_outs_checked_for_torsion(tx)
+            && !collect_pubkeys_and_commitments(tx, pubkeys_and_commitments))
+        {
+            tvc.m_verifivation_failed = true;
+            return false;
+        }
     }
 
     // Rule 7
@@ -297,6 +307,15 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
     {
         tvc.m_verifivation_failed = true;
         tvc.m_invalid_input = true;
+        return false;
+    }
+
+    // Rule 8
+    // Note: technically this could be threaded with ver_mixed_rct_semantics
+    if (!rct::verPointsForTorsion(pubkeys_and_commitments))
+    {
+        tvc.m_verifivation_failed = true;
+        tvc.m_invalid_output = true;
         return false;
     }
 
@@ -440,6 +459,26 @@ static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
 
 namespace cryptonote
 {
+
+bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key> &pubkeys_and_commitments_inout)
+{
+    for (std::size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        crypto::public_key output_pubkey;
+        if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
+            return false;
+        rct::key pubkey = rct::pk2rct(output_pubkey);
+
+        rct::key commitment;
+        if (!rct::getCommitment(tx, i, commitment))
+            return false;
+
+        pubkeys_and_commitments_inout.emplace_back(pubkey);
+        pubkeys_and_commitments_inout.emplace_back(commitment);
+    }
+
+    return true;
+}
 
 uint64_t get_transaction_weight_limit(const uint8_t hf_version)
 {

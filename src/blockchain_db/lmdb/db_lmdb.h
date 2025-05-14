@@ -272,7 +272,7 @@ public:
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
-  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h) const;
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const;
 
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
