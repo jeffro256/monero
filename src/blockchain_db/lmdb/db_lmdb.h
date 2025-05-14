@@ -342,7 +342,7 @@ public:
                             , const std::vector<std::pair<transaction, blobdata>>& txs
                             );
 
-  virtual void advance_tree_one_block(const uint64_t blk_idx);
+  virtual void advance_tree(const uint64_t blk_idx);
 
   virtual void set_batch_transactions(bool batch_transactions);
   virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0);
@@ -457,6 +457,11 @@ private:
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
+  // Gets the tree root and n_tree_layers composed of all valid spendable outputs when blk_idx is the tip of the chain.
+  // If the chain tip is block index n, and `blk_idx == n`, then this will return the tree root and n layers for the
+  // tree composed of all valid spendable outputs in the chain at that time. Note that the tree stored in the database
+  // may not match up with the tree root returned here, since the tree stored in the database may have grown past the
+  // current tip, with outputs that will unlock in future blocks.
   virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
 
   std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
@@ -467,9 +472,9 @@ private:
     const uint64_t child_layer_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_id(uint64_t block_id);
+  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id);
 
-  void del_locked_outs_at_block_id(uint64_t block_id);
+  void del_locked_outs_at_block_idx(uint64_t block_idx);
 
   uint64_t get_tree_block_idx() const;
 
