@@ -340,6 +340,7 @@ public:
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<std::pair<transaction, blobdata>>& txs
+                            , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                             );
 
   virtual void advance_tree(const uint64_t blk_idx);
