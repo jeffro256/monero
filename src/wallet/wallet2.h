@@ -40,11 +40,13 @@
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/deque.hpp>
+#include <boost/serialization/std_variant_shim.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <atomic>
 #include <random>
 
 #include "include_base_utils.h"
+#include "carrot_impl/carrot_offchain_serialization.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
@@ -659,11 +661,17 @@ private:
       std::vector<cryptonote::tx_destination_entry> dests;
       std::vector<multisig_sig> multisig_sigs;
       crypto::secret_key multisig_tx_key_entropy;
+      uint32_t subaddr_account;            // subaddress account of your wallet to be used in this transfer
+      std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
 
-      tx_construction_data construction_data;
+      using tx_reconstruct_variant_t = std::variant<
+          tx_construction_data,
+          carrot::CarrotTransactionProposalV1
+        >;
+      tx_reconstruct_variant_t construction_data;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
+        VERSION_FIELD(2)
         FIELD(tx)
         FIELD(dust)
         FIELD(fee)
@@ -674,7 +682,20 @@ private:
         FIELD(tx_key)
         FIELD(additional_tx_keys)
         FIELD(dests)
-        FIELD(construction_data)
+        if (version < 2)
+        {
+          tx_construction_data pre_carrot_construction_data;
+          FIELD_N("construction_data", pre_carrot_construction_data)
+          construction_data = pre_carrot_construction_data;
+          subaddr_account = pre_carrot_construction_data.subaddr_account;
+          subaddr_indices = pre_carrot_construction_data.subaddr_indices;
+        }
+        else // version >= 2
+        {
+          FIELD(construction_data)
+          FIELD(subaddr_account)
+          FIELD(subaddr_indices)
+        }
         FIELD(multisig_sigs)
         if (version < 1)
         {
@@ -2117,7 +2138,7 @@ BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
-BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
+BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 4)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 1)
 BOOST_CLASS_VERSION(tools::wallet2::background_synced_tx_t, 0)
 BOOST_CLASS_VERSION(tools::wallet2::background_sync_data_t, 0)
@@ -2608,7 +2629,18 @@ namespace boost
       a & x.key_images;
       a & x.tx_key;
       a & x.dests;
-      a & x.construction_data;
+      if (ver < 4)
+      {
+        tools::wallet2::tx_construction_data pre_carrot_construction_data;
+        a & pre_carrot_construction_data;
+        x.construction_data = pre_carrot_construction_data;
+        x.subaddr_account = pre_carrot_construction_data.subaddr_account;
+        x.subaddr_indices = pre_carrot_construction_data.subaddr_indices;
+      }
+      else // ver >= 4
+      {
+        a & x.construction_data;
+      }
       if (ver < 1)
         return;
       a & x.additional_tx_keys;
@@ -2618,6 +2650,10 @@ namespace boost
       if (ver < 3)
         return;
       a & x.multisig_sigs;
+      if (ver < 4)
+        return;
+      a & x.subaddr_account;
+      a & x.subaddr_indices;
     }
 
     template <class Archive>
@@ -2700,3 +2736,6 @@ namespace tools
   }
   //----------------------------------------------------------------------------------------------------
 }
+
+VARIANT_TAG(binary_archive, tools::wallet2::tx_construction_data, 0x21);
+VARIANT_TAG(binary_archive, carrot::CarrotTransactionProposalV1, 0x22);
