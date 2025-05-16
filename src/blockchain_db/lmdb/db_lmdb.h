@@ -342,6 +342,8 @@ public:
                             , const std::vector<std::pair<transaction, blobdata>>& txs
                             );
 
+  virtual void advance_tree(const uint64_t blk_idx);
+
   virtual void set_batch_transactions(bool batch_transactions);
   virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0);
   virtual void batch_commit();
@@ -455,7 +457,7 @@ private:
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
-  virtual std::size_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
 
   std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
 
@@ -465,9 +467,9 @@ private:
     const uint64_t child_layer_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_id(uint64_t block_id);
+  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id);
 
-  void del_locked_outs_at_block_id(uint64_t block_id);
+  void del_locked_outs_at_block_idx(uint64_t block_idx);
 
   uint64_t get_tree_block_idx() const;
 

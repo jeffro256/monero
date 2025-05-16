@@ -224,10 +224,24 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
+  // To calculate the tree root needed for the block header,
+  // we sync empty blocks so all outputs staged for insertion in the cache
+  // enter the tree. This assumes assumes we don't need the tree cache after
+  // this. We can call pop_block after reading the root to reverse this
+  // if we need the cache to be in the correct state after this op.
+  const uint64_t new_block_idx = n_synced_blocks;
+  tree_cache.sync_block(new_block_idx, crypto::hash{}, blocks[n_manual_blocks - 1].hash, {});
+  uint64_t synced_blk_idx = new_block_idx;
+  while (tree_cache.n_synced_blocks() < cryptonote::get_default_last_locked_block_index(new_block_idx))
+    tree_cache.sync_block(++synced_blk_idx, crypto::hash{}, crypto::hash{}, {});
+
+  crypto::ec_point fcmp_pp_tree_root;
+  const uint8_t fcmp_pp_n_tree_layers = tree_cache.get_tree_root(fcmp_pp_tree_root);
+
   CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes, blk_last, miner_account,
       test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
       hf_version, hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees),
+      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees, fcmp_pp_n_tree_layers, fcmp_pp_tree_root),
       false, "Failed to generate block");
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_block");

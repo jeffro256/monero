@@ -819,13 +819,6 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
   }
 
-  // Grow the tree with outputs that are no longer locked once this block is in the chain
-  auto unlocked_outputs = this->get_outs_at_last_locked_block_id(m_height);
-  this->grow_tree(m_height, std::move(unlocked_outputs));
-
-  // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked outputs table
-  this->del_locked_outs_at_block_id(m_height);
-
   int result = 0;
 
   MDB_val_set(key, m_height);
@@ -1399,6 +1392,37 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
+void BlockchainLMDB::advance_tree(const uint64_t blk_idx)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  // Get the earliest possible last locked block of outputs created in blk_idx
+  const uint64_t earliest_last_locked_block = cryptonote::get_default_last_locked_block_index(blk_idx);
+
+  // If we're advancing the genesis block, make sure to initialize the tree
+  if (blk_idx == 0)
+  {
+    // TODO: include a pre-check that tree meta is empty
+
+    // We grow the first blocks with empty outputs, since no outputs in this range should be spendable yet
+    for (uint64_t new_blk_idx = blk_idx; new_blk_idx < earliest_last_locked_block; ++new_blk_idx)
+    {
+      this->grow_tree(new_blk_idx, {});
+    }
+  }
+  // TODO: include a pre-check that earliest_last_locked_block == last block idx + 1 in tree meta (when blk_idx != 0)
+
+  // Now we can advance the tree 1 block
+  auto unlocked_outputs = this->get_outs_at_last_locked_block_idx(earliest_last_locked_block);
+
+  // Grow the tree with outputs that are spendable once the earliest_last_locked_block is in the chain
+  this->grow_tree(earliest_last_locked_block, std::move(unlocked_outputs));
+
+  // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
+  this->del_locked_outs_at_block_idx(earliest_last_locked_block);
+}
+
 void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1410,26 +1434,23 @@ void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curv
 
   CURSOR(leaves)
 
-  // We may want to skip re-growing the tree if the tree is ahead of the chain.
-  // This can happen if we prior removed the block but have yet to trim the tree
-  // for that block. See trim_block for why we would do that.
+  MDEBUG("Growing tree usable once block " << blk_idx << " is in the chain");
+
+  // Get the prev block's tree edge (i.e. the current tree edge before growing)
   std::vector<crypto::ec_point> prev_tree_edge;
   uint64_t prev_blk_idx = 0;
   if (blk_idx > 0)
   {
-    // Get the block idx corresponding to the current tree in the db
-    const uint64_t tree_block_idx = this->get_tree_block_idx();
-    if (blk_idx > (tree_block_idx + 1))
-      throw0(DB_ERROR("The chain has extended too far past the tree"));
-    if (tree_block_idx >= blk_idx)
-    {
-      LOG_PRINT_L1("Skip re-growing the tree at block " << blk_idx << ", waiting for the chain to catch up to the tree's block " << tree_block_idx);
-      return;
-    }
-    // blk_idx == (tree_block_idx + 1), we're growing the tree 1 block
-
-    // Get the prev block's tree edge (i.e. the current tree edge before growing)
     prev_blk_idx = blk_idx - 1;
+
+    // Make sure tree tip lines up to expected block
+    const uint64_t tree_block_idx = this->get_tree_block_idx();
+    if (tree_block_idx != prev_blk_idx)
+    {
+      throw0(DB_ERROR(("Unexpected tree block idx mismatch to prev block ("
+          + std::to_string(tree_block_idx) + " vs " + std::to_string(prev_blk_idx) + ")").c_str()));
+    }
+
     prev_tree_edge = this->get_tree_edge(prev_blk_idx);
   }
 
@@ -1811,34 +1832,13 @@ void BlockchainLMDB::trim_block()
 
   // Get the earliest possible last locked block of outputs created in removing_block_idx
   const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(removing_block_idx);
-
-  // Since the tree grows with outputs that must have entered the chain at least
-  // CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE blocks prior to chain tip, we do not
-  // need to trim blocks that will just be re-grown with the same outputs again.
-  // Instead, we wait to trim until the tree tip is
-  // CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE blocks ahead of the chain tip, at which
-  // point we can trim outputs created in the block we're removing from the tree
   const uint64_t tree_block_idx = this->get_tree_block_idx();
-
-  // The tree tip should remain bounded to [removing_block_idx, default_last_locked_block]
-  if (tree_block_idx < removing_block_idx || tree_block_idx > default_last_locked_block)
-  {
-    throw0(DB_ERROR(("Chain tip (" + std::to_string(removing_block_idx) + ") and tree tip (" +
-        std::to_string(tree_block_idx) + ") have diverged too far apart").c_str()));
-  }
-
   if (tree_block_idx != default_last_locked_block)
   {
-    LOG_PRINT_L1("Skipping trim when removing block " << removing_block_idx << " (tree block=" << tree_block_idx << ")");
-    return;
+    throw0(DB_ERROR(("Unexpected tree block idx mismatch ("
+        + std::to_string(tree_block_idx) + " vs " + std::to_string(default_last_locked_block) + ")").c_str()));
   }
 
-  // Block removing_block_idx must be the the youngest block where outputs were
-  // created that were used to grow the tree at tree_block_idx. So we trim 1
-  // block from the tree. Upon trimming tree_block_idx from the tree,
-  // no outputs in the tree will exist that were created in removing_block_idx.
-  // After trimming, we can safely remove all outputs from the chain created in
-  // removing_block_idx.
   if (tree_block_idx == 0)
     throw0(DB_ERROR("Unexpected 0 tree block idx"));
   const uint64_t prev_tree_block_idx = tree_block_idx - 1;
@@ -2093,7 +2093,7 @@ uint64_t BlockchainLMDB::get_block_n_leaf_tuples(const uint64_t block_idx) const
   return n_leaf_tuples;
 }
 
-std::size_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const
+uint8_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const
 {
   const std::vector<crypto::ec_point> tree_edge = this->get_tree_edge(blk_idx);
   if (tree_edge.empty())
@@ -2102,7 +2102,8 @@ std::size_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, cry
     return 0;
   }
   tree_root_out = tree_edge.back();
-  return tree_edge.size();
+  static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
+  return (uint8_t) tree_edge.size();
 }
 
 bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
@@ -2387,8 +2388,8 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_id(
-  uint64_t block_id)
+std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_idx(
+  uint64_t block_idx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2396,7 +2397,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   TXN_PREFIX_RDONLY();
   RCURSOR(locked_outputs)
 
-  MDB_val_set(k_block_id, block_id);
+  MDB_val_set(k_block_idx, block_idx);
   MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
@@ -2405,16 +2406,16 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   MDB_cursor_op op = MDB_SET;
   while (1)
   {
-    int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, op);
+    int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_idx, &v_output, op);
     if (result == MDB_NOTFOUND)
       break;
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get next locked outputs: ", result).c_str()));
     op = MDB_NEXT_MULTIPLE;
 
-    const uint64_t blk_id = *(const uint64_t*)k_block_id.mv_data;
-    if (blk_id != block_id)
-      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
+    const uint64_t blk_id = *(const uint64_t*)k_block_idx.mv_data;
+    if (blk_id != block_idx)
+      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_idx)).c_str()));
 
     const auto range_begin = ((const fcmp_pp::curve_trees::OutputContext*)v_output.mv_data);
     const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputContext);
@@ -2437,7 +2438,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   return outs;
 }
 
-void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
+void BlockchainLMDB::del_locked_outs_at_block_idx(uint64_t block_idx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2445,9 +2446,9 @@ void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
 
   CURSOR(locked_outputs)
 
-  MDB_val_set(k_block_id, block_id);
+  MDB_val_set(k_block_idx, block_idx);
 
-  int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, NULL, MDB_SET);
+  int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_idx, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
     return;
   if (result != MDB_SUCCESS)
@@ -7477,12 +7478,7 @@ void BlockchainLMDB::migrate_5_6()
           }
         }
 
-        // Get leaf tuples of outputs that unlock once i is in the chain, since i is their last locked block
-        auto unlocked_outputs = this->get_outs_at_last_locked_block_id(i);
-        this->grow_tree(i, std::move(unlocked_outputs));
-
-        // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
-        this->del_locked_outs_at_block_id(i);
+        this->advance_tree(i);
 
         LOGIF(el::Level::Info)
         {

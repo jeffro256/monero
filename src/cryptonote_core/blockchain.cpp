@@ -1550,6 +1550,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     invalidate_block_template_cache();
   }
 
+  const uint64_t cur_n_blocks = m_db->height();
   if (from_block)
   {
     //build alternative subchain, front -> mainchain, back -> alternative head
@@ -1610,6 +1611,12 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     b.minor_version = m_hardfork->get_ideal_version();
     b.prev_id = *from_block;
 
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS && alt_chain.size())
+    {
+      MERROR("The daemon is not structured to build the FCMP++ tree for alt chains and does not know the correct root for the alt block header");
+      return false;
+    }
+
     // cheat and use the weight of the block we start from, virtually certain to be acceptable
     // and use 1.9 times rather than 2 times so we're even more sure
     if (parent_in_main)
@@ -1632,7 +1639,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   }
   else
   {
-    height = m_db->height();
+    height = cur_n_blocks;
     b.major_version = m_hardfork->get_current_version();
     b.minor_version = m_hardfork->get_ideal_version();
     b.prev_id = get_tail_id();
@@ -1655,6 +1662,11 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   }
 
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
+
+  if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+  {
+    b.fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(cryptonote::get_default_last_locked_block_index(height - 1), b.fcmp_pp_tree_root);
+  }
 
   size_t txs_weight;
   uint64_t fee;
@@ -1789,15 +1801,21 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
 }
 //------------------------------------------------------------------
-bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
 {
   prev_id = m_db->top_block_hash(&height);
+  uint64_t top_block_idx = height;
   ++height;
 
   major_version = m_hardfork->get_ideal_version(height);
 
+  fcmp_pp_n_tree_layers = 0;
+  fcmp_pp_tree_root = crypto::ec_point{};
+  if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(cryptonote::get_default_last_locked_block_index(top_block_idx), fcmp_pp_tree_root);
+
   seed_hash = crypto::null_hash;
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (major_version >= RX_BLOCK_VERSION)
   {
     uint64_t seed_height, next_height;
     crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1806,7 +1824,7 @@ bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto
 
   difficulty = get_difficulty_for_next_block();
   median_weight = m_current_block_cumul_weight_median;
-  already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
+  already_generated_coins = m_db->get_block_already_generated_coins(top_block_idx);
 
   m_tx_pool.get_block_template_backlog(tx_backlog);
 
@@ -2588,12 +2606,11 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
       "tx included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
-  const std::size_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
+  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
 
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
-  static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
-  CHECK_AND_ASSERT_MES((std::size_t)tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
+  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
       "tx included incorrect number of tree layers");
 
   return true;
@@ -4334,6 +4351,20 @@ leave:
 
   TIME_MEASURE_START(t3);
 
+  // Make sure the block uses the correct FCMP++ tree root and n tree layers
+  if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+  {
+    crypto::ec_point fcmp_pp_tree_root;
+    const uint64_t expected_tree_tip_block_idx = cryptonote::get_default_last_locked_block_index(blockchain_height - 1);
+    const uint8_t n_tree_layers = m_db->get_tree_root_at_blk_idx(expected_tree_tip_block_idx, fcmp_pp_tree_root);
+    if (bl.fcmp_pp_n_tree_layers != n_tree_layers || bl.fcmp_pp_tree_root != fcmp_pp_tree_root)
+    {
+      MERROR_VER("Block with id: " << id << " used incorrect FCMP++ n tree layers or tree root");
+      bvc.m_verifivation_failed = true;
+      goto leave;
+    }
+  }
+
   // sanity check basic miner tx properties;
   if(!prevalidate_miner_transaction(bl, blockchain_height, hf_version))
   {
@@ -4648,6 +4679,32 @@ leave:
     return false;
   }
 
+  // Assume we just added block n. The soonest that outputs from block n can be
+  // included in the chain is in block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE. So
+  // we grow the tree with these outputs (and any others with last locked block
+  // n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1). We then expect this tree root
+  // be included in block header n+1. This way miners will build on top of the
+  // tree root usable in FCMP++'s in a future block. After block
+  // n + (CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1) is added to the chain, SPV
+  // clients syncing just block headers will have a solid assurance that the
+  // root usable to construct FCMP++ proofs is the correct root, since it will
+  // have 9 blocks of PoW on top of it.
+  // To be clear, block header n+1 includes the tree root usable to spend
+  // outputs with last locked block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1.
+
+  TIME_MEASURE_START(advance_tree);
+
+  static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
+  try { m_db->advance_tree(new_height-1); }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("Failed to advance tree at block with hash: " << id << ", what = " << e.what());
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+
+  TIME_MEASURE_FINISH(advance_tree);
+
   MINFO("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_weight: " << coinbase_weight << ", cumulative weight: " << cumulative_block_weight << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
   if(m_show_time_stats)
   {
@@ -4655,7 +4712,8 @@ leave:
         << cumulative_block_weight << " p/t: " << block_processing_time << " ("
         << target_calculating_time << "/" << longhash_calculating_time << "/"
         << t1 << "/" << t2 << "/" << t3 << "/" << t_exists << "/" << t_pool
-        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock << ")ms");
+        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock
+        << "/" << advance_tree << ")ms");
   }
 
   bvc.m_added_to_main_chain = true;
@@ -5915,6 +5973,7 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
 {
   if (m_miner_notifiers.empty())
     return;
+  CHECK_AND_ASSERT_THROW_MES(height > 0, "Unexpected height == 0");
 
   const uint8_t major_version = m_hardfork->get_ideal_version(height);
   const difficulty_type diff = get_difficulty_for_next_block();
@@ -5923,9 +5982,14 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
   std::vector<tx_block_template_backlog_entry> tx_backlog;
   m_tx_pool.get_block_template_backlog(tx_backlog);
 
+  uint8_t fcmp_pp_n_tree_layers = 0;
+  crypto::ec_point fcmp_pp_tree_root{};
+  if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(cryptonote::get_default_last_locked_block_index(height - 1), fcmp_pp_tree_root);
+
   for (const auto& notifier : m_miner_notifiers)
   {
-    notifier(major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
+    notifier(major_version, height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
   }
 }
 
