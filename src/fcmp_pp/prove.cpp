@@ -406,7 +406,7 @@ FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_in
 uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
     const FcmpPpProof &fcmp_pp_proof,
     const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
+    const FcmpTreeRoot *tree_root,
     const std::vector<crypto::ec_point> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images)
 {
@@ -436,7 +436,7 @@ uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
 bool verify(const crypto::hash &signable_tx_hash,
     const FcmpPpProof &fcmp_pp_proof,
     const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
+    const FcmpTreeRoot *tree_root,
     const std::vector<crypto::ec_point> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images)
 {
@@ -477,7 +477,7 @@ bool verify_sal(const crypto::hash &signable_tx_hash,
 //----------------------------------------------------------------------------------------------------------------------
 bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
+    const FcmpTreeRoot *tree_root,
     const std::vector<FcmpInputCompressed> &inputs)
 {
     return ::fcmp_pp_verify_membership(

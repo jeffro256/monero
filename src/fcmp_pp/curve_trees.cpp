@@ -1485,7 +1485,7 @@ GrowLayerInstructions CurveTrees<C1, C2>::set_next_layer_extension(
 };
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-uint8_t *CurveTrees<Selene, Helios>::get_tree_root_from_bytes(const std::size_t n_layers,
+FcmpTreeRoot *CurveTrees<Selene, Helios>::get_tree_root_from_bytes(const std::size_t n_layers,
     const crypto::ec_point &tree_root) const
 {
     if (n_layers == 0)

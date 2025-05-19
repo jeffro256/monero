@@ -1177,7 +1177,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     // get FCMP tree root from provided path
     //! @TODO: make this a method of TreeCacheV1
     LOG_PRINT_L3("Making tree root from tree cache");
-    uint8_t *fcmp_tree_root = nullptr;
+    FcmpTreeRoot *fcmp_tree_root = nullptr;
     const auto tree_root_freer = epee::misc_utils::create_scope_leave_handler([fcmp_tree_root](){
         if (fcmp_tree_root) free(fcmp_tree_root);});
     if (n_tree_layers % 2 == 0)

@@ -169,13 +169,13 @@ pub extern "C" fn selene_zero_scalar() -> SeleneScalar {
 }
 
 #[no_mangle]
-pub extern "C" fn selene_tree_root(selene_point: SelenePoint) -> *const u8 {
-    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C1(selene_point))) as *const u8
+pub extern "C" fn selene_tree_root(selene_point: SelenePoint) -> *mut TreeRoot::<Selene, Helios> {
+    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C1(selene_point)))
 }
 
 #[no_mangle]
-pub extern "C" fn helios_tree_root(helios_point: HeliosPoint) -> *const u8 {
-    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C2(helios_point))) as *const u8
+pub extern "C" fn helios_tree_root(helios_point: HeliosPoint) -> *mut TreeRoot::<Selene, Helios> {
+    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C2(helios_point)))
 }
 
 #[allow(non_snake_case)]
