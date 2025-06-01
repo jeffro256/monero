@@ -29,6 +29,7 @@
 #pragma once
 
 //local headers
+#include "carrot_impl/address_device.h"
 #include "carrot_impl/input_selection.h"
 #include "fee_priority.h"
 #include "fcmp_pp/tree_cache.h"
@@ -85,6 +86,23 @@ struct PreCarrotTransactionProposal
     uint8_t construction_flags;
 };
 
+using tx_reconstruct_variant_t = std::variant<
+        PreCarrotTransactionProposal,
+        carrot::CarrotTransactionProposalV1
+    >;
+std::vector<cryptonote::tx_destination_entry> finalized_destinations_ref(const tx_reconstruct_variant_t&,
+    const carrot::view_incoming_key_device &k_view_dev);
+cryptonote::tx_destination_entry change_destination_ref(const tx_reconstruct_variant_t&,
+    const carrot::view_incoming_key_device &k_view_dev);
+rct::xmr_amount fee_ref(const tx_reconstruct_variant_t&);
+std::optional<crypto::hash8> short_payment_id_ref(const tx_reconstruct_variant_t&);
+std::optional<crypto::hash> long_payment_id_ref(const tx_reconstruct_variant_t&);
+std::vector<crypto::public_key> spent_onetime_addresses_ref(const tx_reconstruct_variant_t&);
+boost::multiprecision::uint128_t input_amount_total_ref(const tx_reconstruct_variant_t&);
+std::vector<std::uint64_t> ring_sizes_ref(const tx_reconstruct_variant_t&);
+std::uint64_t unlock_time_ref(const tx_reconstruct_variant_t&);
+const std::vector<std::uint8_t> &extra_ref(const tx_reconstruct_variant_t&);
+
 // The convention for destinations is:
 // dests does not include change
 // splitted_dsts (in construction_data) does
@@ -94,7 +112,6 @@ struct pending_tx
     uint64_t dust, fee;
     bool dust_added_to_fee;
     cryptonote::tx_destination_entry change_dts;
-    std::vector<size_t> selected_transfers;
     std::string key_images;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
@@ -104,12 +121,15 @@ struct pending_tx
     uint32_t subaddr_account;            // subaddress account of your wallet to be used in this transfer
     std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
 
-    using tx_reconstruct_variant_t = std::variant<
-        PreCarrotTransactionProposal,
-        carrot::CarrotTransactionProposalV1
-        >;
     tx_reconstruct_variant_t construction_data;
 };
+
+/**
+ * brief: collect_non_burned_transfers_by_onetime_address - index transfers by OTA, including a burning bug filter
+ * param: transfers -
+ */
+std::unordered_map<crypto::public_key, size_t> collect_non_burned_transfers_by_onetime_address(
+    const wallet2_basic::transfer_container &transfers);
 
 /**
  * brief: collect_carrot_input_candidate_list - filter and convert wallet2 transfer contain into carrot input candidates
@@ -168,31 +188,55 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(const wallet2_basic::transfer_details &td);
 
-std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal_from_transfer_details(
+/**
+ * brief: collect_selected_transfer_indices - get index into transfers list of spent enotes in a potential transaction
+ * param: tx_construction_data -
+ * param: transfers -
+ * return: list of spent input enotes indices in construction-specified order, not necessarily final transaction order
+ *
+ * WARNING: The indices returned assumes the best case scenario for burning bugs for pre-Carrot
+ * transactions. If the transfers list contains multiple pre-Carrot enotes with the same onetime
+ * address, this function returns the index of the best of the duplicates. If you do not trust the
+ * originating source of this construction data, then this is not safe. Validating the amounts
+ * actually line up with the best case, instead of trusting, would require tx_reconstruct_variant_t
+ * to store openings for the pseudo output amount commitments. This isn't an issue w/ spending
+ * Carrot enotes since Carrot mitigates the burning bug statelessly.
+ */
+std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_variant_t &tx_construction_data,
+    const wallet2_basic::transfer_container &transfers);
+
+std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
-    const wallet2_basic::transfer_container &transfers,
-    const cryptonote::account_keys &acc_keys);
+    const carrot::cryptonote_hierarchy_address_device &addr_dev,
+    const crypto::secret_key &k_spend);
+
+cryptonote::transaction finalize_fcmps_and_range_proofs(
+    const std::vector<crypto::key_image> &sorted_input_key_images,
+    const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
+    const std::vector<fcmp_pp::FcmpPpSalProof> &sorted_sal_proofs,
+    const std::vector<carrot::RCTOutputEnoteProposal> &output_enote_proposals,
+    const carrot::encrypted_payment_id_t &encrypted_payment_id,
+    const rct::xmr_amount fee,
+    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
+    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees);
 
 //! @TODO: accept already-calculated rerandomized outputs and their blinds
+//! @TODO: rename, there are not `transfer_details` structs required anymore
 cryptonote::transaction finalize_all_proofs_from_transfer_details(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const wallet2_basic::transfer_container &transfers,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
     const cryptonote::account_keys &acc_keys);
 
 pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const std::vector<crypto::key_image> &sorted_input_key_images,
-    const wallet2_basic::transfer_container &transfers,
-    const crypto::secret_key &k_view,
-    hw::device &hwdev);
+    const carrot::view_incoming_key_device &k_view_incoming_dev);
 
 crypto::hash8 get_pending_tx_payment_id(const pending_tx &ptx);
 
 pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const wallet2_basic::transfer_container &transfers,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
     const cryptonote::account_keys &acc_keys);

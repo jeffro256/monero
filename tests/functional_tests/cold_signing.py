@@ -41,8 +41,6 @@ SUBADDRESS = '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpvi
 
 class ColdSigningTest():
     def run_test(self):
-        print('TODO: update cold signing for FCMP++/Carrot')
-        return
         self.reset()
         self.create(0)
         self.mine()
@@ -133,11 +131,36 @@ class ColdSigningTest():
             res = self.hot_wallet.export_outputs()
             self.cold_wallet.import_outputs(res.outputs_data_hex)
 
+        # Check consistency between hot & cold transfers list, especially that one-time addresses and amounts line up
+        def check_transfers_list_consistency(do_check_key_images):
+            hot_transfers_list = self.hot_wallet.incoming_transfers()
+            cold_transfers_list = self.cold_wallet.incoming_transfers()
+            if 'transfers' not in hot_transfers_list:
+                assert 'transfers' not in cold_transfers_list
+                return
+            hot_transfers_list = hot_transfers_list['transfers']
+            cold_transfers_list = cold_transfers_list['transfers']
+            assert len(hot_transfers_list) == len(cold_transfers_list)
+            attributes_to_cmp = ['amount', 'subaddr_index', 'pubkey']
+            if do_check_key_images:
+                attributes_to_cmp.append("key_image")
+            for i in range(len(hot_transfers_list)):
+                for attr in attributes_to_cmp:
+                    hot_val = hot_transfers_list[i][attr]
+                    cold_val = cold_transfers_list[i][attr]
+                    assert hot_val == cold_val, "outputs mismatch ({}, \"{}\"): {} vs {}".format(i, attr, hot_val, cold_val)
+
+        check_transfers_list_consistency(False)
+
         res = self.cold_wallet.export_key_images(True)
         self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
 
+        check_transfers_list_consistency(True)
+
     def create_tx(self, destination_addr, piecemeal_output_export):
         daemon = Daemon()
+        hf_version = daemon.get_version()['hard_forks'][-1]['hf_version']
+        is_fcmp_pp = hf_version >= 17
 
         dst = {'address': destination_addr, 'amount': 1000000000000}
 
@@ -163,7 +186,8 @@ class ColdSigningTest():
         desc = res.desc[0]
         assert desc.amount_in >= amount + fee
         assert desc.amount_out == desc.amount_in - fee
-        assert desc.ring_size == 16
+        expected_ring_size = 0 if is_fcmp_pp else 16
+        assert desc.ring_size == expected_ring_size
         assert desc.unlock_time == 0
         assert desc.payment_id in ['', '0000000000000000']
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee
@@ -177,14 +201,25 @@ class ColdSigningTest():
         res = self.cold_wallet.sign_transfer(unsigned_txset)
         assert len(res.signed_txset) > 0
         signed_txset = res.signed_txset
-        assert len(res.tx_hash_list) == 1
-        txid = res.tx_hash_list[0]
-        assert len(txid) == 64
+        if not is_fcmp_pp:
+            # Signed cold Carrot/FCMP++ "transactions" are not actually transactions and don't have TXIDs
+            assert len(res.tx_hash_list) == 1
+            txid = res.tx_hash_list[0]
+            assert len(txid) == 64
 
         print('Submitting transaction with hot wallet')
         res = self.hot_wallet.submit_transfer(signed_txset)
         assert len(res.tx_hash_list) > 0
-        assert res.tx_hash_list[0] == txid
+        if is_fcmp_pp:
+            # Only now do we learn the Carrot/FCMP++ TXID
+            txid = res.tx_hash_list[0]
+            assert len(txid) == 64
+            # We also get provided with FCMP++ signable transaction hashes
+            assert len(res.signable_tx_hash_list) > 0
+            signable_txid = res.signable_tx_hash_list[0]
+        else:
+            # Ensure TXID consistency with cold pre-FCMP++ tx set
+            assert res.tx_hash_list[0] == txid
 
         res = self.hot_wallet.get_transfers()
         assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == 1
@@ -197,9 +232,10 @@ class ColdSigningTest():
         assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == 0
         assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 1
 
-        res = self.hot_wallet.get_tx_key(txid)
+        txid_for_sender_secrets = signable_txid if is_fcmp_pp else txid
+        res = self.hot_wallet.get_tx_key(txid_for_sender_secrets)
         assert len(res.tx_key) == 0 or res.tx_key == '01' + '0' * 62 # identity is used as placeholder
-        res = self.cold_wallet.get_tx_key(txid)
+        res = self.cold_wallet.get_tx_key(txid_for_sender_secrets)
         assert len(res.tx_key) == 64
 
         self.export_import(piecemeal_output_export)
