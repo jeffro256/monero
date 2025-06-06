@@ -29,37 +29,23 @@
 #pragma once
 
 //local headers
-#include "crypto/crypto.h"
+#include "output_opening_types.h"
 
 //third party headers
 
 //standard headers
-#include <cstdint>
 
 //forward declarations
 
 namespace carrot
 {
-/**
- * brief: make_legacy_subaddress_extension - k^j_subext
- *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
- * param: k_view - k_v
- * param: major_index - j_major
- * param: minor_index - j_minor
- * outparam: legacy_subaddress_extension_out - k^j_subext
- */
-void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    crypto::secret_key &legacy_subaddress_extension_out);
-/**
- * brief: make_legacy_subaddress_spend_pubkey - K^j_s
- *   K^j_s = K_s + k^j_subext G
- * param: legacy_subaddress_extension_out - k^j_subext
- * param: account_spend_pubkey - K_s
- * outparam: legacy_subaddress_spend_pubkey_out - K^j_s
- */
-void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
-    const crypto::public_key &account_spend_pubkey,
-    crypto::public_key &legacy_subaddress_spend_pubkey_out);
+struct key_image_device
+{
+    /**
+     * brief: derive_key_image - derive a key image for a enote given its opening hint
+     * param: opening_hint -
+     * return: L = x Hp(O) given O and some y s.t. O = x G + y T
+     */
+    virtual crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const = 0;
+};
 } //namespace carrot

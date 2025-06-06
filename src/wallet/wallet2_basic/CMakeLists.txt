@@ -1,4 +1,4 @@
-# Copyright (c) 2024, The Monero Project
+# Copyright (c) 2025, The Monero Project
 #
 # All rights reserved.
 #
@@ -25,36 +25,3 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-set(carrot_impl_sources
-  address_device_ram_borrowed.cpp
-  address_utils_compat.cpp
-  format_utils.cpp
-  input_selection.cpp
-  key_image_device_composed.cpp
-  key_image_device_precomputed.cpp
-  output_opening_types.cpp
-  tx_builder_inputs.cpp
-  tx_builder_outputs.cpp
-  tx_proposal_utils.cpp
-)
-
-monero_find_all_headers(carrot_impl_headers, "${CMAKE_CURRENT_SOURCE_DIR}")
-
-monero_add_library(carrot_impl
-  ${carrot_impl_sources}
-  ${carrot_impl_headers})
-
-target_link_libraries(carrot_impl
-  PUBLIC
-    carrot_core
-    cryptonote_basic
-    fcmp_pp
-  PRIVATE
-    ${EXTRA_LIBRARIES})
-
-target_include_directories(carrot_impl
-  PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-  PRIVATE
-    ${Boost_INCLUDE_DIRS})

@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -19,47 +19,42 @@
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+//paired header
+#include "key_image_device_precomputed.h"
 
 //local headers
-#include "crypto/crypto.h"
+#include "carrot_core/device.h"
+#include "carrot_core/exceptions.h"
+#include "misc_log_ex.h"
 
 //third party headers
 
 //standard headers
-#include <cstdint>
 
-//forward declarations
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl"
 
 namespace carrot
 {
-/**
- * brief: make_legacy_subaddress_extension - k^j_subext
- *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
- * param: k_view - k_v
- * param: major_index - j_major
- * param: minor_index - j_minor
- * outparam: legacy_subaddress_extension_out - k^j_subext
- */
-void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    crypto::secret_key &legacy_subaddress_extension_out);
-/**
- * brief: make_legacy_subaddress_spend_pubkey - K^j_s
- *   K^j_s = K_s + k^j_subext G
- * param: legacy_subaddress_extension_out - k^j_subext
- * param: account_spend_pubkey - K_s
- * outparam: legacy_subaddress_spend_pubkey_out - K^j_s
- */
-void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
-    const crypto::public_key &account_spend_pubkey,
-    crypto::public_key &legacy_subaddress_spend_pubkey_out);
+//-------------------------------------------------------------------------------------------------------------------
+crypto::key_image key_image_device_precompted::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
+{
+    const auto local_get_device_error = [](std::string msg) {
+        return device_error("Default", "key_image_device_precompted", "derive_key_image", std::move(msg), -1);
+    };
+
+    const crypto::public_key onetime_address = onetime_address_ref(opening_hint);
+    const auto it = m_key_image_map.find(onetime_address);
+    CARROT_CHECK_AND_THROW(it != m_key_image_map.cend(),
+        local_get_device_error, "missing onetime address in map: " << onetime_address);
+    return it->second;
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
