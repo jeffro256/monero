@@ -46,6 +46,7 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/blockchain.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
@@ -71,16 +72,6 @@ static constexpr T div_ceil(T dividend, T divisor)
 {
     static_assert(std::is_unsigned_v<T>, "T not unsigned int");
     return (dividend + divisor - 1) / divisor;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static epee::misc_utils::auto_scope_leave_caller make_fcmp_obj_freer(const std::vector<uint8_t*> &objs)
-{
-    return epee::misc_utils::create_scope_leave_handler([&objs](){
-        for (uint8_t *obj : objs)
-            if (nullptr != obj)
-                free(obj);
-    });
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -994,51 +985,45 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter pre_membership_waiter(tpool);
 
-    // Laid out in n_inputs tuples of (o_blind, i_blind, i_blind_blind, c_blind, Selene blinds, Helios blinds)
-    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * (4 + num_c1_blinds + num_c2_blinds));
-    const auto blind_freer = make_fcmp_obj_freer(fcmp_blinds_objs);
-
     LOG_PRINT_L3("Starting proof jobs...");
-    LOG_PRINT_L3("Will submit a total of " << fcmp_blinds_objs.size() << " blind calculations");
+    LOG_PRINT_L3("Will submit a total of " << n_inputs * (4 + num_c1_blinds + num_c2_blinds) << " blind calculations");
 
     // Submit blinds calculation jobs
-    uint8_t** blinds_obj_ptr = fcmp_blinds_objs.data();
+    std::vector<fcmp_pp::BlindedOBlind> blinded_o_blinds(n_inputs);
+    std::vector<fcmp_pp::BlindedIBlind> blinded_i_blinds(n_inputs);
+    std::vector<fcmp_pp::BlindedIBlindBlind> blinded_i_blind_blinds(n_inputs);
+    std::vector<fcmp_pp::BlindedCBlind> blinded_c_blinds(n_inputs);
+
+    std::vector<fcmp_pp::SeleneBranchBlind> flat_selene_branch_blinds(num_c1_blinds * n_inputs);
+    std::vector<fcmp_pp::HeliosBranchBlind> flat_helios_branch_blinds(num_c2_blinds * n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
-        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+        tpool.submit(&pre_membership_waiter, [&rerandomized_output, &blinded_o_blinds, i]() {
             PERF_TIMER(blind_o_blind);
-            *blinds_obj_ptr = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));});
-        ++blinds_obj_ptr;
-        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            blinded_o_blinds[i] = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));});
+        tpool.submit(&pre_membership_waiter, [&rerandomized_output, &blinded_i_blinds, i]() {
             PERF_TIMER(blind_i_blind);
-            *blinds_obj_ptr = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));});
-        ++blinds_obj_ptr;
-        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            blinded_i_blinds[i] = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));});
+        tpool.submit(&pre_membership_waiter, [&rerandomized_output, &blinded_i_blind_blinds, i]() {
             PERF_TIMER(blind_i_blind_blind);
-            *blinds_obj_ptr = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));});
-        ++blinds_obj_ptr;
-        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            blinded_i_blind_blinds[i] = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));});
+        tpool.submit(&pre_membership_waiter, [&rerandomized_output, &blinded_c_blinds, i]() {
             PERF_TIMER(blind_c_blind);
-            *blinds_obj_ptr = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));});
-        ++blinds_obj_ptr;
+            blinded_c_blinds[i] = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));});
         for (size_t j = 0; j < num_c1_blinds; ++j)
         {
-            tpool.submit(&pre_membership_waiter, [blinds_obj_ptr]() {
+            tpool.submit(&pre_membership_waiter, [&flat_selene_branch_blinds, num_c1_blinds, i, j]() {
                 PERF_TIMER(selene_branch_blind);
-                *blinds_obj_ptr = fcmp_pp::selene_branch_blind();});
-            ++blinds_obj_ptr;
+                flat_selene_branch_blinds[(i * num_c1_blinds) + j] = fcmp_pp::gen_selene_branch_blind();});
         }
         for (size_t j = 0; j < num_c2_blinds; ++j)
         {
-            tpool.submit(&pre_membership_waiter, [blinds_obj_ptr]() {
+            tpool.submit(&pre_membership_waiter, [&flat_helios_branch_blinds, num_c2_blinds, i, j]() {
                 PERF_TIMER(helios_branch_blind);
-                *blinds_obj_ptr = fcmp_pp::helios_branch_blind();});
-            ++blinds_obj_ptr;
+                flat_helios_branch_blinds[(i * num_c2_blinds) + j] = fcmp_pp::gen_helios_branch_blind();});
         }
     }
-    CHECK_AND_ASSERT_THROW_MES(blinds_obj_ptr == fcmp_blinds_objs.data() + fcmp_blinds_objs.size(),
-        "finalize_all_proofs_from_transfer_details: BUG in blinds_obj_ptr (1)");
 
     // Submit BP+ job
     rct::BulletproofPlus bpp;
@@ -1087,9 +1072,8 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     const uint64_t reference_block = n_tree_synced_blocks - 1;
 
     // collect Rust API paths
-    std::vector<uint8_t*> fcmp_paths_rust;
+    std::vector<fcmp_pp::Path> fcmp_paths_rust;
     fcmp_paths_rust.reserve(fcmp_paths.size());
-    const auto path_freer = make_fcmp_obj_freer(fcmp_paths_rust);
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.at(i);
@@ -1104,12 +1088,12 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
             path_for_proof.c1_scalar_chunks);
 
-        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+        auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
             path_for_proof.output_idx,
             {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
             {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
 
-        fcmp_paths_rust.push_back(path_rust);
+        fcmp_paths_rust.emplace_back(std::move(path_rust));
     }
 
     // collect enotes
@@ -1129,40 +1113,37 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         "finalize_all_proofs_from_transfer_details: some prove jobs failed");
 
     // collect FCMP Rust API proving structures
-    std::vector<uint8_t*> membership_proving_inputs;
+    std::vector<fcmp_pp::FcmpPpProveMembershipInput> membership_proving_inputs;
     membership_proving_inputs.reserve(n_inputs);
-    const auto memberin_freer = make_fcmp_obj_freer(membership_proving_inputs);
-    blinds_obj_ptr = fcmp_blinds_objs.data();
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
-        const uint8_t *path_rust = fcmp_paths_rust.at(i);
-        uint8_t *output_blinds = fcmp_pp::output_blinds_new(
-            *(blinds_obj_ptr + 0),
-            *(blinds_obj_ptr + 1),
-            *(blinds_obj_ptr + 2),
-            *(blinds_obj_ptr + 3));
-        blinds_obj_ptr += 4;
-        const auto free_output_blinds =
-            epee::misc_utils::create_scope_leave_handler([output_blinds]()
-                { free(output_blinds); });
+        const fcmp_pp::Path &path_rust = fcmp_paths_rust.at(i);
+        const fcmp_pp::OutputBlinds output_blinds = fcmp_pp::output_blinds_new(
+            blinded_o_blinds.at(i),
+            blinded_i_blinds.at(i),
+            blinded_i_blind_blinds.at(i),
+            blinded_c_blinds.at(i));
 
-        std::vector<const uint8_t *> selene_branch_blinds(num_c1_blinds);
-        memcpy(selene_branch_blinds.data(), blinds_obj_ptr, sizeof(selene_branch_blinds[0])*num_c1_blinds);
-        blinds_obj_ptr += num_c1_blinds;
-        std::vector<const uint8_t *> helios_branch_blinds(num_c2_blinds);
-        memcpy(helios_branch_blinds.data(), blinds_obj_ptr, sizeof(helios_branch_blinds[0])*num_c2_blinds);
-        blinds_obj_ptr += num_c2_blinds;
+        std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
+        for (size_t j = 0; j < num_c1_blinds; ++j)
+        {
+            const size_t flat_idx = (i * num_c1_blinds) + j;
+            selene_branch_blinds.emplace_back(std::move(flat_selene_branch_blinds.at(flat_idx)));
+        }
 
-        membership_proving_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
-            rerandomized_output,
+        std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
+        for (size_t j = 0; j < num_c2_blinds; ++j)
+        {
+            const size_t flat_idx = (i * num_c2_blinds) + j;
+            helios_branch_blinds.emplace_back(std::move(flat_helios_branch_blinds.at(flat_idx)));
+        }
+
+        membership_proving_inputs.push_back(fcmp_pp::fcmp_pp_prove_input_new(
             path_rust,
             output_blinds,
             selene_branch_blinds,
             helios_branch_blinds));
     }
-    CHECK_AND_ASSERT_THROW_MES(blinds_obj_ptr == fcmp_blinds_objs.data() + fcmp_blinds_objs.size(),
-        "finalize_all_proofs_from_transfer_details: BUG in blinds_obj_ptr (2)");
 
     // prove membership
     PERF_TIMER(prove_membership);
@@ -1186,22 +1167,20 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     // get FCMP tree root from provided path
     //! @TODO: make this a method of TreeCacheV1
     LOG_PRINT_L3("Making tree root from tree cache");
-    uint8_t *fcmp_tree_root = nullptr;
-    const auto tree_root_freer = epee::misc_utils::create_scope_leave_handler([fcmp_tree_root](){
-        if (fcmp_tree_root) free(fcmp_tree_root);});
+    fcmp_pp::TreeRootShared fcmp_tree_root;
     if (n_tree_layers % 2 == 0)
     {
         CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c2_layers.empty(), "missing c2 layers");
         const auto &last_layer = first_fcmp_path.c2_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
-        fcmp_tree_root = fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
+        fcmp_tree_root = fcmp_pp::helios_tree_root(last_layer.back());
     }
     else
     {
         CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c1_layers.empty(), "missing c1 layers");
         const auto &last_layer = first_fcmp_path.c1_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
-        fcmp_tree_root = fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
+        fcmp_tree_root = fcmp_pp::selene_tree_root(last_layer.back());
     }
 
     // expand tx

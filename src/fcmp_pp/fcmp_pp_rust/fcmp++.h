@@ -70,11 +70,6 @@ struct SelenePoint {
 
 // ----- End deps C bindings -----
 
-typedef struct CResult {
-  void* value;
-  void* err;
-} CResult;
-
 struct OutputBytes {
   const uint8_t *O_bytes;
   const uint8_t *I_bytes;
@@ -145,6 +140,47 @@ struct ObjectSlice
   uintptr_t len;
 };
 
+struct TreeRootUnsafe;
+
+struct PathUnsafe;
+
+struct HeliosBranchBlindUnsafe;
+struct SeleneBranchBlindUnsafe;
+
+struct BlindedOBlindUnsafe;
+struct BlindedIBlindUnsafe;
+struct BlindedIBlindBlindUnsafe;
+struct BlindedCBlindUnsafe;
+
+struct OutputBlindsUnsafe;
+
+struct FcmpPpProveMembershipInputUnsafe;
+struct FcmpPpVerifyInputUnsafe;
+
+struct HeliosBranchBlindSliceUnsafe
+{
+  const struct HeliosBranchBlindUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct SeleneBranchBlindSliceUnsafe
+{
+  const struct SeleneBranchBlindUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct FcmpPpProveMembershipInputSliceUnsafe
+{
+  const struct FcmpPpProveMembershipInputUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct FcmpPpVerifyInputSliceUnsafe
+{
+  const struct FcmpPpVerifyInputUnsafe * const *buf;
+  uintptr_t len;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -175,24 +211,30 @@ struct HeliosScalar helios_zero_scalar(void);
 
 struct SeleneScalar selene_zero_scalar(void);
 
-uint8_t *selene_tree_root(struct SelenePoint selene_point);
+int selene_tree_root(struct SelenePoint selene_point, struct TreeRootUnsafe **tree_root_out);
+int helios_tree_root(struct HeliosPoint helios_point, struct TreeRootUnsafe **tree_root_out);
 
-uint8_t *helios_tree_root(struct HeliosPoint helios_point);
+void destroy_tree_root(struct TreeRootUnsafe *tree_root);
 
-CResult hash_grow_helios(struct HeliosPoint existing_hash,
+int hash_grow_helios(struct HeliosPoint existing_hash,
                                              uintptr_t offset,
                                              struct HeliosScalar existing_child_at_offset,
-                                             struct HeliosScalarSlice new_children);
+                                             struct HeliosScalarSlice new_children,
+                                             struct HeliosPoint *hash_out);
 
-CResult hash_grow_selene(struct SelenePoint existing_hash,
+int hash_grow_selene(struct SelenePoint existing_hash,
                                              uintptr_t offset,
                                              struct SeleneScalar existing_child_at_offset,
-                                             struct SeleneScalarSlice new_children);
+                                             struct SeleneScalarSlice new_children,
+                                             struct SelenePoint *hash_out);
 
-CResult path_new(struct OutputSlice leaves,
+int path_new(struct OutputSlice leaves,
                                              uintptr_t output_idx,
                                              struct HeliosScalarChunks helios_layer_chunks,
-                                             struct SeleneScalarChunks selene_layer_chunks);
+                                             struct SeleneScalarChunks selene_layer_chunks,
+                                             struct PathUnsafe **path_out);
+
+void destroy_path(struct PathUnsafe *path);
 
 int rerandomize_output(struct OutputBytes output,
                                             struct FcmpRerandomizedOutputCompressed *rerandomized_output_out);
@@ -206,42 +248,37 @@ int i_blind_blind(const struct FcmpRerandomizedOutputCompressed *rerandomized_ou
 int c_blind(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
   struct SeleneScalar *c_blind_out);
 
-CResult blind_o_blind(const struct SeleneScalar *o_blind);
-CResult blind_i_blind(const struct SeleneScalar *i_blind);
-CResult blind_i_blind_blind(const struct SeleneScalar *i_blind_blind);
-CResult blind_c_blind(const struct SeleneScalar *c_blind);
+int blind_o_blind(const struct SeleneScalar *o_blind, struct BlindedOBlindUnsafe **blinded_o_blind_out);
+int blind_i_blind(const struct SeleneScalar *i_blind, struct BlindedIBlindUnsafe **blinded_i_blind_out);
+int blind_i_blind_blind(const struct SeleneScalar *i_blind_blind, struct BlindedIBlindBlindUnsafe **blinded_i_blind_blind_out);
+int blind_c_blind(const struct SeleneScalar *c_blind, struct BlindedCBlindUnsafe **blinded_c_blind_out);
 
-CResult output_blinds_new(const uint8_t *o_blind,
-                                             const uint8_t *i_blind,
-                                             const uint8_t *i_blind_blind,
-                                             const uint8_t *c_blind);
+void destroy_blinded_o_blind(struct BlindedOBlindUnsafe *blinded_o_blind);
+void destroy_blinded_i_blind(struct BlindedIBlindUnsafe *blinded_i_blind);
+void destroy_blinded_i_blind_blind(struct BlindedIBlindBlindUnsafe *blinded_i_blind_blind);
+void destroy_blinded_c_blind(struct BlindedCBlindUnsafe *blinded_c_blind);
 
-CResult helios_branch_blind(void);
-CResult selene_branch_blind(void);
+int output_blinds_new(const struct BlindedOBlindUnsafe *blinded_o_blind,
+                                             const struct BlindedIBlindUnsafe *blinded_i_blind,
+                                             const struct BlindedIBlindBlindUnsafe *blinded_i_blind_blind,
+                                             const struct BlindedCBlindUnsafe *blidned_c_blind,
+                                             struct OutputBlindsUnsafe **output_blinds_out);
 
-CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                        const uint8_t *path,
-                                        const uint8_t *output_blinds,
-                                        struct ObjectSlice selene_branch_blinds,
-                                        struct ObjectSlice helios_branch_blinds);
+void destroy_output_blinds(struct OutputBlindsUnsafe *output_blinds);
 
-CResult fcmp_pp_prove_input_new(const uint8_t *x,
-                                             const uint8_t *y,
-                                             const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                             const uint8_t *path,
-                                             const uint8_t *output_blinds,
-                                             struct ObjectSlice selene_branch_blinds,
-                                             struct ObjectSlice helios_branch_blinds);
+int generate_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
+int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_out);
 
-CResult balance_last_pseudo_out(const uint8_t *sum_input_masks,
-                                             const uint8_t *sum_output_masks,
-                                             struct ObjectSlice fcmp_prove_inputs);
+void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
+void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
-uint8_t *read_input_pseudo_out(const uint8_t *fcmp_prove_input);
+int fcmp_pp_prove_input_new(const struct PathUnsafe *path,
+                                        const struct OutputBlindsUnsafe *output_blinds,
+                                        struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
+                                        struct HeliosBranchBlindSliceUnsafe helios_branch_blinds,
+                                        struct FcmpPpProveMembershipInputUnsafe **fcmp_pp_prove_input_out);
 
-CResult prove(const uint8_t *signable_tx_hash,
-                                             struct ObjectSlice fcmp_prove_inputs,
-                                             uintptr_t n_tree_layers);
+void destroy_fcmp_pp_prove_input(struct FcmpPpProveMembershipInputUnsafe *fcmp_pp_prove_input);
 
 /**
  * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof
@@ -266,14 +303,14 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
 
 /**
  * brief: fcmp_pp_prove_membership - Make a FCMP++ membership proof for N inputs
- * param: inputs - a slice of FCMP provable inputs returned from fcmp_prove_input_new()
+ * param: inputs - a slice of FCMP provable inputs returned from fcmp_pp_prove_input_new()
  * param: n_tree_layers -
  * param: proof_len -
  * outparam: fcmp_proof_out - a buffer where the FCMP proof will be written to
  * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
-CResult fcmp_pp_prove_membership(struct ObjectSlice fcmp_prove_inputs,
+int fcmp_pp_prove_membership(const struct FcmpPpProveMembershipInputSliceUnsafe fcmp_pp_prove_inputs,
                                              uintptr_t n_tree_layers,
                                              uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[],
@@ -285,21 +322,17 @@ uintptr_t _slow_membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layer
 
 uintptr_t _slow_fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
-CResult fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
+int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,
                                              uintptr_t fcmp_pp_proof_len,
                                              uintptr_t n_tree_layers,
-                                             const uint8_t *tree_root,
+                                             const struct TreeRootUnsafe *tree_root,
                                              struct ObjectSlice pseudo_outs,
-                                             struct ObjectSlice key_images);
+                                             struct ObjectSlice key_images,
+                                             struct FcmpPpVerifyInputUnsafe **fcmp_pp_verify_input_out);
 
-bool verify(const uint8_t *signable_tx_hash,
-                                             const uint8_t *fcmp_pp_proof,
-                                             uintptr_t fcmp_pp_proof_len,
-                                             uintptr_t n_tree_layers,
-                                             const uint8_t *tree_root,
-                                             struct ObjectSlice pseudo_outs,
-                                             struct ObjectSlice key_images);
+void destroy_fcmp_pp_verify_input(struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
+
 /**
  * brief: fcmp_pp_verify_sal - Verify a FCMP++ spend auth & linkability proof
  * param: signable_tx_hash - message to verify
@@ -322,12 +355,12 @@ bool fcmp_pp_verify_sal(const uint8_t signable_tx_hash[32],
  * return: true on verification success, false otherwise
  */
 bool fcmp_pp_verify_membership(struct InputSlice inputs,
-  const uint8_t *tree_root,
+  const struct TreeRootUnsafe *tree_root,
   const uintptr_t n_tree_layers,
   const uint8_t fcmp_proof[],
   const uintptr_t fcmp_proof_len);
 
-bool fcmp_pp_batch_verify(struct ObjectSlice fcmp_pp_verify_inputs);
+bool fcmp_pp_verify(const struct FcmpPpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
 
 #ifdef __cplusplus
 } //extern "C"

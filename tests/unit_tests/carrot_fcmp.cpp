@@ -491,12 +491,12 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
             path_for_proof.c1_scalar_chunks);
 
-        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+        auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
             path_for_proof.output_idx,
             {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
             {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
 
-        fcmp_proof_inputs[i].path = path_rust;
+        fcmp_proof_inputs[i].path = std::move(path_rust);
     }
 
     // make FCMP blinds
@@ -507,57 +507,42 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
 
         // calculate individual blinds
-        uint8_t *blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));
-        uint8_t *blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));
-        uint8_t *blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
-        uint8_t *blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
+        auto blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));
+        auto blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));
+        auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
+        auto blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
 
         // make output blinds
-        proof_input.output_blinds = fcmp_pp::output_blinds_new(
-            blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
+        proof_input.output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+            blinded_i_blind,
+            blinded_i_blind_blind,
+            blinded_c_blind);
 
         // generate selene blinds
         proof_input.selene_branch_blinds.reserve(expected_num_selene_branch_blinds);
         for (size_t j = 0; j < expected_num_selene_branch_blinds; ++j)
-            proof_input.selene_branch_blinds.push_back(fcmp_pp::selene_branch_blind());
+            proof_input.selene_branch_blinds.push_back(fcmp_pp::gen_selene_branch_blind());
 
         // generate helios blinds
         proof_input.helios_branch_blinds.reserve(expected_num_helios_branch_blinds);
         for (size_t j = 0; j < expected_num_helios_branch_blinds; ++j)
-            proof_input.helios_branch_blinds.push_back(fcmp_pp::helios_branch_blind());
-
-        // dealloc individual blinds
-        free(blinded_o_blind);
-        free(blinded_i_blind);
-        free(blinded_i_blind_blind);
-        free(blinded_c_blind);
+            proof_input.helios_branch_blinds.push_back(fcmp_pp::gen_helios_branch_blind());
     }
 
     // Make FCMP membership proof
     LOG_PRINT_L1("Generating FCMP++ membership proofs");
-    std::vector<uint8_t*> fcmp_proof_inputs_rust;
+    std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_proof_inputs_rust;
     for (size_t i = 0; i < n_inputs; ++i)
     {
         fcmp_pp::ProofInput &proof_input = fcmp_proof_inputs.at(i);
-        fcmp_proof_inputs_rust.push_back(fcmp_pp::fcmp_prove_input_new(
-            rerandomized_outputs.at(i),
+        fcmp_proof_inputs_rust.push_back(fcmp_pp::fcmp_pp_prove_input_new(
             proof_input.path,
             proof_input.output_blinds,
             proof_input.selene_branch_blinds,
             proof_input.helios_branch_blinds));
-        free(proof_input.path);
-        free(proof_input.output_blinds);
-        for (const uint8_t *branch_blind : proof_input.selene_branch_blinds)
-            free(const_cast<uint8_t*>(branch_blind));
-        for (const uint8_t *branch_blind : proof_input.helios_branch_blinds)
-            free(const_cast<uint8_t*>(branch_blind));
     }
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_proof_inputs_rust,
         n_tree_layers);
-
-    // Dealloc FCMP proof inputs
-    for (uint8_t *proof_input : fcmp_proof_inputs_rust)
-      free(proof_input);
 
     // Attach rctSigPrunable to tx
     LOG_PRINT_L1("Storing rctSig prunable");
@@ -627,7 +612,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // Verify all RingCT non-semantics
     LOG_PRINT_L1("Verify RingCT non-semantics consensus rules");
     ASSERT_TRUE(rct::verRctNonSemanticsSimple(deserialized_tx.rct_signatures));
-    free(tree_root);
 
     // Load carrot from tx
     LOG_PRINT_L1("Parsing carrot info from deserialized transaction");

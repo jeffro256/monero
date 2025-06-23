@@ -64,69 +64,13 @@ SeleneScalar i_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
 SeleneScalar i_blind_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-uint8_t *blind_o_blind(const SeleneScalar &o_blind);
-uint8_t *blind_i_blind(const SeleneScalar &i_blind);
-uint8_t *blind_i_blind_blind(const SeleneScalar &i_blind_blind);
-uint8_t *blind_c_blind(const SeleneScalar &c_blind);
-
-uint8_t *path_new(const OutputChunk &leaves,
-    std::size_t output_idx,
-    const HeliosT::ScalarChunks &helios_layer_chunks,
-    const SeleneT::ScalarChunks &selene_layer_chunks);
-
-uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
-    const uint8_t *blinded_i_blind,
-    const uint8_t *blinded_i_blind_blind,
-    const uint8_t *blinded_c_blind);
-
-uint8_t *selene_branch_blind();
-uint8_t *helios_branch_blind();
-
-uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
-    const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds);
-
-uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
-    const uint8_t *y,
-    const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
-    const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds);
-
-void balance_last_pseudo_out(const uint8_t *sum_input_masks,
-    const uint8_t *sum_output_masks,
-    std::vector<const uint8_t *> &fcmp_prove_inputs_inout);
-
-crypto::ec_point read_input_pseudo_out(const uint8_t *fcmp_prove_input);
-
-FcmpPpProof prove(const crypto::hash &signable_tx_hash,
-    const std::vector<const uint8_t *> &fcmp_prove_inputs,
-    const std::size_t n_tree_layers);
-
 std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signable_tx_hash,
     const crypto::secret_key &x,
     const crypto::secret_key &y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveMembershipInput> &fcmp_pp_prove_inputs,
     const std::size_t n_tree_layers);
-
-uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images);
-
-bool verify(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images);
 
 bool verify_sal(const crypto::hash &signable_tx_hash,
     const FcmpInputCompressed &input,
@@ -135,8 +79,15 @@ bool verify_sal(const crypto::hash &signable_tx_hash,
 
 bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const std::size_t n_tree_layers,
-    const uint8_t *tree_root,
+    const fcmp_pp::TreeRootShared &tree_root,
     const std::vector<FcmpInputCompressed> &inputs);
 
-bool batch_verify(const std::vector<const uint8_t *> &fcmp_pp_verify_inputs);
+bool verify(const std::vector<fcmp_pp::FcmpPpVerifyInput> &fcmp_pp_verify_inputs);
+
+bool verify(const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const std::size_t n_tree_layers,
+    const fcmp_pp::TreeRootShared &tree_root,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images);
 }//namespace fcmp_pp
