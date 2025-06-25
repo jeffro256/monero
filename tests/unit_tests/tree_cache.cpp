@@ -59,7 +59,7 @@ TEST(tree_cache, register_output)
     auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
 
     const std::size_t INIT_LEAVES = 10;
-    auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
+    auto outputs = test::generate_random_outputs(0, INIT_LEAVES);
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
@@ -90,7 +90,7 @@ TEST(tree_cache, sync_block_simple)
     auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
     auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
 
-    auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
+    auto outputs = test::generate_random_outputs(0, INIT_LEAVES);
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
@@ -148,7 +148,7 @@ TEST(tree_cache, sync_n_chunks_of_blocks)
         std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs;
         for (std::size_t j = 0; j < N_BLOCKS_PER_CHUNK; ++j)
         {
-            auto outputs = test::generate_random_outputs(*curve_trees, leaf_count, INIT_LEAVES);
+            auto outputs = test::generate_random_outputs(leaf_count, INIT_LEAVES);
             leaf_count += INIT_LEAVES;
             const auto last_locked_block = 1 + i * N_BLOCKS_PER_CHUNK + j;
 
@@ -224,7 +224,7 @@ TEST(tree_cache, sync_n_blocks_register_n_outputs)
         LOG_PRINT_L1("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
             << " (" << n_unlocked_outputs << " unlocked / " << n_leaves_needed << " outputs)");
 
-        auto outputs = test::generate_random_outputs(*curve_trees, n_outputs, sync_n_outputs);
+        auto outputs = test::generate_random_outputs(n_outputs, sync_n_outputs);
         CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
         // Pick an output to register
@@ -299,7 +299,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
             MDEBUG("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
                 << " (" << n_unlocked_outputs << " unlocked / " << n_leaves_needed << " outputs)");
 
-            auto outputs = test::generate_random_outputs(*curve_trees, n_outputs, sync_n_outputs);
+            auto outputs = test::generate_random_outputs(n_outputs, sync_n_outputs);
             CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Check if this chunk includes the output we're supposed to register
@@ -387,7 +387,7 @@ TEST(tree_cache, sync_past_max_reorg_depth)
             const auto sync_n_outputs = (block_idx % max_outputs_per_block) + 1;
             MDEBUG("Syncing "<< sync_n_outputs << " outputs in block " << block_idx);
 
-            auto outputs = test::generate_random_outputs(*curve_trees, n_outputs, sync_n_outputs);
+            auto outputs = test::generate_random_outputs(n_outputs, sync_n_outputs);
             CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Check if this chunk includes the output we're supposed to register
@@ -499,7 +499,7 @@ TEST(tree_cache, reorg_after_register)
                     MDEBUG("Re-syncing "<< sync_n_outputs << " outputs in block " << (cur_block_idx+1)
                         << " (" << (n_outputs_unlocked(cur_block_idx)) << " unlocked / " << n_leaves_needed << " outputs)");
 
-                    auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_unlocked(cur_block_idx+1), sync_n_outputs);
+                    auto outputs = test::generate_random_outputs(n_outputs_unlocked(cur_block_idx+1), sync_n_outputs);
                     CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
                     // Sync the outputs generated above
@@ -523,7 +523,7 @@ TEST(tree_cache, reorg_after_register)
             MDEBUG("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
                 << " (" << n_unlocked_outputs << " unlocked / " << n_leaves_needed << " outputs)");
 
-            auto outputs = test::generate_random_outputs(*curve_trees, n_outputs, sync_n_outputs);
+            auto outputs = test::generate_random_outputs(n_outputs, sync_n_outputs);
             CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Block metadata
@@ -595,7 +595,7 @@ TEST(tree_cache, register_after_reorg)
         LOG_PRINT_L1("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
             << " (" << n_unlocked_outputs << " unlocked / " << n_leaves_needed << " outputs)");
 
-        auto outputs = test::generate_random_outputs(*curve_trees, n_outputs, sync_n_outputs);
+        auto outputs = test::generate_random_outputs(n_outputs, sync_n_outputs);
         CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
         // Block metadata
@@ -630,7 +630,7 @@ TEST(tree_cache, register_after_reorg)
 
     // Register output and sync it in the next block
     LOG_PRINT_L1("Registering 1 output and syncing in next block");
-    auto outputs = test::generate_random_outputs(*curve_trees, n_unlocked_outputs, 1);
+    auto outputs = test::generate_random_outputs(n_unlocked_outputs, 1);
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == 1, "unexpected size of outputs");
 
     const auto output = outputs[0].output_pair;
@@ -669,7 +669,7 @@ TEST(tree_cache, serialization)
     static const std::size_t INIT_LEAVES = 10;
     auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
     auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
-    auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
+    auto outputs = test::generate_random_outputs(0, INIT_LEAVES);
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     const uint64_t block_idx = 0;
