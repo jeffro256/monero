@@ -28,6 +28,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "rctSigs.h"
+
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
@@ -35,12 +37,11 @@
 #include "common/util.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
-#include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
-#include "cryptonote_basic/cryptonote_basic_impl.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "device/device.hpp"
+#include "serialization/crypto.h"
 
 using namespace crypto;
 using namespace std;
@@ -617,7 +618,8 @@ namespace rct {
       key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
           "Failed to serialize rctSigBase");
-      cryptonote::get_blob_hash(ss.str(), h);
+      const std::string sig_base_blob = ss.str();
+      cn_fast_hash(sig_base_blob.data(), sig_base_blob.size(), h);
       hashes.push_back(hash2rct(h));
 
       keyV kv;
@@ -1649,19 +1651,6 @@ done:
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev) {
       key mask;
       return decodeRctSimple(rv, sk, i, mask, hwdev);
-    }
-
-    bool getCommitment(const cryptonote::transaction &tx, const std::size_t output_idx, rct::key &c_out) {
-      const bool miner_tx = cryptonote::is_coinbase(tx);
-      if (miner_tx || tx.version < 2)
-      {
-        CHECK_AND_ASSERT_MES(tx.vout.size() > output_idx, false, "unexpected size of vout");
-        c_out = zeroCommitVartime(tx.vout[output_idx].amount);
-        return true;
-      }
-      CHECK_AND_ASSERT_MES(tx.rct_signatures.outPk.size() > output_idx, false, "unexpected size of outPk");
-      c_out = tx.rct_signatures.outPk[output_idx].mask;
-      return true;
     }
 
     bool verPointsForTorsion(const std::vector<key> & pts) {

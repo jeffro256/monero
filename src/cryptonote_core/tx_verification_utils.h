@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "common/data_cache.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/verification_context.h"
@@ -38,10 +40,31 @@ namespace cryptonote
  * @brief Add the tx's output pub keys and commitments to the collection
  *
  * @param tx
+ * @param transparent_amount_commitments pre-calculated transparent amount commitments
  * @param pubkeys_and_commitments_inout the collection by ref
  * @return successful insert
  */
-bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key> &pubkeys_and_commitments_inout);
+bool collect_pubkeys_and_commitments(const transaction& tx,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    std::vector<rct::key> &pubkeys_and_commitments_inout);
+
+void collect_transparent_amount_commitments(
+    const std::vector<std::reference_wrapper<const transaction>> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<transaction> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
+void collect_transparent_amount_commitments(
+    const std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> &txs_by_txid,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
 
 /**
  * @brief Get the maximum transaction weight for a given hardfork
@@ -181,7 +204,9 @@ bool batch_ver_fcmp_pp_consensus
 bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
     std::uint8_t hf_version);
 
-bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
+bool ver_non_input_consensus(const pool_supplement& ps,
+    const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
+    tx_verification_context& tvc,
     std::uint8_t hf_version);
 
 } // namespace cryptonote
