@@ -955,12 +955,13 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool at_least_one_destination, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::pair<crypto::hash8, std::size_t> &payment_id_out, bool at_least_one_destination, epee::json_rpc::error& er)
   {
+    payment_id_out = {crypto::null_hash8, 0};
+
     CHECK_IF_BACKGROUND_SYNCING();
 
-    crypto::hash8 integrated_payment_id = crypto::null_hash8;
-    std::string extra_nonce;
+    std::size_t dst_idx = 0;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::address_parse_info info;
@@ -996,22 +997,16 @@ namespace tools
 
       if (info.has_payment_id)
       {
-        if (!payment_id.empty() || integrated_payment_id != crypto::null_hash8)
+        if (!payment_id.empty() || payment_id_out.first != crypto::null_hash8)
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
           er.message = "A single payment id is allowed per transaction";
           return false;
         }
-        integrated_payment_id = info.payment_id;
-        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, integrated_payment_id);
-
-        /* Append Payment ID data into extra */
-        if (!cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-          er.message = "Something went wrong with integrated payment_id.";
-          return false;
-        }
+        payment_id_out = {info.payment_id, dst_idx};
       }
+
+      ++dst_idx;
     }
 
     if (at_least_one_destination && dsts.empty())
@@ -1081,7 +1076,9 @@ namespace tools
     {
       if (get_tx_key)
       {
-        epee::wipeable_string s = epee::to_hex::wipeable_string(ptx.tx_key);
+        epee::wipeable_string s;
+        if (ptx.tx_key != crypto::null_skey)
+          s += epee::to_hex::wipeable_string(ptx.tx_key);
         for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
           s += epee::to_hex::wipeable_string(additional_tx_key);
         fill(tx_key, std::string(s.data(), s.size()));
@@ -1154,7 +1151,6 @@ namespace tools
   {
 
     std::vector<cryptonote::tx_destination_entry> dsts;
-    std::vector<uint8_t> extra;
 
     LOG_PRINT_L3("on_transfer starts");
     if (!m_wallet) return not_open(er);
@@ -1173,8 +1169,9 @@ namespace tools
 
     CHECK_MULTISIG_ENABLED();
 
-    // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, true, er))
+    // validate the transfer requested and populate dsts & pid
+    std::pair<crypto::hash8, std::size_t> payment_id;
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, payment_id, true, er))
     {
       return false;
     }
@@ -1183,7 +1180,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices, req.subtract_fee_from_outputs);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, payment_id, mixin, priority, /*extra=*/{}, req.account_index, req.subaddr_indices, req.subtract_fee_from_outputs);
 
       if (ptx_vector.empty())
       {
@@ -1215,7 +1212,6 @@ namespace tools
   {
 
     std::vector<cryptonote::tx_destination_entry> dsts;
-    std::vector<uint8_t> extra;
 
     if (!m_wallet) return not_open(er);
     if (m_restricted)
@@ -1234,7 +1230,8 @@ namespace tools
     CHECK_MULTISIG_ENABLED();
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, true, er))
+    std::pair<crypto::hash8, std::size_t> payment_id;
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, payment_id, true, er))
     {
       return false;
     }
@@ -1244,7 +1241,7 @@ namespace tools
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, payment_id, mixin, priority, /*extra=*/{}, req.account_index, req.subaddr_indices);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       if (ptx_vector.empty())
@@ -1683,7 +1680,8 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, true, er))
+    std::pair<crypto::hash8, std::size_t> payment_id;
+    if (!validate_transfer(destination, req.payment_id, dsts, payment_id, true, er))
     {
       return false;
     }
@@ -1710,7 +1708,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra, req.account_index, subaddr_indices);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, payment_id.first, mixin, priority, /*extra=*/{}, req.account_index, subaddr_indices);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.amounts_by_dest_list, res.fee_list, res.weight_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, res.spent_key_images_list, er);
@@ -1756,7 +1754,8 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, true, er))
+    std::pair<crypto::hash8, std::size_t> payment_id;
+    if (!validate_transfer(destination, req.payment_id, dsts, payment_id, true, er))
     {
       return false;
     }
@@ -1773,7 +1772,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, payment_id.first, mixin, priority, /*extra=*/{});
 
       if (ptx_vector.empty())
       {
