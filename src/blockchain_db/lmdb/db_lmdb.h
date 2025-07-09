@@ -378,6 +378,11 @@ public:
 
   bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
+  virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+    const uint64_t as_of_n_blocks,
+    std::vector<uint64_t> &leaf_idxs_out,
+    std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
+
   // helper functions
   static int compare_uint64(const MDB_val *a, const MDB_val *b);
   static int compare_uint8(const MDB_val *a, const MDB_val *b);
@@ -475,6 +480,8 @@ private:
   uint64_t get_tree_block_idx() const;
 
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
+
+  uint64_t find_leaf_idx_by_output_id(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const;
 
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);

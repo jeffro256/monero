@@ -1198,7 +1198,6 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_first_refresh_done(false),
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
-  m_skip_to_height(0),
   m_ask_password(AskPasswordToDecrypt),
   m_max_reorg_depth(ORPHANED_BLOCKS_MAX_COUNT),
   m_min_output_count(0),
@@ -1691,6 +1690,32 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
   return tx_entries;
 }
 //----------------------------------------------------------------------------------------------------
+static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_cache)
+{
+  if (blockchain.empty())
+  {
+    THROW_WALLET_EXCEPTION_IF(tree_cache.get_output_count() != 0, tools::error::wallet_internal_error,
+      "unexpected non-zero output count in tree sync");
+    return;
+  }
+
+  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
+    "top block not in bounds");
+
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_cache.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
+
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
+    tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
+    + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
+    tools::error::wallet_internal_error,
+    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
+    " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries)
 {
   // If any txs we're scanning have the same height, then we need to request the
@@ -1853,6 +1878,121 @@ bool has_nonrequested_tx_at_height_or_above_requested(uint64_t height, const std
   return false;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
+  const std::unordered_set<crypto::hash> &txids, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, const std::unordered_set<crypto::hash> &detached_tx_hashes,
+  const std::vector<process_tx_entry_t> &scan_tx_entries, const std::vector<process_tx_entry_t> &rescan_tx_entries)
+{
+  // Only need path data for unlocked outputs aka outputs already in the tree
+  const auto need_path_data = [n_blocks_synced](const transfer_details &td) -> bool
+  {
+    return cryptonote::get_last_locked_block_index(td.m_tx.unlock_time, td.m_block_height) < n_blocks_synced;
+  };
+
+  const auto td_to_output_pair = [](const transfer_details &td) -> fcmp_pp::curve_trees::OutputPair
+  {
+    return fcmp_pp::curve_trees::OutputPair{
+      .output_pubkey = td.get_public_key(),
+      .commitment    = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount())
+    };
+  };
+
+  // Collect global output id's for outputs we need path data for
+  std::vector<uint64_t> global_output_ids;
+  std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
+  const auto push_if_unlocked = [&](const transfer_details &td)
+  {
+    // Need paths for outputs that are spendable (i.e. unlocked)
+    if (!need_path_data(td))
+      return;
+
+    // Find the output's global output id among the requested txs
+    const bool in_txids = txids.count(td.m_txid);
+    const bool in_tx_hashes_to_reprocess = tx_hashes_to_reprocess.count(td.m_txid);
+    THROW_WALLET_EXCEPTION_IF(!in_txids && !in_tx_hashes_to_reprocess,
+      error::wallet_internal_error, "Missing tx we need path data for");
+
+    const auto find_global_output_id = [&td](const std::vector<process_tx_entry_t> &entries) -> uint64_t
+    {
+      for (const auto &entry : entries)
+      {
+        if (entry.tx_hash == td.m_txid)
+          return entry.tx_entry.global_output_ids.at(td.m_internal_output_index);
+      }
+      THROW_WALLET_EXCEPTION(error::wallet_internal_error, "tx entries missing expected tx");
+    };
+
+    if (in_txids)
+    {
+      global_output_ids.push_back(find_global_output_id(scan_tx_entries));
+    }
+    else // if (in_tx_hashes_to_reprocess)
+    {
+      global_output_ids.push_back(find_global_output_id(rescan_tx_entries));
+    }
+
+    output_pairs.emplace_back(td_to_output_pair(td));
+  };
+
+  // Collect received global output id's for *newly* identified receives
+  global_output_ids.reserve(txids.size());
+  output_pairs.reserve(txids.size());
+  for (const auto &td : m_transfers)
+    if (txids.count(td.m_txid) && !detached_tx_hashes.count(td.m_txid))
+      push_if_unlocked(td);
+
+  THROW_WALLET_EXCEPTION_IF(output_pairs.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of output pairs to global output id's");
+
+  // Get all the paths from daemon using collected global output id's
+  // TODO: get consolidated paths
+  std::vector<cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry> paths;
+  paths.reserve(global_output_ids.size());
+  static constexpr std::size_t N_PATHS_PER_REQ = 50; // MAX_RESTRICTED_PATHS_COUNT
+  uint64_t n_leaf_tuples = 0;
+  for (std::size_t i = 0; i < global_output_ids.size(); i += N_PATHS_PER_REQ)
+  {
+    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response res = AUTO_VAL_INIT(res);
+
+    req.as_of_n_blocks = n_blocks_synced;
+
+    req.global_output_ids.reserve(N_PATHS_PER_REQ);
+    const std::size_t end_j = std::min(i + N_PATHS_PER_REQ, global_output_ids.size());
+    for (std::size_t j = i; j < end_j; ++j)
+    {
+      req.global_output_ids.push_back(std::move(global_output_ids.at(j)));
+    }
+
+    {
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      bool r = net_utils::invoke_http_bin("/get_path_by_global_output_id.bin", req, res, *m_http_client, rpc_timeout);
+      THROW_WALLET_EXCEPTION_IF(!r || res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "Failed to get paths by global output id from daemon");
+      THROW_WALLET_EXCEPTION_IF(res.paths.size() != req.global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths in request for paths by global output id");
+      THROW_WALLET_EXCEPTION_IF(n_leaf_tuples > 0 && n_leaf_tuples != res.n_leaf_tuples, error::wallet_internal_error, "Unexpected different n_leaf_tuples across responses");
+      n_leaf_tuples = res.n_leaf_tuples;
+    }
+
+    for (auto &path_entry : res.paths)
+    {
+      // Since all requested paths should be for outputs that are unlocked, we expect non-empty paths in the resp
+      THROW_WALLET_EXCEPTION_IF(path_entry.path.leaves.empty() || path_entry.path.layer_chunks.empty(), error::wallet_internal_error, "Unexpected empty path");
+      paths.emplace_back(std::move(path_entry));
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(paths.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths to global output id's");
+
+  // Now process paths returned above
+  for (std::size_t i = 0; i < paths.size(); ++i)
+  {
+    // Audit each path returned by daemon
+    const auto path = m_curve_trees->path_bytes_to_path(paths.at(i).path);
+    THROW_WALLET_EXCEPTION_IF(!m_curve_trees->audit_path(path, output_pairs.at(i), n_leaf_tuples),
+      error::wallet_internal_error, "Path returned by daemon failed audit");
+
+    // Add the output's path to the tree cache
+    m_tree_cache.force_add_output_path(output_pairs.at(i), paths.at(i).leaf_idx, paths.at(i).path, n_leaf_tuples);
+  }
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
 {
   THROW_WALLET_EXCEPTION_IF(m_background_syncing || m_is_background_wallet, error::wallet_internal_error,
@@ -1873,8 +2013,6 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // a sweep to a different wallet's address, the wallet will not be able to
   // detect tx2. The wallet would need to scan tx1 first in that case.
   // TODO: handle this sweep case
-  detached_blockchain_data dbd;
-  dbd.original_chain_size = m_blockchain.size();
   if (txs_to_scan.highest_height > 0)
   {
     // When connected to an untrusted daemon, if we will need to re-process 1+
@@ -1883,13 +2021,28 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
     // and unintuitive privacy risk to the user
     THROW_WALLET_EXCEPTION_IF(!is_trusted_daemon() &&
       has_nonrequested_tx_at_height_or_above_requested(txs_to_scan.lowest_height, txids, m_transfers, m_payments, m_confirmed_txs),
-      error::wont_reprocess_recent_txs_via_untrusted_daemon
+      error::wont_reprocess_txs_via_untrusted_daemon
     );
+  }
 
+  // If the highest scan_tx height exceeds the wallet's known scan height, then
+  // we throw. Users/callers are expected to refresh the wallet in this case,
+  // or restore their wallet from the higher height.
+  // See discussion for why: https://github.com/seraphis-migration/monero/pull/49#issuecomment-3043274275
+  const uint64_t n_blocks_synced = m_blockchain.size();
+  THROW_WALLET_EXCEPTION_IF(txs_to_scan.highest_height >= n_blocks_synced, error::wont_scan_future_tx);
+  assert_top_block_match(m_blockchain, m_tree_cache);
+
+  // Detach the blockchain in preparation to re-process txs
+  detached_blockchain_data dbd;
+  dbd.original_chain_size = n_blocks_synced;
+  if (txs_to_scan.highest_height > 0)
+  {
     LOG_PRINT_L0("Re-processing wallet's existing txs (if any) starting from height " << txs_to_scan.lowest_height);
     auto output_tracker_cache = create_output_tracker_cache();
     dbd = detach_blockchain(txs_to_scan.lowest_height, output_tracker_cache);
   }
+
   std::unordered_set<crypto::hash> tx_hashes_to_reprocess;
   tx_hashes_to_reprocess.reserve(dbd.detached_tx_hashes.size());
   for (const auto &tx_hash : dbd.detached_tx_hashes)
@@ -1900,39 +2053,15 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // re-request txs from daemon to re-process with all tx data needed
   tx_entry_data txs_to_reprocess = get_tx_entries(tx_hashes_to_reprocess);
 
-  // TODO: request output paths in tree for all outputs in requested txs, add the received output paths to the cache
-
   process_scan_txs(txs_to_scan, txs_to_reprocess, tx_hashes_to_reprocess, dbd);
   reattach_blockchain(m_blockchain, dbd);
 
-  // If the highest scan_tx height exceeds the wallet's known scan height, then
-  // the wallet should skip ahead to the scan_tx's height in order to service
-  // the request in a timely manner. Skipping unrequested transactions avoids
-  // generating sequences of calls to process_new_transaction which process
-  // transactions out-of-order, relative to their order in the blockchain, as
-  // the process_new_transaction implementation requires transactions to be
-  // processed in blockchain order. If a user misses a tx, they should either
-  // use rescan_bc, or manually scan missed txs with scan_tx.
-  uint64_t skip_to_height = txs_to_scan.highest_height + 1;
-  if (skip_to_height > m_blockchain.size())
-  {
-    m_skip_to_height = skip_to_height;
-    LOG_PRINT_L0("Next refresh will skip to height " << skip_to_height);
-
-    // update last block reward here because the refresh loop won't necessarily set it
-    try
-    {
-      cryptonote::block_header_response block_header;
-      if (m_node_rpc_proxy.get_block_header_by_height(txs_to_scan.highest_height, block_header))
-        throw std::runtime_error("Failed to request block header by height");
-      m_last_block_reward = block_header.reward;
-    }
-    catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
-
-    // The wallet's blockchain state will now sync from the expected height correctly on next refresh loop
-
-    // TODO: be sure to initialize the right-edge of the tree at skip_to_height
-  }
+  // Assume the wallet has scanned this portion of chain   [.tx1..]
+  // scan_tx is called with tx0                        [tx0..tx1..]
+  // Both tx0 and tx1 have unlocked and are in the tree
+  // We need to be sure to request tx0's path
+  this->handle_needed_path_data(n_blocks_synced, txids, tx_hashes_to_reprocess,
+    dbd.detached_tx_hashes, txs_to_scan.tx_entries, txs_to_reprocess.tx_entries);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, const std::string &label)
@@ -2359,7 +2488,7 @@ void wallet2::process_new_scanned_transaction(
       .output_pubkey = onetime_address,
       .commitment = rct::commit(enote_scan_info->amount, enote_scan_info->amount_blinding_factor)
     };
-    m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
+    m_tree_cache.register_output(output_pair);
 
     // money received callbacks
     LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
@@ -2604,7 +2733,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
 bool wallet2::should_skip_block(const cryptonote::block &b, uint64_t height) const
 {
   // seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
-  return !(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height && height >= m_skip_to_height);
+  return !(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b,
@@ -2832,8 +2961,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
     THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
         "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
         boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
-    THROW_WALLET_EXCEPTION_IF(req.init_tree_sync && !res.included_init_tree_sync_data, error::wallet_internal_error,
-        "daemon did not include requested init tree sync data");
+    THROW_WALLET_EXCEPTION_IF(req.init_tree_sync && res.init_tree_sync_data.init_block_hash == crypto::null_hash,
+        error::wallet_internal_error, "daemon did not include requested init tree sync data");
   }
 
   blocks_start_height = res.start_height;
@@ -2890,32 +3019,6 @@ struct TreeSyncStartParams
   uint64_t start_parsed_block_i{0};
   crypto::hash prev_block_hash;
 };
-
-static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_sync)
-{
-  if (blockchain.empty())
-  {
-    THROW_WALLET_EXCEPTION_IF(tree_sync.get_output_count() != 0, tools::error::wallet_internal_error,
-      "unexpected non-zero output count in tree sync");
-    return;
-  }
-
-  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
-  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
-    "top block not in bounds");
-
-  fcmp_pp::curve_trees::BlockMeta top_synced_block;
-  THROW_WALLET_EXCEPTION_IF(!tree_sync.get_top_block(top_synced_block), tools::error::wallet_internal_error,
-    "empty tree sync cache");
-
-  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
-    tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
-    + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
-  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
-    tools::error::wallet_internal_error,
-    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
-    " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
-}
 
 static void reorg_depth_check(const uint64_t reorg_blk_idx, const uint64_t start_block_idx, const crypto::hash &first_parsed_hash, const hashchain &blockchain, const uint64_t max_reorg_depth)
 {
@@ -3078,6 +3181,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
   THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(start_height), error::out_of_hashchain_bounds_error);
+  assert_top_block_match(m_blockchain, m_tree_cache);
 
   tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
 
@@ -3938,9 +4042,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // pull the first set of blocks
   get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
   m_run.store(true, std::memory_order_relaxed);
-  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size() || m_skip_to_height > m_blockchain.size()) {
+  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
     if (!start_height)
-      start_height = std::max(m_refresh_from_block_height, m_skip_to_height);;
+      start_height = m_refresh_from_block_height;
     // we can shortcut by only pulling hashes up to the start_height
     fast_refresh(start_height, blocks_start_height, short_chain_history);
     // regenerate the history now that we've got a full set of hashes
@@ -4329,7 +4433,6 @@ bool wallet2::clear()
   m_multisig_rounds_passed = 0;
   m_device_last_key_image_sync = 0;
   m_pool_info_query_time = 0;
-  m_skip_to_height = 0;
   m_background_sync_data = background_sync_data_t{};
   m_tree_cache.clear();
   return true;
@@ -4349,7 +4452,6 @@ void wallet2::clear_soft(bool keep_key_images)
   m_scanned_pool_txs[0].clear();
   m_scanned_pool_txs[1].clear();
   m_pool_info_query_time = 0;
-  m_skip_to_height = 0;
   m_background_sync_data = background_sync_data_t{};
 
   cryptonote::block b;
@@ -4522,7 +4624,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetUint64(m_refresh_from_block_height);
   json.AddMember("refresh_height", value2, json.GetAllocator());
 
-  value2.SetUint64(m_skip_to_height);
+  value2.SetUint64(1); // exists for deserialization backwards compatibility
   json.AddMember("skip_to_height", value2, json.GetAllocator());
 
   value2.SetInt(1); // exists for deserialization backwards compatibility
@@ -4846,7 +4948,6 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
     m_refresh_from_block_height = 0;
-    m_skip_to_height = 0;
     m_ask_password = AskPasswordToDecrypt;
     cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
     m_max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT;
@@ -4997,8 +5098,6 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     m_refresh_from_block_height = field_refresh_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, skip_to_height, uint64_t, Uint64, false, 0);
-    m_skip_to_height = field_skip_to_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, AskPasswordType, Int, false, AskPasswordToDecrypt);
     m_ask_password = field_ask_password;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_decimal_point, int, Int, false, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
@@ -6217,6 +6316,7 @@ bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *d
     return false;
   }
 
+  // check wallet compatibility with daemon's hard fork version
   if (!m_allow_mismatched_daemon_version)
   {
     if (rpc_version < MAKE_CORE_RPC_VERSION(3, 17))

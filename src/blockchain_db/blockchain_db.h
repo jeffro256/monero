@@ -1881,6 +1881,12 @@ public:
    */
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
 
+  // TODO: description
+  virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+    const uint64_t as_of_n_blocks,
+    std::vector<uint64_t> &leaf_idxs_out,
+    std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const = 0;
+
   //
   // Hard fork related storage
   //

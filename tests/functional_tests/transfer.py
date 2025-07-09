@@ -1069,7 +1069,7 @@ class TransferTest():
     def check_scan_tx(self):
         daemon = Daemon()
 
-        print('FCMP++ Testing scan_tx')
+        print('Testing scan_tx')
 
         # set up sender_wallet
         sender_wallet = self.wallet[0]
@@ -1147,8 +1147,16 @@ class TransferTest():
         expected_receiver_balance += block_header.reward
 
         print('Checking scan_tx on outgoing tx before refresh')
-        sender_wallet.scan_tx([txid])
+        try:
+            # Can't scan future tx
+            sender_wallet.scan_tx([txid])
+            assert False
+        except:
+            pass
+
+        print('Checking scan_tx on outgoing tx after refresh')
         sender_wallet.refresh()
+        sender_wallet.scan_tx([txid])
         res = sender_wallet.get_transfers()
         assert 'pending' not in res or len(res.pending) == 0
         assert 'pool' not in res or len (res.pool) == 0
@@ -1161,12 +1169,6 @@ class TransferTest():
         assert len(tx.destinations) == 1
         assert tx.destinations[0].amount == amount
         assert tx.destinations[0].address == dst['address']
-        assert sender_wallet.get_balance().balance == expected_sender_balance
-
-        print('Checking scan_tx on outgoing tx after refresh')
-        sender_wallet.refresh()
-        sender_wallet.scan_tx([txid])
-        diff_transfers(sender_wallet.get_transfers(), res)
         assert sender_wallet.get_balance().balance == expected_sender_balance
 
         print("Checking scan_tx on outgoing wallet's earliest tx")
@@ -1190,6 +1192,7 @@ class TransferTest():
         for test_type in ["all txs", "incoming first", "duplicates within", "duplicates across"]:
             print(test + ' (' + test_type + ')')
             restore_wallet(sender_wallet, seeds[0], height)
+            sender_wallet.refresh()
             if test_type == "all txs":
                 sender_wallet.scan_tx(all_txs)
             elif test_type == "incoming first":
@@ -1204,7 +1207,6 @@ class TransferTest():
             else:
                 assert True == False
             assert sender_wallet.get_balance().balance == expected_sender_balance
-            sender_wallet.refresh()
             diff_transfers(sender_wallet.get_transfers(), res)
 
         print('Sanity check against outgoing wallet restored at height 0')
@@ -1214,8 +1216,16 @@ class TransferTest():
         assert sender_wallet.get_balance().balance == expected_sender_balance
 
         print('Checking scan_tx on incoming txs before refresh')
-        receiver_wallet.scan_tx([txid, miner_txid])
+        try:
+            # Can't scan future tx
+            receiver_wallet.scan_tx([txid, miner_txid])
+            assert False
+        except:
+            pass
+
+        print('Checking scan_tx on incoming txs after refresh')
         receiver_wallet.refresh()
+        receiver_wallet.scan_tx([txid, miner_txid])
         res = receiver_wallet.get_transfers()
         assert 'pending' not in res or len(res.pending) == 0
         assert 'pool' not in res or len (res.pool) == 0
@@ -1225,12 +1235,6 @@ class TransferTest():
         tx = tx[0]
         assert tx.amount == amount
         assert tx.fee == fee
-        assert receiver_wallet.get_balance().balance == expected_receiver_balance
-
-        print('Checking scan_tx on incoming txs after refresh')
-        receiver_wallet.refresh()
-        receiver_wallet.scan_tx([txid, miner_txid])
-        diff_transfers(receiver_wallet.get_transfers(), res)
         assert receiver_wallet.get_balance().balance == expected_receiver_balance
 
         print("Checking scan_tx on incoming wallet's earliest tx")
@@ -1249,13 +1253,13 @@ class TransferTest():
         if 'out' in res:
             txids = txids + [x.txid for x in res.out]
         restore_wallet(receiver_wallet, seeds[1], height)
+        receiver_wallet.refresh()
         receiver_wallet.scan_tx(txids)
         if 'out' in res:
             for i, out_tx in enumerate(res.out):
                 if 'destinations' in out_tx:
                     del res.out[i]['destinations'] # destinations are not expected after wallet restore
         assert receiver_wallet.get_balance().balance == expected_receiver_balance
-        receiver_wallet.refresh()
         diff_transfers(receiver_wallet.get_transfers(), res)
 
         print('Sanity check against incoming wallet restored at height 0')
@@ -1349,7 +1353,7 @@ class TransferTest():
     def check_background_sync(self):
         daemon = Daemon()
 
-        print('FCMP++/Carrot Testing background sync')
+        print('Testing background sync')
 
         # Some helper functions
         def stop_with_wrong_inputs(wallet, wallet_password, seed = ''):
