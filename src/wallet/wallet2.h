@@ -656,9 +656,11 @@ private:
     hw::device::device_type get_device_type() const { return m_key_device_type; }
     bool reconnect_device();
 
+    std::unique_ptr<carrot::view_balance_secret_device> get_view_balance_secret_device() const;
     std::unique_ptr<carrot::view_incoming_key_device> get_view_incoming_key_device() const;
     std::unique_ptr<carrot::hybrid_hierarchy_address_device> get_hybrid_address_device() const;
     std::unique_ptr<carrot::key_image_device> get_key_image_device() const;
+    std::unique_ptr<carrot::spend_device> get_spend_device() const;
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major, bool strict) const;

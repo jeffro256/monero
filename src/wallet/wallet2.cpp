@@ -98,8 +98,9 @@ using namespace epee;
 #include "net/socks_connect.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/address_utils.h"
-#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/format_utils.h"
+#include "carrot_impl/key_image_device_composed.h"
+#include "carrot_impl/spend_device_ram_borrowed.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
 #include "hot_cold_serialization.h" //! @TODO: remove line after #52 is merged
@@ -933,7 +934,10 @@ static tools::wallet::pending_tx finalize_all_proofs_from_transfer_details_as_pe
     tx_proposal,
     w.get_tree_cache_ref(),
     w.get_curve_trees_ref(),
-    w.get_account().get_keys());
+    *w.get_hybrid_address_device(),
+    *w.get_view_incoming_key_device(),
+    w.get_view_balance_secret_device().get(),
+    *w.get_spend_device());
   ptx.selected_transfers = tools::wallet::collect_selected_transfer_indices(ptx.construction_data, get_transfers(w));
   return ptx;
 }
@@ -1539,6 +1543,11 @@ bool wallet2::reconnect_device()
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+std::unique_ptr<carrot::view_balance_secret_device> wallet2::get_view_balance_secret_device() const
+{
+  return {};
+}
+//----------------------------------------------------------------------------------------------------
 std::unique_ptr<carrot::view_incoming_key_device> wallet2::get_view_incoming_key_device() const
 {
   /// @TODO: hardware
@@ -1609,6 +1618,13 @@ std::unique_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
   };
 
   return std::unique_ptr<carrot::key_image_device>(new ref_dev_holder(m_account.get_keys()));
+}
+//----------------------------------------------------------------------------------------------------
+std::unique_ptr<carrot::spend_device> wallet2::get_spend_device() const
+{
+  //! @TODO: Carrot / hybrid / HW
+  return std::unique_ptr<carrot::spend_device>(new carrot::spend_device_ram_borrowed_legacy(
+    m_account.get_keys().m_view_secret_key, m_account.get_keys().m_spend_secret_key));
 }
 //----------------------------------------------------------------------------------------------------
 /*!

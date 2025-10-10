@@ -733,7 +733,6 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     bob.set_offline(true);
     alice.generate("", "");
     bob.generate("", "");
-    const cryptonote::account_keys &alice_keys = alice.get_account().get_keys();
     const cryptonote::account_public_address alice_main_addr = alice.get_account().get_keys().m_account_address;
     const cryptonote::account_public_address bob_main_addr = bob.get_account().get_keys().m_account_address;
     bc.init_wallet_for_starting_block(alice);
@@ -795,7 +794,10 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     tx = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposal,
         alice.m_tree_cache,
         *alice.m_curve_trees,
-        alice_keys);
+        *alice.get_hybrid_address_device(),
+        *alice.get_view_incoming_key_device(),
+        alice.get_view_balance_secret_device().get(),
+        *alice.get_spend_device());
 
     // 8.
     LOG_PRINT_L2("Hello, Mr. Blobby");

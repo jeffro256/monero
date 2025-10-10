@@ -40,7 +40,6 @@
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "ringct/rctOps.h"
-#include "ringct/rctSigs.h"
 
 //third party headers
 

@@ -30,6 +30,9 @@
 
 #include "fcmp_pp.h"
 
+#include "carrot_core/device_ram_borrowed.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/spend_device_ram_borrowed.h"
 #include "ringct/rctSigs.h"
 #include "ringct/bulletproofs_plus.h"
 #include "chaingen.h"
@@ -407,10 +410,17 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       n_synced_blocks - 1);
   CHECK_AND_ASSERT_MES(tx_proposals.size() == 1, false, "Expected 1 tx proposal");
 
+  const crypto::secret_key &k_s = miner_account.get_keys().m_spend_secret_key;
+  const crypto::secret_key &k_v = miner_account.get_keys().m_view_secret_key;
+  const crypto::public_key &K_s = miner_account.get_keys().m_account_address.m_spend_public_key;
+  const carrot::cryptonote_hierarchy_address_device_ram_borrowed cn_addr_dev(K_s, k_v);
   rct_txes.back() = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposals.front(),
       tree_cache,
       *fcmp_pp::curve_trees::curve_trees_v1(),
-      miner_account.get_keys());
+      carrot::hybrid_hierarchy_address_device_composed(&cn_addr_dev, nullptr),
+      carrot::view_incoming_key_ram_borrowed_device(k_v),
+      /*s_view_balance_dev=*/nullptr,
+      carrot::spend_device_ram_borrowed_legacy(k_v, k_s));
 
   if (post_tx && !post_tx(rct_txes.back(), 0))
   {
