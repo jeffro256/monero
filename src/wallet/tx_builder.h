@@ -127,7 +127,6 @@ struct pending_tx
     uint64_t dust, fee;
     bool dust_added_to_fee;
     cryptonote::tx_destination_entry change_dts;
-    std::vector<size_t> selected_transfers;
     std::string key_images;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
