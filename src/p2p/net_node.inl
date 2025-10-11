@@ -896,6 +896,7 @@ namespace nodetool
       {
         return {
           "stressgguj7ugyxtqe7czeoelobeb3cnyhltooueuae2t3avd5ynepid.onion:28184",
+          "plowsofe6cleftfmk2raiw5h2x66atrik3nja4bfd3zrfa2hdlgworad.onion:28084",
         };
       }
       return {};
