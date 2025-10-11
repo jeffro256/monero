@@ -730,7 +730,7 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (m_nettype == cryptonote::TESTNET)
     {
-      full_addrs.insert("86.107.168.50:28180");
+      full_addrs.insert("185.141.216.177:28180");
       full_addrs.insert("208.123.187.228:28080");
       full_addrs.insert("185.141.216.147:28080");
     }
@@ -889,6 +889,12 @@ namespace nodetool
           "plowsofe6cleftfmk2raiw5h2x66atrik3nja4bfd3zrfa2hdlgworad.onion:18083",
           "aclc4e2jhhtr44guufbnwk5bzwhaecinax4yip4wr4tjn27sjsfg6zqd.onion:18083",
           "lykcas4tus7mkm4bhsgqe4drtd4awi7gja24goscc47xfgzj54yofyqd.onion:18083",
+        };
+      }
+      else if (m_nettype == cryptonote::TESTNET)
+      {
+        return {
+          "stressgguj7ugyxtqe7czeoelobeb3cnyhltooueuae2t3avd5ynepid.onion:28184",
         };
       }
       return {};
