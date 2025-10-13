@@ -1164,6 +1164,8 @@ namespace cryptonote
         {
           default:
           case relay_method::none:
+          case relay_method::block:
+          case relay_method::fluff:
             break;
           case relay_method::local:
             private_req.txs.push_back(std::move(std::get<1>(tx)));
@@ -1171,8 +1173,6 @@ namespace cryptonote
           case relay_method::forward:
             stem_req.txs.push_back(std::move(std::get<1>(tx)));
             break;
-          case relay_method::block:
-          case relay_method::fluff:
           case relay_method::stem:
             public_req.txs.push_back(std::move(std::get<1>(tx)));
             break;
