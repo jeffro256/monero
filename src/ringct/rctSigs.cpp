@@ -1693,7 +1693,8 @@ done:
 
       tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
       tools::threadpool::waiter waiter(tpool);
-      const std::size_t n_threads = tpool.get_max_concurrency();
+      const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
+      const bool multithreaded = n_threads > 1;
 
       std::vector<std::vector<fcmp_pp::FcmpPpVerifyInput>> batches;
       batches.reserve(n_proofs); // over reserve
@@ -1718,6 +1719,12 @@ done:
       results.resize(batches.size());
       for (std::size_t i = 0; i < batches.size(); ++i)
       {
+        if (!multithreaded)
+        {
+          results[i] = fcmp_pp::verify(batches[i]);
+          continue;
+        }
+
         tpool.submit(&waiter,
             [
               i,
@@ -1731,7 +1738,8 @@ done:
           );
       }
 
-      CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed to batch verify FCMP++ proofs");
+      if (multithreaded)
+        CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed to batch verify FCMP++ proofs");
 
       for (bool r : results) {
         if (!r)
