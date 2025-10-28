@@ -347,7 +347,7 @@ namespace cryptonote
 
     ++m_cookie;
 
-    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size());
+    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size() << ", pool total weight: " << m_txpool_weight);
 
     prune(m_txpool_max_weight);
 
