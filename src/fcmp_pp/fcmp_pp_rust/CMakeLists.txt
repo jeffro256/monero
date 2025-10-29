@@ -84,9 +84,16 @@ else()
 endif()
 
 set(RUST_TARGET "${RUST_ARCH}-${RUST_PLATFORM}${RUST_TOOLCHAIN}")
+message(STATUS "Using Rust target ${RUST_TARGET}")
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(CARGO_CMD cargo build --target "${RUST_TARGET}")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(SANITIZE)
+    message(STATUS "Using Rust ASAN")
+    # Rust ASAN is an experimental feature included in nightly at time of writing
+    set(CARGO_CMD RUSTFLAGS=-Zsanitizer=address cargo +nightly build --target "${RUST_TARGET}")
+  else()
+    set(CARGO_CMD cargo build --target "${RUST_TARGET}")
+  endif()
   set(TARGET_DIR "debug")
 else ()
   set(CARGO_CMD cargo build --target "${RUST_TARGET}" --release)
