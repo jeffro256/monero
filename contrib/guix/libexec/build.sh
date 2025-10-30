@@ -132,7 +132,7 @@ case "$HOST" in
         # See depends/hosts/darwin.mk for more details.
         ;;
     *android*)
-        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-11*-lib" | sort | head -n 1)/lib"
+        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-14*-lib" | sort | head -n 1)/lib"
         ;;
     *linux-gnu*)
         CROSS_GLIBC="$(store_path "glibc-cross-${HOST}")"
@@ -300,9 +300,9 @@ case "$HOST" in
     *mingw*)  HOST_LDFLAGS="-Wl,--no-insert-timestamp" ;;
 esac
 
+# todo: remove this hack
 case "$HOST" in
-    *darwin*)  ;;
-    *)  LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${NATIVE_GCC}/lib" ;;
+    *)  LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/gnu/store/m2vhzr0dy352cn59sgcklcaykprrr4j6-gcc-14.3.0-lib/lib" ;;
 esac
 
 # error: "/gnu/store/<...>-rust-1.82.0/lib/rustlib/src/rust/library/Cargo.lock" does not exist,
@@ -312,7 +312,7 @@ esac
 #
 # We can override the path to the Rust source by setting the __CARGO_TESTS_ONLY_SRC_ROOT environment variable.
 # See: https://github.com/rust-lang/cargo/blob/rust-1.82.0/src/cargo/core/compiler/standard_lib.rs#L183
-export __CARGO_TESTS_ONLY_SRC_ROOT=/rust/library
+export __CARGO_TESTS_ONLY_SRC_ROOT="$(store_path rust-std)/library"
 
 # error: the `-Z` flag is only accepted on the nightly channel of Cargo, but this is the `stable` channel
 #
@@ -353,14 +353,29 @@ mkdir -p "$DISTSRC"
     # checked out before starting a build.
     CMAKEFLAGS+=" -DMANUAL_SUBMODULES=1"
 
+    # Enabling stack traces causes a compilation issue on Linux targets.
+    # Gitian builds did not enable stack traces either, so this is not a
+    # regression.
+    case "$HOST" in
+        *linux-gnu*)  CMAKEFLAGS+=" -DSTACK_TRACE=OFF" ;;
+    esac
+
     # Make sure cargo knows where to find the vendored sources.
     mkdir -p "${HOME}/.cargo"
     cp contrib/guix/rust/config.toml "${HOME}/.cargo/"
-    sed -i "s/TARGET/${HOST}/g" "${HOME}/.cargo/config.toml"
 
     # Unpack rust dependencies
     mkdir -p /rust
     tar xf /rust-deps -C /rust
+
+    # "vendor" rust std
+    # todo: only include what we need
+    for dir in "$(store_path rust-std)"/vendor/*/; do
+      BN=$(basename "$dir")
+      if [ ! -d "/rust/vendor/$BN" ]; then
+          ln -s $dir /rust/vendor/$BN
+      fi
+    done
 
     # Configure this DISTSRC for $HOST
     # shellcheck disable=SC2086

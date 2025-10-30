@@ -175,7 +175,7 @@ chain for " target " development."))
 
 (define-public glibc-2.27
   (package
-    (inherit glibc-2.31)
+    (inherit glibc-2.33)
     (version "2.27")
     (source (origin
               (method git-fetch)
@@ -212,10 +212,40 @@ chain for " target " development."))
                    (("^install-others =.*$")
                     (string-append "install-others = " out "/etc/rpc\n"))))))))))
     (native-inputs
-      (modify-inputs (package-native-inputs glibc-2.31)
+      (modify-inputs (package-native-inputs glibc-2.33)
         (delete "make")
         (append gnu-make-4.2))))) ;; make >= 4.4 causes an infinite loop (stdio-common)
 
+(define-public rust-std
+  (package
+    (name "rust-std")
+    (version (package-version rust))
+    ;; You'd expect (source (package-source (rust)) to work here,
+    ;; but it refers to the source store item and NOT the .tar.gz archive
+    (source (origin
+              (method url-fetch)
+              (uri (origin-uri (package-source rust)))
+              (sha256
+                (content-hash-value (origin-hash (package-source rust))))))
+    (build-system trivial-build-system)
+    (native-inputs (list tar gzip))
+    (arguments
+      `(#:modules ((guix build utils))
+         #:builder
+         (begin
+           (use-modules (guix build utils))
+           (let ((out (assoc-ref %outputs "out"))
+                  (source (assoc-ref %build-inputs "source"))
+                  (tar (search-input-file %build-inputs "/bin/tar"))
+                  (gzip (search-input-file %build-inputs "/bin/gzip"))
+                  (gzip-path (string-append (assoc-ref %build-inputs "gzip") "/bin")))
+             (setenv "PATH" gzip-path)
+             (mkdir out)
+             (invoke tar "xvf" source "-C" out "--strip-components=1")))))
+    (synopsis (package-synopsis rust))
+    (description (package-description rust))
+    (home-page (package-home-page rust))
+    (license (package-license rust))))
 
 ; This list declares which packages are included in the container environment. It
 ; should reflect the minimal set of packages we need to build and debug the build
@@ -264,6 +294,7 @@ chain for " target " development."))
         cmake-minimal
         rust
         (list rust "cargo")
+        rust-std
 
         ;; Scripting
         perl ; required to build openssl in depends

@@ -730,7 +730,7 @@ namespace cryptonote
     else if (check_updates_string == "update")
       check_updates_level = UPDATES_UPDATE;
     else {
-      MERROR("Invalid argument to --dns-versions-check: " << check_updates_string);
+      MERROR("Invalid argument to --check-updates: " << check_updates_string);
       return false;
     }
 
@@ -1096,6 +1096,8 @@ namespace cryptonote
     for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+      if (rct::ki2rct(tokey_in.k_image) == rct::identity())
+        return false;
       if (!(rct::scalarmultKey(rct::ki2rct(tokey_in.k_image), rct::curveOrder()) == rct::identity()))
         return false;
     }

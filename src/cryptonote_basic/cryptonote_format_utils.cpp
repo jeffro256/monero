@@ -1531,7 +1531,6 @@ namespace cryptonote
   crypto::hash get_transaction_hash(const transaction& t)
   {
     crypto::hash h = null_hash;
-    get_transaction_hash(t, h, NULL);
     CHECK_AND_ASSERT_THROW_MES(get_transaction_hash(t, h, NULL), "Failed to calculate transaction hash");
     return h;
   }
@@ -1860,19 +1859,18 @@ namespace cryptonote
   {
     std::vector<crypto::hash> hashes;
     hashes.reserve(1 + 1 + 1 + b.tx_hashes.size());
-    // 1. n tree layers in FCMP++ tree
-    static_assert(sizeof(crypto::hash) >= sizeof(uint8_t), "crypto::hash is too small");
     if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      // 1. n tree layers in FCMP++ tree
+      static_assert(sizeof(crypto::hash) >= sizeof(uint8_t), "crypto::hash is too small");
       hashes.push_back(crypto::hash{static_cast<char>(b.fcmp_pp_n_tree_layers)});
-    // 2. FCMP++ tree root
-    static_assert(sizeof(crypto::hash) == sizeof(crypto::ec_point), "expected sizeof hash == sizeof ec_point");
-    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
-      hashes.push_back((crypto::hash&)b.fcmp_pp_tree_root);
+      // 2. FCMP++ tree root
+      crypto::hash &h = hashes.emplace_back();
+      static_assert(sizeof(crypto::hash) == sizeof(crypto::ec_point), "hash/ec_point size mismatch");
+      memcpy(&h, &b.fcmp_pp_tree_root, sizeof(crypto::hash));
+    }
     // 3. Miner tx
-    crypto::hash h = null_hash;
-    size_t bl_sz = 0;
-    CHECK_AND_ASSERT_THROW_MES(get_transaction_hash(b.miner_tx, h, bl_sz), "Failed to calculate transaction hash");
-    hashes.push_back(h);
+    hashes.push_back(get_transaction_hash(b.miner_tx));
     // 4. All other txs
     for(auto& th: b.tx_hashes)
       hashes.push_back(th);
