@@ -2688,6 +2688,12 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::check_txpool_complement()
   {
+    if (!is_synchronized())
+    {
+      MDEBUG("Not ready for txpool complement");
+      return true;
+    }
+
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if(context.m_state < cryptonote_connection_context::state_synchronizing)
