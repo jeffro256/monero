@@ -91,6 +91,33 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+namespace
+{
+//------------------------------------------------------------------
+static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::transaction &tx, crypto::ec_point &tree_root_out)
+{
+  tree_root_out = crypto::ec_point{};
+  if (!rct::is_rct_fcmp(tx.rct_signatures.type))
+    return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
+
+  // Make sure reference block exists in the chain
+  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
+      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
+
+  // Get the tree root and n tree layers at provided block
+  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
+
+  // Make sure the provided n tree layers matches expected
+  // IMPORTANT!
+  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
+      "tx " << get_transaction_hash(tx) << " included incorrect number of tree layers");
+
+  return true;
+}
+//------------------------------------------------------------------
+} //anonymous namespace
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
@@ -103,8 +130,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_difficulty_for_next_block(1),
   m_btc_valid(false),
   m_batch_success(true),
-  m_prepare_height(0),
-  m_rct_ver_cache()
+  m_prepare_height(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -654,6 +680,80 @@ block Blockchain::pop_block_from_blockchain()
       // in hf_versions.
       uint8_t version = get_ideal_hard_fork_version(m_db->height());
 
+      // At time of popping, we know all of the referenced mix ring / FCMP root data for popped
+      // transactions, and since they are already in the chain, and not pruned, we assume that the
+      // ring signature / FCMP++ input verification succeeded for these transactions. We can
+      // dereference each each mix ring / FCMP tree root, calculate the verification ID for that
+      // (tx, ref data) pair, then add to the mempool with that input verification ID. This speeds
+      // up re-org handling by allowing to skip verifying ring signatures / FCMP++s which were
+      // previously verified.
+      crypto::hash valid_input_verification_id = crypto::null_hash;
+      const bool uses_ring_signatures = tx.version == 1
+        || (tx.version == 2 && tx.rct_signatures.type <= rct::RCTTypeBulletproofPlus);
+      if (uses_ring_signatures)
+      {
+        const crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
+
+        struct outputs_visitor
+        {
+          rct::ctkeyV &ring;
+          bool handle_output(uint64_t, const crypto::public_key &pubkey, const rct::key &commitment)
+          {
+            ring.push_back({rct::pk2rct(pubkey), commitment});
+            return true;
+          }
+        };
+
+        rct::ctkeyM dereferenced_mix_ring;
+        dereferenced_mix_ring.reserve(tx.vin.size());
+        for (const txin_v &txin : tx.vin)
+        {
+          const txin_to_key *pin = boost::get<txin_to_key>(&txin);
+          if (nullptr == pin || pin->key_offsets.empty())
+          {
+            dereferenced_mix_ring.clear();
+            break;
+          }
+
+          rct::ctkeyV &curr_ring = dereferenced_mix_ring.emplace_back();
+          curr_ring.reserve(pin->key_offsets.size());
+          outputs_visitor vis{curr_ring};
+
+          if (!scan_outputkeys_for_indexes(tx.version, *pin, vis, tx_prefix_hash))
+          {
+            dereferenced_mix_ring.clear();
+            break;
+          }
+        }
+
+        if (!dereferenced_mix_ring.empty())
+        {
+          valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), dereferenced_mix_ring);
+        }
+        else
+        {
+          MWARNING("Failed to fetch ring signature input data for popped transaction, "
+            "will have to re-verify signature later");
+        }
+      }
+      else if (rct::is_rct_fcmp(tx.rct_signatures.type))
+      {
+        crypto::ec_point ref_tree_root{};
+        if (get_fcmp_tx_tree_root(m_db, tx, ref_tree_root))
+        {
+          valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), ref_tree_root);
+        }
+        else
+        {
+          MWARNING("Failed to fetch FCMP tree root input data for popped transaction, "
+            "will have to re-verify FCMP later");
+        }
+      }
+      else
+      {
+        MWARNING("Unknown referenced chain data type for popped non-coinbase tx " << get_transaction_hash(tx));
+      }
+
       // We assume that if they were in a block, the transactions are already known to the network
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
       // though, and always relaying these again might cause a spike of traffic as many nodes
@@ -661,7 +761,7 @@ block Blockchain::pop_block_from_blockchain()
       // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
       // from the mempool earlier in this function call, when the mempool has the same current fork
       // version, we can return it without re-verifying the consensus rules on it.
-      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version);
+      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version, valid_input_verification_id);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -1337,12 +1437,15 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
     false, "FCMP++ miner transaction has unsorted outputs in block " << get_block_hash(b));
 
   // from v17, require tx.extra size be within limit
-  if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA) {
-    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= MAX_TX_EXTRA_SIZE, false, "miner transaction extra too big");
+  if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA)
+  {
+    const std::size_t max_extra_size = MAX_TX_EXTRA_SIZE;
+    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= max_extra_size, false, "miner transaction extra too big");
   }
 
   // from v17, require number of tx outputs to be within limit
-  if (hf_version >= HF_VERSION_REJECT_MANY_MINER_OUTPUTS) {
+  if (hf_version >= HF_VERSION_REJECT_MANY_MINER_OUTPUTS)
+  {
     CHECK_AND_ASSERT_MES(b.miner_tx.vout.size() <= FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS,
       false, "too many miner transaction outputs");
   }
@@ -2676,28 +2779,6 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &t
   return true;
 }
 //------------------------------------------------------------------
-static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::transaction &tx, crypto::ec_point &tree_root_out)
-{
-  tree_root_out = crypto::ec_point{};
-  if (!rct::is_rct_fcmp(tx.rct_signatures.type))
-    return true;
-  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
-
-  // Make sure reference block exists in the chain
-  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
-      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
-
-  // Get the tree root and n tree layers at provided block
-  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
-
-  // Make sure the provided n tree layers matches expected
-  // IMPORTANT!
-  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
-      "tx " << get_transaction_hash(tx) << " included incorrect number of tree layers");
-
-  return true;
-}
-//------------------------------------------------------------------
 static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
   const cryptonote::transaction &tx,
   std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>> &tree_root_by_block_idx_inout)
@@ -2732,8 +2813,12 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
   return true;
 }
 //------------------------------------------------------------------
-static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db, pool_supplement &extra_block_txs, rct_ver_cache_t &cache_inout)
+static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db,
+  pool_supplement &extra_block_txs,
+  std::unordered_map<crypto::hash, crypto::hash> &valid_input_verification_id_by_txid_out)
 {
+  valid_input_verification_id_by_txid_out.clear();
+
   // 1. Collect referenced tree roots
   std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>> tree_root_by_block_idx;
   for (const auto &extra_tx : extra_block_txs.txs_by_txid)
@@ -2746,11 +2831,29 @@ static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db, pool_supplement &ex
     }
   }
 
-  // 2. Batch verify FCMP++'s, caching verified txs
-  if (!batch_ver_fcmp_pp_consensus(extra_block_txs, tree_root_by_block_idx, cache_inout, RCT_CACHE_TYPE))
+  // 2. Batch verify FCMP++'s
+  if (!batch_ver_fcmp_pp_consensus(extra_block_txs, tree_root_by_block_idx))
   {
     MERROR_VER("Failed to batch verify FCMP++ txs");
     return false;
+  }
+
+  // 3. If successful, calculate and return verIDs for FCMP++ txs
+  for (const auto &p : extra_block_txs.txs_by_txid)
+  {
+    const cryptonote::transaction &tx = p.second.first;
+    if (tx.version != 2 || !rct::is_rct_fcmp(tx.rct_signatures.type))
+      continue;
+
+    const auto root_it = tree_root_by_block_idx.find(tx.rct_signatures.p.reference_block);
+    CHECK_AND_ASSERT_MES(root_it != tree_root_by_block_idx.cend(), false,
+      "Batch FCMP verificcation successful even though referenced FCMP tree root is missing in cache");
+    CHECK_AND_ASSERT_MES(root_it->second.second == tx.rct_signatures.p.n_tree_layers, false,
+      "Batch FCMP verificcation successful even though referenced n_tree_layers mismatched tx's");
+
+    const crypto::hash txid = get_transaction_hash(tx);
+    const crypto::ec_point &dereferenced_fcmp_root = root_it->second.first;
+    valid_input_verification_id_by_txid_out[txid] = make_input_verification_id(txid, dereferenced_fcmp_root);
   }
 
   return true;
@@ -3221,7 +3324,12 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
 // This function overloads its sister function with
 // an extra value (hash of highest block that holds an output used as input)
 // as a return-by-reference.
-bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block) const
+bool Blockchain::check_tx_inputs(transaction& tx,
+  uint64_t& max_used_block_height,
+  crypto::hash& max_used_block_id,
+  tx_verification_context &tvc,
+  crypto::hash &valid_input_verification_id_inout,
+  bool kept_by_block) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -3237,7 +3345,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
 #endif
 
   TIME_MEASURE_START(a);
-  bool res = check_tx_inputs(tx, tvc, &max_used_block_height);
+  bool res = check_tx_inputs(tx, tvc, valid_input_verification_id_inout, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
   {
@@ -3550,7 +3658,10 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
 //        check_tx_input() rather than here, and use this function simply
 //        to iterate the inputs as necessary (splitting the task
 //        using threads, etc.)
-bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height) const
+bool Blockchain::check_tx_inputs(transaction& tx,
+  tx_verification_context &tvc,
+  crypto::hash &valid_input_verification_id_inout,
+  uint64_t* pmax_used_block_height) const
 {
   PERF_TIMER(check_tx_inputs);
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -3724,13 +3835,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
   }
 
-  std::vector<std::vector<rct::ctkey>> pubkeys(tx.vin.size());
-  std::vector < uint64_t > results;
-  results.resize(tx.vin.size(), 0);
+  const bool uses_ring_signatures = tx.version == 1
+    || (tx.version == 2 && tx.rct_signatures.type <= rct::RCTTypeBulletproofPlus);
 
-  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  tools::threadpool::waiter waiter(tpool);
-  int threads = tpool.get_max_concurrency();
+  std::vector<std::vector<rct::ctkey>> pubkeys;
+  if (uses_ring_signatures)
+    pubkeys.reserve(tx.vin.size());
 
   uint64_t max_used_block_height = 0;
   if (!pmax_used_block_height)
@@ -3756,8 +3866,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
       // No need to check ring signature members for FCMP txs
       CHECK_AND_ASSERT_MES(in_to_key.key_offsets.empty(), false, "non-empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
-      // No referenced pubkeys, key_offsets should all be empty
-      pubkeys.clear();
       // IMPORTANT: continue so that key image spend check still executes for all key images
       continue;
     }
@@ -3774,7 +3882,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
     // make sure that output being spent matches up correctly with the
     // signature spending it.
-    if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height, hf_version))
+    if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash,
+      tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures,
+      pubkeys.emplace_back(), pmax_used_block_height, hf_version))
     {
       MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
       if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
@@ -3785,36 +3895,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    if (tx.version == 1)
-    {
-      if (threads > 1)
-      {
-        // ND: Speedup
-        // 1. Thread ring signature verification if possible.
-        tpool.submit(&waiter, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])), true);
-      }
-      else
-      {
-        check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
-        if (!results[sig_index])
-        {
-          MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-
-          if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
-          {
-            MERROR_VER("*pmax_used_block_height: " << *pmax_used_block_height);
-          }
-
-          return false;
-        }
-      }
-    }
-
     sig_index++;
   }
-  if (tx.version == 1 && threads > 1)
-    if (!waiter.wait())
-      return false;
 
   // enforce min output age
   if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
@@ -3825,145 +3907,69 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   // Read the db for the tree root for FCMP txs
   crypto::ec_point ref_tree_root{};
-  CHECK_AND_ASSERT_MES(get_fcmp_tx_tree_root(m_db, tx, ref_tree_root), false, "failed to get tree root");
-
-  // Warn that new RCT types are present, and thus the cache is not being used effectively
-  if (tx.rct_signatures.type > RCT_CACHE_TYPE)
+  if (rct::is_rct_fcmp(tx.rct_signatures.type))
   {
-    MWARNING("RCT cache is not caching new verification results. Please update RCT_CACHE_TYPE!");
+    CHECK_AND_ASSERT_MES(get_fcmp_tx_tree_root(m_db, tx, ref_tree_root), false, "failed to get tree root");
   }
 
-  if (tx.version == 1)
-  {
-    if (threads > 1)
-    {
-      // save results to table, passed or otherwise
-      bool failed = false;
-      for (size_t i = 0; i < tx.vin.size(); i++)
-      {
-        if(!failed && !results[i])
-          failed = true;
-      }
+  const crypto::hash txid = get_transaction_hash(tx);
 
-      if (failed)
-      {
-        MERROR_VER("Failed to check ring signatures!");
-        return false;
-      }
+  // Try skipping verification if input verification ID matches a previously valid ID
+  crypto::hash calculated_input_verification_id = crypto::null_hash;
+  if (valid_input_verification_id_inout != crypto::null_hash)
+  {
+    calculated_input_verification_id = make_input_verification_id(tx, pubkeys, ref_tree_root);
+    
+    if (calculated_input_verification_id == valid_input_verification_id_inout)
+    {
+      MDEBUG("Valid verID hit for tx " << txid << ", skipping input verification...");
+      return true;
+    }
+    else
+    {
+      MDEBUG("Previously valid verID for tx " << txid << " does not match current. Perhaps there was a reorg? "
+        "Continuing to input verification even though this is not likely to succeed...");
+    }
+    valid_input_verification_id_inout = crypto::null_hash;
+  }
+  else
+  {
+    MDEBUG("No previously valid verID provided for tx " << txid << ", continuing to input verification as normal...");
+  }
+
+  // Verify input proofs
+  if (uses_ring_signatures)
+  {
+    // Ring signatures
+    if (!ver_input_proofs_rings(tx, pubkeys))
+    {
+      MERROR_VER("Failed to verify input ring signatures for tx " << txid);
+      return false;
+    }
+  }
+  else if (rct::is_rct_fcmp(tx.rct_signatures.type))
+  {
+    // FCMPs
+    if (!ver_input_proofs_fcmps(tx, ref_tree_root))
+    {
+      MERROR_VER("Failed to verify input FCMP++ signatures for tx " << txid);
+      return false;
     }
   }
   else
   {
-    // from version 2, check ringct signatures
-    // obviously, the original and simple rct APIs use a mixRing that's indexes
-    // in opposite orders, because it'd be too simple otherwise...
-    const rct::rctSig &rv = tx.rct_signatures;
-    switch (rv.type)
-    {
-    case rct::RCTTypeNull: {
-      // we only accept no signatures for coinbase txes
-      MERROR_VER("Null rct signature on non-coinbase tx");
-      return false;
-    }
-    case rct::RCTTypeSimple:
-    case rct::RCTTypeBulletproof:
-    case rct::RCTTypeBulletproof2:
-    case rct::RCTTypeCLSAG:
-    case rct::RCTTypeBulletproofPlus:
-    case rct::RCTTypeFcmpPlusPlus:
-    {
-      if (!ver_rct_non_semantics_simple_cached(tx, pubkeys, ref_tree_root, m_rct_ver_cache, RCT_CACHE_TYPE))
-      {
-        MERROR_VER("Failed to check ringct signatures!");
-        return false;
-      }
-      break;
-    }
-    case rct::RCTTypeFull:
-    {
-      if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys, nullptr))
-      {
-        MERROR_VER("Failed to expand rct signatures!");
-        return false;
-      }
-
-      // check all this, either reconstructed (so should really pass), or not
-      {
-        bool size_matches = true;
-        for (size_t i = 0; i < pubkeys.size(); ++i)
-          size_matches &= pubkeys[i].size() == rv.mixRing.size();
-        for (size_t i = 0; i < rv.mixRing.size(); ++i)
-          size_matches &= pubkeys.size() == rv.mixRing[i].size();
-        if (!size_matches)
-        {
-          MERROR_VER("Failed to check ringct signatures: mismatched pubkeys/mixRing size");
-          return false;
-        }
-
-        for (size_t n = 0; n < pubkeys.size(); ++n)
-        {
-          for (size_t m = 0; m < pubkeys[n].size(); ++m)
-          {
-            if (pubkeys[n][m].dest != rct::rct2pk(rv.mixRing[m][n].dest))
-            {
-              MERROR_VER("Failed to check ringct signatures: mismatched pubkey at vin " << n << ", index " << m);
-              return false;
-            }
-            if (pubkeys[n][m].mask != rct::rct2pk(rv.mixRing[m][n].mask))
-            {
-              MERROR_VER("Failed to check ringct signatures: mismatched commitment at vin " << n << ", index " << m);
-              return false;
-            }
-          }
-        }
-      }
-
-      if (rv.p.MGs.size() != 1)
-      {
-        MERROR_VER("Failed to check ringct signatures: Bad MGs size");
-        return false;
-      }
-      if (rv.p.MGs.empty() || rv.p.MGs[0].II.size() != tx.vin.size())
-      {
-        MERROR_VER("Failed to check ringct signatures: mismatched II/vin sizes");
-        return false;
-      }
-      for (size_t n = 0; n < tx.vin.size(); ++n)
-      {
-        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.MGs[0].II[n], 32))
-        {
-          MERROR_VER("Failed to check ringct signatures: mismatched II/vin sizes");
-          return false;
-        }
-      }
-
-      if (!rct::verRct(rv, false))
-      {
-        MERROR_VER("Failed to check ringct signatures!");
-        return false;
-      }
-      break;
-    }
-    default:
-      MERROR_VER("Unsupported rct type: " << rv.type);
-      return false;
-    }
+    MERROR_VER("Unrecognized input lookup type for tx " << txid);
+    return false;
   }
+
+  // At this point, we've succeeded at input verification, so set `valid_input_verification_id_inout`
+  valid_input_verification_id_inout = (calculated_input_verification_id == crypto::null_hash)
+    ? make_input_verification_id(tx, pubkeys, ref_tree_root)
+    : calculated_input_verification_id;
+
+  MDEBUG("Input verification for tx " << txid << " succeeded. Setting verID to " << valid_input_verification_id_inout);
+
   return true;
-}
-
-//------------------------------------------------------------------
-void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result) const
-{
-  std::vector<const crypto::public_key *> p_output_keys;
-  p_output_keys.reserve(pubkeys.size());
-  for (auto &key : pubkeys)
-  {
-    // rct::key and crypto::public_key have the same structure, avoid object ctor/memcpy
-    p_output_keys.push_back(&(const crypto::public_key&)key.dest);
-  }
-
-  result = crypto::check_ring_signature(tx_prefix_hash, key_image, p_output_keys, sig.data()) ? 1 : 0;
 }
 
 //------------------------------------------------------------------
@@ -4286,9 +4292,11 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
     cryptonote::blobdata txblob;
     size_t tx_weight;
     uint64_t fee;
+    crypto::hash valid_input_verification_id;
     bool relayed, do_not_relay, double_spend_seen, pruned;
     MINFO("Removing txid " << txid << " from the pool");
-    if(m_tx_pool.have_tx(txid, relay_category::all) && !m_tx_pool.take_tx(txid, tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen, pruned))
+    if (m_tx_pool.have_tx(txid, relay_category::all) && !m_tx_pool.take_tx(txid, tx, txblob,
+      tx_weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
     {
       MERROR("Failed to remove txid " << txid << " from the pool");
       res = false;
@@ -4491,11 +4499,12 @@ leave:
   }
 
   // Batch verify FCMP++'s, they'll be cached
+  std::unordered_map<crypto::hash, crypto::hash> batched_fcmp_valid_input_verification_id_by_txid;
 #if defined(PER_BLOCK_CHECKPOINT)
   if (!fast_check)
 #endif
   {
-    if (!batch_verify_fcmp_pp_txs(m_db, extra_block_txs, m_rct_ver_cache))
+    if (!batch_verify_fcmp_pp_txs(m_db, extra_block_txs, batched_fcmp_valid_input_verification_id_by_txid))
     {
       MERROR_VER("Failed to batch verify FCMP++ txs");
       bvc.m_verifivation_failed = true;
@@ -4507,8 +4516,8 @@ leave:
   size_t cumulative_block_weight = coinbase_weight;
 
   std::vector<std::pair<transaction, blobdata>> txs;
-  //                          txid     weight mempool?
-  std::vector<std::tuple<crypto::hash, size_t, bool>> txs_meta;
+  //                          txid     weight mempool?  verID
+  std::vector<std::tuple<crypto::hash, size_t, bool, crypto::hash>> txs_meta;
 
   // This will be the data sent to the ZMQ pool listeners for txs which skipped the mempool
   std::vector<txpool_event> txpool_events;
@@ -4533,6 +4542,7 @@ leave:
       const crypto::hash &txid = std::get<0>(txs_meta[i]);
       const blobdata &tx_blob = txs[i].second;
       const size_t tx_weight = std::get<1>(txs_meta[i]);
+      const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
 
       // We assume that if they were in a block, the transactions are already known to the network
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
@@ -4543,7 +4553,7 @@ leave:
       // version, we can return it without re-verifying the consensus rules on it.
       cryptonote::tx_verification_context tvc{};
       if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true,
-          hf_version, hf_version))
+          hf_version, hf_version, valid_input_verification_id))
         MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
     }
   };
@@ -4595,6 +4605,7 @@ leave:
     blobdata &txblob = txs.back().second;
     size_t tx_weight{};
     uint64_t fee{};
+    crypto::hash valid_input_verification_id{};
     bool pruned{};
 
     /* 
@@ -4605,7 +4616,7 @@ leave:
      */
     bool _unused1, _unused2, _unused3;
     const bool found_tx_in_pool{
-        m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee,
+        m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, valid_input_verification_id,
           _unused1, _unused2, _unused3, pruned, /*suppress_missing_msgs=*/true)
       };
     bool find_tx_failure{!found_tx_in_pool};
@@ -4622,6 +4633,9 @@ leave:
         extra_block_txs.txs_by_txid.erase(extra_txs_it);
         txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
         find_tx_failure = false;
+        const auto ver_id_it = batched_fcmp_valid_input_verification_id_by_txid.find(tx_id);
+        if (ver_id_it != batched_fcmp_valid_input_verification_id_by_txid.cend())
+          valid_input_verification_id = ver_id_it->second;
       }
     }
 
@@ -4651,7 +4665,7 @@ leave:
     // add the transaction to the temp list of transactions, so we can either
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
-    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool);
+    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool, valid_input_verification_id);
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -4677,7 +4691,7 @@ leave:
     {
       // validate that transaction inputs and the keys spending them are correct.
       tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc))
+      if(!check_tx_inputs(tx, tvc, valid_input_verification_id))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 
@@ -5992,19 +6006,9 @@ void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get
         // for tx hashes will fail in handle_block_to_main_chain(..)
         CRITICAL_REGION_LOCAL(m_tx_pool);
 
-        std::vector<transaction> txs;
-        m_tx_pool.get_transactions(txs, true);
-
-        size_t tx_weight;
-        uint64_t fee;
-        bool relayed, do_not_relay, double_spend_seen, pruned;
-        transaction pool_tx;
-        blobdata txblob;
-        for(const transaction &tx : txs)
-        {
-          crypto::hash tx_hash = get_transaction_hash(tx);
-          m_tx_pool.take_tx(tx_hash, pool_tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen, pruned);
-        }
+        std::vector<crypto::hash> tx_hashes;
+        m_tx_pool.get_transaction_hashes(tx_hashes, true);
+        flush_txes_from_pool(tx_hashes);
       }
     }
   }

@@ -904,11 +904,6 @@ static wallet2_basic::transfer_container get_transfers(const tools::wallet2 &w)
   return transfers;
 }
 
-uint64_t get_outgoing_amount(const cryptonote::transaction &tx, const uint64_t amount_spent)
-{
-  return tx.version == 1 ? get_outs_money_amount(tx) : (amount_spent - tx.rct_signatures.txnFee);
-}
-
 static rct::xmr_amount get_fee_per_weight_from_priority(const tools::fee_priority priority, tools::wallet2 &w)
 {
   const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
@@ -938,6 +933,11 @@ static tools::wallet::pending_tx finalize_all_proofs_from_transfer_details_as_pe
     w.get_account().get_keys());
   ptx.selected_transfers = tools::wallet::collect_selected_transfer_indices(ptx.construction_data, get_transfers(w));
   return ptx;
+}
+
+uint64_t get_outgoing_amount(const cryptonote::transaction &tx, const uint64_t amount_spent)
+{
+  return tx.version == 1 ? get_outs_money_amount(tx) : (amount_spent - tx.rct_signatures.txnFee);
 }
 
 static const tools::wallet2::tx_construction_data &get_construction_data(const tools::wallet2::pending_tx &ptx)

@@ -38,6 +38,7 @@ set(unit_tests_sources
   bulletproofs.cpp
   bulletproofs_plus.cpp
   canonical_amounts.cpp
+  carrot_convergence.cpp
   carrot_core.cpp
   carrot_fcmp.cpp
   carrot_impl.cpp
@@ -99,12 +100,13 @@ set(unit_tests_sources
   tree_cache.cpp
   tx_construction_helpers.cpp
   tx_proof.cpp
+  tx_verification_utils.cpp
   hardfork.cpp
   unbound.cpp
   uri.cpp
   util.cpp
   varint.cpp
-  ver_rct_non_semantics_simple_cached.cpp
+  verRctNonSemanticsSimple.cpp
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
