@@ -1439,9 +1439,8 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
   // from v17, require tx.extra size be within limit
   if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA)
   {
-    // Scale extra limit by number of outputs since Carrot requires 1 32-byte ephemeral pubkey per output (for Janus).
-    const std::size_t max_extra_size = MAX_TX_EXTRA_SIZE + b.miner_tx.vout.size() * 32;
-    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() < max_extra_size, false, "miner transaction extra too big");
+    const std::size_t max_extra_size = MAX_TX_EXTRA_SIZE;
+    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= max_extra_size, false, "miner transaction extra too big");
   }
 
   // from v17, require number of tx outputs to be within limit
