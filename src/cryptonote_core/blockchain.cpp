@@ -3281,21 +3281,6 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v4, forbid invalid pubkeys
-  if (hf_version >= 4) {
-    for (const auto &o: tx.vout) {
-      crypto::public_key output_public_key;
-      if (!get_output_public_key(o, output_public_key)) {
-        tvc.m_invalid_output = true;
-        return false;
-      }
-      if (!crypto::check_key(output_public_key)) {
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
   // from v8, allow bulletproofs
   if (hf_version < 8) {
     if (tx.version >= 2) {
@@ -3962,22 +3947,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     default:
       MERROR_VER("Unsupported rct type: " << rv.type);
       return false;
-    }
-
-    // for bulletproofs, check they're only multi-output after v8
-    if (rct::is_rct_bulletproof(rv.type))
-    {
-      if (hf_version < 8)
-      {
-        for (const rct::Bulletproof &proof: rv.p.bulletproofs)
-        {
-          if (proof.V.size() > 1)
-          {
-            MERROR_VER("Multi output bulletproofs are invalid before v8");
-            return false;
-          }
-        }
-      }
     }
   }
   return true;
@@ -4874,11 +4843,14 @@ leave:
   }
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
-  send_miner_notifications(new_height, seedhash, id, already_generated_coins);
 
-  // Make sure that txpool notifications happen BEFORE block notifications
+  // Make sure that txpool notifications happen BEFORE block and miner data notifications
   notify_txpool_event(std::move(txpool_events));
 
+  // send miner notifications to switch as soon as possible
+  send_miner_notifications(new_height, seedhash, id, already_generated_coins);
+
+  // then send block notifications
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
 
@@ -5947,7 +5919,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "13593d6c877c021d35f3eeb468662aebccdbe2842b6998fb6e8eaa213bec1b8c";
+static const char expected_block_hashes_hash[] = "4725ea463d1520b56ce7cd54dd478d44f976e65d73ad6fe01c427eff854ecf79";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)

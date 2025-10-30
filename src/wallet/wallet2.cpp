@@ -9219,7 +9219,9 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       return;
 
     const auto unique = outs_unique(outs);
-    if (tx_sanity_check(unique.first, unique.second, rct_offsets.empty() ? 0 : rct_offsets.back()))
+    const uint64_t rct_outs_available = rct_offsets.size() >= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE
+      ? rct_offsets.at(rct_offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE) : 0;
+    if (tx_sanity_check(unique.first, unique.second, rct_outs_available))
     {
       return;
     }
@@ -9541,8 +9543,11 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
               MINFO("Ignoring output " << out << ", too recent");
             }
           }
-          THROW_WALLET_EXCEPTION_IF(!own_found, error::wallet_internal_error,
-              "Known ring does not include the spent output: " + std::to_string(td.m_global_output_index));
+          if (!own_found)
+          {
+            MWARNING("Known ring does not include the spent output: " + std::to_string(td.m_global_output_index)
+                + ", there may have been a reorg that moved the spent output's position in the chain");
+          }
         }
       }
 
