@@ -295,8 +295,9 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     // Hash batches of chunks in parallel
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
+    const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
 
-    const std::size_t HASH_BATCH_SIZE = 1 + (n_chunks / (std::size_t)tpool.get_max_concurrency());
+    const std::size_t HASH_BATCH_SIZE = std::max<std::size_t>(1, (n_chunks / n_threads));
     for (std::size_t i = 0; i < n_chunks; i += HASH_BATCH_SIZE)
     {
         const std::size_t end = std::min(i + HASH_BATCH_SIZE, n_chunks);
@@ -1495,12 +1496,13 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
+    const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
 
     TIME_MEASURE_START(convert_valid_leaves);
     // Step 1. Multithreaded convert valid outputs into Edwards derivatives needed to get Wei coordinates
     std::vector<PreLeafTuple> pre_leaves;
     pre_leaves.resize(new_outputs.size());
-    const std::size_t LEAF_CONVERT_BATCH_SIZE = 1 + (new_outputs.size() / (std::size_t)tpool.get_max_concurrency());
+    const std::size_t LEAF_CONVERT_BATCH_SIZE = std::max<std::size_t>(1, (new_outputs.size() / n_threads));
     for (std::size_t i = 0; i < new_outputs.size(); i += LEAF_CONVERT_BATCH_SIZE)
     {
         const std::size_t end = std::min(i + LEAF_CONVERT_BATCH_SIZE, new_outputs.size());
@@ -1613,7 +1615,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     CHECK_AND_ASSERT_THROW_MES(flattened_leaves_out.size() == (2 * n_valid_leaf_points),
         "unexpected size of flattened leaves");
 
-    const std::size_t DERIVATION_BATCH_SIZE = 1 + (n_valid_leaf_points / (std::size_t)tpool.get_max_concurrency());
+    const std::size_t DERIVATION_BATCH_SIZE = std::max<std::size_t>(1, (n_valid_leaf_points / n_threads));
     for (std::size_t i = 0; i < n_valid_leaf_points; i += DERIVATION_BATCH_SIZE)
     {
         const std::size_t end = std::min(n_valid_leaf_points, i + DERIVATION_BATCH_SIZE);
