@@ -2831,29 +2831,11 @@ static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db,
     }
   }
 
-  // 2. Batch verify FCMP++'s
-  if (!batch_ver_fcmp_pp_consensus(extra_block_txs, tree_root_by_block_idx))
+  // 2. Batch verify FCMP++'s and collect verIDs
+  if (!batch_ver_fcmp_pp_consensus(extra_block_txs, tree_root_by_block_idx, valid_input_verification_id_by_txid_out))
   {
     MERROR_VER("Failed to batch verify FCMP++ txs");
     return false;
-  }
-
-  // 3. If successful, calculate and return verIDs for FCMP++ txs
-  for (const auto &p : extra_block_txs.txs_by_txid)
-  {
-    const cryptonote::transaction &tx = p.second.first;
-    if (tx.version != 2 || !rct::is_rct_fcmp(tx.rct_signatures.type))
-      continue;
-
-    const auto root_it = tree_root_by_block_idx.find(tx.rct_signatures.p.reference_block);
-    CHECK_AND_ASSERT_MES(root_it != tree_root_by_block_idx.cend(), false,
-      "Batch FCMP verificcation successful even though referenced FCMP tree root is missing in cache");
-    CHECK_AND_ASSERT_MES(root_it->second.second == tx.rct_signatures.p.n_tree_layers, false,
-      "Batch FCMP verificcation successful even though referenced n_tree_layers mismatched tx's");
-
-    const crypto::hash txid = get_transaction_hash(tx);
-    const crypto::ec_point &dereferenced_fcmp_root = root_it->second.first;
-    valid_input_verification_id_by_txid_out[txid] = make_input_verification_id(txid, dereferenced_fcmp_root);
   }
 
   return true;
