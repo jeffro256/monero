@@ -191,7 +191,8 @@ struct pool_supplement
 bool batch_ver_fcmp_pp_consensus
 (
     pool_supplement& ps,
-    const std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>>& tree_root_by_block_index
+    const std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>>& tree_root_by_block_index,
+    std::unordered_map<crypto::hash, crypto::hash> &valid_input_verification_id_by_txid_out
 );
 
 /**
