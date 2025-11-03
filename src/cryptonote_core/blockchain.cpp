@@ -3759,7 +3759,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
-      MERROR_VER("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image) << " of tx " << get_transaction_hash(tx));
+      MERROR_VER("Transaction " << get_transaction_hash(tx) << "spends key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
       tvc.m_double_spend = true;
       return false;
     }
