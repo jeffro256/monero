@@ -19,41 +19,39 @@
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+//paired header
+#include "device.h"
 
 //local headers
-#include "key_image_device.h"
+#include "ringct/rctOps.h"
 
 //third party headers
 
 //standard headers
-#include <unordered_map>
 
-//forward declarations
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "carrot.device"
 
 namespace carrot
 {
-class key_image_device_precompted: public key_image_device
+//-------------------------------------------------------------------------------------------------------------------
+bool view_incoming_key_device::view_key_scalar_mult8_ed25519(const crypto::public_key &P,
+    crypto::public_key &kv8P) const
 {
-public:
-    key_image_device_precompted(std::unordered_map<crypto::public_key, crypto::key_image> &&key_image_map):
-        m_key_image_map(std::move(key_image_map))
-    {}
+    // Is slow b/c it does 2 compressions, override if you want speed
 
-    crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const override;
+    if (!this->view_key_scalar_mult_ed25519(P, kv8P))
+        return false;
 
-    crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
-        const crypto::public_key &onetime_address,
-        const subaddress_index_extended &subaddr_index) const override;
-
-protected:
-    std::unordered_map<crypto::public_key, crypto::key_image> m_key_image_map;
-};
+    kv8P = rct::rct2pk(rct::scalarmult8(rct::pk2rct(kv8P)));
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

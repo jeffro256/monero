@@ -57,4 +57,20 @@ crypto::key_image key_image_device_precompted::derive_key_image(const OutputOpen
     return it->second;
 }
 //-------------------------------------------------------------------------------------------------------------------
+crypto::key_image key_image_device_precompted::derive_key_image_prescanned(
+    const crypto::secret_key &sender_extension_g,
+    const crypto::public_key &onetime_address,
+    const subaddress_index_extended &subaddr_index) const
+{
+    const auto local_get_device_error = [](std::string msg) {
+        return device_error("Default", "key_image_device_precompted", "derive_key_image_prescanned", std::move(msg),
+            -1);
+    };
+
+    const auto it = m_key_image_map.find(onetime_address);
+    CARROT_CHECK_AND_THROW(it != m_key_image_map.cend(),
+        local_get_device_error, "missing onetime address in map: " << onetime_address);
+    return it->second;
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

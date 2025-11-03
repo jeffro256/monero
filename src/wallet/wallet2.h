@@ -656,6 +656,10 @@ private:
     hw::device::device_type get_device_type() const { return m_key_device_type; }
     bool reconnect_device();
 
+    std::unique_ptr<carrot::view_incoming_key_device> get_view_incoming_key_device() const;
+    std::unique_ptr<carrot::hybrid_hierarchy_address_device> get_hybrid_address_device() const;
+    std::unique_ptr<carrot::key_image_device> get_key_image_device() const;
+
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major, bool strict) const;
     uint64_t unlocked_balance(uint32_t subaddr_index_major, bool strict, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL);
@@ -1363,6 +1367,7 @@ private:
     void load_wallet_cache(const bool use_fs, const std::string& cache_buf = "");
     /*!
      * \brief Calculate key image for view-scanned enote, requesting password and decrypting spend privkey if applicable
+     * \param onetime_address one-time address for enote
      * \param enote_scan_info view-scanned information for enote
      * \param pool true iff enote was found in pool, only matters for password prompt
      * \param[out] ki_out key image result, equal to std::nullopt when calculation failed or isn't possible

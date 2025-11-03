@@ -96,6 +96,9 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/address_utils.h"
+#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/format_utils.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
@@ -1536,6 +1539,78 @@ bool wallet2::reconnect_device()
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+std::unique_ptr<carrot::view_incoming_key_device> wallet2::get_view_incoming_key_device() const
+{
+  /// @TODO: hardware
+  return std::unique_ptr<carrot::view_incoming_key_device>(new carrot::view_incoming_key_ram_borrowed_device(
+    m_account.get_keys().m_view_secret_key));
+}
+//----------------------------------------------------------------------------------------------------
+std::unique_ptr<carrot::hybrid_hierarchy_address_device> wallet2::get_hybrid_address_device() const
+{
+  /// @TODO: hardware / Carrot / hybrid
+  struct ref_dev_holder final: carrot::hybrid_hierarchy_address_device
+  {
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev;
+    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev;
+
+    ref_dev_holder(const cryptonote::account_keys &acc_keys):
+      addr_dev(acc_keys.m_account_address.m_spend_public_key, acc_keys.m_view_secret_key),
+      hybrid_addr_dev(&addr_dev, nullptr)
+    {}
+
+    bool supports_address_derivation_type(const carrot::AddressDeriveType derive_type) const final
+    {
+      return hybrid_addr_dev.supports_address_derivation_type(derive_type);
+    }
+
+    const carrot::cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const final
+    {
+      return hybrid_addr_dev.access_cryptonote_hierarchy_device();
+    }
+
+    const carrot::carrot_hierarchy_address_device &access_carrot_hierarchy_device() const final
+    {
+      return hybrid_addr_dev.access_carrot_hierarchy_device();
+    }
+  };
+
+  return std::unique_ptr<carrot::hybrid_hierarchy_address_device>(new ref_dev_holder(m_account.get_keys()));
+}
+//----------------------------------------------------------------------------------------------------
+std::unique_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
+{
+  /// @TODO: hardware / Carrot / hybrid
+  struct ref_dev_holder final: carrot::key_image_device
+  {
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev;
+    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev;
+    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev;
+    const carrot::key_image_device_composed key_image_dev;
+
+    ref_dev_holder(const cryptonote::account_keys &acc_keys):
+      addr_dev(acc_keys.m_account_address.m_spend_public_key, acc_keys.m_view_secret_key),
+      hybrid_addr_dev(&addr_dev, nullptr),
+      legacy_spend_image_dev(acc_keys.m_spend_secret_key),
+      key_image_dev(legacy_spend_image_dev, hybrid_addr_dev, nullptr, &addr_dev)
+    {}
+
+    crypto::key_image derive_key_image(const carrot::OutputOpeningHintVariant &opening_hint) const final
+    {
+      return key_image_dev.derive_key_image(opening_hint);
+    }
+
+    crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
+      const crypto::public_key &onetime_address,
+      const carrot::subaddress_index_extended &subaddr_index) const final
+    {
+      return key_image_dev.derive_key_image_prescanned(sender_extension_g, onetime_address, subaddr_index);
+    }
+  };
+
+  return std::unique_ptr<carrot::key_image_device>(new ref_dev_holder(m_account.get_keys()));
+}
+//----------------------------------------------------------------------------------------------------
 /*!
  * \brief Gets the seed language
  */
@@ -2332,7 +2407,7 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
     }
   }
 
-  ki_out = wallet::try_derive_enote_key_image(enote_scan_info, m_account.get_keys());
+  ki_out = wallet::try_derive_enote_key_image(enote_scan_info, *get_key_image_device());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(
@@ -2355,7 +2430,8 @@ void wallet2::process_new_transaction(
   // view-incoming scan enotes
   const std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos =
     wallet::view_incoming_scan_transaction(tx,
-      this->m_account.get_keys(),
+      *this->get_view_incoming_key_device(),
+      *this->get_hybrid_address_device(),
       this->m_subaddresses);
 
   // if view-incoming scan was successful, try deriving the key image
@@ -3561,11 +3637,13 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
   hw::reset_mode rst(hwdev);
   hwdev.set_mode(hw::device::TRANSACTION_PARSE);
 
+  const auto k_view_incoming_dev = this->get_view_incoming_key_device();
+
   // define view-incoming scan and key image derivation job
   std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(num_tx_outputs);
   std::vector<std::optional<crypto::key_image>> output_key_images(num_tx_outputs);
   bool password_failure = false;
-  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images, &password_failure]
+  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images, &password_failure, &k_view_incoming_dev]
     (const cryptonote::transaction &tx, size_t tx_output_idx)
   {
     const size_t output_span_end = tx_output_idx + tx.vout.size();
@@ -3575,7 +3653,8 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
       return;
     }
     wallet::view_incoming_scan_transaction(tx,
-      this->m_account.get_keys(),
+      *k_view_incoming_dev,
+      {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
       this->m_subaddresses,
       {&enote_scan_infos[0] + tx_output_idx, tx.vout.size()});
 
@@ -13416,15 +13495,16 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
     error::wallet_internal_error,
     "get_tx_pub_key_from_received_outs is not relevant for Carrot txs");
 
+  const auto k_view_incoming_dev = this->get_view_incoming_key_device();
+
   const auto enote_scan_info = wallet::view_incoming_scan_enote_from_prefix(
     td.m_tx,
     td.amount(),
     td.m_mask,
     td.m_internal_output_index,
-    m_account_public_address,
-    m_account.get_keys().m_view_secret_key,
-    m_subaddresses,
-    m_account.get_device());
+    *k_view_incoming_dev,
+    {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
+    m_subaddresses);
 
   const size_t main_tx_pubkey_index = enote_scan_info ? enote_scan_info->main_tx_pubkey_index : 0;
 
@@ -13733,6 +13813,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     PERF_TIMER_START(import_key_images_F);
     auto spent_txid = spent_txids.begin();
     auto it = spent_txids.begin();
+    const auto k_view_incoming_dev = this->get_view_incoming_key_device();
+    const auto hybrid_addr_dev = this->get_hybrid_address_device();
     for (const COMMAND_RPC_GET_TRANSACTIONS::entry& e : gettxs_res.txs)
     {
       THROW_WALLET_EXCEPTION_IF(e.in_pool, error::wallet_internal_error, "spent tx isn't supposed to be in txpool");
@@ -13746,7 +13828,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       // get received (change) amount
       uint64_t tx_money_got_in_outs = 0;
       const auto enote_scan_infos = wallet::view_incoming_scan_transaction(spent_tx,
-        m_account.get_keys(),
+        *k_view_incoming_dev,
+        *hybrid_addr_dev,
         m_subaddresses);
       for (const auto &enote_scan_info : enote_scan_infos)
         if (enote_scan_info && enote_scan_info->subaddr_index)

@@ -30,6 +30,7 @@
 
 //local headers
 #include "crypto/crypto.h"
+#include "span.h"
 
 //third party headers
 
@@ -40,6 +41,7 @@
 namespace carrot
 {
 struct cryptonote_hierarchy_address_device;
+struct hybrid_hierarchy_address_device;
 }
 
 namespace carrot
@@ -74,7 +76,7 @@ void make_legacy_subaddress_spend_pubkey(const cryptonote_hierarchy_address_devi
     const std::uint32_t minor_index,
     crypto::public_key &legacy_subaddress_spend_pubkey_out);
 /**
- * brief: make_legacy_subaddress_spend_pubkey - K^j_s
+ * brief: derive Cryptonote (K^j_s, K^j_v) given address device and j
  *   K^j_s = K_s + k^j_subext G
  *   K^j_v = k_v (G if j=0, else K^j_s)
  * param: addr_dev
@@ -89,4 +91,16 @@ void make_legacy_subaddress_pubkeys(const cryptonote_hierarchy_address_device &a
     const std::uint32_t minor_index,
     crypto::public_key &legacy_subaddress_spend_pubkey_out,
     crypto::public_key &legacy_subaddress_view_pubkey_out);
+/**
+ * brief: get all supported main address spend pubkeys K_s from a hybrid address device
+ * param: addr_dev -
+ * outparam: main_address_spend_pubkeys_out -
+ * return: number of supported pubkeys or span to supported main_address_spend_pubkeys_out
+ */
+std::size_t get_all_main_address_spend_pubkeys(
+    const hybrid_hierarchy_address_device &addr_dev,
+    crypto::public_key main_address_spend_pubkeys_out[2]);
+epee::span<const crypto::public_key> get_all_main_address_spend_pubkeys_span(
+    const hybrid_hierarchy_address_device &addr_dev,
+    crypto::public_key main_address_spend_pubkeys_out[2]);
 } //namespace carrot
