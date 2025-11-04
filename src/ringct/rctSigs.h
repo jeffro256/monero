@@ -146,7 +146,8 @@ namespace rct {
     bool verPointsForTorsion(const std::vector<key> & pts);
 
     // Split into batches and verify each batch in parallel
-    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs,
+        const std::vector<std::size_t> & n_inputs_per_proof);
 }
 #endif  /* RCTSIGS_H */
 

@@ -13,14 +13,14 @@ rand_core = { version = "0.6", default-features = false }
 multiexp = "0.4"
 ciphersuite = { version = "0.4.2", features = ["ed25519"] }
 dalek-ff-group = "0.4.4"
-helioselene = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
+helioselene = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78" }
 
-generalized-bulletproofs = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
-ec-divisors = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2", features = ["ed25519"] }
-full-chain-membership-proofs = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
+generalized-bulletproofs = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78" }
+ec-divisors = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78", features = ["ed25519"] }
+full-chain-membership-proofs = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78" }
 
-monero-generators = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
-monero-fcmp-plus-plus = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
+monero-generators = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78" }
+monero-fcmp-plus-plus = { git = "https://github.com/kayabaNerve/monero-oxide.git", rev = "8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78" }
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }

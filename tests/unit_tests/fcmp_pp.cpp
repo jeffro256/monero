@@ -39,6 +39,8 @@
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
+#include "unit_tests_utils.h"
 
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
@@ -310,6 +312,87 @@ static std::map<std::tuple<size_t, size_t, size_t>, uint64_t> get_all_fcmp_tx_we
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+static std::string get_fcmp_pp_filename(const std::size_t n_inputs)
+{
+    return unit_test::data_dir.string() + "/fcmp_pp_verify_inputs_" + std::to_string(n_inputs) + "in.bin";
+}
+//----------------------------------------------------------------------------------------------------------------------
+/*
+static void write_fcmp_pp_verify_input_to_file(const std::size_t n_inputs,
+    const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const uint8_t n_layers,
+    const crypto::ec_point &tree_root_bytes,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images)
+{
+    const std::string filename = get_fcmp_pp_filename(n_inputs);
+    LOG_PRINT_L1("Writing FCMP++ proof to " << filename);
+    std::ofstream file(filename, std::ios::binary);
+    ASSERT_FALSE(!file);
+
+    file.write(reinterpret_cast<const char*>(&signable_tx_hash), sizeof(signable_tx_hash));
+
+    file.write(reinterpret_cast<const char*>(&n_layers), sizeof(uint8_t));
+    file.write(reinterpret_cast<const char*>(fcmp_pp_proof.data()), fcmp_pp_proof.size());
+
+    file.write(reinterpret_cast<const char*>(&tree_root_bytes), sizeof(tree_root_bytes));
+
+    CHECK_AND_ASSERT_THROW_MES(pseudo_outs.size() == n_inputs, "Unexpected size pseudo outs");
+    for (const auto &po : pseudo_outs)
+        file.write(reinterpret_cast<const char*>(&po), sizeof(po));
+
+    CHECK_AND_ASSERT_THROW_MES(key_images.size() == n_inputs, "Unexpected size key_images");
+    for (const auto &ki : key_images)
+        file.write(reinterpret_cast<const char*>(&ki), sizeof(ki));
+
+    file.close();
+}
+*/
+//----------------------------------------------------------------------------------------------------------------------
+static void read_fcmp_pp_verify_input_from_file(const std::size_t n_inputs,
+    crypto::hash &signable_tx_hash,
+    fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    uint8_t &n_layers,
+    fcmp_pp::TreeRootShared &tree_root,
+    std::vector<crypto::ec_point> &pseudo_outs,
+    std::vector<crypto::key_image> &key_images)
+{
+    const std::string filename = get_fcmp_pp_filename(n_inputs);
+    std::ifstream file(filename, std::ios::binary);
+    ASSERT_FALSE(!file);
+
+    file.read(reinterpret_cast<char*>(&signable_tx_hash), sizeof(signable_tx_hash));
+
+    file.read(reinterpret_cast<char*>(&n_layers), sizeof(n_layers));
+    const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(n_inputs, n_layers);
+    fcmp_pp_proof.resize(proof_len);
+    file.read(reinterpret_cast<char*>(fcmp_pp_proof.data()), proof_len);
+
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    crypto::ec_point tree_root_bytes;
+    file.read(reinterpret_cast<char*>(&tree_root_bytes), sizeof(tree_root_bytes));
+    tree_root = n_layers % 2 == 0
+        ? fcmp_pp::helios_tree_root(curve_trees->m_c2->from_bytes(tree_root_bytes))
+        : fcmp_pp::selene_tree_root(curve_trees->m_c1->from_bytes(tree_root_bytes));
+
+    pseudo_outs = std::vector<crypto::ec_point>(n_inputs);
+    for (auto &po : pseudo_outs)
+        file.read(reinterpret_cast<char*>(&po), sizeof(po));
+
+    key_images = std::vector<crypto::key_image>(n_inputs);
+    for (auto &ki : key_images)
+        file.read(reinterpret_cast<char*>(&ki), sizeof(ki));
+
+    file.close();
+
+    MDEBUG("signable_tx_hash: " << signable_tx_hash <<
+        ", proof_size: "              << proof_len <<
+        ", n_layers: "                << (std::size_t)n_layers <<
+        ", tree_root_bytes: "         << tree_root_bytes);
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
@@ -504,6 +587,10 @@ TEST(fcmp_pp, verify)
         ? fcmp_pp::helios_tree_root(paths.c2_layers.back().find(0)->second.back())
         : fcmp_pp::selene_tree_root(paths.c1_layers.back().find(0)->second.back());
 
+    const crypto::ec_point tree_root_bytes = n_layers % 2 == 0
+        ? curve_trees->m_c2->to_bytes(paths.c2_layers.back().find(0)->second.back())
+        : curve_trees->m_c1->to_bytes(paths.c1_layers.back().find(0)->second.back());
+
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = n_layers / 2;
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
@@ -634,6 +721,16 @@ TEST(fcmp_pp, verify)
             membership_proof,
             n_layers);
 
+/*
+        write_fcmp_pp_verify_input_to_file(n_inputs,
+            signable_tx_hash,
+            fcmp_pp_proof,
+            n_layers,
+            tree_root_bytes,
+            pseudo_outs,
+            key_images);
+*/
+
         LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
         bool verify = fcmp_pp::verify(
                 signable_tx_hash,
@@ -646,6 +743,63 @@ TEST(fcmp_pp, verify)
         ASSERT_TRUE(verify);
         LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
     }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, batch_verify_from_file)
+{
+    // Verify 100 FCMP++ 128-in proofs in parallel using the batch verifier
+    const std::size_t n_proofs = 100;
+    const std::size_t n_inputs = 128;
+
+    crypto::hash signable_tx_hash;
+    std::vector<uint8_t> fcmp_pp_proof;
+    uint8_t n_layers;
+    fcmp_pp::TreeRootShared tree_root;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::vector<crypto::key_image> key_images;
+
+    read_fcmp_pp_verify_input_from_file(n_inputs,
+        signable_tx_hash,
+        fcmp_pp_proof,
+        n_layers,
+        tree_root,
+        pseudo_outs,
+        key_images);
+
+    // Test single verification
+    LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
+    bool verify = fcmp_pp::verify(
+            signable_tx_hash,
+            fcmp_pp_proof,
+            n_layers,
+            tree_root,
+            pseudo_outs,
+            key_images
+        );
+    ASSERT_TRUE(verify);
+    LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
+
+    // Collect the FCMP++ verify inputs
+    std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
+    std::vector<std::size_t> n_inputs_per_proof;
+    fcmp_pp_verify_inputs.reserve(n_proofs);
+    n_inputs_per_proof.reserve(n_proofs);
+    for (std::size_t i = 0; i < n_proofs; ++i)
+    {
+        fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
+                signable_tx_hash,
+                fcmp_pp_proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            ));
+        n_inputs_per_proof.push_back(n_inputs);
+    }
+
+    LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs");
+    ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
+    LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs");
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, sal_completeness)
