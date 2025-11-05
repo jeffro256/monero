@@ -31,10 +31,12 @@
 //local headers
 #include "carrot_core/carrot_enote_types.h"
 #include "carrot_core/device.h"
+#include "carrot_impl/address_device.h"
+#include "carrot_impl/key_image_device.h"
 #include "carrot_impl/subaddress_index.h"
 #include "crypto/crypto.h"
-#include "cryptonote_basic/account.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_basic/tx_extra.h"
 
@@ -51,6 +53,7 @@ namespace tools
 {
 namespace wallet
 {
+/// @brief Post-scanned info for any Monero enote
 struct enote_view_incoming_scan_info_t
 {
     // k^g_o
@@ -73,6 +76,7 @@ struct enote_view_incoming_scan_info_t
     std::size_t main_tx_pubkey_index;
 };
 
+/// @brief Information representing any pre-Carrot Monero enote
 struct PreCarrotEnote
 {
     crypto::public_key onetime_address;
@@ -86,20 +90,44 @@ struct PreCarrotEnote
     rct::ecdhTuple amount;
 };
 
+/// @brief Variant representing any Monero enote, Carrot or pre-Carrot
 using MoneroEnoteVariant = std::variant<PreCarrotEnote,
     carrot::CarrotCoinbaseEnoteV1,
     carrot::CarrotEnoteV1>;
 
+/**
+ * brief: do a view-incoming scan as receiver on an enote given the tx prefix and amount commitment opening
+ * param: tx_prefix -
+ * param: amount - a
+ * param: amount_blinding_factor - k_a
+ * param: local_output_index - i
+ * param: k_view_incoming_dev - k_v
+ * param: main_address_spend_pubkeys - [K_s, ...]
+ * param: subaddress_map -
+ * return: std::nullopt if scan failed, otherwise enote scan info on success
+ */
 std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote_from_prefix(
     const cryptonote::transaction_prefix &tx_prefix,
     const rct::xmr_amount amount,
     const rct::key &amount_blinding_factor,
     const std::size_t local_output_index,
-    const cryptonote::account_public_address &address,
-    const crypto::secret_key &k_view_incoming,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    hw::device &hwdev);
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
 
+/**
+ * brief: do a view-incoming scan as receiver on all enotes in a full tx
+ * param: tx -
+ * param: main_tx_ephemeral_pubkeys - parsed main ephemeral pubkeys in `tx`
+ * param: additional_tx_ephemeral_pubkeys - parsed additional ephemeral pubkeys in `tx`
+ * param: tx_extra_nonce - parsed tx extra nonce field in `tx`
+ * param: main_derivations - sender-receiver ECDHs against main ephemeral pubkeys
+ * param: additional_derivations - sender-receiver ECDHs against additional ephemeral pubkeys
+ * param: k_view_incoming_dev - device for k_v
+ * param: main_address_spend_pubkeys - [K_s, ...]
+ * param: subaddress_map -
+ * outparam: enote_scan_infos_out - mutable span to enote scan infos of size N, where N is number of `tx`'s outputs
+ */
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
@@ -107,29 +135,50 @@ void view_incoming_scan_transaction(
     const cryptonote::blobdata &tx_extra_nonce,
     const epee::span<const crypto::key_derivation> main_derivations,
     const epee::span<const crypto::key_derivation> additional_derivations,
-    const cryptonote::account_keys &acc,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
-    const cryptonote::account_keys &acc,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
-    const cryptonote::account_keys &acc,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::hybrid_hierarchy_address_device &addr_dev,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
 
+/**
+ * brief: do a view-incoming scan as sender on all enotes in a full tx
+ * param: tx -
+ * param: tx_extra_nonce - parsed tx extra nonce field in `tx`
+ * param: custom_main_derivations - sender-receiver ECDHs against main ephemeral pubkeys
+ * param: custom_additional_derivations - sender-receiver ECDHs against additional ephemeral pubkeys
+ * param: address - (K^j_s, K^j_v) of recipient to scan for
+ * return: list of enote scan infos of size N, where N is number of `tx`'s outputs
+ */
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction_as_sender(
     const cryptonote::transaction &tx,
     const epee::span<const crypto::key_derivation> custom_main_derivations,
     const epee::span<const crypto::key_derivation> custom_additional_derivations,
     const cryptonote::account_public_address &address);
 
+/**
+ * brief: return true iff `pid` is "long" payment ID (greater than 8 bytes)
+ */
 bool is_long_payment_id(const crypto::hash &pid);
 
+/**
+ * brief: try deriving a scanned enote's key image with our key image device
+ * param: enote_scan_info -
+ * param: key_image_dev - device for k_s (legacy-derived) or k_gi (Carrot-derived)
+ * return: std::nullopt on derive failure, otherwise the key image for the one-time address of scanned enote
+ */
 std::optional<crypto::key_image> try_derive_enote_key_image(
     const enote_view_incoming_scan_info_t &enote_scan_info,
-    const cryptonote::account_keys &acc);
+    const carrot::key_image_device &key_image_dev);
 } //namespace wallet
 } //namespace tools

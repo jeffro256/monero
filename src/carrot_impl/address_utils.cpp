@@ -124,4 +124,32 @@ void make_legacy_subaddress_pubkeys(const cryptonote_hierarchy_address_device &a
     addr_dev.view_key_scalar_mult_ed25519(base_pubkey, legacy_subaddress_view_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+std::size_t get_all_main_address_spend_pubkeys(const hybrid_hierarchy_address_device &addr_dev,
+    crypto::public_key main_address_spend_pubkeys_out[2])
+{
+    memset(main_address_spend_pubkeys_out, 0, 2*sizeof(main_address_spend_pubkeys_out[0]));
+
+    std::size_t n_main_addrs = 0;
+    if (addr_dev.supports_address_derivation_type(carrot::AddressDeriveType::PreCarrot))
+    {
+        main_address_spend_pubkeys_out[n_main_addrs++]
+            = addr_dev.access_cryptonote_hierarchy_device().get_cryptonote_account_spend_pubkey();
+    }
+    if (addr_dev.supports_address_derivation_type(carrot::AddressDeriveType::Carrot))
+    {
+        main_address_spend_pubkeys_out[n_main_addrs++]
+             = addr_dev.access_carrot_hierarchy_device().get_carrot_account_spend_pubkey();
+    }
+
+    return n_main_addrs;
+}
+//-------------------------------------------------------------------------------------------------------------------
+epee::span<const crypto::public_key> get_all_main_address_spend_pubkeys_span(
+    const hybrid_hierarchy_address_device &addr_dev,
+    crypto::public_key main_address_spend_pubkeys_out[2])
+{
+    const std::size_t n_main_addrs = get_all_main_address_spend_pubkeys(addr_dev, main_address_spend_pubkeys_out);
+    return {main_address_spend_pubkeys_out, n_main_addrs};
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

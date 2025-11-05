@@ -117,6 +117,9 @@ TEST(wallet_scanning, view_scan_long_payment_id)
     bob.generate();
     const cryptonote::account_public_address bob_main_addr = bob.get_keys().m_account_address;
     const crypto::public_key bob_main_spend_pubkey = bob_main_addr.m_spend_public_key;
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed bob_addr_dev(bob_main_addr.m_spend_public_key,
+        bob.get_keys().m_view_secret_key);
+    const carrot::hybrid_hierarchy_address_device_composed bob_hybrid_addr_dev(&bob_addr_dev, nullptr);
 
     const rct::xmr_amount amount = rct::randXmrAmount(10 * COIN);
 
@@ -159,11 +162,11 @@ TEST(wallet_scanning, view_scan_long_payment_id)
 
         // call view_incoming_scan_transaction with no meaningful key nor subaddresses maps,
         // just with the proper ECDH
-        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
-        tools::wallet::view_incoming_scan_transaction(tx,
-            bob.get_keys(),
-            {{bob_main_spend_pubkey, {}}}, // use a fake subaddress map with just the provided address in it
-            epee::to_mut_span(enote_scan_infos));
+        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
+            tools::wallet::view_incoming_scan_transaction(tx,
+                bob_addr_dev,
+                bob_hybrid_addr_dev,
+                {{bob_main_spend_pubkey, {}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
         for (const auto &enote_scan_info : enote_scan_infos)
@@ -190,6 +193,9 @@ TEST(wallet_scanning, view_scan_short_payment_id)
     bob.generate();
     const cryptonote::account_public_address bob_main_addr = bob.get_keys().m_account_address;
     const crypto::public_key bob_main_spend_pubkey = bob_main_addr.m_spend_public_key;
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed bob_addr_dev(bob_main_addr.m_spend_public_key,
+        bob.get_keys().m_view_secret_key);
+    const carrot::hybrid_hierarchy_address_device_composed bob_hybrid_addr_dev(&bob_addr_dev, nullptr);
 
     const rct::xmr_amount amount = rct::randXmrAmount(10 * COIN);
 
@@ -236,11 +242,11 @@ TEST(wallet_scanning, view_scan_short_payment_id)
 
         // call view_incoming_scan_transaction with no meaningful key nor subaddresses maps,
         // just with the proper ECDH
-        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
-        tools::wallet::view_incoming_scan_transaction(tx,
-            bob.get_keys(),
-            {{bob_main_spend_pubkey, {}}}, // use a fake subaddress map with just the provided address in it
-            epee::to_mut_span(enote_scan_infos));
+        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
+            tools::wallet::view_incoming_scan_transaction(tx,
+                bob_addr_dev,
+                bob_hybrid_addr_dev,
+                {{bob_main_spend_pubkey, {}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
         for (const auto &enote_scan_info : enote_scan_infos)

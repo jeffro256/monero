@@ -313,17 +313,29 @@ AddressDeriveType mock_carrot_and_legacy_keys::resolve_derive_type(const Address
 //----------------------------------------------------------------------------------------------------------------------
 crypto::key_image dummy_key_image_device::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
 {
+    return this->respond(onetime_address_ref(opening_hint));
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::key_image dummy_key_image_device::derive_key_image_prescanned(
+    const crypto::secret_key &sender_extension_g,
+    const crypto::public_key &onetime_address,
+    const subaddress_index_extended &subaddr_index) const
+{
+    return this->respond(onetime_address);
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::key_image dummy_key_image_device::respond(const crypto::public_key &onetime_address) const
+{
     static constexpr unsigned char domain_separator[]
         = "One for the money, two for the better green, 3,4-methylenedioxymethamphetamine";
     static_assert(sizeof(domain_separator) > 1);
     unsigned char data[sizeof(domain_separator) + sizeof(crypto::public_key)] = {0};
     memcpy(data, &domain_separator, sizeof(domain_separator));
-    const crypto::public_key ota = onetime_address_ref(opening_hint);
-    memcpy(data + sizeof(domain_separator), &ota, sizeof(ota));
+    memcpy(data + sizeof(domain_separator), &onetime_address, sizeof(onetime_address));
     unsigned char h[32];
     derive_bytes_32(data, sizeof(data), nullptr, h);
     ge_p2 KI_p2;
-    ge_fromfe_frombytes_vartime(&KI_p2, h); // fancy, if not really necessary
+    ge_fromfe_frombytes_vartime(&KI_p2, h); // fancy, if not really necessary TODO: use unbiased hash-to-pt
     crypto::key_image KI;
     ge_tobytes(to_bytes(KI), &KI_p2);
     return KI;

@@ -113,6 +113,17 @@ struct view_incoming_key_device
     virtual bool view_key_scalar_mult_ed25519(const crypto::public_key &P, crypto::public_key &kvP) const = 0;
 
     /**
+     * brief: view_key_scalar_mult8_ed25519 - do an Ed25519 scalar mult against the incoming view key, w/ cofactor clear
+     *   kv8P = 8 * k_v * P
+     * param: P - Ed25519 base point
+     * outparam: kv8P
+     * return: true on success, false on failure (e.g. unable to decompress point)
+     *
+     * Used in pre-Carrot sender-receiver ECDH exchange.
+     */
+    virtual bool view_key_scalar_mult8_ed25519(const crypto::public_key &P, crypto::public_key &kv8P) const;
+
+    /**
      * brief: view_key_scalar_mult_x25519 - do an X25519 scalar mult against the incoming view key
      *   kvD = k_v * D
      * param: D - X25519 base point

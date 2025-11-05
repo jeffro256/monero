@@ -35,12 +35,13 @@
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
 #include "carrot_core/scan_unsafe.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/carrot_offchain_serialization.h"
 #include "carrot_impl/format_utils.h"
+#include "carrot_impl/key_image_device_composed.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "hot_cold_serialization.h"
 #include "ringct/rctOps.h"
-#include "scanning_tools.h"
 #include "serialization/binary_archive.h"
 
 //third party headers
@@ -347,7 +348,9 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
     td.m_uses.clear();
 
     // get receive subaddress
-    CHECK_AND_ASSERT_THROW_MES(etd.flags.m_carrot_derived_addr,
+    const carrot::AddressDeriveType derive_type = etd.flags.m_carrot_derived_addr
+        ? carrot::AddressDeriveType::Carrot : carrot::AddressDeriveType::PreCarrot;
+    CHECK_AND_ASSERT_THROW_MES(derive_type == carrot::AddressDeriveType::PreCarrot,
         "cannot import transfer details: carrot key hierarchy addresses are not yet supported"); //! @TODO
     const cryptonote::account_public_address receive_addr = hwdev.get_subaddress(acc_keys, td.m_subaddr_index);
     const bool is_subaddress = receive_addr.m_spend_public_key != acc_keys.m_account_address.m_spend_public_key;
@@ -360,6 +363,7 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
 
     // Use exported_carrot_transfer_details to make payment proposals to ourselves,
     // then construct transaction outputs and set amount blinding factor
+    carrot::OutputOpeningHintVariant opening_hint;
     if (etd.flags.m_coinbase)
     {
         const carrot::CarrotPaymentProposalV1 payment_proposal{
@@ -372,6 +376,10 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
         carrot::get_coinbase_output_proposal_v1(payment_proposal, etd.block_index, enote);
         td.m_tx = carrot::store_carrot_to_coinbase_transaction_v1({enote}, {});
         td.m_mask = rct::I;
+        opening_hint = carrot::CarrotCoinbaseOutputOpeningHintV1{
+            .source_enote = enote,
+            .derive_type = carrot::AddressDeriveType::PreCarrot
+        };
     }
     else // non-coinbase
     {
@@ -422,28 +430,25 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
             /*fee=*/0,
             encrypted_payment_id.value_or(carrot::encrypted_payment_id_t{}));
         td.m_mask = rct::sk2rct(output_enote_proposal.amount_blinding_factor);
+        opening_hint = carrot::CarrotOutputOpeningHintV1{
+            .source_enote = output_enote_proposal.enote,
+            .encrypted_payment_id = encrypted_payment_id,
+            .subaddr_index = { .index = etd.subaddr_index, .derive_type = derive_type }
+        };
     }
 
-    // Now all that's left to do is calculate the key image. First do a view-incoming scan, and then derive
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> mini_subaddress_map{
-        { receive_addr.m_spend_public_key, td.m_subaddr_index }
-    };
-    const std::optional<enote_view_incoming_scan_info_t> enote_scan_info = view_incoming_scan_enote_from_prefix(td.m_tx,
-        td.amount(),
-        td.m_mask,
-        /*local_output_index=*/0,
-        receive_addr,
-        acc_keys.m_view_secret_key,
-        mini_subaddress_map,
-        hwdev);
-    CHECK_AND_ASSERT_THROW_MES(enote_scan_info,
-        "cannot import transfer details: minimal recomputed tx prefix from carrot export failed to scan");
-
-    const std::optional<crypto::key_image> ki = try_derive_enote_key_image(*enote_scan_info, acc_keys);
-    CHECK_AND_ASSERT_THROW_MES(ki,
-        "cannot import transfer details: key image could not be calculated for provided Carrot enote");
-
-    td.m_key_image = *ki;
+    // Now all that's left to do is calculate the key image.
+    //! @TODO: carrot hierarchy
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
+        acc_keys.m_account_address.m_spend_public_key,
+        acc_keys.m_view_secret_key);
+    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev(&addr_dev, nullptr);
+    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev(acc_keys.m_spend_secret_key);
+    const carrot::key_image_device_composed key_image_dev(legacy_spend_image_dev,
+        hybrid_addr_dev,
+        nullptr,
+        &addr_dev);
+    td.m_key_image = key_image_dev.derive_key_image(opening_hint);
 
     return td;
 }

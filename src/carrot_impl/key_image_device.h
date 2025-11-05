@@ -42,10 +42,25 @@ namespace carrot
 struct key_image_device
 {
     /**
-     * brief: derive_key_image - derive a key image for a enote given its opening hint
+     * brief: derive a key image for an enote given its opening hint
      * param: opening_hint -
      * return: L = x Hp(O) given O and some y s.t. O = x G + y T
+     *
+     * The _implementor_ is expected to validate that this enote passes the burning bug check, Janus check, etc.
      */
     virtual crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const = 0;
+
+    /**
+     * brief: derive a key image for an enote given it's sender opening and address index
+     * param: sender_extension_g - k^g_o
+     * param: onetime_address - K_o
+     * param: subaddr_index - j
+     * return: L = x Hp(K_o) given K_o and some y s.t. K_o = x G + y T
+     *
+     * The _caller_ is expected to validate that this enote passes the burning bug check, Janus check, etc.
+     */
+    virtual crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
+        const crypto::public_key &onetime_address,
+        const subaddress_index_extended &subaddr_index) const = 0;
 };
 } //namespace carrot

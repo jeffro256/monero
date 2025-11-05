@@ -50,6 +50,10 @@ public:
 
     crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const override;
 
+    crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
+        const crypto::public_key &onetime_address,
+        const subaddress_index_extended &subaddr_index) const override;
+
 protected:
     const generate_image_key_device &m_k_generate_image_dev;
     const hybrid_hierarchy_address_device &m_addr_dev;

@@ -180,10 +180,16 @@ struct mock_carrot_and_legacy_keys
     AddressDeriveType resolve_derive_type(const AddressDeriveType derive_type) const;
 };
 //----------------------------------------------------------------------------------------------------------------------
-struct dummy_key_image_device: public key_image_device
+struct dummy_key_image_device final: public key_image_device
 {
     /// Key image device which returns an unpredictable but deterministic key image for a given onetime address
-    crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const override;
+    crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const final;
+    crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
+        const crypto::public_key &onetime_address,
+        const subaddress_index_extended &subaddr_index) const final;
+
+private:
+    crypto::key_image respond(const crypto::public_key &onetime_address) const;
 };
 //----------------------------------------------------------------------------------------------------------------------
 struct mock_scan_result_t
