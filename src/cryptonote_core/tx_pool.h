@@ -604,6 +604,15 @@ namespace cryptonote
     static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
 
     /**
+     * @brief check if a transaction is potentially a valid candidate for inclusion in a block based on its metadata
+     *
+     * @param txd the transaction to check (and info about it)
+     *
+     * @return true if the transaction is good to go, otherwise false
+     */
+    bool is_transaction_meta_ready_to_go(const txpool_tx_meta_t& txd) const;
+
+    /**
      * @brief check if a transaction is a valid candidate for inclusion in a block
      *
      * @param txd the transaction to check (and info about it)

@@ -3881,6 +3881,15 @@ bool Blockchain::check_tx_inputs(transaction& tx,
     sig_index++;
   }
 
+  if (rct::is_rct_fcmp(tx.rct_signatures.type))
+  {
+    // Set max used block height to the youngest block which contains outputs in the referenced FCMP tree
+    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE >= 1);
+    assert(nullptr != pmax_used_block_height); // set earlier
+    *pmax_used_block_height = tx.rct_signatures.p.reference_block
+      - std::min<std::uint64_t>(tx.rct_signatures.p.reference_block, CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+  }
+
   // enforce min output age
   if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
   {

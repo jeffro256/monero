@@ -224,6 +224,7 @@ namespace cryptonote
 
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
+    const bool hard_height_requirement = rct::is_rct_fcmp(tx.rct_signatures.type);
     cryptonote::txpool_tx_meta_t meta{};
     meta.valid_input_verification_id = valid_input_verification_id;
     const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
@@ -246,6 +247,7 @@ namespace cryptonote
         meta.set_relay_method(tx_relay);
         meta.double_spend_seen = have_tx_keyimges_as_spent(tx, id);
         meta.pruned = tx.pruned;
+        meta.hard_height_requirement = hard_height_requirement;
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -321,6 +323,7 @@ namespace cryptonote
           meta.relayed = relayed;
           meta.double_spend_seen = false;
           meta.pruned = tx.pruned;
+          meta.hard_height_requirement = hard_height_requirement;
           meta.bf_padding = 0;
           memset(meta.padding, 0, sizeof(meta.padding));
 
@@ -1076,6 +1079,9 @@ namespace cryptonote
         if (!m_blockchain.get_txpool_tx_meta(e.id, meta))
           continue;
 
+        if (!is_transaction_meta_ready_to_go(meta))
+          continue;
+
         cryptonote::blobdata txblob;
         if (!m_blockchain.get_txpool_tx_blob(e.id, txblob, relay_category::all))
           continue;
@@ -1416,6 +1422,21 @@ namespace cryptonote
     return ret;
   }
   //---------------------------------------------------------------------------------
+  bool tx_memory_pool::is_transaction_meta_ready_to_go(const txpool_tx_meta_t& txd) const
+  {
+    // For txs (FCMP++ txs at time of writing) where it is guaranteed that they will fail
+    // verification if a certain height in the chain is not both present and confirmed, we can abort
+    // early, skipping a blob load, a deserialization, and a call to check_tx_inputs().
+    if (txd.hard_height_requirement)
+    {
+      const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
+      if (txd.max_used_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > curr_height)
+        return false;
+    }
+
+    return true;
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata_ref& txblob, transaction &tx) const
   {
     struct transaction_parser
@@ -1601,6 +1622,10 @@ namespace cryptonote
         if (!warned)
           MERROR("  failed to find tx meta: " << sorted_it->get_right() << " (will only print once)");
         warned = true;
+        continue;
+      }
+      else if (!is_transaction_meta_ready_to_go(meta))
+      {
         continue;
       }
       LOG_PRINT_L2("Considering " << sorted_it->get_right() << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
