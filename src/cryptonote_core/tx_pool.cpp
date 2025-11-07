@@ -1068,7 +1068,7 @@ namespace cryptonote
 
     backlog.clear();
     uint64_t w = 0;
-
+    const uint64_t current_blockchain_height = m_blockchain.get_current_blockchain_height();
     std::unordered_set<crypto::key_image> k_images;
 
     for (const tx_block_template_backlog_entry& e : tmp)
@@ -1079,7 +1079,7 @@ namespace cryptonote
         if (!m_blockchain.get_txpool_tx_meta(e.id, meta))
           continue;
 
-        if (!is_transaction_meta_ready_to_go(meta))
+        if (!is_transaction_meta_ready_to_go(meta, current_blockchain_height))
           continue;
 
         cryptonote::blobdata txblob;
@@ -1422,15 +1422,15 @@ namespace cryptonote
     return ret;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::is_transaction_meta_ready_to_go(const txpool_tx_meta_t& txd) const
+  bool tx_memory_pool::is_transaction_meta_ready_to_go(const txpool_tx_meta_t& txd,
+    const uint64_t current_blockchain_height) const
   {
     // For txs (FCMP++ txs at time of writing) where it is guaranteed that they will fail
     // verification if a certain height in the chain is not both present and confirmed, we can abort
     // early, skipping a blob load, a deserialization, and a call to check_tx_inputs().
     if (txd.hard_height_requirement)
     {
-      const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
-      if (txd.max_used_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > curr_height)
+      if (txd.max_used_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > current_blockchain_height)
         return false;
     }
 
@@ -1602,7 +1602,7 @@ namespace cryptonote
       return false;
     }
 
-
+    const uint64_t current_blockchain_height = m_blockchain.get_current_blockchain_height();
     size_t max_total_weight_pre_v5 = (130 * median_weight) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     size_t max_total_weight_v5 = 2 * median_weight - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     size_t max_total_weight = version >= 5 ? max_total_weight_v5 : max_total_weight_pre_v5;
@@ -1624,7 +1624,7 @@ namespace cryptonote
         warned = true;
         continue;
       }
-      else if (!is_transaction_meta_ready_to_go(meta))
+      else if (!is_transaction_meta_ready_to_go(meta, current_blockchain_height))
       {
         continue;
       }
