@@ -557,7 +557,6 @@ namespace cryptonote
 
     // BP+ clawback to price in linear verification times
     const uint64_t bp_clawback = get_transaction_weight_clawback(/*plus=*/true, n_outputs, n_padded_outputs);
-    MDEBUG("bulletproof+ clawback: " << bp_clawback);
     CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - bp_clawback > bp_weight,
       std::numeric_limits<uint64_t>::max(),
       "get_fcmp_pp_transaction_weight_v1: overflow with bulletproof clawback");
