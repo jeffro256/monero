@@ -36,6 +36,7 @@ set(carrot_impl_sources
   multi_tx_proposal_utils.cpp
   output_opening_types.cpp
   spend_device_ram_borrowed.cpp
+  subaddress_map_legacy.cpp
   tx_builder_inputs.cpp
   tx_builder_outputs.cpp
   tx_proposal_utils.cpp

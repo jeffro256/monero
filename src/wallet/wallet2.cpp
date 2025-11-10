@@ -101,6 +101,7 @@ using namespace epee;
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/spend_device_ram_borrowed.h"
+#include "carrot_impl/subaddress_map_legacy.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
 #include "hot_cold_serialization.h" //! @TODO: remove line after #52 is merged
@@ -10658,7 +10659,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   if (do_carrot_tx_construction)
   {
     const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(::get_transfers(*this),
-      m_subaddresses,
+      carrot::subaddress_map_legacy(m_subaddresses),
       dsts,
       get_fee_per_weight_from_priority(priority, *this),
       extra,
@@ -11444,7 +11445,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   if (do_carrot_tx_construction)
   {
     const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep_all(::get_transfers(*this),
-      m_subaddresses,
+      carrot::subaddress_map_legacy(m_subaddresses),
       below,
       address,
       is_subaddress,
@@ -11540,7 +11541,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
   if (do_carrot_tx_construction)
   {
     const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(::get_transfers(*this),
-        m_subaddresses,
+        carrot::subaddress_map_legacy(m_subaddresses),
         {ki},
         address,
         is_subaddress,
@@ -11588,7 +11589,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
       input_key_images.push_back(m_transfers.at(transfer_idx).m_key_image);
 
     const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(::get_transfers(*this),
-        m_subaddresses,
+        carrot::subaddress_map_legacy(m_subaddresses),
         input_key_images,
         address,
         is_subaddress,

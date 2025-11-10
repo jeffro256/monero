@@ -120,22 +120,20 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
     std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_inout,
     const cryptonote::tx_destination_entry &tx_dest_entry,
     const crypto::hash8 payment_id,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
+    const carrot::subaddress_map &subaddress_map)
 {
-    const auto subaddr_it = subaddress_map.find(tx_dest_entry.addr.m_spend_public_key);
-    const bool is_selfsend_dest = subaddr_it != subaddress_map.cend();
+    const auto subaddr_it = subaddress_map.get_index_for_address_spend_pubkey(tx_dest_entry.addr.m_spend_public_key);
 
     // Make N destinations
-    if (is_selfsend_dest)
+    if (subaddr_it)
     {
-        const carrot::subaddress_index subaddr_index{subaddr_it->second.major, subaddr_it->second.minor};
         selfsend_payment_proposals_inout.push_back(carrot::CarrotPaymentProposalVerifiableSelfSendV1{
             .proposal = carrot::CarrotPaymentProposalSelfSendV1{
                 .destination_address_spend_pubkey = tx_dest_entry.addr.m_spend_public_key,
                 .amount = tx_dest_entry.amount,
                 .enote_type = carrot::CarrotEnoteType::PAYMENT
             },
-            .subaddr_index = {subaddr_index, carrot::AddressDeriveType::PreCarrot} // @TODO: handle carrot
+            .subaddr_index = *subaddr_it
         });
     }
     else // not *known* self-send address
@@ -155,7 +153,7 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
         });
     }
 
-    return is_selfsend_dest;
+    return subaddr_it.has_value();
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -165,7 +163,7 @@ static void build_payment_proposals_sweep(std::vector<carrot::CarrotPaymentPropo
     const bool is_subaddress,
     const std::size_t n_dests,
     const crypto::hash8 payment_id,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
+    const carrot::subaddress_map &subaddress_map)
 {
     for (std::size_t i = 0; i < n_dests; ++i)
     {
@@ -214,20 +212,21 @@ static cryptonote::tx_destination_entry make_tx_destination_entry(
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static crypto::public_key find_change_address_spend_pubkey(
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::uint32_t subaddr_account)
 {
-    const auto change_it = std::find_if(subaddress_map.cbegin(), subaddress_map.cend(),
-        [subaddr_account](const auto &p) { return p.second.major == subaddr_account && p.second.minor == 0; });
-    CHECK_AND_ASSERT_THROW_MES(change_it != subaddress_map.cend(),
-        "find_change_address_spend_pubkey: missing change address (index "
-        << subaddr_account << ",0) in subaddress map");
-    const auto change_it_2 = std::find_if(std::next(change_it), subaddress_map.cend(),
-        [subaddr_account](const auto &p) { return p.second.major == subaddr_account && p.second.minor == 0; });
-    CHECK_AND_ASSERT_THROW_MES(change_it_2 == subaddress_map.cend(),
-        "find_change_address_spend_pubkey: provided subaddress map is malformed!!! At least two spend pubkeys map to "
-        "index " << subaddr_account << ",0 in the subaddress map!");
-    return change_it->first;
+    // First try using a carrot change address, then try pre-Carrot
+
+    const carrot::subaddress_index index{.major = subaddr_account, .minor = 0};
+    const auto carrot_it = subaddress_map.get_address_spend_pubkey_for_index(
+        carrot::subaddress_index_extended{.index = index, .derive_type = carrot::AddressDeriveType::Carrot});
+    if (carrot_it)
+        return *carrot_it;
+    const auto precarrot_it = subaddress_map.get_address_spend_pubkey_for_index(
+        carrot::subaddress_index_extended{.index = index, .derive_type = carrot::AddressDeriveType::PreCarrot});
+    if (precarrot_it)
+        return *precarrot_it;
+    ASSERT_MES_AND_THROW("Address spend pubkey not found in subaddress map for account #" << subaddr_account);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -515,7 +514,7 @@ std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     std::vector<uint8_t> extra,
@@ -596,7 +595,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -669,7 +668,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,

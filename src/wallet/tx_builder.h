@@ -30,8 +30,9 @@
 
 //local headers
 #include "carrot_impl/address_device.h"
-#include "carrot_impl/spend_device.h"
 #include "carrot_impl/input_selection.h"
+#include "carrot_impl/spend_device.h"
+#include "carrot_impl/subaddress_map.h"
 #include "fee_priority.h"
 #include "fcmp_pp/tree_cache.h"
 #include "wallet2_basic/wallet2_types.h"
@@ -181,7 +182,7 @@ std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     std::vector<uint8_t> extra,
@@ -208,7 +209,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -235,7 +236,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,

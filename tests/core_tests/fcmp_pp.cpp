@@ -33,6 +33,7 @@
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/spend_device_ram_borrowed.h"
+#include "carrot_impl/subaddress_map_legacy.h"
 #include "ringct/rctSigs.h"
 #include "ringct/bulletproofs_plus.h"
 #include "chaingen.h"
@@ -398,7 +399,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
 
   const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
       {wallet2_td},
-      subaddrs,
+      carrot::subaddress_map_legacy{subaddrs},
       destinations,
       /*fee_per_weight=*/10000000, // This is just a mock value to pass the test
       /*extra=*/{},
