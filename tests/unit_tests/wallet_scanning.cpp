@@ -29,6 +29,7 @@
 #include "gtest/gtest.h"
 
 #include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/subaddress_map_legacy.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
@@ -166,7 +167,7 @@ TEST(wallet_scanning, view_scan_long_payment_id)
             tools::wallet::view_incoming_scan_transaction(tx,
                 bob_addr_dev,
                 bob_hybrid_addr_dev,
-                {{bob_main_spend_pubkey, {}}}); // use a fake subaddress map with just the provided address in it
+                carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
         for (const auto &enote_scan_info : enote_scan_infos)
@@ -246,7 +247,7 @@ TEST(wallet_scanning, view_scan_short_payment_id)
             tools::wallet::view_incoming_scan_transaction(tx,
                 bob_addr_dev,
                 bob_hybrid_addr_dev,
-                {{bob_main_spend_pubkey, {}}}); // use a fake subaddress map with just the provided address in it
+                carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
         for (const auto &enote_scan_info : enote_scan_infos)

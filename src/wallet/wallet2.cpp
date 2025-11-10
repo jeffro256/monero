@@ -2449,7 +2449,7 @@ void wallet2::process_new_transaction(
     wallet::view_incoming_scan_transaction(tx,
       *this->get_view_incoming_key_device(),
       *this->get_hybrid_address_device(),
-      this->m_subaddresses);
+      carrot::subaddress_map_legacy{this->m_subaddresses});
 
   // if view-incoming scan was successful, try deriving the key image
   bool password_failure = false;
@@ -3672,7 +3672,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
     wallet::view_incoming_scan_transaction(tx,
       *k_view_incoming_dev,
       {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
-      this->m_subaddresses,
+      carrot::subaddress_map_legacy{this->m_subaddresses},
       {&enote_scan_infos[0] + tx_output_idx, tx.vout.size()});
 
     // if view-incoming scan was successful, try deriving the key image
@@ -13521,7 +13521,7 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
     td.m_internal_output_index,
     *k_view_incoming_dev,
     {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
-    m_subaddresses);
+    carrot::subaddress_map_legacy{m_subaddresses});
 
   const size_t main_tx_pubkey_index = enote_scan_info ? enote_scan_info->main_tx_pubkey_index : 0;
 
@@ -13847,7 +13847,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       const auto enote_scan_infos = wallet::view_incoming_scan_transaction(spent_tx,
         *k_view_incoming_dev,
         *hybrid_addr_dev,
-        m_subaddresses);
+        carrot::subaddress_map_legacy{m_subaddresses});
       for (const auto &enote_scan_info : enote_scan_infos)
         if (enote_scan_info && enote_scan_info->subaddr_index)
           tx_money_got_in_outs += enote_scan_info->amount; //! @TODO: check overflow
