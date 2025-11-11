@@ -562,12 +562,6 @@ namespace cryptonote
       "get_fcmp_pp_transaction_weight_v1: overflow with bulletproof clawback");
     bp_weight += bp_clawback;
 
-    // Much like bulletproofs, the verification time of a FCMP is linear in the number of inputs,
-    // rounded up to the nearest power of 2, so round n_inputs up to power of 2 to price this in
-    size_t n_padded_inputs = 1;
-    while (n_padded_inputs < n_inputs)
-      n_padded_inputs *= 2;
-
     // There's a few reasons why we treat n_tree_layers as a fixed value for weight calculation:
     //     a. If we took n_tree_layers into account when calculating weight, then fee calculation
     //        would be a function of the number of layers in the FCMP tree. This has a couple
@@ -590,9 +584,7 @@ namespace cryptonote
     // of the Monero mainnet would be 6. 7 is approaching relatively quickly, and would be the value
     // for many decades at the current tx volume.
     static constexpr size_t fake_n_tree_layers = 7;
-
-    const uint64_t fcmp_weight_base = fcmp_pp::membership_proof_len(/*n_inputs=*/1, fake_n_tree_layers);
-    const uint64_t fcmp_weight = fcmp_weight_base * n_padded_inputs;
+    const uint64_t fcmp_weight = fcmp_pp::membership_proof_len(n_inputs, fake_n_tree_layers);
 
     const uint64_t rct_sig_prunable_weight = bp_weight + total_sal_weight + misc_fcmp_pp_weight + fcmp_weight;
 
