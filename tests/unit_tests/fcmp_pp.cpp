@@ -747,10 +747,9 @@ TEST(fcmp_pp, verify)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, batch_verify_from_file)
 {
-    // Verify 100 FCMP++ 128-in proofs in parallel using the batch verifier
-    const std::size_t n_proofs = 100;
     const std::size_t n_inputs = 128;
 
+    // Read from file
     crypto::hash signable_tx_hash;
     std::vector<uint8_t> fcmp_pp_proof;
     uint8_t n_layers;
@@ -779,27 +778,34 @@ TEST(fcmp_pp, batch_verify_from_file)
     ASSERT_TRUE(verify);
     LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
 
-    // Collect the FCMP++ verify inputs
-    std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
-    std::vector<std::size_t> n_inputs_per_proof;
-    fcmp_pp_verify_inputs.reserve(n_proofs);
-    n_inputs_per_proof.reserve(n_proofs);
-    for (std::size_t i = 0; i < n_proofs; ++i)
+    // Repeat attempts and observe memory usage
+    for (std::size_t i = 0; i < 8; ++i)
     {
-        fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
-                signable_tx_hash,
-                fcmp_pp_proof,
-                n_layers,
-                tree_root,
-                pseudo_outs,
-                key_images
-            ));
-        n_inputs_per_proof.push_back(n_inputs);
-    }
+        // Verify 24 FCMP++ 128-in proofs in parallel using the batch verifier
+        const std::size_t n_proofs = 24;
 
-    LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs");
-    ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
-    LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs");
+        // Collect the FCMP++ verify inputs
+        std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
+        std::vector<std::size_t> n_inputs_per_proof;
+        fcmp_pp_verify_inputs.reserve(n_proofs);
+        n_inputs_per_proof.reserve(n_proofs);
+        for (std::size_t i = 0; i < n_proofs; ++i)
+        {
+            fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
+                    signable_tx_hash,
+                    fcmp_pp_proof,
+                    n_layers,
+                    tree_root,
+                    pseudo_outs,
+                    key_images
+                ));
+            n_inputs_per_proof.push_back(n_inputs);
+        }
+
+        LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs");
+        ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
+        LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs");
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, sal_completeness)
