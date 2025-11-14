@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "crypto-bigint",
  "dalek-ff-group",
@@ -293,7 +293,7 @@ dependencies = [
 [[package]]
 name = "full-chain-membership-proofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -317,7 +317,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "generalized-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-circuit-abstraction"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs",
@@ -343,7 +343,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-ec-gadgets"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs-circuit-abstraction",
@@ -405,7 +405,7 @@ dependencies = [
 [[package]]
 name = "helioselene"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -478,7 +478,7 @@ dependencies = [
 [[package]]
 name = "monero-fcmp-plus-plus"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -502,7 +502,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -522,7 +522,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/monero-oxide?rev=8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78#8aea6ded79f78fc6b1fe9c8ba6f1ad945dc5ce78"
+source = "git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f#34dab2669d54bf92631fa3a2b0b6764254a2066f"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
