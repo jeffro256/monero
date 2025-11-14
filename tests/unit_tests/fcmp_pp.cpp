@@ -673,6 +673,13 @@ TEST(fcmp_pp, batch_verify_from_file)
 {
     const std::size_t n_inputs = 128;
 
+    // We want a proof per thread, or 4 proofs if < 4 threads
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    const std::size_t n_proofs = std::max<std::size_t>(4, tpool.get_max_concurrency());
+
+    // We repeat verify attempts in hopes of using all malloc arenas (glibc specific)
+    const std::size_t repeat_n_times = 10;
+
     // Read from file
     crypto::hash signable_tx_hash;
     std::vector<uint8_t> fcmp_pp_proof;
@@ -703,12 +710,9 @@ TEST(fcmp_pp, batch_verify_from_file)
     ASSERT_TRUE(verify);
     LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
 
-    // Repeat attempts and observe memory usage
-    for (std::size_t i = 0; i < 8; ++i)
+    // Repeat batch verify attempts and observe memory usage
+    for (std::size_t i = 0; i < repeat_n_times; ++i)
     {
-        // Verify 24 FCMP++ 128-in proofs in parallel using the batch verifier
-        const std::size_t n_proofs = 24;
-
         // Collect the FCMP++ verify inputs
         std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
         std::vector<std::size_t> n_inputs_per_proof;
@@ -727,9 +731,10 @@ TEST(fcmp_pp, batch_verify_from_file)
             n_inputs_per_proof.push_back(n_inputs);
         }
 
-        LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs");
+        // Verify FCMP++ 128-in proofs in parallel using the batch verifier
+        LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs, attempt " << i+1);
         ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
-        LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs");
+        LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs, attempt " << i+1);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

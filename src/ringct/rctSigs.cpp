@@ -1714,11 +1714,8 @@ done:
       const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
       const bool multithreaded = n_threads > 1;
 
-      // Keep the max n threads simultaneously verifying to 8. This should keep RAM requirements below 8GB,
-      // since it takes max ~800mb to batch verify FCMP++ proofs at time of writing, and 8*~800mb < 8GB.
-      // Note: perhaps the daemon could be passed a command line arg to allow more RAM.
-      static const std::size_t MAX_N_BATCHES = 8;
-      const std::size_t n_batches = std::min(n_threads, MAX_N_BATCHES);
+      // 1 batch per thread
+      const std::size_t n_batches = n_threads;
 
       std::vector<std::vector<fcmp_pp::FcmpPpVerifyInput>> batches;
       batches.reserve(n_batches);
