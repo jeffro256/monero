@@ -285,7 +285,8 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_pre_car
 static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_coinbase_enote(
     const carrot::CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys)
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::subaddress_map &subaddress_map)
 {
     enote_view_incoming_scan_info_t res;
 
@@ -298,7 +299,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
         return std::nullopt;
 
     res.payment_id = crypto::null_hash;
-    res.subaddr_index = carrot::subaddress_index_extended{{0, 0}};
+    res.subaddr_index = subaddress_map.get_index_for_address_spend_pubkey(res.address_spend_pubkey);
     res.amount = enote.amount;
     res.amount_blinding_factor = rct::I;
     res.main_tx_pubkey_index = 0;
@@ -524,7 +525,8 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote(
                 s_sender_receiver_unctx,
                 scan_as_sender
                     ? epee::span<const crypto::public_key>(&address.m_spend_public_key, 1)
-                    : main_address_spend_pubkeys);
+                    : main_address_spend_pubkeys,
+                subaddress_map);
         }
 
         std::optional<enote_view_incoming_scan_info_t> operator()(const carrot::CarrotEnoteV1 &enote) const
@@ -789,7 +791,7 @@ void view_incoming_scan_transaction(
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
-    const carrot::hybrid_hierarchy_address_device &addr_dev,
+    const carrot::address_device &addr_dev,
     const carrot::subaddress_map &subaddress_map)
 {
     crypto::public_key main_address_spend_pubkeys[2];

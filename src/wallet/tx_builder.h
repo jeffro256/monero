@@ -311,7 +311,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const carrot::hybrid_hierarchy_address_device &addr_dev,
+    const carrot::address_device &addr_dev,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev,
     const carrot::spend_device &spend_dev);
@@ -337,7 +337,7 @@ pending_tx finalize_all_fcmp_pp_proofs_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const carrot::hybrid_hierarchy_address_device &addr_dev,
+    const carrot::address_device &addr_dev,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev,
     const carrot::spend_device &spend_dev);

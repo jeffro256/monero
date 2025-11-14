@@ -29,6 +29,7 @@
 #pragma once
 
 //local headers
+#include "address_device.h"
 #include "crypto/crypto.h"
 #include "spend_device.h"
 
@@ -40,11 +41,18 @@
 
 namespace carrot
 {
-class spend_device_ram_borrowed_legacy: public spend_device
+class spend_device_ram_borrowed: public spend_device
 {
 public:
-    spend_device_ram_borrowed_legacy(const crypto::secret_key &k_view,
-        const crypto::secret_key &k_spend);
+    /// @brief device composed (except k_s, k_ps, k_gi)
+    spend_device_ram_borrowed(std::shared_ptr<view_incoming_key_device> k_view_incoming_dev,
+        std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+        std::shared_ptr<address_device> address_dev,
+        const crypto::secret_key &privkey_g,
+        const crypto::secret_key &privkey_t);
+
+    /// @brief cryptonote-derived & ram borrowed from k_s, k_v
+    spend_device_ram_borrowed(const crypto::secret_key &k_spend, const crypto::secret_key &k_view);
 
     bool try_sign_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
         const std::unordered_map<crypto::public_key, FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
@@ -58,8 +66,11 @@ public:
         const crypto::public_key &onetime_address,
         const subaddress_index_extended &subaddr_index) const;
 
-private:
-    const crypto::secret_key &m_k_view;
-    const crypto::secret_key &m_k_spend;
+protected:
+    std::shared_ptr<view_incoming_key_device> m_k_view_incoming_dev;
+    std::shared_ptr<view_balance_secret_device> m_s_view_balance_dev;
+    std::shared_ptr<address_device> m_address_dev;
+    const crypto::secret_key &m_privkey_g;
+    const crypto::secret_key &m_privkey_t;
 };
 } //namespace carrot

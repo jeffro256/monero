@@ -38,7 +38,7 @@
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/key_image_device_composed.h"
-#include "carrot_impl/subaddress_index.h"
+#include "carrot_impl/subaddress_map.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
@@ -59,6 +59,25 @@ namespace mock
 static constexpr std::uint32_t MAX_SUBADDRESS_MAJOR_INDEX = 5;
 static constexpr std::uint32_t MAX_SUBADDRESS_MINOR_INDEX = 20;
 //----------------------------------------------------------------------------------------------------------------------
+class full_subaddress_map: public subaddress_map
+{
+public:
+    full_subaddress_map() = default;
+
+    std::optional<subaddress_index_extended> get_index_for_address_spend_pubkey(
+        const crypto::public_key &address_spend_pubkey) const override;
+
+    std::optional<crypto::public_key> get_address_spend_pubkey_for_index(
+        const subaddress_index_extended &subaddr_index) const override;
+
+    void insert(const crypto::public_key &address_spend_pubkey,
+        const subaddress_index_extended &subaddr_index);
+
+private:
+    std::unordered_map<crypto::public_key, subaddress_index_extended> fwd;
+    std::unordered_map<subaddress_index_extended, crypto::public_key> bak;
+};
+//----------------------------------------------------------------------------------------------------------------------
 struct mock_carrot_and_legacy_keys
 {
     // legacy privkeys and pubkeys
@@ -76,76 +95,29 @@ struct mock_carrot_and_legacy_keys
     crypto::public_key carrot_account_view_pubkey;
 
     // RAM devices galore
-    view_incoming_key_ram_borrowed_device k_view_incoming_dev;
+    cryptonote_view_incoming_key_ram_borrowed_device k_view_incoming_dev;
     view_balance_secret_ram_borrowed_device s_view_balance_dev;
     generate_image_key_ram_borrowed_device k_generate_image_dev;
     generate_image_key_ram_borrowed_device k_spend_generate_image_dev;
     generate_address_secret_ram_borrowed_device s_generate_address_dev;
-    cryptonote_hierarchy_address_device_ram_borrowed cn_addr_dev;
-    carrot_hierarchy_address_device_ram_borrowed carrot_addr_dev;
-    hybrid_hierarchy_address_device_composed hybrid_addr_dev;
-    key_image_device_composed legacy_key_image_dev;
-    key_image_device_composed carrot_key_image_dev;
+    std::shared_ptr<address_device> addr_dev;
+    std::shared_ptr<key_image_device> key_image_dev;
 
-    std::unordered_map<crypto::public_key, subaddress_index_extended> subaddress_map;
+    full_subaddress_map subaddress_map;
 
     AddressDeriveType default_derive_type;
 
-    mock_carrot_and_legacy_keys():
-        k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
-        s_view_balance_dev(s_view_balance),
-        k_generate_image_dev(k_generate_image),
-        k_spend_generate_image_dev(legacy_acb.get_keys().m_spend_secret_key),
-        s_generate_address_dev(s_generate_address),
-        cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
-        carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
-        hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
-        legacy_key_image_dev(k_spend_generate_image_dev, hybrid_addr_dev, nullptr, &k_view_incoming_dev),
-        carrot_key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
-    {}
+    // constructors
+    mock_carrot_and_legacy_keys();
+    mock_carrot_and_legacy_keys(const mock_carrot_and_legacy_keys &k);
 
-    mock_carrot_and_legacy_keys(const mock_carrot_and_legacy_keys &k):
-        k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
-        s_view_balance_dev(s_view_balance),
-        k_generate_image_dev(k_generate_image),
-        k_spend_generate_image_dev(legacy_acb.get_keys().m_spend_secret_key),
-        s_generate_address_dev(s_generate_address),
-        cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
-        carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
-        hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
-        legacy_key_image_dev(k_spend_generate_image_dev, hybrid_addr_dev, nullptr, &k_view_incoming_dev),
-        carrot_key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
-    {
-        *this = k;
-    }
+    // copy-assignment
+    mock_carrot_and_legacy_keys& operator=(const mock_carrot_and_legacy_keys &k);
 
-    mock_carrot_and_legacy_keys& operator=(const mock_carrot_and_legacy_keys &k)
-    {
-        if (&k == this)
-            return *this;
-
-        legacy_acb = k.legacy_acb;
-        s_master = k.s_master;
-        k_prove_spend = k.k_prove_spend;
-        s_view_balance = k.s_view_balance;
-        k_generate_image = k.k_generate_image;
-        s_generate_address = k.s_generate_address;
-
-        carrot_account_spend_pubkey = k.carrot_account_spend_pubkey;
-        carrot_account_view_pubkey = k.carrot_account_view_pubkey;
-
-        subaddress_map = k.subaddress_map;
-        default_derive_type = k.default_derive_type;
-
-        return *this;
-    }
-
+    // get address
     CarrotDestinationV1 cryptonote_address(const payment_id_t payment_id = null_payment_id,
         const AddressDeriveType derive_type = AddressDeriveType::Auto) const;
-
     CarrotDestinationV1 subaddress(const subaddress_index_extended &subaddress_index) const;
-
-    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddress_map_cn() const;
 
     // brief: opening_for_subaddress - return (k^g_a, k^t_a) for j s.t. K^j_s = (k^g_a * G + k^t_a * T)
     void opening_for_subaddress(const subaddress_index_extended &subaddress_index,

@@ -402,7 +402,10 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
 cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
     const std::vector<carrot::CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const cryptonote::account_keys &acc_keys)
+    const crypto::public_key &change_address_spend_pubkey,
+    const carrot::subaddress_index_extended &change_subaddr_index,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev)
 {
     carrot::select_inputs_func_t select_inputs = [](
         const boost::multiprecision::int128_t &nominal_output_sum,
@@ -417,8 +420,6 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         select_inputs_out = {carrot::CarrotSelectedInput{.amount = in_amount, .input = fake_input}};
     };
 
-    const carrot::view_incoming_key_ram_borrowed_device k_view_dev(acc_keys.m_view_secret_key);
-
     carrot::CarrotTransactionProposalV1 tx_proposal;
     carrot::make_carrot_transaction_proposal_v1_transfer(
         normal_payment_proposals,
@@ -426,8 +427,8 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         fake_fee_per_weight,
         /*extra=*/{},
         std::move(select_inputs),
-        acc_keys.m_account_address.m_spend_public_key,
-        {{0, 0}, carrot::AddressDeriveType::PreCarrot},
+        change_address_spend_pubkey,
+        change_subaddr_index,
         {},
         {},
         tx_proposal);
@@ -439,12 +440,27 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
 
     cryptonote::transaction tx;
     carrot::make_pruned_transaction_from_proposal_v1(tx_proposal,
-        /*s_view_balance_dev=*/nullptr,
-        &k_view_dev,
+        s_view_balance_dev,
+        &k_view_incoming_dev,
         fake_input_key_images,
         tx);
 
     return tx;
+}
+//----------------------------------------------------------------------------------------------------------------------
+cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
+    const std::vector<carrot::CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
+    const cryptonote::account_keys &acc_keys)
+{
+    const carrot::view_incoming_key_ram_borrowed_device k_view_incoming_dev(acc_keys.m_view_secret_key);
+
+    return construct_carrot_pruned_transaction_fake_inputs(normal_payment_proposals,
+        selfsend_payment_proposals,
+        acc_keys.m_account_address.m_spend_public_key,
+        {{0, 0}, carrot::AddressDeriveType::PreCarrot},
+        nullptr,
+        k_view_incoming_dev);
 }
 //----------------------------------------------------------------------------------------------------------------------
 const cryptonote::account_public_address null_addr{

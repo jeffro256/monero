@@ -29,7 +29,7 @@
 #pragma once
 
 //local headers
-#include "address_device.h"
+#include "address_device_hierarchies.h"
 #include "carrot_core/carrot_enote_types.h"
 #include "fcmp_pp/curve_trees.h"
 #include "output_opening_types.h"
@@ -64,7 +64,7 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out);
 
-// spend any carrot enote addressed to a carrot address
+// spend any enote addressed to a carrot address
 void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const OutputOpeningHintVariant &opening_hint,
@@ -73,6 +73,18 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const view_balance_secret_device &s_view_balance_dev,
     const view_incoming_key_device &k_view_incoming_dev,
     const generate_address_secret_device &s_generate_address_dev,
+    fcmp_pp::FcmpPpSalProof &sal_proof_out,
+    crypto::key_image &key_image_out);
+
+// spend any enote addressed to a carrot or legacy address
+void make_sal_proof_any_to_hybrid_v1(const crypto::hash &signable_tx_hash,
+    const FcmpRerandomizedOutputCompressed &rerandomized_output,
+    const OutputOpeningHintVariant &opening_hint,
+    const crypto::secret_key &k_privkey_g,
+    const crypto::secret_key &k_privkey_t,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device &k_view_incoming_dev,
+    const address_device &addr_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out);
 

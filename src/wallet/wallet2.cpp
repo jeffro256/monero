@@ -935,7 +935,7 @@ static tools::wallet::pending_tx finalize_all_proofs_from_transfer_details_as_pe
     tx_proposal,
     w.get_tree_cache_ref(),
     w.get_curve_trees_ref(),
-    *w.get_hybrid_address_device(),
+    *w.get_address_device(),
     *w.get_view_incoming_key_device(),
     w.get_view_balance_secret_device().get(),
     *w.get_spend_device());
@@ -1544,88 +1544,67 @@ bool wallet2::reconnect_device()
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-std::unique_ptr<carrot::view_balance_secret_device> wallet2::get_view_balance_secret_device() const
+std::shared_ptr<carrot::view_balance_secret_device> wallet2::get_view_balance_secret_device() const
 {
+  /// @TODO: Carrot
   return {};
 }
 //----------------------------------------------------------------------------------------------------
-std::unique_ptr<carrot::view_incoming_key_device> wallet2::get_view_incoming_key_device() const
+std::shared_ptr<carrot::cryptonote_view_incoming_key_device> wallet2::get_view_incoming_key_device() const
 {
   /// @TODO: hardware
-  return std::unique_ptr<carrot::view_incoming_key_device>(new carrot::view_incoming_key_ram_borrowed_device(
-    m_account.get_keys().m_view_secret_key));
+  return std::shared_ptr<carrot::cryptonote_view_incoming_key_device>(
+    new carrot::cryptonote_view_incoming_key_ram_borrowed_device(m_account.get_keys().m_view_secret_key));
 }
 //----------------------------------------------------------------------------------------------------
-std::unique_ptr<carrot::hybrid_hierarchy_address_device> wallet2::get_hybrid_address_device() const
+std::shared_ptr<carrot::generate_image_key_device> wallet2::get_generate_image_key_device() const
 {
-  /// @TODO: hardware / Carrot / hybrid
-  struct ref_dev_holder final: carrot::hybrid_hierarchy_address_device
-  {
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev;
-    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev;
-
-    ref_dev_holder(const cryptonote::account_keys &acc_keys):
-      addr_dev(acc_keys.m_account_address.m_spend_public_key, acc_keys.m_view_secret_key),
-      hybrid_addr_dev(&addr_dev, nullptr)
-    {}
-
-    bool supports_address_derivation_type(const carrot::AddressDeriveType derive_type) const final
-    {
-      return hybrid_addr_dev.supports_address_derivation_type(derive_type);
-    }
-
-    const carrot::cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const final
-    {
-      return hybrid_addr_dev.access_cryptonote_hierarchy_device();
-    }
-
-    const carrot::carrot_hierarchy_address_device &access_carrot_hierarchy_device() const final
-    {
-      return hybrid_addr_dev.access_carrot_hierarchy_device();
-    }
-  };
-
-  return std::unique_ptr<carrot::hybrid_hierarchy_address_device>(new ref_dev_holder(m_account.get_keys()));
+  /// @TODO: Carrot / hardware
+  return std::shared_ptr<carrot::generate_image_key_device>(new carrot::generate_image_key_ram_borrowed_device(
+    m_account.get_keys().m_spend_secret_key));
 }
 //----------------------------------------------------------------------------------------------------
-std::unique_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
+std::shared_ptr<carrot::cryptonote_hierarchy_address_device> wallet2::get_cryptonote_address_device() const
 {
-  /// @TODO: hardware / Carrot / hybrid
-  struct ref_dev_holder final: carrot::key_image_device
-  {
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev;
-    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev;
-    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev;
-    const carrot::key_image_device_composed key_image_dev;
-
-    ref_dev_holder(const cryptonote::account_keys &acc_keys):
-      addr_dev(acc_keys.m_account_address.m_spend_public_key, acc_keys.m_view_secret_key),
-      hybrid_addr_dev(&addr_dev, nullptr),
-      legacy_spend_image_dev(acc_keys.m_spend_secret_key),
-      key_image_dev(legacy_spend_image_dev, hybrid_addr_dev, nullptr, &addr_dev)
-    {}
-
-    crypto::key_image derive_key_image(const carrot::OutputOpeningHintVariant &opening_hint) const final
-    {
-      return key_image_dev.derive_key_image(opening_hint);
-    }
-
-    crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
-      const crypto::public_key &onetime_address,
-      const carrot::subaddress_index_extended &subaddr_index) const final
-    {
-      return key_image_dev.derive_key_image_prescanned(sender_extension_g, onetime_address, subaddr_index);
-    }
-  };
-
-  return std::unique_ptr<carrot::key_image_device>(new ref_dev_holder(m_account.get_keys()));
+  return std::shared_ptr<carrot::cryptonote_hierarchy_address_device>(
+      new carrot::cryptonote_hierarchy_address_device(this->get_view_incoming_key_device(),
+        this->m_account.get_keys().m_account_address.m_spend_public_key));
 }
 //----------------------------------------------------------------------------------------------------
-std::unique_ptr<carrot::spend_device> wallet2::get_spend_device() const
+std::shared_ptr<carrot::carrot_hierarchy_address_device> wallet2::get_carrot_address_device() const
 {
-  //! @TODO: Carrot / hybrid / HW
-  return std::unique_ptr<carrot::spend_device>(new carrot::spend_device_ram_borrowed_legacy(
-    m_account.get_keys().m_view_secret_key, m_account.get_keys().m_spend_secret_key));
+  /// @TODO: Carrot
+  return {};
+}
+//----------------------------------------------------------------------------------------------------
+std::shared_ptr<carrot::address_device> wallet2::get_address_device() const
+{
+  return std::shared_ptr<carrot::address_device>(new carrot::hybrid_hierarchy_address_device(
+    this->get_carrot_address_device(),
+    this->get_cryptonote_address_device()));
+}
+//----------------------------------------------------------------------------------------------------
+std::shared_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
+{
+  return std::shared_ptr<carrot::key_image_device>(
+    new carrot::key_image_device_composed(
+      this->get_generate_image_key_device(),
+      this->get_address_device(),
+      this->get_view_balance_secret_device(),
+      this->get_view_incoming_key_device()
+    ));
+}
+//----------------------------------------------------------------------------------------------------
+std::shared_ptr<carrot::spend_device> wallet2::get_spend_device() const
+{
+  /// @TODO: Carrot / hybrid / HW
+  return std::shared_ptr<carrot::spend_device>(
+    new carrot::spend_device_ram_borrowed(
+      this->get_view_incoming_key_device(),
+      this->get_view_balance_secret_device(),
+      this->get_address_device(),
+      this->m_account.get_keys().m_spend_secret_key,
+      crypto::null_skey));
 }
 //----------------------------------------------------------------------------------------------------
 /*!
@@ -2448,7 +2427,7 @@ void wallet2::process_new_transaction(
   const std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos =
     wallet::view_incoming_scan_transaction(tx,
       *this->get_view_incoming_key_device(),
-      *this->get_hybrid_address_device(),
+      *this->get_address_device(),
       carrot::subaddress_map_legacy{this->m_subaddresses});
 
   // if view-incoming scan was successful, try deriving the key image
@@ -13831,7 +13810,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     auto spent_txid = spent_txids.begin();
     auto it = spent_txids.begin();
     const auto k_view_incoming_dev = this->get_view_incoming_key_device();
-    const auto hybrid_addr_dev = this->get_hybrid_address_device();
+    const auto hybrid_addr_dev = this->get_address_device();
     for (const COMMAND_RPC_GET_TRANSACTIONS::entry& e : gettxs_res.txs)
     {
       THROW_WALLET_EXCEPTION_IF(e.in_pool, error::wallet_internal_error, "spent tx isn't supposed to be in txpool");

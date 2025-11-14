@@ -163,7 +163,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
 
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
         transfers,
-        carrot::subaddress_map_legacy(alice.subaddress_map_cn()),
+        alice.subaddress_map,
         dsts,
         /*fee_per_weight=*/1,
         /*extra=*/{},
@@ -208,7 +208,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
     EXPECT_NE(normal_payment_proposal.randomness, carrot::janus_anchor_t{});
     EXPECT_EQ(spending_subaddr_account, selfsend_payment_proposal.subaddr_index.index.major);
     EXPECT_EQ(0, selfsend_payment_proposal.subaddr_index.index.minor);
-    EXPECT_EQ(alice.subaddress({{spending_subaddr_account, 0}, carrot::AddressDeriveType::PreCarrot}).address_spend_pubkey,
+    EXPECT_EQ(alice.subaddress({{spending_subaddr_account, 0}, carrot::AddressDeriveType::Carrot}).address_spend_pubkey,
         selfsend_payment_proposal.proposal.destination_address_spend_pubkey);
     EXPECT_EQ(carrot::CarrotEnoteType::CHANGE, selfsend_payment_proposal.proposal.enote_type);
     EXPECT_FALSE(selfsend_payment_proposal.proposal.internal_message);
@@ -795,7 +795,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     tx = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposal,
         alice.m_tree_cache,
         *alice.m_curve_trees,
-        *alice.get_hybrid_address_device(),
+        *alice.get_address_device(),
         *alice.get_view_incoming_key_device(),
         alice.get_view_balance_secret_device().get(),
         *alice.get_spend_device());

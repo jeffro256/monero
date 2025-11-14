@@ -29,6 +29,7 @@
 #pragma once
 
 //local headers
+#include "common/hash_combine.h"
 
 //third party headers
 
@@ -87,3 +88,39 @@ static inline bool operator!=(const subaddress_index_extended &a, const subaddre
     return !(a == b);
 }
 } //namespace carrot
+
+namespace std
+{
+template<>
+struct hash<carrot::subaddress_index>
+{
+    std::size_t operator()(const carrot::subaddress_index &i) const
+    {
+        std::size_t h = 0;
+        tools::hash_combine(h, i.major);
+        tools::hash_combine(h, i.minor);
+        return h;
+    }
+};
+
+template<>
+struct hash<carrot::AddressDeriveType>
+{
+    std::size_t operator()(const carrot::AddressDeriveType &a) const
+    {
+        return static_cast<std::size_t>(a);
+    }
+};
+
+template<>
+struct hash<carrot::subaddress_index_extended>
+{
+    std::size_t operator()(const carrot::subaddress_index_extended &i) const
+    {
+        std::size_t h = 0;
+        tools::hash_combine(h, i.index);
+        tools::hash_combine(h, i.derive_type);
+        return h;
+    }
+}; 
+}

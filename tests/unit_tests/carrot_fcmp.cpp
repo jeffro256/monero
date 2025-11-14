@@ -272,12 +272,12 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
                 scan_results);
             ASSERT_EQ(1, scan_results.size());
             const mock::mock_scan_result_t &scan_result = scan_results.front();
-            const auto subaddr_it = alice.subaddress_map.find(scan_result.address_spend_pubkey);
-            ASSERT_NE(alice.subaddress_map.cend(), subaddr_it);
+            const auto subaddr_it = alice.subaddress_map.get_index_for_address_spend_pubkey(scan_result.address_spend_pubkey);
+            ASSERT_TRUE(subaddr_it);
             opening_hint = CarrotOutputOpeningHintV1{
                 .source_enote = enote,
                 .encrypted_payment_id = encrypted_payment_id,
-                .subaddr_index = subaddr_it->second
+                .subaddr_index = *subaddr_it
             };
         }
         else // is coinbase
@@ -375,7 +375,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // derive input key images
     std::vector<crypto::key_image> sorted_input_key_images;
     carrot::get_sorted_input_key_images_from_proposal_v1(tx_proposal,
-        alice.carrot_key_image_dev,
+        *alice.key_image_dev,
         sorted_input_key_images);
 
     // derive output enote set

@@ -149,7 +149,7 @@ void view_incoming_scan_transaction(
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
-    const carrot::hybrid_hierarchy_address_device &addr_dev,
+    const carrot::address_device &addr_dev,
     const carrot::subaddress_map &subaddress_map);
 
 /**

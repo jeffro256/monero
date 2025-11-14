@@ -46,7 +46,7 @@ static std::vector<wallet2_basic::transfer_details> hot_scan_into_transfer_detai
 {
     const auto enote_scan_infos = tools::wallet::view_incoming_scan_transaction(tx,
         bob.legacy_acb.get_keys(),
-        bob.subaddress_map_cn());
+        bob.subaddress_map);
     std::vector<wallet2_basic::transfer_details> res;
     for (std::size_t local_output_index = 0; local_output_index < enote_scan_infos.size(); ++local_output_index)
     {

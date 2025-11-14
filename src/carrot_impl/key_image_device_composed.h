@@ -35,6 +35,7 @@
 //third party headers
 
 //standard headers
+#include <memory>
 
 //forward declarations
 
@@ -43,10 +44,18 @@ namespace carrot
 class key_image_device_composed: public key_image_device
 {
 public:
-    key_image_device_composed(const generate_image_key_device &k_generate_image_dev,
-        const hybrid_hierarchy_address_device &addr_dev,
-        const view_balance_secret_device *s_view_balance_dev,
-        const view_incoming_key_device *k_view_incoming_dev);
+    /// @brief single-type derivation device
+    key_image_device_composed(std::shared_ptr<generate_image_key_device> k_generate_image_dev,
+        std::shared_ptr<address_device> addr_dev,
+        std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+        std::shared_ptr<view_incoming_key_device> k_view_incoming_dev);
+
+    /// @brief hybrid-type derivation device
+    key_image_device_composed(std::shared_ptr<generate_image_key_device> legacy_k_generate_image_dev,
+        std::shared_ptr<generate_image_key_device> carrot_k_generate_image_dev,
+        std::shared_ptr<address_device> addr_dev,
+        std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+        std::shared_ptr<view_incoming_key_device> k_view_incoming_dev);
 
     crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const override;
 
@@ -55,9 +64,10 @@ public:
         const subaddress_index_extended &subaddr_index) const override;
 
 protected:
-    const generate_image_key_device &m_k_generate_image_dev;
-    const hybrid_hierarchy_address_device &m_addr_dev;
-    const view_balance_secret_device *m_s_view_balance_dev;
-    const view_incoming_key_device *m_k_view_incoming_dev;
+    std::shared_ptr<generate_image_key_device> m_legacy_k_generate_image_dev;
+    std::shared_ptr<generate_image_key_device> m_carrot_k_generate_image_dev;
+    std::shared_ptr<address_device> m_addr_dev;
+    std::shared_ptr<view_balance_secret_device> m_s_view_balance_dev;
+    std::shared_ptr<view_incoming_key_device> m_k_view_incoming_dev;
 };
 } //namespace carrot

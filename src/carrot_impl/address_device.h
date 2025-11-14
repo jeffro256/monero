@@ -42,64 +42,33 @@ namespace carrot
 {
 static constexpr const int E_UNSUPPORTED_ADDRESS_TYPE = 1;
 
-struct cryptonote_hierarchy_address_device: virtual public view_incoming_key_device
+struct address_device
 {
     /**
-     * brief: get_cryptonote_account_spend_pubkey - K_s
-     * return: K_s
+     * brief: get K^j_s given j
+     * param: subaddr_index - j
+     * outparam: address_spend_pubkey_out - K^j_s
      */
-    virtual crypto::public_key get_cryptonote_account_spend_pubkey() const = 0;
+    virtual void get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
+        crypto::public_key &address_spend_pubkey_out) const = 0;
 
     /**
-     * brief: make_legacy_subaddress_extension - k^j_subext
-     *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
-     * param: major_index - j_major
-     * param: minor_index - j_minor
-     * outparam: legacy_subaddress_extension_out - k^j_subext
-     * throw: std::invalid_argument if major_index == minor_index == 0
+     * brief: get (K^j_s, K^j_v) given j
+     * param: subaddr_index - j
+     * outparam: address_spend_pubkey_out - K^j_s
+     * outparam: address_view_pubkey_out - K^j_v
      */
-    virtual void make_legacy_subaddress_extension(const std::uint32_t major_index,
-        const std::uint32_t minor_index,
-        crypto::secret_key &legacy_subaddress_extension_out) const = 0;
-};
-
-struct carrot_hierarchy_address_device: public generate_address_secret_device
-{
-    /**
-     * brief: get_carrot_account_spend_pubkey - K_s = K^0_s
-     * return: K_s = K^0_s
-     */
-    virtual crypto::public_key get_carrot_account_spend_pubkey() const = 0;
+    virtual void get_address_pubkeys(const subaddress_index_extended &subaddr_index,
+        crypto::public_key &address_spend_pubkey_out,
+        crypto::public_key &address_view_pubkey_out) const = 0;
 
     /**
-     * brief: get_carrot_account_view_pubkey - K_v
-     * return: K_v
+     * get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
      */
-    virtual crypto::public_key get_carrot_account_view_pubkey() const = 0;
+    virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
+        crypto::secret_key &address_extension_g_out,
+        crypto::secret_key &address_scalar_out) const = 0;
 
-    /**
-     * brief: get_carrot_main_address_view_pubkey - K^0_v
-     * return: K^0_v
-     */
-    virtual crypto::public_key get_carrot_main_address_view_pubkey() const = 0;
-};
-
-struct hybrid_hierarchy_address_device
-{
-    virtual bool supports_address_derivation_type(AddressDeriveType derive_type) const = 0;
-
-    virtual const cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const = 0;
-
-    virtual const carrot_hierarchy_address_device &access_carrot_hierarchy_device() const = 0;
-
-    virtual ~hybrid_hierarchy_address_device() = default;
-};
-
-struct interactive_address_device
-{
-    virtual void request_explicit_on_device_address_confirmation(
-        const subaddress_index_extended &index) = 0;
-
-    virtual ~interactive_address_device() = default;
+    virtual ~address_device() = default;
 };
 } //namespace carrot

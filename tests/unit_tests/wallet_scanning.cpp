@@ -118,9 +118,9 @@ TEST(wallet_scanning, view_scan_long_payment_id)
     bob.generate();
     const cryptonote::account_public_address bob_main_addr = bob.get_keys().m_account_address;
     const crypto::public_key bob_main_spend_pubkey = bob_main_addr.m_spend_public_key;
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed bob_addr_dev(bob_main_addr.m_spend_public_key,
-        bob.get_keys().m_view_secret_key);
-    const carrot::hybrid_hierarchy_address_device_composed bob_hybrid_addr_dev(&bob_addr_dev, nullptr);
+    const carrot::cryptonote_hierarchy_address_device bob_addr_dev(
+        std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(bob.get_keys().m_view_secret_key),
+        bob_main_addr.m_spend_public_key);
 
     const rct::xmr_amount amount = rct::randXmrAmount(10 * COIN);
 
@@ -165,8 +165,8 @@ TEST(wallet_scanning, view_scan_long_payment_id)
         // just with the proper ECDH
         std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
             tools::wallet::view_incoming_scan_transaction(tx,
+                bob_addr_dev.get_view_incoming_key_device(),
                 bob_addr_dev,
-                bob_hybrid_addr_dev,
                 carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
@@ -194,9 +194,9 @@ TEST(wallet_scanning, view_scan_short_payment_id)
     bob.generate();
     const cryptonote::account_public_address bob_main_addr = bob.get_keys().m_account_address;
     const crypto::public_key bob_main_spend_pubkey = bob_main_addr.m_spend_public_key;
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed bob_addr_dev(bob_main_addr.m_spend_public_key,
-        bob.get_keys().m_view_secret_key);
-    const carrot::hybrid_hierarchy_address_device_composed bob_hybrid_addr_dev(&bob_addr_dev, nullptr);
+    const carrot::cryptonote_hierarchy_address_device bob_addr_dev(
+        std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(bob.get_keys().m_view_secret_key),
+        bob_main_addr.m_spend_public_key);
 
     const rct::xmr_amount amount = rct::randXmrAmount(10 * COIN);
 
@@ -245,8 +245,8 @@ TEST(wallet_scanning, view_scan_short_payment_id)
         // just with the proper ECDH
         std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
             tools::wallet::view_incoming_scan_transaction(tx,
+                bob_addr_dev.get_view_incoming_key_device(),
                 bob_addr_dev,
-                bob_hybrid_addr_dev,
                 carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 
         bool matched = false;
@@ -347,18 +347,13 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
                 onetime_address_ref(opening_hint),
                 rct::rct2pt(amount_commitment_ref(opening_hint)));
 
-            //! @TODO: carrot hierarchy
-            const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-                acc.m_account_address.m_spend_public_key,
-                acc.m_view_secret_key);
-
             fcmp_pp::FcmpPpSalProof sal_proof;
             crypto::key_image spent_key_image;
             carrot::make_sal_proof_any_to_legacy_v1(signable_tx_hash,
                 rerandomized_output,
                 opening_hint,
                 acc.m_spend_secret_key,
-                addr_dev,
+                *w.get_cryptonote_address_device(),
                 sal_proof,
                 spent_key_image);
 
@@ -726,5 +721,111 @@ TEST(wallet_scanning, burned_zombie)
     ASSERT_EQ(2, post_spend_transfers.size());
     for (const tools::wallet2::transfer_details &td : post_spend_transfers)
         ASSERT_TRUE(td.m_spent);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_scanning, scanning_tools_hybrid_view_incoming_scanning)
+{
+    carrot::mock::mock_carrot_and_legacy_keys alice;
+    alice.generate();
+    carrot::mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    const std::vector<carrot::AddressDeriveType> derive_types_to_test = {
+        carrot::AddressDeriveType::PreCarrot,
+        carrot::AddressDeriveType::Carrot,
+    };
+
+    for (const carrot::AddressDeriveType alice_derive_type : derive_types_to_test)
+    {
+        for (const carrot::AddressDeriveType bob_derive_type : derive_types_to_test)
+        {
+            // get addresses
+            const carrot::subaddress_index_extended alice_subaddr_index{carrot::mock::gen_subaddress_index_extended(alice_derive_type)};
+            const carrot::CarrotDestinationV1 alice_subaddr = alice.subaddress(alice_subaddr_index);
+            const carrot::subaddress_index_extended bob_subaddr_index{carrot::mock::gen_subaddress_index_extended(bob_derive_type)};
+            const carrot::CarrotDestinationV1 bob_subaddr = bob.subaddress(bob_subaddr_index);
+
+            // sanity
+            ASSERT_TRUE(alice_subaddr_index.index.is_subaddress());
+            ASSERT_EQ(alice_derive_type, alice_subaddr_index.derive_type);
+            ASSERT_EQ(alice_subaddr.address_spend_pubkey, alice.subaddress_map.get_address_spend_pubkey_for_index(alice_subaddr_index));
+            ASSERT_TRUE(bob_subaddr_index.index.is_subaddress());
+            ASSERT_EQ(bob_derive_type, bob_subaddr_index.derive_type);
+            ASSERT_EQ(bob_subaddr.address_spend_pubkey, bob.subaddress_map.get_address_spend_pubkey_for_index(bob_subaddr_index));
+
+            // make a Carrot transaction from Alice to Bob
+            const rct::xmr_amount amount = rct::randXmrAmount(COIN);
+            const carrot::CarrotPaymentProposalV1 normal_payment_proposal{
+                .destination = bob_subaddr,
+                .amount = amount,
+                .randomness = carrot::gen_janus_anchor()
+            };
+            cryptonote::transaction tx = mock::construct_carrot_pruned_transaction_fake_inputs(
+                {normal_payment_proposal},
+                /*selfsend_payment_proposals=*/{},
+                alice_subaddr.address_spend_pubkey,
+                alice_subaddr_index,
+                nullptr, // even though alice has a s_vb, pretend she doesn't so tx builder uses special change enotes
+                alice.k_view_incoming_dev);
+            ASSERT_FALSE(cryptonote::is_coinbase(tx));
+            ASSERT_EQ(2, tx.version);
+            ASSERT_EQ(rct::RCTTypeFcmpPlusPlus, tx.rct_signatures.type);
+            ASSERT_EQ(2, tx.vout.size());
+            ASSERT_EQ(typeid(cryptonote::txout_to_carrot_v1), tx.vout.at(0).target.type());
+            ASSERT_EQ(0, tx.vout.at(0).amount);
+
+            const auto alice_enote_scan_infos = tools::wallet::view_incoming_scan_transaction(tx,
+                alice.k_view_incoming_dev,
+                *alice.addr_dev,
+                alice.subaddress_map);
+            const auto bob_enote_scan_infos = tools::wallet::view_incoming_scan_transaction(tx,
+                bob.k_view_incoming_dev,
+                *bob.addr_dev,
+                bob.subaddress_map);
+
+            // check counts and positions of Alice/Bob scanned enotes
+            ASSERT_EQ(2, alice_enote_scan_infos.size());
+            ASSERT_EQ(2, bob_enote_scan_infos.size());
+            const bool alice_first_enote = bool(alice_enote_scan_infos.at(0));
+            const std::size_t alice_enote_idx = alice_first_enote ? 0 : 1;
+            const std::size_t bob_enote_idx = alice_first_enote ? 1 : 0;
+            ASSERT_TRUE(alice_enote_scan_infos.at(alice_enote_idx));
+            ASSERT_FALSE(alice_enote_scan_infos.at(bob_enote_idx));
+            const auto &alice_enote_scan_info = *alice_enote_scan_infos.at(alice_enote_idx);
+            ASSERT_TRUE(bob_enote_scan_infos.at(bob_enote_idx));
+            ASSERT_FALSE(bob_enote_scan_infos.at(alice_enote_idx));
+            const auto &bob_enote_scan_info = *bob_enote_scan_infos.at(bob_enote_idx);
+
+            // check Bob scan info
+            EXPECT_EQ(amount, bob_enote_scan_info.amount);
+            EXPECT_EQ(crypto::null_hash, bob_enote_scan_info.payment_id);
+            EXPECT_EQ(bob_subaddr.address_spend_pubkey, bob_enote_scan_info.address_spend_pubkey);
+            EXPECT_EQ(bob_subaddr_index, bob_enote_scan_info.subaddr_index);
+            EXPECT_EQ(0, bob_enote_scan_info.main_tx_pubkey_index);
+            EXPECT_TRUE(bob.can_open_fcmp_onetime_address(bob_enote_scan_info.address_spend_pubkey,
+                bob_enote_scan_info.sender_extension_g,
+                bob_enote_scan_info.sender_extension_t,
+                boost::get<cryptonote::txout_to_carrot_v1>(tx.vout.at(bob_enote_idx).target).key));
+            const std::optional<crypto::key_image> bob_key_image = tools::wallet::try_derive_enote_key_image(
+                bob_enote_scan_info,
+                *bob.key_image_dev);
+            ASSERT_TRUE(bob_key_image);
+
+            // check Alice scan info
+            EXPECT_EQ(0, alice_enote_scan_info.amount);
+            EXPECT_EQ(crypto::null_hash, alice_enote_scan_info.payment_id);
+            EXPECT_EQ(alice_subaddr.address_spend_pubkey, alice_enote_scan_info.address_spend_pubkey);
+            EXPECT_EQ(alice_subaddr_index, alice_enote_scan_info.subaddr_index);
+            EXPECT_EQ(0, alice_enote_scan_info.main_tx_pubkey_index);
+            EXPECT_TRUE(alice.can_open_fcmp_onetime_address(alice_enote_scan_info.address_spend_pubkey,
+                alice_enote_scan_info.sender_extension_g,
+                alice_enote_scan_info.sender_extension_t,
+                boost::get<cryptonote::txout_to_carrot_v1>(tx.vout.at(alice_enote_idx).target).key));
+            const std::optional<crypto::key_image> alice_key_image = tools::wallet::try_derive_enote_key_image(
+                alice_enote_scan_info,
+                *alice.key_image_dev);
+            ASSERT_TRUE(alice_key_image);
+        }
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------

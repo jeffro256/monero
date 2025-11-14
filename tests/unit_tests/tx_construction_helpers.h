@@ -115,6 +115,13 @@ static constexpr rct::xmr_amount fake_fee_per_weight = 2023;
 cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
     const std::vector<carrot::CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
+    const crypto::public_key &change_address_spend_pubkey,
+    const carrot::subaddress_index_extended &change_subaddr_index,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev);
+cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
+    const std::vector<carrot::CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const cryptonote::account_keys &acc_keys);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

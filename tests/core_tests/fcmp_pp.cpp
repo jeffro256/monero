@@ -414,14 +414,15 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   const crypto::secret_key &k_s = miner_account.get_keys().m_spend_secret_key;
   const crypto::secret_key &k_v = miner_account.get_keys().m_view_secret_key;
   const crypto::public_key &K_s = miner_account.get_keys().m_account_address.m_spend_public_key;
-  const carrot::cryptonote_hierarchy_address_device_ram_borrowed cn_addr_dev(K_s, k_v);
+  const auto k_view_incoming_dev = std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(k_v);
+  const carrot::cryptonote_hierarchy_address_device cn_addr_dev(k_view_incoming_dev, K_s);
   rct_txes.back() = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposals.front(),
       tree_cache,
       *fcmp_pp::curve_trees::curve_trees_v1(),
-      carrot::hybrid_hierarchy_address_device_composed(&cn_addr_dev, nullptr),
-      carrot::view_incoming_key_ram_borrowed_device(k_v),
+      cn_addr_dev,
+      *k_view_incoming_dev,
       /*s_view_balance_dev=*/nullptr,
-      carrot::spend_device_ram_borrowed_legacy(k_v, k_s));
+      carrot::spend_device_ram_borrowed(k_s, k_v));
 
   if (post_tx && !post_tx(rct_txes.back(), 0))
   {

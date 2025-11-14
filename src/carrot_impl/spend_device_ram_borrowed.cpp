@@ -31,8 +31,10 @@
 
 //local headers
 #include "address_device_ram_borrowed.h"
+#include "carrot_core/account_secrets.h"
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/exceptions.h"
+#include "crypto/generators.h"
 #include "key_image_device_composed.h"
 #include "misc_log_ex.h"
 #include "tx_builder_inputs.h"
@@ -45,28 +47,60 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl"
 
-#define DEFINE_SUB_DEVICES()                                                                           \
-    /* K_s = k_s G*/                                                                                   \
-    crypto::public_key primary_spend_pubkey;                                                           \
-    crypto::secret_key_to_public_key(m_k_spend, primary_spend_pubkey);                                 \
-    /* devices */                                                                                      \
-    carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(primary_spend_pubkey, m_k_view); \
-    carrot::generate_image_key_ram_borrowed_device k_generate_image_dev(m_k_spend);                    \
-    carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev(&addr_dev, nullptr);              \
-    carrot::key_image_device_composed key_image_dev(k_generate_image_dev, hybrid_addr_dev, nullptr, &addr_dev);
+#define DEFINE_SUB_DEVICES()                                                 \
+    std::shared_ptr<generate_image_key_device> legacy_k_generate_image_dev;  \
+    std::shared_ptr<generate_image_key_device> carrot_k_generate_image_dev(  \
+        new generate_image_key_ram_borrowed_device(this->m_privkey_g));      \
+    if (!this->m_s_view_balance_dev)                                         \
+        std::swap(legacy_k_generate_image_dev, carrot_k_generate_image_dev); \
+    const carrot::key_image_device_composed key_image_dev(                   \
+        std::move(legacy_k_generate_image_dev),                              \
+        std::move(carrot_k_generate_image_dev),                              \
+        this->m_address_dev,                                                 \
+        this->m_s_view_balance_dev,                                          \
+        this->m_k_view_incoming_dev);
 
 namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
-spend_device_ram_borrowed_legacy::spend_device_ram_borrowed_legacy(
-    const crypto::secret_key &k_view,
-    const crypto::secret_key &k_spend)
+spend_device_ram_borrowed::spend_device_ram_borrowed(
+    std::shared_ptr<view_incoming_key_device> k_view_incoming_dev,
+    std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+    std::shared_ptr<address_device> address_dev,
+    const crypto::secret_key &privkey_g,
+    const crypto::secret_key &privkey_t)
 :
-    m_k_view(k_view),
-    m_k_spend(k_spend)
-{}
+    m_k_view_incoming_dev(k_view_incoming_dev),
+    m_s_view_balance_dev(s_view_balance_dev),
+    m_address_dev(address_dev),
+    m_privkey_g(privkey_g),
+    m_privkey_t(privkey_t)
+{
+    assert(this->m_k_view_incoming_dev);
+}
 //-------------------------------------------------------------------------------------------------------------------
-bool spend_device_ram_borrowed_legacy::try_sign_carrot_transaction_proposal_v1(
+spend_device_ram_borrowed::spend_device_ram_borrowed(
+    const crypto::secret_key &k_spend, 
+    const crypto::secret_key &k_view)
+: 
+    m_k_view_incoming_dev(), //assigned in ctor
+    m_s_view_balance_dev(),
+    m_address_dev(), //assigned in ctor
+    m_privkey_g(k_spend),
+    m_privkey_t(crypto::null_skey)
+{
+    // K_s = k_s G
+    crypto::public_key cryptonote_account_spend_pubkey;
+    crypto::secret_key_to_public_key(k_spend, cryptonote_account_spend_pubkey);
+
+    auto k_view_incoming_dev = std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(k_view);
+    m_k_view_incoming_dev = k_view_incoming_dev;
+
+    m_address_dev.reset(new carrot::cryptonote_hierarchy_address_device(std::move(k_view_incoming_dev),
+        cryptonote_account_spend_pubkey));
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool spend_device_ram_borrowed::try_sign_carrot_transaction_proposal_v1(
     const CarrotTransactionProposalV1 &tx_proposal,
     const std::unordered_map<crypto::public_key, FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     crypto::hash &signable_tx_hash_out,
@@ -95,7 +129,7 @@ bool spend_device_ram_borrowed_legacy::try_sign_carrot_transaction_proposal_v1(
     // calculate signable tx hash
     make_signable_tx_hash_from_proposal_v1(tx_proposal,
         /*s_view_balance_dev=*/nullptr,
-        &addr_dev,
+        this->m_k_view_incoming_dev.get(),
         sorted_input_key_images,
         signable_tx_hash_out);
 
@@ -117,11 +151,14 @@ bool spend_device_ram_borrowed_legacy::try_sign_carrot_transaction_proposal_v1(
             "could not find rerandomized output for given one-time address");
 
         crypto::key_image ki;
-        carrot::make_sal_proof_any_to_legacy_v1(signable_tx_hash_out,
+        carrot::make_sal_proof_any_to_hybrid_v1(signable_tx_hash_out,
             rerandomized_output_it->second,
             *input_proposal_it,
-            m_k_spend,
-            addr_dev,
+            this->m_privkey_g,
+            this->m_privkey_t,
+            this->m_s_view_balance_dev.get(),
+            *this->m_k_view_incoming_dev,
+            *this->m_address_dev,
             p.second.second,
             ki);
 
@@ -132,14 +169,14 @@ bool spend_device_ram_borrowed_legacy::try_sign_carrot_transaction_proposal_v1(
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-crypto::key_image spend_device_ram_borrowed_legacy::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
+crypto::key_image spend_device_ram_borrowed::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
 {
     DEFINE_SUB_DEVICES()
 
     return key_image_dev.derive_key_image(opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
-crypto::key_image spend_device_ram_borrowed_legacy::derive_key_image_prescanned(
+crypto::key_image spend_device_ram_borrowed::derive_key_image_prescanned(
     const crypto::secret_key &sender_extension_g,
     const crypto::public_key &onetime_address,
     const subaddress_index_extended &subaddr_index) const
