@@ -34,7 +34,9 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#include "fcmp_pp/curve_trees.h"
+#include "crypto/crypto.h"
+#include "crypto/hash.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "misc_log_ex.h"
 
 #include <atomic>
@@ -144,6 +146,24 @@ namespace unit_test
     std::string m_cur_dir_path{""};
     const bool m_is_copy{false};
   };
+
+  bool write_fcmp_pp_verify_input_to_file(const std::string &filename,
+    const std::size_t n_inputs,
+    const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const uint8_t n_layers,
+    const crypto::ec_point &tree_root_bytes,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images);
+
+  bool read_fcmp_pp_verify_input_from_file(const std::string &filename,
+    const std::size_t n_inputs,
+    crypto::hash &signable_tx_hash,
+    fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    uint8_t &n_layers,
+    fcmp_pp::TreeRootShared &tree_root,
+    std::vector<crypto::ec_point> &pseudo_outs,
+    std::vector<crypto::key_image> &key_images);
 }
 
 #define INIT_BLOCKCHAIN_LMDB_TEST_DB(test_db, curve_trees) \
