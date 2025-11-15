@@ -556,11 +556,15 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
         memcpy(pseudoOuts[i].bytes, rerandomized_outputs.at(i).input.C_tilde, sizeof(rct::key));
 
     return rct::rctSigPrunable{
+        .bulletproofs = {},
         .bulletproofs_plus = {bulletproof_plus},
+        .MGs = {},
+        .CLSAGs = {},
         .pseudoOuts = std::move(pseudoOuts),
         .reference_block = fcmp_reference_block,
         .n_tree_layers = n_tree_layers,
-        .fcmp_pp = std::move(fcmp_pp_proof_bytes)
+        .fcmp_pp = std::move(fcmp_pp_proof_bytes),
+        .fcmp_ver_helper_data = {}
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
