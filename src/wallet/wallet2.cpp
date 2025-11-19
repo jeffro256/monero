@@ -2566,7 +2566,7 @@ void wallet2::process_new_scanned_transaction(
     // money received callbacks
     LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
     if (!ignore_callbacks && 0 != m_callback && td.m_amount > 0)
-      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time);
   }
 
   THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs.size() != tx_amounts_individual_outs.size(), error::wallet_internal_error, "Inconsistent size of output arrays");
