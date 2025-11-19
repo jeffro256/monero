@@ -129,7 +129,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     // 4. s_sr = k_v D_e
     const mx25519_pubkey &enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(ephemeral_pubkey_idx);
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(addr_dev.get_view_incoming_key_device(),
+    carrot::make_carrot_uncontextualized_shared_key_receiver(addr_dev,
         enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -165,7 +165,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
         const bool is_special = carrot::verify_carrot_special_janus_protection(etd.tx_first_key_image,
             enote_ephemeral_pubkey,
             onetime_address,
-            addr_dev.get_view_incoming_key_device(),
+            addr_dev,
             etd.janus_anchor);
         if (is_special)
         {
@@ -442,7 +442,7 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
     //! @TODO: carrot hierarchy
     std::shared_ptr<carrot::cryptonote_view_incoming_key_device> k_view_incoming_dev(
         new carrot::cryptonote_view_incoming_key_ram_borrowed_device(acc_keys.m_view_secret_key));
-    std::shared_ptr<carrot::address_device> addr_dev(
+    std::shared_ptr<carrot::cryptonote_hierarchy_address_device> addr_dev(
         new carrot::cryptonote_hierarchy_address_device(k_view_incoming_dev, acc_keys.m_account_address.m_spend_public_key));
     std::shared_ptr<carrot::generate_image_key_device> legacy_spend_image_dev(
         new carrot::generate_image_key_ram_borrowed_device(acc_keys.m_spend_secret_key));

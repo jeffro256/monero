@@ -165,7 +165,7 @@ TEST(wallet_scanning, view_scan_long_payment_id)
         // just with the proper ECDH
         std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
             tools::wallet::view_incoming_scan_transaction(tx,
-                bob_addr_dev.get_view_incoming_key_device(),
+                bob_addr_dev,
                 bob_addr_dev,
                 carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 
@@ -245,7 +245,7 @@ TEST(wallet_scanning, view_scan_short_payment_id)
         // just with the proper ECDH
         std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos = 
             tools::wallet::view_incoming_scan_transaction(tx,
-                bob_addr_dev.get_view_incoming_key_device(),
+                bob_addr_dev,
                 bob_addr_dev,
                 carrot::subaddress_map_legacy{{{bob_main_spend_pubkey, {}}}}); // use a fake subaddress map with just the provided address in it
 

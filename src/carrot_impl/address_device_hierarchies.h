@@ -58,7 +58,7 @@ struct cryptonote_view_incoming_key_device: virtual public view_incoming_key_dev
 
 /// @brief takes a CN k_v device and K_s to derive addresses in Cryptonote style
 /// @note will fail if passed derive type is not ::PreCarrot or ::Auto
-class cryptonote_hierarchy_address_device: public address_device
+class cryptonote_hierarchy_address_device: public address_device, public cryptonote_view_incoming_key_device
 {
 public:
 //constructor
@@ -78,8 +78,22 @@ public:
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const override;
 
-//member functions
-    const cryptonote_view_incoming_key_device &get_view_incoming_key_device() const;
+//cryptonote_view_incoming_key_device
+    bool view_key_scalar_mult_ed25519(const crypto::public_key &P, crypto::public_key &kvP) const override;
+
+    bool view_key_scalar_mult8_ed25519(const crypto::public_key &P, crypto::public_key &kv8P) const override;
+
+    bool view_key_scalar_mult_x25519(const mx25519_pubkey &D, mx25519_pubkey &kvD) const override;
+
+    void make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+        const input_context_t &input_context,
+        const crypto::public_key &onetime_address,
+        janus_anchor_t &anchor_special_out) const override;
+
+    void make_legacy_subaddress_extension(
+        const std::uint32_t major_index,
+        const std::uint32_t minor_index,
+        crypto::secret_key &legacy_subaddress_extension_out) const override;
 
 protected:
 //member fields

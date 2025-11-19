@@ -204,7 +204,7 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
         crypto::null_skey,
         opening_hint,
         {&main_address_spend_pubkey, 1},
-        &addr_dev.get_view_incoming_key_device(),
+        &addr_dev,
         /*s_view_balance_dev=*/nullptr,
         sal_proof_out,
         key_image_out);

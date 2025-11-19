@@ -148,9 +148,40 @@ void cryptonote_hierarchy_address_device::get_address_openings(const subaddress_
     address_scalar_out = crypto::secret_key{{1}};
 }
 //-------------------------------------------------------------------------------------------------------------------
-const cryptonote_view_incoming_key_device &cryptonote_hierarchy_address_device::get_view_incoming_key_device() const
+bool cryptonote_hierarchy_address_device::view_key_scalar_mult_ed25519(const crypto::public_key &P,
+    crypto::public_key &kvP) const
 {
-    return *this->m_k_view_incoming_dev;
+    return this->m_k_view_incoming_dev->view_key_scalar_mult_ed25519(P, kvP);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool cryptonote_hierarchy_address_device::view_key_scalar_mult8_ed25519(const crypto::public_key &P,
+    crypto::public_key &kv8P) const
+{
+    return this->m_k_view_incoming_dev->view_key_scalar_mult8_ed25519(P, kv8P);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool cryptonote_hierarchy_address_device::view_key_scalar_mult_x25519(const mx25519_pubkey &D,
+    mx25519_pubkey &kvD) const
+{
+    return this->view_key_scalar_mult_x25519(D, kvD);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void cryptonote_hierarchy_address_device::make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+    const input_context_t &input_context,
+    const crypto::public_key &onetime_address,
+    janus_anchor_t &anchor_special_out) const
+{
+    return this->m_k_view_incoming_dev->make_janus_anchor_special(enote_ephemeral_pubkey, input_context,
+        onetime_address, anchor_special_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void cryptonote_hierarchy_address_device::make_legacy_subaddress_extension(
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::secret_key &legacy_subaddress_extension_out) const
+{
+    return this->m_k_view_incoming_dev->make_legacy_subaddress_extension(major_index, minor_index,
+        legacy_subaddress_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void cryptonote_hierarchy_address_device::assert_derive_type(const subaddress_index_extended &subaddr_index,
