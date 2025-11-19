@@ -7310,8 +7310,9 @@ void BlockchainLMDB::migrate_5_6()
           };
 
         auto output_context = fcmp_pp::curve_trees::OutputContext{
-            .output_id   = output_id,
-            .output_pair = std::move(output_pair)
+            .output_id       = output_id,
+            .torsion_checked = 0,
+            .output_pair     = std::move(output_pair)
           };
 
         // Get the output's last locked block
