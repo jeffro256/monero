@@ -485,13 +485,13 @@ namespace cryptonote
 
     CHECK_AND_ASSERT_MES(n_inputs && n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
       std::numeric_limits<uint64_t>::max(),
-      "get_fcmp_pp_transaction_weight_v1: invalid n_inputs");
+      "invalid n_inputs: " << n_inputs);
     CHECK_AND_ASSERT_MES(n_outputs >= 2 && n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
       std::numeric_limits<uint64_t>::max(),
-      "get_fcmp_pp_transaction_weight_v1: invalid n_outputs");
+      "invalid n_outputs: " << n_outputs);
     CHECK_AND_ASSERT_MES(extra_len <= MAX_TX_EXTRA_SIZE,
       std::numeric_limits<uint64_t>::max(),
-      "get_fcmp_pp_transaction_weight_v1: invalid extra_len");
+      "invalid extra_len: " << extra_len);
 
     static constexpr uint64_t txin_to_key_weight = 1 /*amount=0*/ + 1 /*key_offsets.size()=0*/ + 32 /*k_image*/;
     static constexpr uint64_t txout_to_carrot_weight = 32 /*key*/ + 3 /*view_tag*/ + 16 /*encrypted_janus_anchor*/;
@@ -555,19 +555,6 @@ namespace cryptonote
     uint64_t bp_weight = 32 * (6 + 2 * nrl) + 2;
     bp_weight += 1 /*nbp*/;
 
-    // BP+ clawback to price in linear verification times
-    const uint64_t bp_clawback = get_transaction_weight_clawback(/*plus=*/true, n_outputs, n_padded_outputs);
-    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - bp_clawback > bp_weight,
-      std::numeric_limits<uint64_t>::max(),
-      "get_fcmp_pp_transaction_weight_v1: overflow with bulletproof clawback");
-    bp_weight += bp_clawback;
-
-    // Much like bulletproofs, the verification time of a FCMP is linear in the number of inputs,
-    // rounded up to the nearest power of 2, so round n_inputs up to power of 2 to price this in
-    size_t n_padded_inputs = 1;
-    while (n_padded_inputs < n_inputs)
-      n_padded_inputs *= 2;
-
     // There's a few reasons why we treat n_tree_layers as a fixed value for weight calculation:
     //     a. If we took n_tree_layers into account when calculating weight, then fee calculation
     //        would be a function of the number of layers in the FCMP tree. This has a couple
@@ -590,9 +577,7 @@ namespace cryptonote
     // of the Monero mainnet would be 6. 7 is approaching relatively quickly, and would be the value
     // for many decades at the current tx volume.
     static constexpr size_t fake_n_tree_layers = 7;
-
-    const uint64_t fcmp_weight_base = fcmp_pp::membership_proof_len(/*n_inputs=*/1, fake_n_tree_layers);
-    const uint64_t fcmp_weight = fcmp_weight_base * n_padded_inputs;
+    const uint64_t fcmp_weight = fcmp_pp::membership_proof_len(n_inputs, fake_n_tree_layers);
 
     const uint64_t rct_sig_prunable_weight = bp_weight + total_sal_weight + misc_fcmp_pp_weight + fcmp_weight;
 
