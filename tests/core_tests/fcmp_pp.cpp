@@ -403,6 +403,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       /*subaddr_indices=*/{},
       /*ignore_above=*/MONEY_SUPPLY,
       /*ignore_below=*/0,
+      /*max_n_inputs=*/0,
       {},
       n_synced_blocks - 1);
   CHECK_AND_ASSERT_MES(tx_proposals.size() == 1, false, "Expected 1 tx proposal");

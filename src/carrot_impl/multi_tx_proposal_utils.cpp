@@ -55,6 +55,7 @@ void make_multiple_carrot_transaction_proposals_transfer(
     std::vector<InputCandidate> &&input_candidates,
     const epee::span<const input_selection_policy_t> input_selection_policies,
     const std::uint32_t input_selection_flags,
+    const std::size_t max_n_inputs,
     const crypto::public_key &change_address_spend_pubkey,
     const subaddress_index_extended &change_address_index,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
@@ -104,6 +105,7 @@ void make_multiple_carrot_transaction_proposals_transfer(
             epee::to_span(input_candidates),
             input_selection_policies,
             input_selection_flags,
+            max_n_inputs,
             &selected_transfer_indices);
 
         // make proposal

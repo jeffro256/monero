@@ -524,6 +524,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::set<uint32_t> &subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
+    const std::size_t max_n_inputs,
     std::set<std::uint32_t> subtract_fee_from_outputs,
     const std::uint64_t top_block_index)
 {
@@ -587,6 +588,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         std::move(input_candidates),
         {&isp, 1},
         input_selection_flags,
+        max_n_inputs,
         change_address_spend_pubkey,
         change_address_index,
         subtractable_normal_payment_proposals,

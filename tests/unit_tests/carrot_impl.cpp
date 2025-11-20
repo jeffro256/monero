@@ -1220,6 +1220,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_1)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const boost::multiprecision::uint128_t nominal_output_sum = 369;
@@ -1264,6 +1265,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_2)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const boost::multiprecision::uint128_t nominal_output_sum = 369;
@@ -1335,6 +1337,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const size_t num_normal_payment_proposals = 1;
@@ -1378,6 +1381,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const boost::multiprecision::uint128_t nominal_output_sum = 369;
@@ -1437,6 +1441,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_2)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const boost::multiprecision::uint128_t nominal_output_sum = 369;
@@ -1524,6 +1529,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
     select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
         epee::to_span(policies),
         flags,
+        0,
         &selected_input_indices);
 
     const boost::multiprecision::uint128_t nominal_output_sum = 223;
@@ -1558,6 +1564,185 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
 
     // this particular set of 4 indices is the indices of the 4 oldest inputs
     ASSERT_EQ(std::set<size_t>({0, 1, 2, 4}), selected_input_indices);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_4)
+{
+    // Give 10 input candidates, greater than 4, less than or equal to 7, are
+    // needed to fund the output amount. Transaction input count should be 8
+    // without limiting input count. After limiting input count to 7,
+    // transaction input count should be less than or equal to 7.
+
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 55
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 22
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 11
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 88
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 72
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 52
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 39
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 12
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 71
+        },
+        InputCandidate {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .input = gen_output_opening_hint(),
+            },
+            .is_pre_carrot = false,
+            .is_external = false,
+            .block_index = 85
+        }
+    };
+
+    const std::vector<input_selection_policy_t> policies = { &carrot::ispolicy::select_greedy_aging };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        /*max_n_inputs=*/0,
+        &selected_input_indices);
+
+    const boost::multiprecision::uint128_t nominal_output_sum = 577;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        { 1, 10},
+        { 2, 20},
+        { 3, 29},
+        { 4, 37},
+        { 5, 44},
+        { 6, 50},
+        { 7, 55},
+        { 8, 59},
+        { 9, 62},
+        {10, 64}
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    std::size_t expected_n_inputs = 8;
+    ASSERT_EQ(expected_n_inputs, selected_input_indices.size()); // discretization yay
+    ASSERT_EQ(expected_n_inputs, selected_inputs.size());
+    std::set<crypto::public_key> selected_otas;
+    for (const CarrotSelectedInput &selected_input : selected_inputs)
+        selected_otas.insert(onetime_address_ref(selected_input.input));
+    ASSERT_EQ(expected_n_inputs, selected_otas.size());
+
+    // this particular set of 8 indices is the indices of the 8 oldest inputs
+    ASSERT_EQ(std::set<size_t>({0, 1, 2, 4, 5, 6, 7, 8}), selected_input_indices);
+
+    //*********
+    // now limited to 7
+
+    static constexpr std::size_t max_n_inputs = 7;
+    static_assert(max_n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS);
+
+    input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        max_n_inputs,
+        &selected_input_indices);
+
+    selected_input_indices.clear();
+    selected_inputs.clear();
+    selected_otas.clear();
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    expected_n_inputs = 7;
+    ASSERT_EQ(expected_n_inputs, selected_input_indices.size());
+    ASSERT_EQ(expected_n_inputs, selected_inputs.size());
+    for (const CarrotSelectedInput &selected_input : selected_inputs)
+        selected_otas.insert(onetime_address_ref(selected_input.input));
+    ASSERT_EQ(expected_n_inputs, selected_otas.size());
+
+    // this particular set of 7 indices is the indices of the 7 oldest inputs
+    ASSERT_EQ(std::set<size_t>({0, 1, 2, 5, 6, 7, 8}), selected_input_indices);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, make_multiple_carrot_transaction_proposals_sweep_1)
