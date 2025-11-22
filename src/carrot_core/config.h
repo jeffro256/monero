@@ -40,6 +40,8 @@
 
 namespace carrot
 {
+// Personalization
+static constexpr const unsigned char CARROT_PERSONAL_STRING[] = "Monero";
 
 // Carrot addressing protocol domain separators
 static constexpr const unsigned char CARROT_DOMAIN_SEP_AMOUNT_BLINDING_FACTOR[] = "Carrot commitment mask";

@@ -51,7 +51,7 @@ TEST(carrot_convergence, make_carrot_provespend_key)
 
     crypto::secret_key k_prove_spend;
     make_carrot_provespend_key(s_master, k_prove_spend);
-    ASSERT_EQ("f10bf01839ea216e5d70b7c9ceaa8b8e9a432b5e98e6e48a8043ffb3fa229f0b",
+    ASSERT_EQ("c9651fc906015afeefdb8d3bf7be621c36e035de2a85cb22dd4b869a22086f0e",
         pod_to_hex(unwrap(unwrap(k_prove_spend))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -63,7 +63,7 @@ TEST(carrot_convergence, make_carrot_viewbalance_secret)
 
     crypto::secret_key s_view_balance;
     make_carrot_viewbalance_secret(s_master, s_view_balance);
-    ASSERT_EQ("154c5e01902b20acc8436c9aa06b40355d78dfda0fc6af3d53a2220f1363a0f5",
+    ASSERT_EQ("59b2ee8646923309384704613418f5982b0167eb3cd87c6c067ee10700c3af91",
         pod_to_hex(unwrap(unwrap(s_view_balance))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ TEST(carrot_convergence, make_carrot_generateimage_key)
 
     crypto::secret_key k_generate_image;
     make_carrot_generateimage_key(s_view_balance, k_generate_image);
-    ASSERT_EQ("336e3af233b3aa5bc95d5589aba67aab727727419899823acc6a6c4479e4ea04",
+    ASSERT_EQ("b9c67add7cc5d660c62ad0541685eb84e6a13fef3f15fdc8fe52a8cdfbe7240f",
         pod_to_hex(unwrap(unwrap(k_generate_image))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ TEST(carrot_convergence, make_carrot_viewincoming_key)
 
     crypto::secret_key k_view_incoming;
     make_carrot_viewincoming_key(s_view_balance, k_view_incoming);
-    ASSERT_EQ("60eff3ec120a12bb44d4258816e015952fc5651040da8c8af58c17676485f200",
+    ASSERT_EQ("81df86e1c261aa719849e66c954992394f450eab7ff1bb2643663eabcd12af0c",
         pod_to_hex(unwrap(unwrap(k_view_incoming))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ TEST(carrot_convergence, make_carrot_generateaddress_secret)
 
     crypto::secret_key s_generate_address;
     make_carrot_generateaddress_secret(s_view_balance, s_generate_address);
-    ASSERT_EQ("593ece76c5d24cbfe3c7ac9e2d455cdd4b372c89584700bf1c2e7bef2b70a4d1",
+    ASSERT_EQ("bb15de08485cbd8115283e65517fff91ccca190bac8a8591f52c49d09a7ae080",
         pod_to_hex(unwrap(unwrap(s_generate_address))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -130,7 +130,7 @@ TEST(carrot_convergence, make_carrot_index_extension_generator)
 
     crypto::secret_key address_index_generator;
     make_carrot_index_extension_generator(s_generate_address, major_index, minor_index, address_index_generator);
-    ASSERT_EQ("79ad2383f44b4d26413adb7ae79c5658b2a8c20b6f5046bfa9f229bfcf1744a7",
+    ASSERT_EQ("d2e2e8a75026f0e953e3a46d0ea826f22649bbfc5f04b14a9da14063d6199cc2",
         pod_to_hex(unwrap(unwrap(address_index_generator))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -158,7 +158,7 @@ TEST(carrot_convergence, make_carrot_subaddress_scalar)
     crypto::secret_key subaddress_scalar;
     make_carrot_subaddress_scalar(account_spend_pubkey,
         account_view_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
-    ASSERT_EQ("824e9710a9ee164dcf225be9ced906ceb53a0e93326b199a79340f6c0c7e050d",
+    ASSERT_EQ("5ffc416bbd22770789d4a55c9efe0675abad116c3e33cf88bf2b0cbbb8b0ef0d",
         pod_to_hex(unwrap(unwrap(subaddress_scalar))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -189,9 +189,9 @@ TEST(carrot_convergence, make_carrot_subaddress_v1)
         major_index,
         minor_index,
         subaddress);
-    ASSERT_EQ("cb84becce21364e6fc91f6cec459ae917287bc3d87791369f8ff0fc40e4fcc08",
+    ASSERT_EQ("605bc2e5e0d2adcb6480eaf02d8c76be5ef6c3a26b6d13569d000b371a62db99",
         pod_to_hex(subaddress.address_spend_pubkey));
-    ASSERT_EQ("82800b2b97f50a798768d3235eabe9d4b3d5bd6d12956975b79db53f29895bdd",
+    ASSERT_EQ("06384ebd3a99beaaa7f2e1d5744e83b4152a13abcd31fb08295eed4862be4f21",
         pod_to_hex(subaddress.address_view_pubkey));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_privkey)
         address_spend_pubkey,
         payment_id,
         enote_ephemeral_privkey);
-    ASSERT_EQ("6d4645a0e398ff430f68eaa78240dd2c04051e9a50438cd9c9c3c0e12af68b0b",
+    ASSERT_EQ("ec995ed69fe6b8e0516d8c38bda170ac9b642ae6036237279b5f9be9ed8df10a",
         pod_to_hex(unwrap(unwrap(enote_ephemeral_privkey))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -311,7 +311,7 @@ TEST(carrot_convergence, make_carrot_sender_receiver_secret)
         enote_ephemeral_pubkey,
         input_context,
         s_sender_receiver);
-    ASSERT_EQ("232e62041ee1262cb3fce0d10fdbd018cca5b941ff92283676d6112aa426f76c",
+    ASSERT_EQ("f1a6b7d438ade0151c118596f69f104c85bc7a709c2cd8c27a2d03e8220c5ffb",
         pod_to_hex(s_sender_receiver));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -335,7 +335,7 @@ TEST(carrot_convergence, make_carrot_amount_blinding_factor_payment)
         address_spend_pubkey,
         enote_type,
         amount_blinding_factor);
-    ASSERT_EQ("9fc3581e926a844877479d829ff9deeae17ce77feaf2c3c972923510e04f1f02",
+    ASSERT_EQ("54d9fd79614b4dfbdb051badfa321e3ca614d8f19a89536ef675e795aba49c0c",
         pod_to_hex(unwrap(unwrap(amount_blinding_factor))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -359,7 +359,7 @@ TEST(carrot_convergence, make_carrot_amount_blinding_factor_change)
         address_spend_pubkey,
         enote_type,
         amount_blinding_factor);
-    ASSERT_EQ("dda34eac46030e4084f5a2c808d0a82ffaa82cbf01d4a74d7ee0d4fe72c31a0f",
+    ASSERT_EQ("804f4864fb504e0f15eddac046833572bfd86fbeefecf80bb8a71e8e064e5803",
         pod_to_hex(unwrap(unwrap(amount_blinding_factor))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -395,7 +395,7 @@ TEST(carrot_convergence, make_carrot_onetime_address)
         s_sender_receiver,
         amount_commitment,
         onetime_address);
-    ASSERT_EQ("4c93cf2d7ff8556eac73025ab3019a0db220b56bdf0387e0524724cc0e409d92",
+    ASSERT_EQ("2356ceee53018df042304e4ee470b8cecccc0ee48249f73a19dd3ac67c4735cf",
         pod_to_hex(onetime_address));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -418,7 +418,7 @@ TEST(carrot_convergence, make_carrot_view_tag)
         input_context,
         onetime_address,
         view_tag);
-    ASSERT_EQ("0176f6",
+    ASSERT_EQ("0c5459",
         pod_to_hex(view_tag));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -436,7 +436,7 @@ TEST(carrot_convergence, make_carrot_anchor_encryption_mask)
     make_carrot_anchor_encryption_mask(s_sender_receiver,
         onetime_address,
         anchor_encryption_mask);
-    ASSERT_EQ("52d95a8e441f26a056f55094938cbfa8",
+    ASSERT_EQ("6a192358e89e2d066009f3f958634026",
         pod_to_hex(anchor_encryption_mask));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -454,7 +454,7 @@ TEST(carrot_convergence, make_carrot_amount_encryption_mask)
     make_carrot_amount_encryption_mask(s_sender_receiver,
         onetime_address,
         amount_encryption_mask);
-    ASSERT_EQ("98d25d1db65b6a3e",
+    ASSERT_EQ("a2b98771cdb147dc",
         pod_to_hex(amount_encryption_mask));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -472,7 +472,7 @@ TEST(carrot_convergence, make_carrot_payment_id_encryption_mask)
     make_carrot_payment_id_encryption_mask(s_sender_receiver,
         onetime_address,
         payment_id_encryption_mask);
-    ASSERT_EQ("b57a1560e82e2483",
+    ASSERT_EQ("63f53dd38efd666d",
         pod_to_hex(payment_id_encryption_mask));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -500,7 +500,7 @@ TEST(carrot_convergence, make_carrot_janus_anchor_special)
         onetime_address,
         k_view_incoming,
         anchor_special);
-    ASSERT_EQ("31afa8f580feaf736cd424ecc9ae5fd2",
+    ASSERT_EQ("441aab244c6f0fb9c2a79f9f52c9e921",
         pod_to_hex(anchor_special));
 }
 //---------------------------------------------------------------------------------------------------------------------
