@@ -229,22 +229,28 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     crypto::public_key account_view_pubkey;
     k_view_incoming_dev.view_key_scalar_mult_ed25519(main_address_spend_pubkey, account_view_pubkey);
 
-    // s^j_gen = H_32[s_ga](j_major, j_minor)
+    // s^j_ap1 = H_32[s_ga](j_major, j_minor)
     const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
-    crypto::secret_key address_index_extension_generator;
-    s_generate_address_dev.make_index_extension_generator(subaddr_index.index.major,
+    crypto::secret_key address_index_preimage_1;
+    s_generate_address_dev.make_address_index_preimage_1(subaddr_index.index.major,
         subaddr_index.index.minor,
-        address_index_extension_generator);
+        address_index_preimage_1);
+
+    // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+    crypto::secret_key address_index_preimage_2;
+    make_carrot_address_index_preimage_2(address_index_preimage_1,
+        subaddr_index.index.major,
+        subaddr_index.index.minor,
+        main_address_spend_pubkey,
+        account_view_pubkey,
+        address_index_preimage_2);
 
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     crypto::secret_key subaddress_scalar;
     if (subaddr_index.index.is_subaddress())
     {
-        carrot::make_carrot_subaddress_scalar(main_address_spend_pubkey,
-            account_view_pubkey,
-            address_index_extension_generator,
-            subaddr_index.index.major,
-            subaddr_index.index.minor,
+        make_carrot_subaddress_scalar(address_index_preimage_2,
+            main_address_spend_pubkey,
             subaddress_scalar);
     }
     else // main address

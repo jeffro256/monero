@@ -58,6 +58,14 @@ namespace carrot
 void make_carrot_provespend_key(const crypto::secret_key &s_master,
     crypto::secret_key &k_prove_spend_out);
 /**
+ * brief: make_carrot_partial_spend_pubkey - partial spend pubkey, for deriving the generate-image key
+ *   K_ps = k_ps T
+ * param: k_prove_spend - k_ps
+ * outparam: partial_spend_pubkey_out - K_ps
+ */
+void make_carrot_partial_spend_pubkey(const crypto::secret_key &k_prove_spend,
+    crypto::public_key &partial_spend_pubkey_out);
+/**
 * brief: make_carrot_viewbalance_secret - view-balance secret, for viewing all balance information
 *   s_vb = H_n(s_m)
 * param: s_master - s_m
@@ -66,12 +74,22 @@ void make_carrot_provespend_key(const crypto::secret_key &s_master,
 void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     crypto::secret_key &s_view_balance_out);
 /**
-* brief: make_carrot_generateimage_key - generate-image key, for identifying enote spends
-*   k_gi = H_n(s_vb)
+* brief: make_carrot_generateimage_preimage - generate-image key preimage
+*   s_gp = H_n(s_vb)
 * param: s_view_balance - s_vb
+* outparam: s_generate_image_preimage_out - s_gp
+*/
+void make_carrot_generateimage_preimage(const crypto::secret_key &s_view_balance,
+    crypto::secret_key &s_generate_image_preimage_out);
+    /**
+* brief: make_carrot_generateimage_key - generate-image key, for identifying enote spends
+*   k_gi = H_n(s_gp, K_ps)
+* param: s_generate_image_preimage - s_gp
+* param: partial_spend_pubkey - K_ps
 * outparam: k_generate_image_out - k_gi
 */
-void make_carrot_generateimage_key(const crypto::secret_key &s_view_balance,
+void make_carrot_generateimage_key(const crypto::secret_key &s_generate_image_preimage,
+    const crypto::public_key &partial_spend_pubkey,
     crypto::secret_key &k_generate_image_out);
 /**
 * brief: make_carrot_viewincoming_key - view-incoming key, for identifying received external enotes

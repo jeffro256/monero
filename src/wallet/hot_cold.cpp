@@ -177,15 +177,10 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     // 10. C_a = k_a G + a H
     const rct::key amount_commitment = rct::commit(td.amount(), td.m_mask);
 
-    // 11. K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t U)
+    // 11. derive K^j_s from j
     crypto::public_key address_spend_pubkey;
-    carrot::recover_address_spend_pubkey(onetime_address,
-        s_sender_receiver,
-        amount_commitment,
-        address_spend_pubkey);
-    crypto::public_key main_address_spend_pubkey;
-    addr_dev.get_address_spend_pubkey({}, main_address_spend_pubkey);
-    const bool is_subaddress = address_spend_pubkey != main_address_spend_pubkey; //! @TODO: Carrot/hybrid
+    addr_dev.get_address_spend_pubkey({etd.subaddr_index}, address_spend_pubkey); //! @TODO: Carrot/hybrid hierarchy
+    const bool is_subaddress = !td.m_subaddr_index.is_zero();
 
     // 12. calc k_a assuming enote_type="change": k_a' = H_n(s^ctx_sr, a, K^j_s, "change")
     crypto::secret_key change_amount_blinding_factor;

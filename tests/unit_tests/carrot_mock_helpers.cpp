@@ -215,21 +215,25 @@ void mock_carrot_and_legacy_keys::opening_for_subaddress(const subaddress_index_
 
     const cryptonote::account_keys &lkeys = legacy_acb.get_keys();
 
-    crypto::secret_key address_index_generator;
+    crypto::secret_key address_index_preimage_1;
+    crypto::secret_key address_index_preimage_2;
     crypto::secret_key subaddress_scalar;
     crypto::secret_key subaddress_extension;
 
     switch (resolve_derive_type(subaddress_index.derive_type))
     {
     case AddressDeriveType::Carrot:
-        // s^j_gen = H_32[s_ga](j_major, j_minor)
-        make_carrot_index_extension_generator(s_generate_address, major_index, minor_index, address_index_generator);
+        // s^j_ap1 = H_32[s_ga](j_major, j_minor)
+        make_carrot_address_index_preimage_1(s_generate_address, major_index, minor_index, address_index_preimage_1);
+
+        // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+        make_carrot_address_index_preimage_2(address_index_preimage_1, major_index, minor_index,
+            carrot_account_spend_pubkey, carrot_account_view_pubkey, address_index_preimage_2);
 
         if (is_subaddress)
         {
             // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
-            make_carrot_subaddress_scalar(carrot_account_spend_pubkey,
-                carrot_account_view_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
+            make_carrot_subaddress_scalar(address_index_preimage_2, carrot_account_spend_pubkey, subaddress_scalar);
         }
         else
         {
@@ -382,8 +386,10 @@ void mock_carrot_and_legacy_keys::generate(const AddressDeriveType default_deriv
 
     crypto::generate_random_bytes_thread_safe(sizeof(crypto::secret_key), to_bytes(s_master));
     make_carrot_provespend_key(s_master, k_prove_spend);
+    make_carrot_partial_spend_pubkey(k_prove_spend, carrot_partial_spend_pubkey);
     make_carrot_viewbalance_secret(s_master, s_view_balance);
-    make_carrot_generateimage_key(s_view_balance, k_generate_image);
+    make_carrot_generateimage_preimage(s_view_balance, s_generate_image_preimage);
+    make_carrot_generateimage_key(s_generate_image_preimage, carrot_partial_spend_pubkey, k_generate_image);
     make_carrot_generateaddress_secret(s_view_balance, s_generate_address);
 
     make_carrot_spend_pubkey(k_generate_image, k_prove_spend, carrot_account_spend_pubkey);

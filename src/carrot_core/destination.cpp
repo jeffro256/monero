@@ -75,14 +75,22 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     CARROT_CHECK_AND_THROW(j_major || j_minor,
         bad_address_type, "j cannot be 0 for a subaddress, only for main addresses");
 
-    // s^j_gen = H_32[s_ga](j_major, j_minor)
-    crypto::secret_key address_index_generator;
-    s_generate_address_dev.make_index_extension_generator(j_major, j_minor, address_index_generator);
+    // s^j_ap1 = H_32[s_ga](j_major, j_minor)
+    crypto::secret_key address_index_preimage_1;
+    s_generate_address_dev.make_address_index_preimage_1(j_major, j_minor, address_index_preimage_1);
 
-    // k^j_subscal = H_n[s^j_gen](K_s, K_v, j_major, j_minor)
+    // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+    crypto::secret_key address_index_preimage_2;
+    make_carrot_address_index_preimage_2(address_index_preimage_1,
+        j_major,
+        j_minor,
+        account_spend_pubkey,
+        account_view_pubkey,
+        address_index_preimage_2);
+
+    // k^j_subscal = H_n[s^j_ap2](K_s)
     crypto::secret_key subaddress_scalar;
-    make_carrot_subaddress_scalar(
-        account_spend_pubkey, account_view_pubkey, address_index_generator, j_major, j_minor, subaddress_scalar);
+    make_carrot_subaddress_scalar(address_index_preimage_2, account_spend_pubkey, subaddress_scalar);
 
     // K^j_s = k^j_subscal * K_s
     const rct::key address_spend_pubkey =

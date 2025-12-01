@@ -39,7 +39,6 @@
 //local headers
 #include "carrot_enote_types.h"
 #include "device.h"
-#include "lazy_amount_commitment.h"
 #include "span.h"
 
 //third party headers
@@ -56,6 +55,7 @@ namespace carrot
  * brief: try_scan_carrot_coinbase_enote_no_janus - attempt scan process on coinbase enote w/o Janus protection
  * param: enote -
  * param: s_sender_receiver_unctx - s_sr
+ * param: main_address_spend_pubkeys - {K^0_s, ...}
  * outparam: sender_extension_g_out - k^g_o
  * outparam: sender_extension_g_out - k^t_o
  * outparam: nominal_address_spend_pubkey - K^j_s'
@@ -65,6 +65,7 @@ namespace carrot
 bool try_scan_carrot_coinbase_enote_no_janus(
     const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &nominal_address_spend_pubkey_out,

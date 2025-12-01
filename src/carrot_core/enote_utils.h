@@ -152,39 +152,63 @@ void make_carrot_sender_receiver_secret(const unsigned char s_sender_receiver_un
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_out);
 /**
-* brief: make_carrot_onetime_address_extension_g - extension for transforming a receiver's spendkey into an
-*        enote one-time address
+* brief: extension over G for transforming a receiver's spendkey into a coinbase one-time address
+*    k^o_g = H_n("..g..", s^ctx_sr, a, K^0_s)
+* param: s_sender_receiver - s^ctx_sr
+* param: amount - a
+* param: main_address_spend_pubkey - K^0_s
+* outparam: sender_extension_out - k^o_g
+*/
+void make_carrot_sender_extension_g_coinbase(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_out);
+/**
+* brief: extension over T for transforming a receiver's spendkey into a coinbase one-time address
+*    k^o_t = H_n("..t..", s^ctx_sr, a, K^0_s)
+* param: s_sender_receiver - s^ctx_sr
+* param: amount - a
+* param: main_address_spend_pubkey - K^0_s
+* outparam: sender_extension_out - k^o_t
+*/
+void make_carrot_sender_extension_t_coinbase(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_out);
+/**
+* brief: make_carrot_onetime_address - create a FCMP++ coinbase onetime address
+*    Ko = K^0_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
+* param: main_address_spend_pubkey - K^0_s
+* param: s_sender_receiver - s^ctx_sr
+* param: amount - a
+* outparam: onetime_address_out - Ko
+*/
+void make_carrot_onetime_address_coinbase(const crypto::public_key &main_address_spend_pubkey,
+    const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    crypto::public_key &onetime_address_out);
+/**
+* brief: extension over G for transforming a receiver's spendkey into a non-coinbase one-time address
 *    k^o_g = H_n("..g..", s^ctx_sr, C_a)
 * param: s_sender_receiver - s^ctx_sr
 * param: amount_commitment - C_a
 * outparam: sender_extension_out - k^o_g
 */
-void make_carrot_onetime_address_extension_g(const crypto::hash &s_sender_receiver,
+void make_carrot_sender_extension_g(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
-* brief: make_carrot_onetime_address_extension_t - extension for transforming a receiver's spendkey into an
-*        enote one-time address
+* brief: extension over T for transforming a receiver's spendkey into a non-coinbase one-time address
 *    k^o_t = H_n("..t..", s^ctx_sr, C_a)
 * param: s_sender_receiver - s^ctx_sr
 * param: amount_commitment - C_a
 * outparam: sender_extension_out - k^o_t
 */
-void make_carrot_onetime_address_extension_t(const crypto::hash &s_sender_receiver,
+void make_carrot_sender_extension_t(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
-* brief: make_carrot_onetime_address_extension_pubkey - create a FCMP++ onetime address extension pubkey
-*    K^o_ext = k^o_g G + k^o_t T
-* param: s_sender_receiver - s^ctx_sr
-* param: amount_commitment - C_a
-* outparam: sender_extension_pubkey_out - K^o_ext
-*/
-void make_carrot_onetime_address_extension_pubkey(const crypto::hash &s_sender_receiver,
-    const rct::key &amount_commitment,
-    crypto::public_key &sender_extension_pubkey_out);
-/**
-* brief: make_carrot_onetime_address - create a FCMP++ onetime address
+* brief: make_carrot_onetime_address - create a FCMP++ non-coinbase onetime address
 *    Ko = K^j_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
 * param: address_spend_pubkey - K^j_s
 * param: s_sender_receiver - s^ctx_sr
@@ -320,17 +344,17 @@ void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubk
     const crypto::secret_key &k_view,
     janus_anchor_t &anchor_special_out);
 /**
-* brief: recover_address_spend_pubkey - get the receiver's spend key for which this RingCT onetime address
+* brief: recover_address_spend_pubkey - get the receiver's spend key for which this one-time address
 *                                              can be reconstructed as 'owned' by
 *   K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t U)
 * param: onetime_address - Ko
-* param: s_sender_receiver - s^ctx_sr
-* param: amount_commitment - C_a
+* param: sender_extension_g - k^g_o
+* param: sender_extension_t - k^t_o
 * outparam: address_spend_key_out: - K^j_s
 */
 void recover_address_spend_pubkey(const crypto::public_key &onetime_address,
-    const crypto::hash &s_sender_receiver,
-    const rct::key &amount_commitment,
+    const crypto::secret_key &sender_extension_g,
+    const crypto::secret_key &sender_extension_t,
     crypto::public_key &address_spend_key_out);
 /**
 * brief: test_carrot_view_tag - test carrot view tag

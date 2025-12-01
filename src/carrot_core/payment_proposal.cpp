@@ -148,10 +148,16 @@ static void get_output_proposal_parts(const crypto::hash &s_sender_receiver,
     amount_commitment_out = rct::commit(amount, rct::sk2rct(amount_blinding_factor_out));
 
     // 3. Ko = K^j_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
-    make_carrot_onetime_address(destination_spend_pubkey,
-        s_sender_receiver,
-        amount_commitment_out,
-        onetime_address_out);
+    if (coinbase_amount_commitment)
+        make_carrot_onetime_address_coinbase(destination_spend_pubkey,
+            s_sender_receiver,
+            amount,
+            onetime_address_out);
+    else
+        make_carrot_onetime_address(destination_spend_pubkey,
+            s_sender_receiver,
+            amount_commitment_out,
+            onetime_address_out);
     
     // 4. a_enc = a XOR m_a
     encrypted_amount_out = encrypt_carrot_amount(amount,

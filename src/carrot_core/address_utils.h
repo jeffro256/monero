@@ -52,32 +52,42 @@ static constexpr bool is_main_address_index(const std::uint32_t j_major, const s
 }
 
 /**
-* brief: make_carrot_index_extension_generator - s^j_gen
-*   s^j_gen = H_32[s_ga](j_major, j_minor)
+* brief: make_carrot_address_index_preimage_1 - s^j_ap1
+*   s^j_ap1 = H_32[s_ga](j_major, j_minor)
 * param: s_generate_address - s_ga
 * param: j_major -
 * param: j_minor -
-* outparam: address_generator_out - s^j_gen
+* outparam: address_index_preimage_1_out - s^j_ap1
 */
-void make_carrot_index_extension_generator(const crypto::secret_key &s_generate_address,
+void make_carrot_address_index_preimage_1(const crypto::secret_key &s_generate_address,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
-    crypto::secret_key &address_generator_out);
+    crypto::secret_key &address_index_preimage_1_out);
 /**
-* brief: make_carrot_address_privkey - d^j_a
-*   k^j_subscal = H_n[s^j_gen](K_s, K_v, j_major, j_minor)
-* param: account_spend_pubkey - K_s = k_vb X + k_m U
-* param: account_view_pubkey - K_v = k_v K_s
-* param: s_address_generator - s^j_gen
+* brief: make_carrot_address_index_preimage_2 - s^j_ap2
+*   s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+* param: address_index_preimage_1 - s^j_ap1
 * param: j_major -
 * param: j_minor -
-* outparam: subaddress_scalar_out - k^j_subscal
+* param: account_spend_pubkey - K_s
+* param: account_view_pubkey - K_v
+* outparam: address_index_preimage_2 - s^j_ap2
 */
-void make_carrot_subaddress_scalar(const crypto::public_key &account_spend_pubkey,
-    const crypto::public_key &account_view_pubkey,
-    const crypto::secret_key &s_address_generator,
+void make_carrot_address_index_preimage_2(const crypto::secret_key &address_index_preimage_1,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
+    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &account_view_pubkey,
+    crypto::secret_key &address_index_preimage_2_out);
+/**
+* brief: make_carrot_address_privkey - k^j_subscal
+*   k^j_subscal = H_n[s^j_ap2](K_s)
+* param: address_index_preimage_2 - s^j_ap2
+* param: account_spend_pubkey - K_s = k_gi G + k_ps T
+* outparam: subaddress_scalar_out - k^j_subscal
+*/
+void make_carrot_subaddress_scalar(const crypto::secret_key &address_index_preimage_2,
+    const crypto::public_key &account_spend_pubkey,
     crypto::secret_key &subaddress_scalar_out);
 
 } //namespace carrot

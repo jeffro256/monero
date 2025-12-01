@@ -36,6 +36,9 @@
 
 using namespace carrot;
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.carrot"
+
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, ECDH_cryptonote_completeness)
 {
@@ -1519,6 +1522,8 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
     // 1. sanity checks
     CHECK_AND_ASSERT_THROW_MES(proposal.normal.randomness != carrot::janus_anchor_t{},
         "jamtis payment proposal: invalid randomness for janus anchor (zero).");
+    CHECK_AND_ASSERT_THROW_MES(proposal.normal.destination.is_subaddress,
+        "jamtis payment proposal: we need OG address to be a subaddress so we can make do ECDH against that");
 
     const carrot::CarrotDestinationV1 &destination = proposal.normal.destination;
 
@@ -1558,27 +1563,25 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
         input_context,
         s_sender_receiver);
 
-    // 8. C_a = G + a H
-    const rct::key amount_commitment = rct::zeroCommitVartime(proposal.normal.amount);
-
-    // 9. Ko = K^i_s + K^o_ext = K^i_s + (k^o_g G + k^o_t T)
-    make_carrot_onetime_address(proposal.readjusted_opening_subaddress_spend_pubkey,
+    // 8. Ko = K^i_s + K^o_ext = K^i_s + (k^o_g G + k^o_t T)
+    make_carrot_onetime_address_coinbase(
+        proposal.readjusted_opening_subaddress_spend_pubkey,
         s_sender_receiver,
-        amount_commitment,
+        proposal.normal.amount,
         output_enote_out.onetime_address);
 
-    // 10. vt = H_3(s_sr || input_context || Ko)
+    // 9. vt = H_3(s_sr || input_context || Ko)
     make_carrot_view_tag(s_sender_receiver_unctx.data,
         input_context,
         output_enote_out.onetime_address,
         output_enote_out.view_tag);
 
-    // 11. anchor_enc = anchor XOR m_anchor
+    // 10. anchor_enc = anchor XOR m_anchor
     output_enote_out.anchor_enc = encrypt_carrot_anchor(proposal.normal.randomness,
         s_sender_receiver,
         output_enote_out.onetime_address);
 
-    // 12. save the amount and first key image
+    // 11. save the amount and first key image
     output_enote_out.amount      = proposal.normal.amount;
     output_enote_out.block_index = block_index;
 
@@ -1600,11 +1603,11 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
 
     const JanusAttackProposalV1 proposal{
         .normal = carrot::CarrotPaymentProposalV1{
-            .destination = bob_main,
+            .destination = bob_subaddr,
             .amount = amount,
             .randomness = carrot::gen_janus_anchor()
         },
-        .readjusted_opening_subaddress_spend_pubkey = bob_subaddr.address_spend_pubkey,
+        .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
@@ -1623,6 +1626,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
     carrot::janus_anchor_t nominal_janus_anchor;
     const bool scanned = carrot::try_scan_carrot_coinbase_enote_no_janus(output_enote,
         s_sender_receiver_unctx,
+        {&bob.carrot_account_spend_pubkey, 1},
         sender_extension_g,
         sender_extension_t,
         nominal_address_spend_pubkey,
@@ -1669,11 +1673,11 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
 
     const JanusAttackProposalV1 proposal{
         .normal = carrot::CarrotPaymentProposalV1{
-            .destination = bob_main,
+            .destination = bob_subaddr,
             .amount = amount,
             .randomness = carrot::gen_janus_anchor()
         },
-        .readjusted_opening_subaddress_spend_pubkey = bob_subaddr.address_spend_pubkey,
+        .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true,
     };
 
@@ -1692,6 +1696,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
     carrot::janus_anchor_t nominal_janus_anchor;
     const bool scanned = carrot::try_scan_carrot_coinbase_enote_no_janus(output_enote,
         s_sender_receiver_unctx,
+        {&bob.carrot_account_spend_pubkey, 1},
         sender_extension_g,
         sender_extension_t,
         nominal_address_spend_pubkey,
@@ -1738,11 +1743,11 @@ TEST(carrot_core, janus_protection_use_readjusted_spend_pubkey_in_ephemeral_priv
 
     const JanusAttackProposalV1 proposal1{
         .normal = carrot::CarrotPaymentProposalV1{
-            .destination = bob_main,
+            .destination = bob_subaddr,
             .amount = amount,
             .randomness = carrot::gen_janus_anchor()
         },
-        .readjusted_opening_subaddress_spend_pubkey = bob_subaddr.address_spend_pubkey,
+        .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
@@ -1758,5 +1763,517 @@ TEST(carrot_core, janus_protection_use_readjusted_spend_pubkey_in_ephemeral_priv
     EXPECT_NE(0, memcmp(&output_enote1.enote_ephemeral_pubkey,
         &output_enote2.enote_ephemeral_pubkey,
         sizeof(output_enote1.enote_ephemeral_pubkey)));
+}
+//----------------------------------------------------------------------------------------------------------------------
+struct s_comm_T
+{
+    crypto::hash h;
+    crypto::ec_point key;
+    crypto::ec_point comm;
+};
+//----------------------------------------------------------------------------------------------------------------------
+static const ge_p3 T_p3 = crypto::get_T_p3();
+//----------------------------------------------------------------------------------------------------------------------
+static void generate_signature_T(const crypto::hash &prefix_hash, const crypto::public_key &pub,
+    const crypto::secret_key &sec, crypto::signature &sig)
+{
+    // modified from crypto::generate_signature() to use T as a base
+
+    ge_p2 tmp2;
+    crypto::ec_scalar k;
+    s_comm_T buf;
+    buf.h = prefix_hash;
+    buf.key = pub;
+try_again:
+    crypto::random32_unbiased(to_bytes(k));
+    ge_scalarmult(&tmp2, to_bytes(k), &T_p3);
+    ge_tobytes(to_bytes(buf.comm), &tmp2);
+    crypto::hash_to_scalar(&buf, sizeof(s_comm_T), sig.c);
+    if (!sc_isnonzero((const unsigned char*)sig.c.data))
+        goto try_again;
+    sc_mulsub(to_bytes(sig.r), to_bytes(sig.c), to_bytes(unwrap(sec)), to_bytes(k));
+    if (!sc_isnonzero((const unsigned char*)sig.r.data))
+        goto try_again;
+    memwipe(&k, sizeof(k));
+}
+//----------------------------------------------------------------------------------------------------------------------
+static bool check_signature_T(const crypto::hash &prefix_hash, const crypto::public_key &pub,
+    const crypto::signature &sig)
+{
+    // modified from crypto::check_signature() to use T as a base
+
+    ge_p3 tmp3;
+    crypto::ec_scalar c;
+    s_comm_T buf;
+    assert(check_key(pub));
+    buf.h = prefix_hash;
+    buf.key = pub;
+    if (ge_frombytes_vartime(&tmp3, to_bytes(pub)) != 0) {
+        return false;
+    }
+    if (sc_check(to_bytes(sig.c)) != 0 || sc_check(to_bytes(sig.r)) != 0 || !sc_isnonzero(to_bytes(sig.c))) {
+        return false;
+    }
+    {
+        // buf.comm = (sig.c) * pub + sig.r * T
+        ge_p3 tmp_a;
+        ge_scalarmult_p3(&tmp_a, to_bytes(sig.c), &tmp3);
+        ge_p3 tmp_b;
+        ge_scalarmult_p3(&tmp_b, to_bytes(sig.r), &T_p3);
+        ge_cached tmp_c;
+        ge_p3_to_cached(&tmp_c, &tmp_a);
+        ge_p1p1 tmp_d;
+        ge_add(&tmp_d, &tmp_b, &tmp_c);
+        ge_p2 tmp_e;
+        ge_p1p1_to_p2(&tmp_e, &tmp_d);
+        ge_tobytes(to_bytes(buf.comm), &tmp_e);
+    }
+    static const crypto::ec_point infinity = {{ 1 }};
+    if (memcmp(&buf.comm, &infinity, 32) == 0)
+        return false;
+    hash_to_scalar(&buf, sizeof(s_comm_T), c);
+    sc_sub(to_bytes(c), to_bytes(c), to_bytes(sig.c));
+    return sc_isnonzero(to_bytes(c)) == 0;
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, generate_signature_T)
+{
+    crypto::secret_key sec;
+    crypto::random32_unbiased(to_bytes(sec));
+
+    crypto::public_key pub;
+    make_carrot_partial_spend_pubkey(sec, pub);
+
+    const crypto::hash h = crypto::rand<crypto::hash>();
+
+    crypto::signature sig;
+    generate_signature_T(h, pub, sec, sig);
+
+    EXPECT_TRUE(check_signature_T(h, pub, sig));
+}
+//----------------------------------------------------------------------------------------------------------------------
+// https://gist.github.com/jeffro256/146bfd5306ea3a8a2a0ea4d660cd2243
+static bool pq_turnstile_verify_coinbase(const crypto::hash &txid,
+    const std::size_t local_output_index,
+    const crypto::public_key &partial_spend_pubkey,
+    const crypto::secret_key &s_generate_image_preimage,
+    const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::hash &migration_tx_signable_hash,
+    const crypto::signature &sig,
+    const std::function<std::pair<crypto::public_key, rct::key>(const crypto::hash&, std::size_t)> &fetch_output,
+    const std::function<bool(const crypto::key_image&)> &is_key_image_spent
+)
+{
+    // step 1
+    crypto::public_key output_pubkey;
+    rct::key amount_commitment;
+    std::tie(output_pubkey, amount_commitment) = fetch_output(txid, local_output_index);
+
+    // step 2
+    const bool is_in_main_subgroup = rct::isInMainSubgroup(rct::pk2rct(output_pubkey))
+        && rct::isInMainSubgroup(amount_commitment)
+        && rct::isInMainSubgroup(rct::pk2rct(partial_spend_pubkey));
+    CHECK_AND_ASSERT_MES(is_in_main_subgroup, false, "one of input points not in main subgroup");
+
+    // step 3
+    crypto::secret_key k_generate_image;
+    make_carrot_generateimage_key(s_generate_image_preimage, partial_spend_pubkey, k_generate_image);
+
+    // step 4
+    rct::key account_spend_pubkey_rct;
+    rct::addKeys1(account_spend_pubkey_rct, rct::sk2rct(k_generate_image), rct::pk2rct(partial_spend_pubkey));
+    const crypto::public_key account_spend_pubkey = rct::rct2pk(account_spend_pubkey_rct);
+
+    // step 5
+    const rct::key amount_commitment_rc = rct::zeroCommitVartime(amount);
+
+    // step 6
+    CHECK_AND_ASSERT_MES(amount_commitment_rc == amount_commitment,
+        false, "failed to re-compute amount commitment");
+
+    // step 7-9
+    crypto::public_key output_pubkey_rc;
+    make_carrot_onetime_address_coinbase(account_spend_pubkey, s_sender_receiver, amount, output_pubkey_rc);
+
+    // step 10
+    CHECK_AND_ASSERT_MES(output_pubkey_rc == output_pubkey, false, "failed to re-compute output pubkey");
+
+    // step 11
+    CHECK_AND_ASSERT_MES(check_signature_T(migration_tx_signable_hash, partial_spend_pubkey, sig),
+        false, "signature for partial spend pubkey did not validate");
+
+    // step 12
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(output_pubkey, I);
+
+    crypto::secret_key sender_extension_g;
+    make_carrot_sender_extension_g_coinbase(s_sender_receiver,
+        amount,
+        account_spend_pubkey,
+        sender_extension_g);
+
+    crypto::secret_key ki_priv = k_generate_image;
+    sc_add(to_bytes(ki_priv), to_bytes(ki_priv), to_bytes(sender_extension_g));
+
+    const crypto::key_image ki = rct::rct2ki(rct::scalarmultKey(rct::pt2rct(I), rct::sk2rct(ki_priv)));
+
+    // step 13
+    CHECK_AND_ASSERT_MES(!is_key_image_spent(ki), false, "key image already spent in chain");
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+// https://gist.github.com/jeffro256/146bfd5306ea3a8a2a0ea4d660cd2243
+static bool pq_turnstile_verify(const crypto::hash &txid,
+    const std::size_t local_output_index,
+    const crypto::public_key &partial_spend_pubkey,
+    const crypto::secret_key &s_generate_image_preimage,
+    const bool is_subaddress,
+    const crypto::secret_key &address_index_preimage_2,
+    const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const CarrotEnoteType enote_type,
+    const crypto::hash &migration_tx_signable_hash,
+    const crypto::signature &sig,
+    const std::function<std::pair<crypto::public_key, rct::key>(const crypto::hash&, std::size_t)> &fetch_output,
+    const std::function<bool(const crypto::key_image&)> &is_key_image_spent
+)
+{
+    // step 1
+    crypto::public_key output_pubkey;
+    rct::key amount_commitment;
+    std::tie(output_pubkey, amount_commitment) = fetch_output(txid, local_output_index);
+
+    // step 2
+    const bool is_in_main_subgroup = rct::isInMainSubgroup(rct::pk2rct(output_pubkey))
+        && rct::isInMainSubgroup(amount_commitment)
+        && rct::isInMainSubgroup(rct::pk2rct(partial_spend_pubkey));
+    CHECK_AND_ASSERT_MES(is_in_main_subgroup, false, "one of input points not in main subgroup");
+
+    // step 3
+    crypto::secret_key k_generate_image;
+    make_carrot_generateimage_key(s_generate_image_preimage, partial_spend_pubkey, k_generate_image);
+
+    // step 4
+    rct::key account_spend_pubkey_rct;
+    rct::addKeys1(account_spend_pubkey_rct, rct::sk2rct(k_generate_image), rct::pk2rct(partial_spend_pubkey));
+    const crypto::public_key account_spend_pubkey = rct::rct2pk(account_spend_pubkey_rct);
+
+    // step 5
+    crypto::secret_key subaddress_scalar;
+    if (is_subaddress)
+    {
+        make_carrot_subaddress_scalar(address_index_preimage_2, account_spend_pubkey, subaddress_scalar);
+    }
+    else // main
+    {
+        subaddress_scalar = {{1}};
+    }
+
+    // step 6
+    const crypto::public_key address_spend_pubkey = rct::rct2pk(rct::scalarmultKey(account_spend_pubkey_rct,
+        rct::sk2rct(subaddress_scalar)));
+
+    // step 7
+    crypto::secret_key amount_blinding_factor;
+    make_carrot_amount_blinding_factor(s_sender_receiver, amount, address_spend_pubkey, enote_type,
+        amount_blinding_factor);
+
+    // step 8
+    const rct::key amount_commitment_rc = rct::commit(amount, rct::sk2rct(amount_blinding_factor));
+
+    // step 9
+    CHECK_AND_ASSERT_MES(amount_commitment_rc == amount_commitment,
+        false, "failed to re-compute amount commitment");
+
+    // step 10-12
+    crypto::public_key output_pubkey_rc;
+    make_carrot_onetime_address(address_spend_pubkey, s_sender_receiver, amount_commitment, output_pubkey_rc);
+
+    // step 13
+    CHECK_AND_ASSERT_MES(output_pubkey_rc == output_pubkey, false, "failed to re-compute output pubkey");
+
+    // step 14
+    CHECK_AND_ASSERT_MES(check_signature_T(migration_tx_signable_hash, partial_spend_pubkey, sig),
+        false, "signature for partial spend pubkey did not validate");
+
+    // step 15
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(output_pubkey, I);
+
+    crypto::secret_key sender_extension_g;
+    make_carrot_sender_extension_g(s_sender_receiver, amount_commitment, sender_extension_g);
+
+    crypto::secret_key ki_priv = k_generate_image;
+    sc_muladd(to_bytes(ki_priv), to_bytes(ki_priv), to_bytes(subaddress_scalar), to_bytes(sender_extension_g));
+
+    const crypto::key_image ki = rct::rct2ki(rct::scalarmultKey(rct::pt2rct(I), rct::sk2rct(ki_priv)));
+
+    // step 16
+    CHECK_AND_ASSERT_MES(!is_key_image_spent(ki), false, "key image already spent in chain");
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, pq_turnstile_completeness_main)
+{
+    carrot::mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    const CarrotDestinationV1 main_addr = bob.cryptonote_address();
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = main_addr,
+        .amount = COIN,
+        .randomness = gen_janus_anchor()
+    };
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(payment_proposal, tx_first_key_image, output_enote, encrypted_payment_id);
+
+    const crypto::hash migration_tx_signable_hash = crypto::rand<crypto::hash>();
+    crypto::signature migration_sig;
+    generate_signature_T(migration_tx_signable_hash, bob.carrot_partial_spend_pubkey, bob.k_prove_spend, migration_sig);
+
+    crypto::hash s_sender_receiver;
+    {
+        // s_sr = k_v D_e
+        mx25519_pubkey s_sender_receiver_unctx;
+        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+            output_enote.enote.enote_ephemeral_pubkey,
+            s_sender_receiver_unctx);
+
+        // input_context = "R" || KI_1
+        const input_context_t input_context = make_carrot_input_context(output_enote.enote.tx_first_key_image);
+
+        // s^ctx_sr = H_32(s_sr, D_e, input_context)
+        make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+            output_enote.enote.enote_ephemeral_pubkey,
+            input_context,
+            s_sender_receiver);
+    }
+
+    crypto::key_image ki;
+    const bool pq_ver = pq_turnstile_verify(/*txid=*/{},
+        /*local_output_index=*/{},
+        bob.carrot_partial_spend_pubkey,
+        bob.s_generate_image_preimage,
+        /*is_subaddress=*/false,
+        /*address_index_preimage_2=*/{},
+        s_sender_receiver,
+        payment_proposal.amount,
+        CarrotEnoteType::PAYMENT,
+        migration_tx_signable_hash,
+        migration_sig,
+        [&output_enote](auto,auto){ return std::pair(output_enote.enote.onetime_address, output_enote.enote.amount_commitment); },
+        [&ki](const crypto::key_image &derived_key_img){ ki = derived_key_img; return false;});
+    EXPECT_TRUE(pq_ver);
+
+    // scan and compute key image to test pq_turnstile_verify()
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        output_enote.enote.enote_ephemeral_pubkey,
+        s_sender_receiver_unctx);
+    crypto::secret_key recovered_sender_extension_g;
+    crypto::secret_key recovered_sender_extension_t;
+    crypto::public_key recovered_address_spend_pubkey;
+    rct::xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    payment_id_t recovered_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    const bool scan_success = try_scan_carrot_enote_external_receiver(output_enote.enote,
+        encrypted_payment_id,
+        s_sender_receiver_unctx,
+        {&bob.carrot_account_spend_pubkey, 1},
+        bob.k_view_incoming_dev,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        recovered_address_spend_pubkey,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_payment_id,
+        recovered_enote_type);
+    ASSERT_TRUE(scan_success);
+    const crypto::key_image scanned_ki = bob.derive_key_image(
+        recovered_address_spend_pubkey,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        output_enote.enote.onetime_address);
+    ASSERT_EQ(scanned_ki, ki);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, pq_turnstile_completeness_sub)
+{
+    carrot::mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    const subaddress_index subaddr_index = mock::gen_subaddress_index();
+    ASSERT_TRUE(subaddr_index.is_subaddress());
+    const CarrotDestinationV1 sub_addr = bob.subaddress({subaddr_index});
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = sub_addr,
+        .amount = COIN,
+        .randomness = gen_janus_anchor()
+    };
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(payment_proposal, tx_first_key_image, output_enote, encrypted_payment_id);
+
+    const crypto::hash migration_tx_signable_hash = crypto::rand<crypto::hash>();
+    crypto::signature migration_sig;
+    generate_signature_T(migration_tx_signable_hash, bob.carrot_partial_spend_pubkey, bob.k_prove_spend, migration_sig);
+    
+    crypto::secret_key address_index_preimage_2;
+    {
+        crypto::secret_key address_index_preimage_1;
+        make_carrot_address_index_preimage_1(bob.s_generate_address, subaddr_index.major, subaddr_index.minor,
+            address_index_preimage_1);
+        make_carrot_address_index_preimage_2(address_index_preimage_1, subaddr_index.major, subaddr_index.minor,
+            bob.carrot_account_spend_pubkey, bob.carrot_account_view_pubkey, address_index_preimage_2);
+    }
+
+    crypto::hash s_sender_receiver;
+    {
+        // s_sr = k_v D_e
+        mx25519_pubkey s_sender_receiver_unctx;
+        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+            output_enote.enote.enote_ephemeral_pubkey,
+            s_sender_receiver_unctx);
+
+        // input_context = "R" || KI_1
+        const input_context_t input_context = make_carrot_input_context(output_enote.enote.tx_first_key_image);
+
+        // s^ctx_sr = H_32(s_sr, D_e, input_context)
+        make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+            output_enote.enote.enote_ephemeral_pubkey,
+            input_context,
+            s_sender_receiver);
+    }
+
+    crypto::key_image ki;
+    const bool pq_ver = pq_turnstile_verify(/*txid=*/{},
+        /*local_output_index=*/{},
+        bob.carrot_partial_spend_pubkey,
+        bob.s_generate_image_preimage,
+        /*is_subaddress=*/true,
+        address_index_preimage_2,
+        s_sender_receiver,
+        payment_proposal.amount,
+        CarrotEnoteType::PAYMENT,
+        migration_tx_signable_hash,
+        migration_sig,
+        [&output_enote](auto,auto){ return std::pair(output_enote.enote.onetime_address, output_enote.enote.amount_commitment); },
+        [&ki](const crypto::key_image &derived_key_img){ ki = derived_key_img; return false;});
+    EXPECT_TRUE(pq_ver);
+
+    // scan and compute key image to test pq_turnstile_verify()
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        output_enote.enote.enote_ephemeral_pubkey,
+        s_sender_receiver_unctx);
+    crypto::secret_key recovered_sender_extension_g;
+    crypto::secret_key recovered_sender_extension_t;
+    crypto::public_key recovered_address_spend_pubkey;
+    rct::xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    payment_id_t recovered_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    const bool scan_success = try_scan_carrot_enote_external_receiver(output_enote.enote,
+        std::nullopt,
+        s_sender_receiver_unctx,
+        {&bob.carrot_account_spend_pubkey, 1},
+        bob.k_view_incoming_dev,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        recovered_address_spend_pubkey,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_payment_id,
+        recovered_enote_type);
+    ASSERT_TRUE(scan_success);
+    const crypto::key_image scanned_ki = bob.derive_key_image(
+        recovered_address_spend_pubkey,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        output_enote.enote.onetime_address);
+    ASSERT_EQ(scanned_ki, ki);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, pq_turnstile_completeness_coinbase)
+{
+    carrot::mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    const CarrotDestinationV1 main_addr = bob.cryptonote_address();
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = main_addr,
+        .amount = COIN,
+        .randomness = gen_janus_anchor()
+    };
+    const std::uint64_t block_index = mock::gen_block_index();
+
+    CarrotCoinbaseEnoteV1 output_enote;
+    get_coinbase_output_proposal_v1(payment_proposal, block_index, output_enote);
+
+    const crypto::hash migration_tx_signable_hash = crypto::rand<crypto::hash>();
+    crypto::signature migration_sig;
+    generate_signature_T(migration_tx_signable_hash, bob.carrot_partial_spend_pubkey, bob.k_prove_spend, migration_sig);
+
+    crypto::hash s_sender_receiver;
+    {
+        // s_sr = k_v D_e
+        mx25519_pubkey s_sender_receiver_unctx;
+        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+            output_enote.enote_ephemeral_pubkey,
+            s_sender_receiver_unctx);
+
+        // input_context = "R" || KI_1
+        const input_context_t input_context = make_carrot_input_context_coinbase(output_enote.block_index);
+
+        // s^ctx_sr = H_32(s_sr, D_e, input_context)
+        make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+            output_enote.enote_ephemeral_pubkey,
+            input_context,
+            s_sender_receiver);
+    }
+
+    crypto::key_image ki;
+    const bool pq_ver = pq_turnstile_verify_coinbase(/*txid=*/{},
+        /*local_output_index=*/{},
+        bob.carrot_partial_spend_pubkey,
+        bob.s_generate_image_preimage,
+        s_sender_receiver,
+        payment_proposal.amount,
+        migration_tx_signable_hash,
+        migration_sig,
+        [&output_enote](auto,auto){ return std::pair(output_enote.onetime_address, rct::zeroCommitVartime(output_enote.amount)); },
+        [&ki](const crypto::key_image &derived_key_img){ ki = derived_key_img; return false;});
+    EXPECT_TRUE(pq_ver);
+
+    // scan and compute key image to test pq_turnstile_verify()
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        output_enote.enote_ephemeral_pubkey,
+        s_sender_receiver_unctx);
+    crypto::secret_key recovered_sender_extension_g;
+    crypto::secret_key recovered_sender_extension_t;
+    crypto::public_key recovered_address_spend_pubkey;
+    const bool scan_success = try_scan_carrot_coinbase_enote_receiver(output_enote,
+        s_sender_receiver_unctx,
+        {&bob.carrot_account_spend_pubkey, 1},
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        recovered_address_spend_pubkey);
+    ASSERT_TRUE(scan_success);
+    const crypto::key_image scanned_ki = bob.derive_key_image(
+        recovered_address_spend_pubkey,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        output_enote.onetime_address);
+    ASSERT_EQ(scanned_ki, ki);
 }
 //----------------------------------------------------------------------------------------------------------------------

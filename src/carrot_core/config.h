@@ -45,6 +45,8 @@ static constexpr const unsigned char CARROT_PERSONAL_STRING[] = "Monero";
 
 // Carrot addressing protocol domain separators
 static constexpr const unsigned char CARROT_DOMAIN_SEP_AMOUNT_BLINDING_FACTOR[] = "Carrot commitment mask";
+static constexpr const unsigned char CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G_COINBASE[] = "Carrot coinbase extension G";
+static constexpr const unsigned char CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T_COINBASE[] = "Carrot coinbase extension T";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G[] = "Carrot key extension G";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T[] = "Carrot key extension T";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_ENCRYPTION_MASK_ANCHOR[] = "Carrot encryption mask anchor";
@@ -60,12 +62,14 @@ static constexpr const unsigned char CARROT_DOMAIN_SEP_INPUT_CONTEXT_RINGCT = 'R
 // Carrot account secret domain separators
 static constexpr const unsigned char CARROT_DOMAIN_SEP_PROVE_SPEND_KEY[] = "Carrot prove-spend key";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_VIEW_BALANCE_SECRET[] = "Carrot view-balance secret";
+static constexpr const unsigned char CARROT_DOMAIN_SEP_GENERATE_IMAGE_PREIMAGE[] = "Carrot generate-image preimage secret";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_GENERATE_IMAGE_KEY[] = "Carrot generate-image key";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_INCOMING_VIEW_KEY[] = "Carrot incoming view key";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_GENERATE_ADDRESS_SECRET[] = "Carrot generate-address secret";
 
 // Carrot address domain separators
-static constexpr const unsigned char CARROT_DOMAIN_SEP_ADDRESS_INDEX_GEN[] = "Carrot address index generator";
+static constexpr const unsigned char CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_1[] = "Carrot address index preimage 1";
+static constexpr const unsigned char CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_2[] = "Carrot address index preimage 2";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR[] = "Carrot subaddress scalar";
 
 // Carrot misc constants
