@@ -7358,7 +7358,7 @@ void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers, con
   {
     // Exclude 0-amount Carrot change outputs. These were added to enable incoming view keys to identify all spend txs,
     // including 0-change spends.
-    if (!td.amount() && carrot::is_carrot_transaction_v1(td.m_tx) && m_confirmed_txs.find(td.m_txid) != m_confirmed_txs.end())
+    if (!td.amount() && carrot::is_carrot_transaction_v1(td.m_tx))
       continue;
 
     incoming_transfers.push_back(td);
