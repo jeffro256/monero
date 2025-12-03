@@ -622,6 +622,17 @@ namespace cryptonote
     void mark_double_spend(const transaction &tx);
 
     /**
+     * @brief don't accept new txs if pool is at capacity and the tx doesn't have a high enough fee
+     *
+     * @param txid the txid of the transaction to check
+     * @param weight the transaction weight
+     * @param fee the tx fee
+     *
+     * @return true if the transaction doesn't push the pool over capacity
+     */
+    bool check_max_txpool_weight(const crypto::hash &id, const size_t weight, const uint64_t fee) const;
+
+    /**
      * @brief prune lowest fee/byte txes till we're not above bytes
      *
      * if bytes is 0, use m_txpool_max_weight
