@@ -1,21 +1,21 @@
 // Copyright (c) 2025, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -29,46 +29,31 @@
 #pragma once
 
 //local headers
-#include "carrot_core/device.h"
-#include "subaddress_index.h"
+#include "cryptonote_basic/subaddress_index.h"
+#include "subaddress_map.h"
 
 //third party headers
 
 //standard headers
+#include <unordered_map>
 
 //forward declarations
 
 namespace carrot
 {
-static constexpr const int E_UNSUPPORTED_ADDRESS_TYPE = 1;
-
-struct address_device
+class subaddress_map_legacy: public subaddress_map
 {
-    /**
-     * brief: get K^j_s given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     */
-    virtual void get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out) const = 0;
+public:
+    subaddress_map_legacy(
+        const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map_legacy);
 
-    /**
-     * brief: get (K^j_s, K^j_v) given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     * outparam: address_view_pubkey_out - K^j_v
-     */
-    virtual void get_address_pubkeys(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out,
-        crypto::public_key &address_view_pubkey_out) const = 0;
+    std::optional<subaddress_index_extended> get_index_for_address_spend_pubkey(
+        const crypto::public_key &address_spend_pubkey) const override;
 
-    /**
-     * get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
-     */
-    virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
-        crypto::secret_key &address_extension_g_out,
-        crypto::secret_key &address_scalar_out) const = 0;
+    std::optional<crypto::public_key> get_address_spend_pubkey_for_index(
+        const subaddress_index_extended &subaddr_index) const override;
 
-    virtual ~address_device() = default;
+private:
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &m_subaddress_map_legacy;
 };
 } //namespace carrot

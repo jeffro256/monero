@@ -79,73 +79,32 @@ void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
     crypto::hash_to_scalar(data, sizeof(data), legacy_subaddress_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
-    const crypto::public_key &account_spend_pubkey,
-    crypto::public_key &legacy_subaddress_spend_pubkey_out)
-{
-    // K^j_s = K_s + k^j_subext G
-    rct::key res_k;
-    rct::addKeys1(res_k, rct::sk2rct(legacy_subaddress_extension), rct::pk2rct(account_spend_pubkey));
-    legacy_subaddress_spend_pubkey_out = rct::rct2pk(res_k);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_legacy_subaddress_spend_pubkey(const cryptonote_hierarchy_address_device &addr_dev,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    crypto::public_key &legacy_subaddress_spend_pubkey_out)
-{
-    // k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
-    crypto::secret_key legacy_subaddress_extension;
-    addr_dev.make_legacy_subaddress_extension(major_index, minor_index, legacy_subaddress_extension);
-
-    // K^j_s = K_s + k^j_subext G
-    make_legacy_subaddress_spend_pubkey(legacy_subaddress_extension,
-        addr_dev.get_cryptonote_account_spend_pubkey(),
-        legacy_subaddress_spend_pubkey_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_legacy_subaddress_pubkeys(const cryptonote_hierarchy_address_device &addr_dev,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    crypto::public_key &legacy_subaddress_spend_pubkey_out,
-    crypto::public_key &legacy_subaddress_view_pubkey_out)
-{
-    // K^j_s = K_s + k^j_subext G
-    make_legacy_subaddress_spend_pubkey(addr_dev,
-        major_index,
-        minor_index,
-        legacy_subaddress_spend_pubkey_out);
-
-    // K^j_base = G if j=0, else K^j_s
-    const bool is_subaddress = major_index || minor_index;
-    const crypto::public_key base_pubkey = is_subaddress ? legacy_subaddress_spend_pubkey_out :  crypto::get_G();
-
-    // K^j_v = k_v K^j_base
-    addr_dev.view_key_scalar_mult_ed25519(base_pubkey, legacy_subaddress_view_pubkey_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::size_t get_all_main_address_spend_pubkeys(const hybrid_hierarchy_address_device &addr_dev,
+std::size_t get_all_main_address_spend_pubkeys(const address_device &addr_dev,
     crypto::public_key main_address_spend_pubkeys_out[2])
 {
     memset(main_address_spend_pubkeys_out, 0, 2*sizeof(main_address_spend_pubkeys_out[0]));
 
     std::size_t n_main_addrs = 0;
-    if (addr_dev.supports_address_derivation_type(carrot::AddressDeriveType::PreCarrot))
+    try
     {
-        main_address_spend_pubkeys_out[n_main_addrs++]
-            = addr_dev.access_cryptonote_hierarchy_device().get_cryptonote_account_spend_pubkey();
+        addr_dev.get_address_spend_pubkey({{}, AddressDeriveType::PreCarrot},
+            main_address_spend_pubkeys_out[n_main_addrs]);
+        ++n_main_addrs;
     }
-    if (addr_dev.supports_address_derivation_type(carrot::AddressDeriveType::Carrot))
+    catch (...) {}
+    try
     {
-        main_address_spend_pubkeys_out[n_main_addrs++]
-             = addr_dev.access_carrot_hierarchy_device().get_carrot_account_spend_pubkey();
+        addr_dev.get_address_spend_pubkey({{}, AddressDeriveType::Carrot},
+            main_address_spend_pubkeys_out[n_main_addrs]);
+        ++n_main_addrs;
     }
+    catch (...) {}
 
     return n_main_addrs;
 }
 //-------------------------------------------------------------------------------------------------------------------
 epee::span<const crypto::public_key> get_all_main_address_spend_pubkeys_span(
-    const hybrid_hierarchy_address_device &addr_dev,
+    const address_device &addr_dev,
     crypto::public_key main_address_spend_pubkeys_out[2])
 {
     const std::size_t n_main_addrs = get_all_main_address_spend_pubkeys(addr_dev, main_address_spend_pubkeys_out);

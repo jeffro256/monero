@@ -35,9 +35,8 @@
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
-#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/address_utils.h"
 #include "carrot_impl/format_utils.h"
-#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/multi_tx_proposal_utils.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_impl/tx_builder_outputs.h"
@@ -121,22 +120,20 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
     std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_inout,
     const cryptonote::tx_destination_entry &tx_dest_entry,
     const crypto::hash8 payment_id,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
+    const carrot::subaddress_map &subaddress_map)
 {
-    const auto subaddr_it = subaddress_map.find(tx_dest_entry.addr.m_spend_public_key);
-    const bool is_selfsend_dest = subaddr_it != subaddress_map.cend();
-
+    const auto subaddr_it = subaddress_map.get_index_for_address_spend_pubkey(tx_dest_entry.addr.m_spend_public_key);
+ 
     // Make N destinations
-    if (is_selfsend_dest)
+    if (subaddr_it)
     {
-        const carrot::subaddress_index subaddr_index{subaddr_it->second.major, subaddr_it->second.minor};
         selfsend_payment_proposals_inout.push_back(carrot::CarrotPaymentProposalVerifiableSelfSendV1{
             .proposal = carrot::CarrotPaymentProposalSelfSendV1{
                 .destination_address_spend_pubkey = tx_dest_entry.addr.m_spend_public_key,
                 .amount = tx_dest_entry.amount,
                 .enote_type = carrot::CarrotEnoteType::PAYMENT
             },
-            .subaddr_index = {subaddr_index, carrot::AddressDeriveType::PreCarrot} // @TODO: handle carrot
+            .subaddr_index = *subaddr_it
         });
     }
     else // not *known* self-send address
@@ -156,7 +153,7 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
         });
     }
 
-    return is_selfsend_dest;
+    return subaddr_it.has_value();
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -166,7 +163,7 @@ static void build_payment_proposals_sweep(std::vector<carrot::CarrotPaymentPropo
     const bool is_subaddress,
     const std::size_t n_dests,
     const crypto::hash8 payment_id,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
+    const carrot::subaddress_map &subaddress_map)
 {
     for (std::size_t i = 0; i < n_dests; ++i)
     {
@@ -215,20 +212,21 @@ static cryptonote::tx_destination_entry make_tx_destination_entry(
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static crypto::public_key find_change_address_spend_pubkey(
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::uint32_t subaddr_account)
 {
-    const auto change_it = std::find_if(subaddress_map.cbegin(), subaddress_map.cend(),
-        [subaddr_account](const auto &p) { return p.second.major == subaddr_account && p.second.minor == 0; });
-    CHECK_AND_ASSERT_THROW_MES(change_it != subaddress_map.cend(),
-        "find_change_address_spend_pubkey: missing change address (index "
-        << subaddr_account << ",0) in subaddress map");
-    const auto change_it_2 = std::find_if(std::next(change_it), subaddress_map.cend(),
-        [subaddr_account](const auto &p) { return p.second.major == subaddr_account && p.second.minor == 0; });
-    CHECK_AND_ASSERT_THROW_MES(change_it_2 == subaddress_map.cend(),
-        "find_change_address_spend_pubkey: provided subaddress map is malformed!!! At least two spend pubkeys map to "
-        "index " << subaddr_account << ",0 in the subaddress map!");
-    return change_it->first;
+    // First try using a carrot change address, then try pre-Carrot
+
+    const carrot::subaddress_index index{.major = subaddr_account, .minor = 0};
+    const auto carrot_it = subaddress_map.get_address_spend_pubkey_for_index(
+        carrot::subaddress_index_extended{.index = index, .derive_type = carrot::AddressDeriveType::Carrot});
+    if (carrot_it)
+        return *carrot_it;
+    const auto precarrot_it = subaddress_map.get_address_spend_pubkey_for_index(
+        carrot::subaddress_index_extended{.index = index, .derive_type = carrot::AddressDeriveType::PreCarrot});
+    if (precarrot_it)
+        return *precarrot_it;
+    ASSERT_MES_AND_THROW("Address spend pubkey not found in subaddress map for account #" << subaddr_account);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -516,7 +514,7 @@ std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     std::vector<uint8_t> extra,
@@ -597,7 +595,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -670,7 +668,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -848,50 +846,6 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
     }
 
     return selected_transfer_indices;
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal(
-    const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
-    const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const crypto::secret_key &k_spend)
-{
-    const size_t n_inputs = tx_proposal.input_proposals.size();
-    CHECK_AND_ASSERT_THROW_MES(rerandomized_outputs.size() == n_inputs,
-        "wrong size for rerandomized_outputs");
-
-    //! @TODO: carrot hierarchy
-    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev(&addr_dev, nullptr);
-    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev(k_spend);
-    const carrot::key_image_device_composed key_image_dev(legacy_spend_image_dev,
-        hybrid_addr_dev,
-        nullptr,
-        &addr_dev);
-
-    crypto::hash signable_tx_hash;
-    carrot::make_signable_tx_hash_from_proposal_v1(tx_proposal,
-        /*s_view_balance_dev=*/nullptr,
-        &addr_dev,
-        key_image_dev,
-        signable_tx_hash);
-
-    std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki;
-    for (size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
-    {
-        //! @TODO: spend device
-        fcmp_pp::FcmpPpSalProof sal_proof;
-        crypto::key_image actual_key_image;
-        carrot::make_sal_proof_any_to_legacy_v1(signable_tx_hash,
-            rerandomized_outputs.at(input_idx),
-            tx_proposal.input_proposals.at(input_idx),
-            k_spend,
-            addr_dev,
-            sal_proof,
-            actual_key_image);
-        sal_proofs_by_ki.emplace(actual_key_image, std::move(sal_proof));
-    }
-
-    return sal_proofs_by_ki;
 }
 //-------------------------------------------------------------------------------------------------------------------
 cryptonote::transaction finalize_fcmps_and_range_proofs(
@@ -1184,7 +1138,10 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const cryptonote::account_keys &acc_keys)
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev)
 {
     const size_t n_inputs = tx_proposal.input_proposals.size();
     const size_t n_outputs = tx_proposal.normal_payment_proposals.size()
@@ -1197,23 +1154,11 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
         << tx_proposal.selfsend_payment_proposals.size() << " self-send payment proposals, and a fee of "
         << tx_proposal.fee << " pXMR");
 
-    //! @TODO: carrot hierarchy / HW device
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        acc_keys.m_account_address.m_spend_public_key,
-        acc_keys.m_view_secret_key);
-    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev(&addr_dev, nullptr);
-    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev(acc_keys.m_spend_secret_key);
-    const carrot::key_image_device_composed key_image_dev(legacy_spend_image_dev,
-        hybrid_addr_dev,
-        nullptr,
-        &addr_dev);
-    const crypto::public_key main_address_spend_pubkey = addr_dev.get_cryptonote_account_spend_pubkey();
-
     // finalize key images
     std::vector<crypto::key_image> sorted_input_key_images;
     std::vector<std::size_t> key_image_order;
     carrot::get_sorted_input_key_images_from_proposal_v1(tx_proposal,
-        key_image_dev,
+        spend_dev,
         sorted_input_key_images,
         &key_image_order);
 
@@ -1230,8 +1175,8 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     carrot::get_output_enote_proposals(tx_proposal.normal_payment_proposals,
         selfsend_payment_proposal_cores,
         tx_proposal.dummy_encrypted_payment_id,
-        /*s_view_balance_dev=*/nullptr, //! @TODO: internal
-        &addr_dev,
+        s_view_balance_dev,
+        &k_view_incoming_dev,
         sorted_input_key_images.at(0),
         output_enote_proposals,
         encrypted_payment_id);
@@ -1252,9 +1197,9 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
 
         rct::xmr_amount amount;
         carrot::try_scan_opening_hint_amount(input_proposal,
-            {&main_address_spend_pubkey, 1},
-            &addr_dev,
-            nullptr,
+            main_address_spend_pubkeys,
+            &k_view_incoming_dev,
+            s_view_balance_dev,
             amount,
             input_amount_blinding_factors.emplace_back());
     }
@@ -1265,46 +1210,63 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     for (const carrot::RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
         output_amount_blinding_factors.push_back(rct::sk2rct(output_enote_proposal.amount_blinding_factor));
 
-    // make rerandomized outputs
+    // make rerandomized outputs and collect by OTA
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     carrot::make_carrot_rerandomized_outputs_nonrefundable(input_onetime_addresses,
         input_amount_commitments,
         input_amount_blinding_factors,
         output_amount_blinding_factors,
         rerandomized_outputs);
-
-    // do SA/L proofs for each input
-    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-    sal_proofs.reserve(n_inputs);
+    std::unordered_map<crypto::public_key, FcmpRerandomizedOutputCompressed> rerandomized_outputs_by_ota;
+    for (std::size_t input_idx = 0; input_idx < rerandomized_outputs.size(); ++input_idx)
     {
-        PERF_TIMER(sign_carrot_transaction_proposal);
-        std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki =
-            sign_carrot_transaction_proposal(
-                tx_proposal, rerandomized_outputs, addr_dev, acc_keys.m_spend_secret_key);
-
-        for (const crypto::key_image &ki : sorted_input_key_images)
-        {
-            const auto sal_it = sal_proofs_by_ki.find(ki);
-            CHECK_AND_ASSERT_THROW_MES(sal_it != sal_proofs_by_ki.end(),
-                "missing SA/L proof");
-            CHECK_AND_ASSERT_THROW_MES(sal_it->second.size() == FCMP_PP_SAL_PROOF_SIZE_V1,
-                "unexpected SA/L proof size");
-            sal_proofs.push_back(std::move(sal_it->second));
-            sal_proofs_by_ki.erase(sal_it);
-        }
+        const crypto::public_key onetime_address = onetime_address_ref(tx_proposal.input_proposals.at(input_idx));
+        rerandomized_outputs_by_ota[onetime_address] = rerandomized_outputs.at(input_idx);
     }
 
-    // sort rerandomized outputs in key image order
+    // call spend device to do SA/L proofs for each input
+    crypto::hash signable_tx_hash;
+    carrot::spend_device::signed_input_set_t signed_inputs;
+    const bool sign_success = spend_dev.try_sign_carrot_transaction_proposal_v1(tx_proposal,
+        rerandomized_outputs_by_ota,
+        signable_tx_hash,
+        signed_inputs);
+    CHECK_AND_ASSERT_THROW_MES(sign_success, "Device declined to sign inputs");
+
+    // sort and collect input infos in key image order
     tools::apply_permutation(key_image_order, rerandomized_outputs);
+    std::vector<fcmp_pp::FcmpPpSalProof> sorted_sal_proofs;
+    sorted_sal_proofs.reserve(signed_inputs.size());
+    for (const auto &signed_input : signed_inputs)
+        sorted_sal_proofs.push_back(signed_input.second.second);
 
     return finalize_fcmps_and_range_proofs(sorted_input_key_images,
         rerandomized_outputs,
-        sal_proofs,
+        sorted_sal_proofs,
         output_enote_proposals,
         encrypted_payment_id,
         tx_proposal.fee,
         tree_cache,
         curve_trees);
+}
+//-------------------------------------------------------------------------------------------------------------------
+cryptonote::transaction finalize_all_fcmp_pp_proofs(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
+    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
+    const carrot::address_device &addr_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev)
+{
+    crypto::public_key main_address_spend_pubkeys[2];
+    return finalize_all_fcmp_pp_proofs(tx_proposal,
+        tree_cache,
+        curve_trees,
+        carrot::get_all_main_address_spend_pubkeys_span(addr_dev, main_address_spend_pubkeys),
+        k_view_incoming_dev,
+        s_view_balance_dev,
+        spend_dev);
 }
 //-------------------------------------------------------------------------------------------------------------------
 pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_proposal,
@@ -1337,7 +1299,7 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
         && tx_proposal.normal_payment_proposals.size() == 1
         && tx_proposal.normal_payment_proposals.at(0).amount == 0;
     CHECK_AND_ASSERT_THROW_MES(!tx_proposal.selfsend_payment_proposals.empty(),
-        "make_pending_carrot_tx: carrot tx proposal missing a self-send proposal");
+        "carrot tx proposal missing a self-send proposal");
 
     // collect destinations
     //! @TODO: payment proofs for special self-send, perhaps generate d_e deterministically
@@ -1391,7 +1353,7 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
         const std::uint32_t other_subaddr_account = subaddress_index_ref(input_proposal).index.major;
         if (other_subaddr_account != subaddr_account)
         {
-            MWARNING("make_pending_carrot_tx: conflicting account indices: " << subaddr_account << " vs "
+            MWARNING("Conflicting account indices in pending : " << subaddr_account << " vs "
                 << other_subaddr_account);
         }
         subaddr_indices.insert(subaddress_index_ref(input_proposal).index.minor);
@@ -1420,32 +1382,27 @@ pending_tx finalize_all_fcmp_pp_proofs_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const cryptonote::account_keys &acc_keys)
+    const carrot::address_device &addr_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev)
 {
-    //! @TODO: carrot hierarchy
-    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        acc_keys.m_account_address.m_spend_public_key,
-        acc_keys.m_view_secret_key);
-    const carrot::hybrid_hierarchy_address_device_composed hybrid_addr_dev(&addr_dev, nullptr);
-    const carrot::generate_image_key_ram_borrowed_device legacy_spend_image_dev(acc_keys.m_spend_secret_key);
-    const carrot::key_image_device_composed key_image_dev(legacy_spend_image_dev,
-        hybrid_addr_dev,
-        nullptr,
-        &addr_dev);
-
     std::vector<crypto::key_image> sorted_input_key_images;
     carrot::get_sorted_input_key_images_from_proposal_v1(tx_proposal,
-        key_image_dev,
+        spend_dev,
         sorted_input_key_images);
 
     pending_tx ptx = make_pending_carrot_tx(tx_proposal,
         sorted_input_key_images,
-        addr_dev);
+        k_view_incoming_dev);
 
     ptx.tx = finalize_all_fcmp_pp_proofs(tx_proposal,
         tree_cache,
         curve_trees,
-        acc_keys);
+        addr_dev,
+        k_view_incoming_dev,
+        s_view_balance_dev,
+        spend_dev);
 
     return ptx;
 }

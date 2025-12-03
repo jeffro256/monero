@@ -1,21 +1,21 @@
 // Copyright (c) 2025, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -29,46 +29,36 @@
 #pragma once
 
 //local headers
-#include "carrot_core/device.h"
+#include "crypto/crypto.h"
 #include "subaddress_index.h"
 
 //third party headers
 
 //standard headers
+#include <optional>
 
 //forward declarations
 
 namespace carrot
 {
-static constexpr const int E_UNSUPPORTED_ADDRESS_TYPE = 1;
-
-struct address_device
+struct subaddress_map
 {
     /**
-     * brief: get K^j_s given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
+     * brief: Get the index and derivation type of an address given its spend pubkey
+     * param: address_spend_pubkey - K^j_s
+     * return: j for K^j_s, std::nullopt if unable
      */
-    virtual void get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out) const = 0;
+    virtual std::optional<subaddress_index_extended> get_index_for_address_spend_pubkey(
+        const crypto::public_key &address_spend_pubkey) const = 0;
 
     /**
-     * brief: get (K^j_s, K^j_v) given j
+     * brief: Get the spend pubkey of an address given index and derivation type
      * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     * outparam: address_view_pubkey_out - K^j_v
+     * return: K^j_s for j, std::nullopt if unable
      */
-    virtual void get_address_pubkeys(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out,
-        crypto::public_key &address_view_pubkey_out) const = 0;
+    virtual std::optional<crypto::public_key> get_address_spend_pubkey_for_index(
+        const subaddress_index_extended &subaddr_index) const = 0;
 
-    /**
-     * get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
-     */
-    virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
-        crypto::secret_key &address_extension_g_out,
-        crypto::secret_key &address_scalar_out) const = 0;
-
-    virtual ~address_device() = default;
+    virtual ~subaddress_map() = default;
 };
 } //namespace carrot

@@ -29,46 +29,20 @@
 #pragma once
 
 //local headers
-#include "carrot_core/device.h"
-#include "subaddress_index.h"
 
 //third party headers
 
 //standard headers
+#include <functional>
 
 //forward declarations
 
-namespace carrot
+namespace tools
 {
-static constexpr const int E_UNSUPPORTED_ADDRESS_TYPE = 1;
-
-struct address_device
+template <typename T>
+void hash_combine(std::size_t &seed, T const& v)
 {
-    /**
-     * brief: get K^j_s given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     */
-    virtual void get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out) const = 0;
-
-    /**
-     * brief: get (K^j_s, K^j_v) given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     * outparam: address_view_pubkey_out - K^j_v
-     */
-    virtual void get_address_pubkeys(const subaddress_index_extended &subaddr_index,
-        crypto::public_key &address_spend_pubkey_out,
-        crypto::public_key &address_view_pubkey_out) const = 0;
-
-    /**
-     * get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
-     */
-    virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
-        crypto::secret_key &address_extension_g_out,
-        crypto::secret_key &address_scalar_out) const = 0;
-
-    virtual ~address_device() = default;
-};
-} //namespace carrot
+    // see boost::hash_combine()
+    seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+} //namespace tools

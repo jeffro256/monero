@@ -62,14 +62,30 @@ struct make_local_device_error
 namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
-key_image_device_composed::key_image_device_composed(const generate_image_key_device &k_generate_image_dev,
-    const hybrid_hierarchy_address_device &addr_dev,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_incoming_dev):
-        m_k_generate_image_dev(k_generate_image_dev),
-        m_addr_dev(addr_dev),
-        m_s_view_balance_dev(s_view_balance_dev),
-        m_k_view_incoming_dev(k_view_incoming_dev)
+key_image_device_composed::key_image_device_composed(std::shared_ptr<generate_image_key_device> k_generate_image_dev,
+    std::shared_ptr<address_device> addr_dev,
+    std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+    std::shared_ptr<view_incoming_key_device> k_view_incoming_dev):
+        m_legacy_k_generate_image_dev(s_view_balance_dev ?
+            std::shared_ptr<generate_image_key_device>{} : std::move(k_generate_image_dev)),
+        m_carrot_k_generate_image_dev(s_view_balance_dev
+            ? std::move(k_generate_image_dev) : std::shared_ptr<generate_image_key_device>{}),
+        m_addr_dev(std::move(addr_dev)),
+        m_s_view_balance_dev(std::move(s_view_balance_dev)),
+        m_k_view_incoming_dev(std::move(k_view_incoming_dev))
+{}
+//-------------------------------------------------------------------------------------------------------------------
+key_image_device_composed::key_image_device_composed(
+    std::shared_ptr<generate_image_key_device> legacy_k_generate_image_dev,
+    std::shared_ptr<generate_image_key_device> carrot_k_generate_image_dev,
+    std::shared_ptr<address_device> addr_dev,
+    std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+    std::shared_ptr<view_incoming_key_device> k_view_incoming_dev):
+        m_legacy_k_generate_image_dev(std::move(legacy_k_generate_image_dev)),
+        m_carrot_k_generate_image_dev(std::move(carrot_k_generate_image_dev)),
+        m_addr_dev(std::move(addr_dev)),
+        m_s_view_balance_dev(std::move(s_view_balance_dev)),
+        m_k_view_incoming_dev(std::move(k_view_incoming_dev))
 {}
 //-------------------------------------------------------------------------------------------------------------------
 crypto::key_image key_image_device_composed::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
@@ -78,7 +94,7 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
     const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
 
     crypto::public_key main_address_spend_pubkeys[2];
-    const std::size_t n_main_addrs = get_all_main_address_spend_pubkeys(m_addr_dev, main_address_spend_pubkeys);
+    const std::size_t n_main_addrs = get_all_main_address_spend_pubkeys(*m_addr_dev, main_address_spend_pubkeys);
     CARROT_CHECK_AND_THROW(n_main_addrs > 0, make_local_device_error(-4, "derive_key_image"),
         "Address device supports no known address derivation scheme");
 
@@ -87,8 +103,8 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
     crypto::secret_key sender_extension_t;
     if (!try_scan_opening_hint_sender_extensions(opening_hint,
         {main_address_spend_pubkeys, n_main_addrs},
-        m_k_view_incoming_dev,
-        m_s_view_balance_dev,
+        m_k_view_incoming_dev.get(),
+        m_s_view_balance_dev.get(),
         sender_extension_g,
         sender_extension_t))
     {
@@ -102,60 +118,51 @@ crypto::key_image key_image_device_composed::derive_key_image_prescanned(const c
     const crypto::public_key &onetime_address,
     const subaddress_index_extended &subaddr_index) const
 {
-    AddressDeriveType resolved_derive_type = subaddr_index.derive_type;
-    resolved_derive_type = resolved_derive_type != AddressDeriveType::Auto
-        ? resolved_derive_type
-        : m_addr_dev.supports_address_derivation_type(AddressDeriveType::Carrot)
-            ? AddressDeriveType::Carrot
-            : AddressDeriveType::PreCarrot;
-    CARROT_CHECK_AND_THROW(m_addr_dev.supports_address_derivation_type(resolved_derive_type),
-        make_local_device_error(-1, "derive_key_image_prescanned"), "Address derive type not supported");
+    // resolve generate-image device
+    const generate_image_key_device *used_k_generate_image_dev = nullptr;
+    switch (subaddr_index.derive_type)
+    {
+    case AddressDeriveType::Auto:
+        CARROT_THROW(make_local_device_error(-11, "derive_key_image_prescanned"),
+            "Cannot use Auto derive type for opening key images");
+        break;
+    case AddressDeriveType::PreCarrot:
+        used_k_generate_image_dev = m_legacy_k_generate_image_dev.get();
+        break;
+    case AddressDeriveType::Carrot:
+        used_k_generate_image_dev = m_carrot_k_generate_image_dev.get();
+        break;
+    default:
+        CARROT_THROW(make_local_device_error(-9, "derive_key_image_prescanned"),
+            "Unrecognized subaddress index derive type");
+    }
+    CARROT_CHECK_AND_THROW(used_k_generate_image_dev != nullptr,
+        make_local_device_error(-10, "derive_key_image_prescanned"),
+        "No generate-image device present for given subaddress index type");
 
     // [legacy] L_partial = k_s Hp(K_o)
     // [carrot] L_partial = k_gi Hp(K_o)
     rct::key partial_key_image
-        = rct::pt2rct(m_k_generate_image_dev.generate_image_scalar_mult_hash_to_point(onetime_address));
+        = rct::pt2rct(used_k_generate_image_dev->generate_image_scalar_mult_hash_to_point(onetime_address));
 
     // I = Hp(K_o)
     crypto::ec_point key_image_generator;
     crypto::derive_key_image_generator(onetime_address, key_image_generator);
 
-    // get K_s, modify L_partial
+    // get k^j_subscal, k^j_subext
     crypto::secret_key subaddr_extension_g;
-    crypto::secret_key carrot_address_index_extension_generator;
     crypto::secret_key carrot_subaddr_scalar;
-    rct::key tmp;
-    switch (resolved_derive_type)
-    {
-        case AddressDeriveType::PreCarrot:
-            // L_partial += k^j_subext Hp(O)
-            m_addr_dev.access_cryptonote_hierarchy_device().make_legacy_subaddress_extension(subaddr_index.index.major,
-                subaddr_index.index.minor, subaddr_extension_g);
-            tmp = rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(subaddr_extension_g));
-            partial_key_image = rct::addKeys(tmp, partial_key_image);
-            break;
-        case AddressDeriveType::Carrot:
-            if (subaddr_index.index.is_subaddress())
-            {
-                // L_partial *= k^j_subscal
-                m_addr_dev.access_carrot_hierarchy_device().make_index_extension_generator(subaddr_index.index.major,
-                    subaddr_index.index.minor,
-                    carrot_address_index_extension_generator);
-                make_carrot_subaddress_scalar(
-                    m_addr_dev.access_carrot_hierarchy_device().get_carrot_account_spend_pubkey(),
-                    m_addr_dev.access_carrot_hierarchy_device().get_carrot_account_view_pubkey(),
-                    carrot_address_index_extension_generator,
-                    subaddr_index.index.major,
-                    subaddr_index.index.minor,
-                    carrot_subaddr_scalar);
-                partial_key_image = rct::scalarmultKey(partial_key_image, rct::sk2rct(carrot_subaddr_scalar));
-            }
-            break;
-        default:
-            throw make_local_device_error{-2, "derive_key_image_prescanned"}("unrecognized address derive type");
-    }
+    m_addr_dev->get_address_openings(subaddr_index, subaddr_extension_g, carrot_subaddr_scalar);
 
-    // L = K^g_o Hp(K_o) + L_partial
+    // L_partial = k^j_subscal L_partial
+    partial_key_image = rct::scalarmultKey(partial_key_image, rct::sk2rct(carrot_subaddr_scalar));
+
+    // L_partial = k^j_subext I + L_partial
+    rct::key tmp;
+    tmp = rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(subaddr_extension_g));
+    partial_key_image = rct::addKeys(tmp, partial_key_image);
+
+    // L = k^g_o I + L_partial
     tmp = rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(sender_extension_g));
     return rct::rct2ki(rct::addKeys(tmp, partial_key_image));
 }

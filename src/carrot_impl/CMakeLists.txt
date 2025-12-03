@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(carrot_impl_sources
+  address_device_hierarchies.cpp
   address_device_ram_borrowed.cpp
   address_utils.cpp
   format_utils.cpp
@@ -35,6 +36,8 @@ set(carrot_impl_sources
   key_image_device_precomputed.cpp
   multi_tx_proposal_utils.cpp
   output_opening_types.cpp
+  spend_device_ram_borrowed.cpp
+  subaddress_map_legacy.cpp
   tx_builder_inputs.cpp
   tx_builder_outputs.cpp
   tx_proposal_utils.cpp

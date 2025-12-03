@@ -30,6 +30,10 @@
 
 #include "fcmp_pp.h"
 
+#include "carrot_core/device_ram_borrowed.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/spend_device_ram_borrowed.h"
+#include "carrot_impl/subaddress_map_legacy.h"
 #include "ringct/rctSigs.h"
 #include "ringct/bulletproofs_plus.h"
 #include "chaingen.h"
@@ -395,7 +399,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
 
   const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
       {wallet2_td},
-      subaddrs,
+      carrot::subaddress_map_legacy{subaddrs},
       destinations,
       /*fee_per_weight=*/10000000, // This is just a mock value to pass the test
       /*extra=*/{},
@@ -407,10 +411,18 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       n_synced_blocks - 1);
   CHECK_AND_ASSERT_MES(tx_proposals.size() == 1, false, "Expected 1 tx proposal");
 
+  const crypto::secret_key &k_s = miner_account.get_keys().m_spend_secret_key;
+  const crypto::secret_key &k_v = miner_account.get_keys().m_view_secret_key;
+  const crypto::public_key &K_s = miner_account.get_keys().m_account_address.m_spend_public_key;
+  const auto k_view_incoming_dev = std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(k_v);
+  const carrot::cryptonote_hierarchy_address_device cn_addr_dev(k_view_incoming_dev, K_s);
   rct_txes.back() = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposals.front(),
       tree_cache,
       *fcmp_pp::curve_trees::curve_trees_v1(),
-      miner_account.get_keys());
+      cn_addr_dev,
+      *k_view_incoming_dev,
+      /*s_view_balance_dev=*/nullptr,
+      carrot::spend_device_ram_borrowed(k_s, k_v));
 
   if (post_tx && !post_tx(rct_txes.back(), 0))
   {

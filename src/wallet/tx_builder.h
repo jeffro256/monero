@@ -31,6 +31,8 @@
 //local headers
 #include "carrot_impl/address_device.h"
 #include "carrot_impl/input_selection.h"
+#include "carrot_impl/spend_device.h"
+#include "carrot_impl/subaddress_map.h"
 #include "fee_priority.h"
 #include "fcmp_pp/tree_cache.h"
 #include "wallet2_basic/wallet2_types.h"
@@ -180,7 +182,7 @@ std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     std::vector<uint8_t> extra,
@@ -207,7 +209,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -234,7 +236,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
  */
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
@@ -267,19 +269,6 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
 std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_variant_t &tx_construction_data,
     const wallet2_basic::transfer_container &transfers);
 /**
- * brief: sign all Carrot transaction proposal inputs given rerandomized outputs
- * param: tx_proposal -
- * param: rerandomized_outputs - rerandomized outputs in order of input proposals in `tx_proposal`
- * param: addr_dev -
- * param: k_spend - k_s
- * return: valid SA/L proofs by key image
- */
-std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal(
-    const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
-    const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const crypto::secret_key &k_spend);
-/**
  * brief: finalize FCMPs and BP+ range proofs for output amounts for Carrot/FCMP++ txs
  * param: sorted_input_key_images - key images in input order
  * param: sorted_rerandomized_outputs - rerandomized outputs in key image order
@@ -303,14 +292,29 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
  * param: tx_proposal -
  * param: tree_cache - FCMP tree cache to draw enote paths from
  * param: curve_trees -
- * param: acc_keys -
+ * param: main_address_spend_pubkeys - all K_s
+ * param: addr_dev -
+ * param: k_view_incoming_dev -
+ * param: s_view_balance_dev -
+ * param: spend_dev -
  * return: a fully proved FCMP++ transaction corresponding to the transaction proposal
  */
 cryptonote::transaction finalize_all_fcmp_pp_proofs(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const cryptonote::account_keys &acc_keys);
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev);
+cryptonote::transaction finalize_all_fcmp_pp_proofs(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
+    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
+    const carrot::address_device &addr_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev);
 /**
  * brief: fill out a `pending_tx` from a Carrot transaction proposal, excluding the transaction itself
  * param: tx_proposal -
@@ -333,7 +337,10 @@ pending_tx finalize_all_fcmp_pp_proofs_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const cryptonote::account_keys &acc_keys);
+    const carrot::address_device &addr_dev,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::spend_device &spend_dev);
 
 } //namespace wallet
 } //namespace tools

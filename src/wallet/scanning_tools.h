@@ -34,6 +34,7 @@
 #include "carrot_impl/address_device.h"
 #include "carrot_impl/key_image_device.h"
 #include "carrot_impl/subaddress_index.h"
+#include "carrot_impl/subaddress_map.h"
 #include "crypto/crypto.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -113,7 +114,7 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote_from_pre
     const std::size_t local_output_index,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
+    const carrot::subaddress_map &subaddress_map);
 
 /**
  * brief: do a view-incoming scan as receiver on all enotes in a full tx
@@ -137,19 +138,19 @@ void view_incoming_scan_transaction(
     const epee::span<const crypto::key_derivation> additional_derivations,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const carrot::subaddress_map &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
-    const carrot::hybrid_hierarchy_address_device &addr_dev,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
+    const carrot::address_device &addr_dev,
+    const carrot::subaddress_map &subaddress_map);
 
 /**
  * brief: do a view-incoming scan as sender on all enotes in a full tx

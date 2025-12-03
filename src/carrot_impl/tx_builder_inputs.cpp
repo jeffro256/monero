@@ -35,6 +35,7 @@
 #include "carrot_core/config.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/scan.h"
+#include "carrot_impl/address_utils.h"
 #include "crypto/generators.h"
 #include "fcmp_pp/prove.h"
 #include "misc_log_ex.h"
@@ -185,13 +186,14 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
     crypto::key_image &key_image_out)
 {
     // get K_s
-    const crypto::public_key main_address_spend_pubkey = addr_dev.get_cryptonote_account_spend_pubkey();
+    crypto::public_key main_address_spend_pubkey;
+    addr_dev.get_address_spend_pubkey({}, main_address_spend_pubkey);
 
     // k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
     const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
     crypto::secret_key address_privkey_g;
-    addr_dev.make_legacy_subaddress_extension(subaddr_index.index.major,
-        subaddr_index.index.minor, address_privkey_g);
+    crypto::secret_key dummy_subaddress_scalar;
+    addr_dev.get_address_openings(subaddr_index, address_privkey_g, dummy_subaddress_scalar);
 
     // k^j_g = k^j_subext + k_s
     sc_add(to_bytes(address_privkey_g), to_bytes(address_privkey_g), to_bytes(k_spend));
@@ -266,6 +268,43 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
         {&main_address_spend_pubkey, 1},
         &k_view_incoming_dev,
         &s_view_balance_dev,
+        sal_proof_out,
+        key_image_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_sal_proof_any_to_hybrid_v1(const crypto::hash &signable_tx_hash,
+    const FcmpRerandomizedOutputCompressed &rerandomized_output,
+    const OutputOpeningHintVariant &opening_hint,
+    const crypto::secret_key &k_privkey_g,
+    const crypto::secret_key &k_privkey_t,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device &k_view_incoming_dev,
+    const address_device &addr_dev,
+    fcmp_pp::FcmpPpSalProof &sal_proof_out,
+    crypto::key_image &key_image_out)
+{
+    crypto::secret_key subaddress_extention_g;
+    crypto::secret_key subaddress_scalar;
+    addr_dev.get_address_openings(subaddress_index_ref(opening_hint), subaddress_extention_g, subaddress_scalar);
+
+    // k^j_g = k_g * k^j_subscal + k^j_subext
+    crypto::secret_key address_privkey_g;
+    sc_muladd(to_bytes(address_privkey_g), to_bytes(k_privkey_g),
+        to_bytes(subaddress_scalar), to_bytes(subaddress_extention_g));
+
+    // k^j_t = k_t * k^j_subscal
+    crypto::secret_key address_privkey_t;
+    sc_mul(to_bytes(address_privkey_t), to_bytes(k_privkey_t), to_bytes(subaddress_scalar));
+
+    crypto::public_key main_address_spend_pubkeys[2];
+    make_sal_proof_nominal_address(signable_tx_hash,
+        rerandomized_output,
+        address_privkey_g,
+        address_privkey_t,
+        opening_hint,
+        get_all_main_address_spend_pubkeys_span(addr_dev, main_address_spend_pubkeys),
+        &k_view_incoming_dev,
+        s_view_balance_dev,
         sal_proof_out,
         key_image_out);
 }

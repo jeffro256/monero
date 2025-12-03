@@ -41,12 +41,12 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
-
     // (K^0_s, K^0_v)
     const CarrotDestinationV1 addr = keys.cryptonote_address();
+
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        addr.address_spend_pubkey);
 
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
@@ -81,7 +81,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.legacy_key_image_dev.derive_key_image(opening_hint);
+    const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -103,7 +103,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -121,12 +121,12 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // j
-    const subaddress_index_extended subaddress_index = mock::gen_subaddress_index_extended();
+    const subaddress_index_extended subaddress_index = mock::gen_subaddress_index_extended(keys.default_derive_type);
     
     // (K^j_s, K^j_v)
     const CarrotDestinationV1 addr = keys.subaddress(subaddress_index);
@@ -168,7 +168,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
         .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.legacy_key_image_dev.derive_key_image(opening_hint);
+    const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -190,7 +190,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -208,9 +208,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // (K^0_s, K^0_v)
     const CarrotDestinationV1 addr = keys.cryptonote_address();
@@ -277,7 +277,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -295,9 +295,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // j
     const subaddress_index subaddr_index = mock::gen_subaddress_index();
@@ -367,7 +367,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -385,9 +385,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // j
     const subaddress_index subaddr_index = mock::gen_subaddress_index();
@@ -457,7 +457,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -475,9 +475,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // (K^0_s, K^0_v)
     const CarrotDestinationV1 addr = keys.cryptonote_address();
@@ -544,7 +544,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 
@@ -1087,9 +1087,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
     mock::mock_carrot_and_legacy_keys keys;
     keys.generate(AddressDeriveType::PreCarrot);
 
-    const cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
-        keys.legacy_acb.get_keys().m_view_secret_key);
+    const cryptonote_hierarchy_address_device cn_addr_dev(
+        std::make_shared<cryptonote_view_incoming_key_ram_borrowed_device>(keys.k_view_incoming_dev),
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key);
 
     // (K^0_s, K^0_v)
     const CarrotDestinationV1 addr = keys.cryptonote_address();
@@ -1149,7 +1149,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
-        addr_dev,
+        cn_addr_dev,
         sal_proof,
         actual_key_image);
 

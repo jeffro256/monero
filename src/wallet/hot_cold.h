@@ -29,7 +29,7 @@
 #pragma once
 
 //local headers
-#include "carrot_impl/address_device.h"
+#include "carrot_impl/address_device_hierarchies.h"
 #include "carrot_impl/subaddress_index.h"
 #include "span.h"
 #include "tx_builder.h"
