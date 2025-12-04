@@ -162,7 +162,7 @@ namespace cryptonote
     try
     {
       fee_good = kept_by_block ||
-        (check_max_txpool_weight(id, tx_weight, fee) && m_blockchain.check_fee(tx_weight, fee));
+        (check_pool_capacity(id, tx_weight, fee) && m_blockchain.check_fee(tx_weight, fee));
     }
     catch(...) {}
     if (!fee_good) // if fee calculation failed or fee in relayed tx is too low...
@@ -383,27 +383,32 @@ namespace cryptonote
     m_txpool_max_weight = bytes;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::check_max_txpool_weight(const crypto::hash &id, const size_t weight, const uint64_t fee) const
+  bool tx_memory_pool::check_pool_capacity(const crypto::hash &id, const size_t weight, const uint64_t fee) const
   {
+    if (weight == 0)
+      return true;
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
-    const double tx_fee_per_byte = (double) fee / weight;
-    MDEBUG("Checking tx: " << id << ", fee/byte: " << tx_fee_per_byte << ", pool total weight: " << m_txpool_weight);
-
+    // If the tx doesn't push the pool over the capacity limit, it fits! We can immediately return true
     if ((weight + m_txpool_weight) < m_txpool_max_weight)
       return true;
+
+    // If it does, then see if it pays a higher fee than any txs already in the pool
     if (m_txs_by_fee_and_receive_time.size() <= 1)
       return true;
-
     const auto it = --m_txs_by_fee_and_receive_time.end();
     if (it == m_txs_by_fee_and_receive_time.begin())
       return true;
 
+    const double fee_per_byte = (double) fee / weight;
+    MDEBUG("Check pool capacity for tx " << id << ", fee/byte: " << fee_per_byte << ", pool total weight: " << m_txpool_weight);
+
     const double lowest_fee_per_byte = it->get_left().first;
-    if (tx_fee_per_byte > lowest_fee_per_byte)
+    if (fee_per_byte > lowest_fee_per_byte)
       return true;
 
-    LOG_PRINT_L1("transaction " << id << " does not pay a high enough fee to enter the pool, pool is at capacity");
+    LOG_PRINT_L1("Pool is at capacity, and tx " << id << " does not pay a high enough fee to enter");
     return false;
   }
   //---------------------------------------------------------------------------------
