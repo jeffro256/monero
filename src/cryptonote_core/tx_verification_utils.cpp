@@ -44,6 +44,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "verify"
 
 #define VER_ASSERT(cond, msgexpr) CHECK_AND_ASSERT_MES(cond, false, msgexpr)
+#define VER_ASSERT_EQ(a, b, msgexpr) VER_ASSERT(a == b, msgexpr << " (" << a << " != " << b << ")");
 
 using namespace cryptonote;
 
@@ -68,8 +69,8 @@ static bool check_fcmp_pp_expanded_tx(const transaction& tx)
 
     // Check pseudoOuts size against transaction inputs
     const size_t n_inputs = rv.p.pseudoOuts.size();
-    VER_ASSERT(n_inputs == tx.vin.size(), "Mismatched pseudo outs to inputs after expanding FCMP tx");
-    VER_ASSERT(n_inputs == rv.p.fcmp_ver_helper_data.key_images.size(), "Mismatched key images to inputs after expanding FCMP tx");
+    VER_ASSERT_EQ(n_inputs, tx.vin.size(), "Mismatched pseudo outs to inputs after expanding FCMP tx");
+    VER_ASSERT_EQ(n_inputs, rv.p.fcmp_ver_helper_data.key_images.size(), "Mismatched key images to inputs after expanding FCMP tx");
 
     // For each input, check that the key images were copied into the expanded RCT sig correctly
     for (size_t n = 0; n < n_inputs; ++n)

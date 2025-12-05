@@ -630,6 +630,9 @@ namespace cryptonote
      * RingCT transactions do not transmit some of their data if it
      * can be reconstituted by the receiver. This function expands
      * that implicit data.
+     *
+     * This function can potentially be called with an already
+     * expanded tx.
      */
     static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys, const fcmp_pp::TreeRootShared &tree_root);
 
