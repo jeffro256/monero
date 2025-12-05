@@ -3618,14 +3618,15 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
     {
       CHECK_AND_ASSERT_MES(tree_root != nullptr, false, "tree_root is null");
       rv.p.fcmp_ver_helper_data.tree_root = tree_root;
-      rv.p.fcmp_ver_helper_data.key_images.reserve(tx.vin.size());
+      rv.p.fcmp_ver_helper_data.key_images.resize(tx.vin.size());
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
-        crypto::key_image ki = boost::get<txin_to_key>(tx.vin[n]).k_image;
-        rv.p.fcmp_ver_helper_data.key_images.emplace_back(std::move(ki));
+        rv.p.fcmp_ver_helper_data.key_images[n] = boost::get<txin_to_key>(tx.vin[n]).k_image;
       }
     }
   }
+  // WARNING to any future devs adding to this function: this function can be called with an already expanded tx.
+  // Make sure this function can handle that properly.
   else
   {
     CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " + boost::lexical_cast<std::string>(rv.type));
