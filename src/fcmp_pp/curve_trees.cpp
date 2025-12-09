@@ -1194,13 +1194,7 @@ CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
         auto leaf_tuple = fcmp_pp::curve_trees::output_to_tuple(outputs[i].output_pair);
 
         const uint64_t leaf_chunk_idx = i / m_c1_width;
-        auto it = paths.leaves_by_chunk_idx.find(leaf_chunk_idx);
-        if (it == paths.leaves_by_chunk_idx.end())
-        {
-            paths.leaves_by_chunk_idx[leaf_chunk_idx] = {std::move(leaf_tuple)};
-            continue;
-        }
-        it->second.emplace_back(std::move(leaf_tuple));
+        paths.leaves_by_chunk_idx[leaf_chunk_idx].emplace_back(std::move(leaf_tuple));
     }
 
     // First c1 layer
@@ -1220,21 +1214,13 @@ CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
                 leaf_tuples.push_back(output_tuple_to_leaf_tuple(leaf));
             const auto flat_leaves = this->flatten_leaves(std::move(leaf_tuples));
 
-            // Prepare to insert hash into the container
-            auto c1_layer_it = c1_layer.find(chunk_n);
-            if (c1_layer_it == c1_layer.end())
-            {
-                // Start new chunk if needed
-                c1_layer[chunk_n] = {};
-                c1_layer_it = c1_layer.find(chunk_n);;
-            }
-
             // Hash the leaves
-            c1_layer_it->second.push_back({});
-            hash_first_chunk(m_c1, nullptr, nullptr, 0, flat_leaves, flat_leaves.size(), c1_layer_it->second.back());
+            auto &c1_layer_chunk = c1_layer[chunk_n];
+            c1_layer_chunk.push_back({});
+            hash_first_chunk(m_c1, nullptr, nullptr, 0, flat_leaves, flat_leaves.size(), c1_layer_chunk.back());
 
             // Get ready to hash next chunk of leaves
-            if (c1_layer_it->second.size() == m_c2_width)
+            if (c1_layer_chunk.size() == m_c2_width)
                 ++chunk_n;
             leaves_by_chunk_it = paths.leaves_by_chunk_idx.find(++leaf_chunk_idx);
         }
@@ -1283,20 +1269,12 @@ CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
                 std::vector<Helios::Scalar> c2_scalars;
                 fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_c1, c1_points, c2_scalars);
 
-                // Prepare to insert hash into the container
-                auto c2_layer_it = c2_layer.find(chunk_n);
-                if (c2_layer_it == c2_layer.end())
-                {
-                    // Start new chunk if needed
-                    c2_layer[chunk_n] = {};
-                    c2_layer_it = c2_layer.find(chunk_n);;
-                }
-
                 // Get hash of prior layer chunk
-                c2_layer_it->second.push_back({});
-                hash_first_chunk(m_c2, nullptr, nullptr, 0, c2_scalars, c2_scalars.size(), c2_layer_it->second.back());
+                auto &c2_layer_chunk = c2_layer[chunk_n];
+                c2_layer_chunk.push_back({});
+                hash_first_chunk(m_c2, nullptr, nullptr, 0, c2_scalars, c2_scalars.size(), c2_layer_chunk.back());
 
-                if (c2_layer_it->second.size() == m_c1_width)
+                if (c2_layer_chunk.size() == m_c1_width)
                     ++chunk_n;
             }
 
@@ -1336,20 +1314,12 @@ CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
                 std::vector<Selene::Scalar> c1_scalars;
                 fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_c2, c2_points, c1_scalars);
 
-                // Prepare to insert hash into the container
-                auto c1_layer_it = c1_layer.find(chunk_n);
-                if (c1_layer_it == c1_layer.end())
-                {
-                    // Start new chunk if needed
-                    c1_layer[chunk_n] = {};
-                    c1_layer_it = c1_layer.find(chunk_n);;
-                }
-
                 // Get hash of prior layer chunk
-                c1_layer_it->second.push_back({});
-                hash_first_chunk(m_c1, nullptr, nullptr, 0, c1_scalars, c1_scalars.size(), c1_layer_it->second.back());
+                auto &c1_layer_chunk = c1_layer[chunk_n];
+                c1_layer_chunk.push_back({});
+                hash_first_chunk(m_c1, nullptr, nullptr, 0, c1_scalars, c1_scalars.size(), c1_layer_chunk.back());
 
-                if (c1_layer_it->second.size() == m_c2_width)
+                if (c1_layer_chunk.size() == m_c2_width)
                     ++chunk_n;
             }
 
