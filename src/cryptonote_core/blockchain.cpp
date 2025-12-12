@@ -94,7 +94,10 @@ DISABLE_VS_WARNINGS(4267)
 namespace
 {
 //------------------------------------------------------------------
-static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::transaction &tx, crypto::ec_point &tree_root_out)
+static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
+  const cryptonote::transaction &tx,
+  crypto::ec_point &tree_root_out,
+  tx_verification_context &tvc)
 {
   tree_root_out = crypto::ec_point{};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
@@ -102,8 +105,13 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
   // Make sure reference block exists in the chain
-  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
-      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
+  if (tx.rct_signatures.p.reference_block >= db->height())
+  {
+    // We might not be synced yet and an honest synced peer may have sent us the tx, so we make this a no-drop-offense
+    tvc.m_no_drop_offense = true;
+    LOG_PRINT_L1("tx " << get_transaction_hash(tx) << " included reference block that was too high");
+    return false;
+  }
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
@@ -739,7 +747,8 @@ block Blockchain::pop_block_from_blockchain()
       else if (rct::is_rct_fcmp(tx.rct_signatures.type))
       {
         crypto::ec_point ref_tree_root{};
-        if (get_fcmp_tx_tree_root(m_db, tx, ref_tree_root))
+        tx_verification_context _unused{};
+        if (get_fcmp_tx_tree_root(m_db, tx, ref_tree_root, _unused))
         {
           valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), ref_tree_root);
         }
@@ -2803,7 +2812,8 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
 
   // Get ref block's tree root from the db
   crypto::ec_point tree_root;
-  if (!get_fcmp_tx_tree_root(db, tx, tree_root))
+  tx_verification_context _unused{};
+  if (!get_fcmp_tx_tree_root(db, tx, tree_root, _unused))
   {
     MERROR_VER("Failed to get referenced tree root");
     return false;
@@ -3890,9 +3900,10 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 
   // Read the db for the tree root for FCMP txs
   crypto::ec_point ref_tree_root{};
-  if (rct::is_rct_fcmp(tx.rct_signatures.type))
+  if (rct::is_rct_fcmp(tx.rct_signatures.type) && !get_fcmp_tx_tree_root(m_db, tx, ref_tree_root, tvc))
   {
-    CHECK_AND_ASSERT_MES(get_fcmp_tx_tree_root(m_db, tx, ref_tree_root), false, "failed to get tree root");
+    // Failed to get the tree root
+    return false;
   }
 
   const crypto::hash txid = get_transaction_hash(tx);
