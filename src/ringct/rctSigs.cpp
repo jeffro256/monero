@@ -1775,6 +1775,9 @@ done:
       {
         CHECK_AND_ASSERT_MES(batches[i].batch.size(), false, "Empty batch in batchVerifyFcmpPpProofs");
 
+        MDEBUG("Verifying FCMP++ batch " << (i+1) << " ("
+            << batches[i].total_inputs << " total inputs across " << batches[i].batch.size() << " txs)");
+
         if (!multithreaded)
         {
           results[i] = fcmp_pp::verify(batches[i].batch);
@@ -1784,9 +1787,6 @@ done:
         tpool.submit(&waiter,
             [&, i]()
             {
-              MDEBUG("Verifying FCMP++ batch " << (i+1) << " ("
-                << batches[i].total_inputs << " total inputs across " << batches[i].batch.size() << " txs)");
-
               results[i] = fcmp_pp::verify(batches[i].batch);
 
               MDEBUG("Finished verifying FCMP++ batch " << (i+1) << " / " << batches.size());
