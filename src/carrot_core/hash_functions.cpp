@@ -67,6 +67,7 @@ static void hash_base(const void *derivation_key,  //32 bytes
 
     // Typical blake2b setup with digest length and key length set
     static_assert(std::has_unique_object_representations_v<blake2b_param>);
+    static_assert(static_cast<std::size_t>(BLAKE2B_OUTBYTES) < std::numeric_limits<std::uint8_t>::max());
     blake2b_param b2b_param{};
     b2b_param.digest_length = static_cast<std::uint8_t>(out_length);
     b2b_param.key_length = is_keyed ? 32 : 0;
