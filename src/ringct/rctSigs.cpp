@@ -1718,7 +1718,7 @@ done:
       const bool multithreaded = n_threads > 1;
 
       // 1 batch per thread
-      const std::size_t n_batches = n_threads;
+      const std::size_t n_batches = std::min(n_threads, n_proofs);
 
       struct ProofBatch
       {
