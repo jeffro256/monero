@@ -203,10 +203,9 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static void make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
+static void make_empty_fcmp_pp_pruned_tx_of_size(const size_t n_inputs,
     const size_t n_outputs,
     const size_t extra_len,
-    const uint8_t n_tree_layers,
     const bool max_int_fields,
     cryptonote::transaction &tx_out)
 {
@@ -215,6 +214,8 @@ static void make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
 
     const cryptonote::txout_to_carrot_v1 out_targ{};
     const cryptonote::tx_out out{.target = out_targ};
+
+    tx_out.set_null();
 
     // prefix
     tx_out.version = 2;
@@ -229,6 +230,20 @@ static void make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
     rv.outPk.resize(n_outputs);
     rv.ecdhInfo.resize(n_outputs);
 
+    tx_out.pruned = true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static void make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
+    const size_t n_outputs,
+    const size_t extra_len,
+    const uint8_t n_tree_layers,
+    const bool max_int_fields,
+    cryptonote::transaction &tx_out)
+{
+    make_empty_fcmp_pp_pruned_tx_of_size(n_inputs, n_outputs, extra_len, max_int_fields, tx_out);
+    tx_out.pruned = false;
+
     // BulletproofPlus
     size_t nlr = 0;
     while ((1u << nlr) < n_outputs)
@@ -239,6 +254,7 @@ static void make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
     bpp.R = rct::keyV(nlr);
 
     // rctSigPrunable
+    rct::rctSig &rv = tx_out.rct_signatures;
     rv.p.bulletproofs_plus = {bpp};
     rv.p.pseudoOuts.resize(n_inputs);
     rv.p.reference_block = max_int_fields ? CRYPTONOTE_MAX_BLOCK_NUMBER : 0;
@@ -1026,6 +1042,35 @@ TEST(fcmp_pp, dump_tx_bytesizes)
 
             std::cout << "-----------------------------------------\n";
         }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, dump_pruned_tx_bytesizes)
+{
+    cryptonote::transaction example_tx;
+
+    std::cout << ',';
+    for (std::size_t n = 2; n <= FCMP_PLUS_PLUS_MAX_OUTPUTS; ++n)
+        std::cout << n << ',';
+    std::cout << '\n';
+
+    for (std::size_t m = 1; m <= FCMP_PLUS_PLUS_MAX_INPUTS; ++m)
+    {
+        std::cout << m << ',';
+        for (std::size_t n = 2; n <= FCMP_PLUS_PLUS_MAX_OUTPUTS; ++n)
+        {
+            make_empty_fcmp_pp_pruned_tx_of_size(
+                m,
+                n,
+                carrot::get_carrot_default_tx_extra_size(n),
+                /*max_int_fields=*/true,
+                example_tx);
+
+            const cryptonote::blobdata serialized_blob = cryptonote::tx_to_blob(example_tx);
+
+            std::cout << serialized_blob.size() << ',';
+        }
+        std::cout << '\n';
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
