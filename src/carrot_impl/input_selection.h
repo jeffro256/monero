@@ -173,8 +173,10 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
  * Transaction input counts are trivially observable on-chain, so picking a wrong input count when
  * given the chance between multiple choices can have privacy consequences. The purpose of this
  * function is to determine the order in which we should try to select a certain number of inputs.
+ *
+ * param: max_n_inputs - maximum number of inputs to use in selection, set 0 to to use consensus limit
  */
-std::vector<std::size_t> get_input_counts_in_preferred_order();
+std::vector<std::size_t> get_input_counts_in_preferred_order(std::size_t max_n_inputs);
 /**
  * brief: make_single_transfer_input_selector - a customizable input selector for single (i.e. not batched) transfers
  * param: input_candidates -
@@ -198,6 +200,7 @@ select_inputs_func_t make_single_transfer_input_selector(
     const epee::span<const InputCandidate> input_candidates,
     const epee::span<const input_selection_policy_t> policies,
     const std::uint32_t flags,
+    const std::size_t max_n_inputs,
     std::set<size_t> *selected_input_indices_out);
 
 namespace ispolicy

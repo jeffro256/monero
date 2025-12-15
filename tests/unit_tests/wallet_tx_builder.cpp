@@ -110,6 +110,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        /*max_n_inputs=*/0,
         {},
         top_block_index);
 
@@ -171,6 +172,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        /*max_n_inputs=*/0,
         {},
         top_block_index);
 
@@ -246,6 +248,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_3)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        /*max_n_inputs=*/0,
         /*subtract_fee_from_outputs=*/{0},
         top_block_index);
 
@@ -300,6 +303,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_4)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        /*max_n_inputs=*/0,
         /*subtract_fee_from_outputs=*/{0},
         top_block_index);
 
@@ -330,6 +334,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_4)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        /*max_n_inputs=*/0,
         /*subtract_fee_from_outputs=*/{},
         top_block_index), carrot::not_enough_money);
 }
@@ -784,6 +789,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
             /*subaddr_indices=*/{},
             /*ignore_above=*/std::numeric_limits<rct::xmr_amount>::max(),
             /*ignore_below=*/0,
+            /*max_n_inputs=*/0,
             {},
             /*top_block_index=*/bc.height()-1);
     

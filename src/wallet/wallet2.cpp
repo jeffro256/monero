@@ -10625,7 +10625,15 @@ static uint32_t get_count_above(const std::vector<wallet2::transfer_details> &tr
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(
+  std::vector<cryptonote::tx_destination_entry> dsts,
+  const size_t fake_outs_count,
+  fee_priority priority,
+  const std::vector<uint8_t>& extra,
+  uint32_t subaddr_account,
+  std::set<uint32_t> subaddr_indices,
+  const unique_index_container& subtract_fee_from_outputs,
+  const std::size_t max_n_inputs)
 {
   boost::lock_guard refresh_lock(m_refresh_mutex);
 
@@ -10646,6 +10654,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       subaddr_indices,
       ignore_outputs_above(),
       ignore_outputs_below(),
+      max_n_inputs,
       subtract_fee_from_outputs,
       get_top_block_index(*this));
     std::vector<pending_tx> ptx_vector;
