@@ -288,7 +288,7 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
     return input_candidate_subsets;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<std::size_t> get_input_counts_in_preferred_order()
+std::vector<std::size_t> get_input_counts_in_preferred_order(std::size_t max_n_inputs)
 {
     // 1 or 2 randomly, then
     // other ascending powers of 2, then
@@ -301,8 +301,14 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
     // preferring 1 vs 2. See: https://lavalle.pl/planning/node437.html. Con to this approach: if we
     // default to 1 over 2 always then there's scenarios where we net save tx fees and proving time.
 
-    static_assert(CARROT_MIN_TX_INPUTS == 1 && FCMP_PLUS_PLUS_MAX_INPUTS >= 2,
-        "Expect at least 1 min input and 2 max inputs");
+    if (0 == max_n_inputs)
+        max_n_inputs = FCMP_PLUS_PLUS_MAX_INPUTS;
+
+    CARROT_CHECK_AND_THROW(max_n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
+        too_many_inputs, "Max input count for input selection higher than consensus limit");
+
+    if (1 == max_n_inputs)
+        return {1};
 
     const bool random_bit = 0 == (crypto::rand<uint8_t>() & 0x01);
     std::vector<std::size_t> preferred_counts = random_bit
@@ -312,21 +318,21 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
     // Get all powers of 2, > 2, up to max inputs. Prefer powers of 2 over non-powers of 2 for tx uniformity
     std::vector<std::size_t> powers_of_2;
     std::size_t cur_power_of_2 = 4;
-    while (cur_power_of_2 <= FCMP_PLUS_PLUS_MAX_INPUTS)
+    while (cur_power_of_2 <= max_n_inputs)
     {
         preferred_counts.push_back(cur_power_of_2);
         cur_power_of_2 <<= 1;
     }
 
     // Now get the remaining non-powers of 2
-    for (std::size_t i = 3; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
+    for (std::size_t i = 3; i <= max_n_inputs; ++i)
     {
         if (is_power_of_2(i))
             continue;
         preferred_counts.push_back(i);
     }
 
-    CHECK_AND_ASSERT_THROW_MES(preferred_counts.size() == FCMP_PLUS_PLUS_MAX_INPUTS, "unexpected preferred counts");
+    CHECK_AND_ASSERT_THROW_MES(preferred_counts.size() == max_n_inputs, "unexpected preferred counts");
     return preferred_counts;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -334,6 +340,7 @@ select_inputs_func_t make_single_transfer_input_selector(
     const epee::span<const InputCandidate> input_candidates,
     const epee::span<const input_selection_policy_t> policies,
     const std::uint32_t flags,
+    const std::size_t max_n_inputs,
     std::set<size_t> *selected_input_indices_out)
 {
     // input selector :D
@@ -396,7 +403,7 @@ select_inputs_func_t make_single_transfer_input_selector(
             num_normal_payment_proposals);
 
         // 6. Get preferred transaction input counts
-        const std::vector<std::size_t> input_counts = get_input_counts_in_preferred_order();
+        const std::vector<std::size_t> input_counts = get_input_counts_in_preferred_order(max_n_inputs);
 
         // 7. For each input candidate subset...
         std::set<size_t> selected_inputs_indices;
@@ -560,7 +567,13 @@ void select_greedy_aging(const epee::span<const InputCandidate> input_candidates
         const rct::xmr_amount lowest_replacement_amount = (currently_selected_amount > surplus)
             ? boost::numeric_cast<rct::xmr_amount>(currently_selected_amount - surplus) : 0;
         const auto lower_amount_it = std::lower_bound(selectable_inputs_by_amount.cbegin(),
-            selectable_inputs_by_amount.cend(), lowest_replacement_amount);
+            selectable_inputs_by_amount.cend(), lowest_replacement_amount,
+            [&input_candidates](const std::size_t selectable_idx, const rct::xmr_amount lowest_replacement_amount)
+                {
+                    CARROT_CHECK_AND_THROW(selectable_idx < input_candidates.size(),
+                        std::out_of_range, "input candidate index out of range");
+                    return input_candidates[selectable_idx].core.amount < lowest_replacement_amount;
+                });
         for (auto amount_it = lower_amount_it; amount_it != selectable_inputs_by_amount.cend(); ++amount_it)
         {
             const std::size_t potential_replacement_idx = *amount_it;
