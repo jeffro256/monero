@@ -102,11 +102,8 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
   // Make sure reference block exists in the chain
-  if (tx.rct_signatures.p.reference_block >= db->height())
-  {
-    LOG_PRINT_L1("tx " << get_transaction_hash(tx) << " included reference block that was too high");
-    return false;
-  }
+  CHECK_AND_NO_ASSERT_MES_L1(tx.rct_signatures.p.reference_block < db->height(), false,
+      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
