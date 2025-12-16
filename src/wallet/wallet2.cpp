@@ -2468,7 +2468,7 @@ void wallet2::process_new_scanned_transaction(
   std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache,
   const bool ignore_callbacks)
 {
-  PERF_TIMER(process_new_scanned_transaction);
+  PERF_TIMER_L(process_new_scanned_transaction, el::Level::Trace);
 
   const size_t n_outputs = tx.vout.size();
 
