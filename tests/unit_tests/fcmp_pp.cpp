@@ -39,6 +39,8 @@
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
+#include "unit_tests_utils.h"
 
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
@@ -310,6 +312,12 @@ static std::map<std::tuple<size_t, size_t, size_t>, uint64_t> get_all_fcmp_tx_we
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+static std::string get_fcmp_pp_filename(const std::size_t n_inputs)
+{
+    return unit_test::data_dir.string() + "/fcmp_pp_verify_inputs_" + std::to_string(n_inputs) + "in.bin";
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
@@ -504,6 +512,10 @@ TEST(fcmp_pp, verify)
         ? fcmp_pp::helios_tree_root(paths.c2_layers.back().find(0)->second.back())
         : fcmp_pp::selene_tree_root(paths.c1_layers.back().find(0)->second.back());
 
+    const crypto::ec_point tree_root_bytes = n_layers % 2 == 0
+        ? curve_trees->m_c2->to_bytes(paths.c2_layers.back().find(0)->second.back())
+        : curve_trees->m_c1->to_bytes(paths.c1_layers.back().find(0)->second.back());
+
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = n_layers / 2;
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
@@ -634,6 +646,15 @@ TEST(fcmp_pp, verify)
             membership_proof,
             n_layers);
 
+        // unit_test::write_fcmp_pp_verify_input_to_file(get_fcmp_pp_filename(n_inputs),
+        //     n_inputs,
+        //     signable_tx_hash,
+        //     fcmp_pp_proof,
+        //     n_layers,
+        //     tree_root_bytes,
+        //     pseudo_outs,
+        //     key_images);
+
         LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
         bool verify = fcmp_pp::verify(
                 signable_tx_hash,
@@ -645,6 +666,75 @@ TEST(fcmp_pp, verify)
             );
         ASSERT_TRUE(verify);
         LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, batch_verify_from_file)
+{
+    const std::size_t n_inputs = 128;
+
+    // We want a proof per thread, or 4 proofs if < 4 threads
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    const std::size_t n_proofs = std::max<std::size_t>(4, tpool.get_max_concurrency());
+
+    // We repeat verify attempts in hopes of using all malloc arenas (glibc specific)
+    const std::size_t repeat_n_times = 10;
+
+    // Read from file
+    crypto::hash signable_tx_hash;
+    std::vector<uint8_t> fcmp_pp_proof;
+    uint8_t n_layers;
+    fcmp_pp::TreeRootShared tree_root;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::vector<crypto::key_image> key_images;
+
+    unit_test::read_fcmp_pp_verify_input_from_file(get_fcmp_pp_filename(n_inputs),
+        n_inputs,
+        signable_tx_hash,
+        fcmp_pp_proof,
+        n_layers,
+        tree_root,
+        pseudo_outs,
+        key_images);
+
+    // Test single verification
+    LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
+    bool verify = fcmp_pp::verify(
+            signable_tx_hash,
+            fcmp_pp_proof,
+            n_layers,
+            tree_root,
+            pseudo_outs,
+            key_images
+        );
+    ASSERT_TRUE(verify);
+    LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
+
+    // Repeat batch verify attempts and observe memory usage
+    for (std::size_t i = 0; i < repeat_n_times; ++i)
+    {
+        // Collect the FCMP++ verify inputs
+        std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
+        std::vector<std::size_t> n_inputs_per_proof;
+        fcmp_pp_verify_inputs.reserve(n_proofs);
+        n_inputs_per_proof.reserve(n_proofs);
+        for (std::size_t i = 0; i < n_proofs; ++i)
+        {
+            fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
+                    signable_tx_hash,
+                    fcmp_pp_proof,
+                    n_layers,
+                    tree_root,
+                    pseudo_outs,
+                    key_images
+                ));
+            n_inputs_per_proof.push_back(n_inputs);
+        }
+
+        // Verify FCMP++ 128-in proofs in parallel using the batch verifier
+        LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs, attempt " << i+1);
+        ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
+        LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs, attempt " << i+1);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
