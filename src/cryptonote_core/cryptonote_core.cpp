@@ -453,6 +453,9 @@ namespace cryptonote
   {
     start_time = std::time(nullptr);
 
+    // Necessary for FCMP++ sync on Linux platforms, especially with limited memory
+    rct::limitMaxMemArenas();
+
     const bool regtest = command_line::get_arg(vm, arg_regtest_on);
     if (test_options != NULL || regtest)
     {
