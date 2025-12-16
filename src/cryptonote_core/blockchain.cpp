@@ -94,10 +94,7 @@ DISABLE_VS_WARNINGS(4267)
 namespace
 {
 //------------------------------------------------------------------
-static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
-  const cryptonote::transaction &tx,
-  crypto::ec_point &tree_root_out,
-  tx_verification_context &tvc)
+static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::transaction &tx, crypto::ec_point &tree_root_out)
 {
   tree_root_out = crypto::ec_point{};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
@@ -107,8 +104,6 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
   // Make sure reference block exists in the chain
   if (tx.rct_signatures.p.reference_block >= db->height())
   {
-    // We might not be synced yet and an honest synced peer may have sent us the tx, so we make this a no-drop-offense
-    tvc.m_no_drop_offense = true;
     LOG_PRINT_L1("tx " << get_transaction_hash(tx) << " included reference block that was too high");
     return false;
   }
@@ -747,8 +742,7 @@ block Blockchain::pop_block_from_blockchain()
       else if (rct::is_rct_fcmp(tx.rct_signatures.type))
       {
         crypto::ec_point ref_tree_root{};
-        tx_verification_context _unused{};
-        if (get_fcmp_tx_tree_root(m_db, tx, ref_tree_root, _unused))
+        if (get_fcmp_tx_tree_root(m_db, tx, ref_tree_root))
         {
           valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), ref_tree_root);
         }
@@ -2812,8 +2806,7 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
 
   // Get ref block's tree root from the db
   crypto::ec_point tree_root;
-  tx_verification_context _unused{};
-  if (!get_fcmp_tx_tree_root(db, tx, tree_root, _unused))
+  if (!get_fcmp_tx_tree_root(db, tx, tree_root))
   {
     MERROR_VER("Failed to get referenced tree root");
     return false;
@@ -3900,9 +3893,10 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 
   // Read the db for the tree root for FCMP txs
   crypto::ec_point ref_tree_root{};
-  if (rct::is_rct_fcmp(tx.rct_signatures.type) && !get_fcmp_tx_tree_root(m_db, tx, ref_tree_root, tvc))
+  if (rct::is_rct_fcmp(tx.rct_signatures.type) && !get_fcmp_tx_tree_root(m_db, tx, ref_tree_root))
   {
-    // Failed to get the tree root
+    // We might not be synced yet and an honest synced peer may have sent us the tx, so we make this a no-drop-offense
+    tvc.m_no_drop_offense = true;
     return false;
   }
 
