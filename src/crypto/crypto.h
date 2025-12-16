@@ -129,8 +129,10 @@ namespace crypto {
     friend void generate_tx_proof_v1(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
     static bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
     friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
-    static void derive_key_image_generator(const public_key &, ec_point &);
-    friend void derive_key_image_generator(const public_key &, ec_point &);
+    static void biased_derive_key_image_generator(const public_key &, ec_point &);
+    friend void biased_derive_key_image_generator(const public_key &, ec_point &);
+    static void unbiased_derive_key_image_generator(const public_key &, ec_point &);
+    friend void unbiased_derive_key_image_generator(const public_key &, ec_point &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -258,8 +260,12 @@ namespace crypto {
     return crypto_ops::check_tx_proof(prefix_hash, R, A, B, D, sig, version);
   }
 
-  inline void derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
-    crypto_ops::derive_key_image_generator(pub, ki_gen);
+  inline void biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    crypto_ops::biased_derive_key_image_generator(pub, ki_gen);
+  }
+
+  inline void unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    crypto_ops::unbiased_derive_key_image_generator(pub, ki_gen);
   }
 
   /* To send money to a key:

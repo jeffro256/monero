@@ -181,6 +181,8 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
             outs.enotes.push_back(rct_output_enote_proposal.enote);
         }
 
+        output_pair.output_pair.type = fcmp_pp::curve_trees::OutputPairType::Carrot;
+
         outs.encrypted_payment_ids.push_back(encrypted_payment_id);
         outs.output_pairs.push_back(output_pair);
     }
@@ -481,8 +483,10 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
         const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 
+        const auto &opening_hint = std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i)));
         const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[path_leaf_idx].O),
-            path.leaves[path_leaf_idx].C};
+            path.leaves[path_leaf_idx].C,
+            carrot::output_pair_type(opening_hint)};
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
         const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);

@@ -147,7 +147,7 @@ crypto::key_image key_image_device_composed::derive_key_image_prescanned(const c
 
     // I = Hp(K_o)
     crypto::ec_point key_image_generator;
-    crypto::derive_key_image_generator(onetime_address, key_image_generator);
+    crypto::biased_derive_key_image_generator(onetime_address, key_image_generator);
 
     // get k^j_subscal, k^j_subext
     crypto::secret_key subaddr_extension_g;

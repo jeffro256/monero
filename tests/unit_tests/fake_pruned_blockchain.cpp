@@ -300,6 +300,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 this->get_parsed_block(next_height - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
             const cryptonote::transaction &unlocked_miner_tx =
                 parsed_block_with_unlocked_miner_tx.block.miner_tx;
+            const auto output_pair_type = cryptonote::output_pair_type(unlocked_miner_tx);
             for (size_t local_output_index = 0; local_output_index < unlocked_miner_tx.vout.size(); ++local_output_index)
             {
                 const cryptonote::tx_out &o = unlocked_miner_tx.vout.at(local_output_index);
@@ -307,13 +308,13 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(o, output_pubkey),
                     "cannot get output pubkey");
                 const rct::key amount_commitment = rct::zeroCommitVartime(o.amount);
-                const fcmp_pp::curve_trees::OutputPair output_pair{output_pubkey, amount_commitment};
+                const fcmp_pp::curve_trees::OutputPair output_pair(output_pubkey, amount_commitment, output_pair_type);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =
                     parsed_block_with_unlocked_miner_tx.o_indices.indices.at(0).indices.at(local_output_index);
                 new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, false/*torsion_checked*/, output_pair
+                    global_output_index, output_pair
                 });
             }
         }
@@ -323,6 +324,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
         for (size_t tx_index = 0; tx_index < parsed_block_with_unlocked_txs.txes.size(); ++tx_index)
         {
             const cryptonote::transaction &unlocked_tx = parsed_block_with_unlocked_txs.txes.at(tx_index);
+            const auto output_pair_type = cryptonote::output_pair_type(unlocked_tx);
             for (size_t local_output_index = 0; local_output_index < unlocked_tx.vout.size(); ++local_output_index)
             {
                 const cryptonote::tx_out &o = unlocked_tx.vout.at(local_output_index);
@@ -331,13 +333,13 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                     "cannot get output pubkey");
                 const rct::key amount_commitment = o.amount
                     ? rct::zeroCommitVartime(o.amount) : unlocked_tx.rct_signatures.outPk.at(local_output_index).mask;
-                const fcmp_pp::curve_trees::OutputPair output_pair{output_pubkey, amount_commitment};
+                const fcmp_pp::curve_trees::OutputPair output_pair(output_pubkey, amount_commitment, output_pair_type);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =
                     parsed_block_with_unlocked_txs.o_indices.indices.at(tx_index + 1).indices.at(local_output_index);
                 new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, false/*torsion_checked*/, output_pair
+                    global_output_index, output_pair
                 });
             }
         }

@@ -853,6 +853,7 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
 cryptonote::transaction finalize_fcmps_and_range_proofs(
     const std::vector<crypto::key_image> &sorted_input_key_images,
     const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
+    const std::vector<fcmp_pp::curve_trees::OutputPairType> &sorted_input_enote_types,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sorted_sal_proofs,
     const std::vector<carrot::RCTOutputEnoteProposal> &output_enote_proposals,
     const carrot::encrypted_payment_id_t &encrypted_payment_id,
@@ -865,6 +866,8 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     CARROT_CHECK_AND_THROW(n_inputs, carrot::too_few_inputs, "no inputs");
     CARROT_CHECK_AND_THROW(sorted_rerandomized_outputs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of rerandomized outputs");
+    CARROT_CHECK_AND_THROW(sorted_input_enote_types.size() == n_inputs,
+        carrot::component_out_of_order, "wrong number of input enote types");
     CARROT_CHECK_AND_THROW(sorted_sal_proofs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of SA/L proofs");
 
@@ -881,8 +884,10 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     // collect (O, C) input pairs in key image order
     std::vector<fcmp_pp::curve_trees::OutputPair> spent_input_pairs;
     spent_input_pairs.reserve(n_inputs);
-    for (const FcmpRerandomizedOutputCompressed &rerandomized_output : sorted_rerandomized_outputs)
+    for (std::size_t i = 0; i < n_inputs; ++i)
     {
+        const FcmpRerandomizedOutputCompressed &rerandomized_output = sorted_rerandomized_outputs.at(i);
+
         rct::key O_tilde, C_tilde, r_o, r_c;
         memcpy(&O_tilde, rerandomized_output.input.O_tilde, sizeof(O_tilde));
         memcpy(&C_tilde, rerandomized_output.input.C_tilde, sizeof(C_tilde));
@@ -899,7 +904,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
         rct::scalarmultBase(C, r_c);
         rct::subKeys(C, C_tilde, C);
 
-        spent_input_pairs.push_back({rct::rct2pk(O), C});
+        spent_input_pairs.push_back({rct::rct2pk(O), C, sorted_input_enote_types.at(i)});
     }
 
     // collect FCMP paths
@@ -1206,6 +1211,13 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
             input_amount_blinding_factors.emplace_back());
     }
 
+    // collect and sort input enote types in key image order
+    std::vector<fcmp_pp::curve_trees::OutputPairType> input_enote_types;
+    input_enote_types.reserve(n_inputs);
+    for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
+        input_enote_types.emplace_back(carrot::output_pair_type(input_proposal));
+    tools::apply_permutation(key_image_order, input_enote_types);
+
     // collect output k_a
     std::vector<rct::key> output_amount_blinding_factors;
     output_amount_blinding_factors.reserve(n_inputs);
@@ -1244,6 +1256,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
 
     return finalize_fcmps_and_range_proofs(sorted_input_key_images,
         rerandomized_outputs,
+        input_enote_types,
         sorted_sal_proofs,
         output_enote_proposals,
         encrypted_payment_id,

@@ -56,10 +56,10 @@ struct OutputContextsAndKeys
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static rct::key derive_key_image_generator(const rct::key O)
+static rct::key biased_derive_key_image_generator(const rct::key O)
 {
     crypto::public_key I;
-    crypto::derive_key_image_generator(rct::rct2pk(O), I);
+    crypto::biased_derive_key_image_generator(rct::rct2pk(O), I);
     return rct::pk2rct(I);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ static FcmpRerandomizedOutputCompressed rerandomize_output_manual(const rct::key
 
     // I = Hp(O)
     // I~ = I + r_i U
-    const rct::key I = derive_key_image_generator(O);
+    const rct::key I = biased_derive_key_image_generator(O);
     rct::key I_tilde = rct::scalarmultKey(rct::pk2rct(crypto::get_U()), r_i);
     I_tilde = rct::addKeys(I_tilde, I);
 
@@ -174,10 +174,7 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
                 crypto::generate_keys(C, c, c, false);
 
                 rct::key C_key = rct::pk2rct(C);
-                auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                        .output_pubkey = std::move(O),
-                        .commitment    = std::move(C_key)
-                    };
+                fcmp_pp::curve_trees::OutputPair output_pair(O, C_key, fcmp_pp::curve_trees::OutputPairType::Legacy);
 
                 auto output_context = fcmp_pp::curve_trees::OutputContext{
                         .output_id   = output_id,
@@ -388,7 +385,9 @@ TEST(fcmp_pp, prove)
             const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
-            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
+            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
+                path.leaves[output_idx].C,
+                fcmp_pp::curve_trees::OutputPairType::Legacy);
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
@@ -567,7 +566,9 @@ TEST(fcmp_pp, verify)
             const auto &leaf_chunk = paths.leaves_by_chunk_idx.find(leaf_chunk_idx)->second;
             const auto &leaf = leaf_chunk[leaf_offset];
 
-            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(leaf.O), leaf.C};
+            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(leaf.O),
+                leaf.C,
+                fcmp_pp::curve_trees::OutputPairType::Legacy);
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             const auto &x = new_outputs.x_vec[leaf_idx];
@@ -669,7 +670,7 @@ TEST(fcmp_pp, sal_completeness)
     const rct::key y = rct::skGen();
     rct::key O;
     rct::addKeys2(O, x, y, rct::pk2rct(crypto::get_T())); // O = x G + y T
-    const rct::key I = derive_key_image_generator(O);
+    const rct::key I = biased_derive_key_image_generator(O);
     const rct::key C = rct::pkGen();
     crypto::key_image L;
     crypto::generate_key_image(rct::rct2pk(O), rct::rct2sk(x), L);
@@ -768,7 +769,9 @@ TEST(fcmp_pp, membership_completeness)
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
             // Set up rust path
-            const fcmp_pp::curve_trees::OutputPair output_pair{rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
+            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
+                path.leaves[output_idx].C,
+                fcmp_pp::curve_trees::OutputPairType::Legacy);
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 
@@ -854,7 +857,7 @@ TEST(fcmp_pp, calculate_fcmp_input_for_rerandomizations_convergence)
 {
     const rct::key onetime_address = rct::pkGen();
     const rct::key amount_commitment = rct::pkGen();
-    const rct::key I = derive_key_image_generator(onetime_address);
+    const rct::key I = biased_derive_key_image_generator(onetime_address);
 
     const fcmp_pp::curve_trees::OutputTuple output{ .O = onetime_address, .I = I, .C = amount_commitment };
     const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(output.to_output_bytes());

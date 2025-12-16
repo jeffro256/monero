@@ -2013,14 +2013,6 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
     return cryptonote::get_last_locked_block_index(td.m_tx.unlock_time, td.m_block_height) < n_blocks_synced;
   };
 
-  const auto td_to_output_pair = [](const transfer_details &td) -> fcmp_pp::curve_trees::OutputPair
-  {
-    return fcmp_pp::curve_trees::OutputPair{
-      .output_pubkey = td.get_public_key(),
-      .commitment    = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount())
-    };
-  };
-
   // Collect global output id's for outputs we need path data for
   std::vector<uint64_t> global_output_ids;
   std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
@@ -2055,7 +2047,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
       global_output_ids.push_back(find_global_output_id(rescan_tx_entries));
     }
 
-    output_pairs.emplace_back(td_to_output_pair(td));
+    output_pairs.emplace_back(td.get_output_pair());
   };
 
   // Collect received global output id's for *newly* identified receives
@@ -2629,11 +2621,7 @@ void wallet2::process_new_scanned_transaction(
     }
 
     // tell FCMP tree to keep the path for this output
-    const fcmp_pp::curve_trees::OutputPair output_pair{
-      .output_pubkey = onetime_address,
-      .commitment = rct::commit(enote_scan_info->amount, enote_scan_info->amount_blinding_factor)
-    };
-    m_tree_cache.register_output(output_pair);
+    m_tree_cache.register_output(td.get_output_pair());
 
     // money received callbacks
     LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);

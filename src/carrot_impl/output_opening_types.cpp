@@ -348,6 +348,23 @@ subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant &o
     return std::visit(subaddress_index_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
+OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint)
+{
+    struct output_pair_type_visitor
+    {
+        OutputPairType operator()(const LegacyOutputOpeningHintV1 &h) const
+        { return OutputPairType::Legacy; }
+        OutputPairType operator()(const CarrotOutputOpeningHintV1 &h) const
+        { return OutputPairType::Carrot; }
+        OutputPairType operator()(const CarrotOutputOpeningHintV2 &h) const
+        { return OutputPairType::Carrot; }
+        OutputPairType operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
+        { return OutputPairType::Carrot; }
+    };
+
+    return std::visit(output_pair_type_visitor{}, opening_hint);
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device *k_view_incoming_dev,

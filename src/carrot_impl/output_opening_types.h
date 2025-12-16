@@ -32,6 +32,7 @@
 
 //third party headers
 #include "carrot_core/carrot_enote_types.h"
+#include "fcmp_pp/curve_trees.h"
 #include "span.h"
 #include "subaddress_index.h"
 
@@ -141,6 +142,9 @@ using OutputOpeningHintVariant = std::variant<
 const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant&);
 rct::key amount_commitment_ref(const OutputOpeningHintVariant&);
 subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
+
+using OutputPairType = fcmp_pp::curve_trees::OutputPairType;
+OutputPairType output_pair_type(const OutputOpeningHintVariant&);
 
 /**
  * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint

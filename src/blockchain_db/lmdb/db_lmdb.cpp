@@ -1785,11 +1785,10 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       commitment = transparent_amount_commitments[out.amount];
     }
 
-    const uint8_t torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
-    const fcmp_pp::curve_trees::OutputPair output_pair{.output_pubkey = output_pubkey, .commitment = commitment};
+    const fcmp_pp::curve_trees::OutputPair output_pair(output_pubkey, commitment, cryptonote::output_pair_type(tx));
+
     output_contexts.emplace_back(fcmp_pp::curve_trees::OutputContext{
         .output_id = output_id,
-        .torsion_checked = torsion_checked,
         .output_pair = output_pair
       });
   }
@@ -7304,14 +7303,14 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Prepare the output for insertion to the tree
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-            .output_pubkey = std::move(output_data.pubkey),
-            .commitment    = std::move(output_data.commitment)
-          };
+        fcmp_pp::curve_trees::OutputPair output_pair(
+            output_data.pubkey,
+            output_data.commitment,
+            fcmp_pp::curve_trees::OutputPairType::Legacy // all outputs currently in db must be legacy
+          );
 
-        auto output_context = fcmp_pp::curve_trees::OutputContext{
+        const fcmp_pp::curve_trees::OutputContext output_context{
             .output_id       = output_id,
-            .torsion_checked = 0,
             .output_pair     = std::move(output_pair)
           };
 

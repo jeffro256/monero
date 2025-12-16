@@ -71,6 +71,10 @@ TEST(tree_cache, register_output)
     // 3. Register same output again - already registered
     ASSERT_FALSE(tree_cache->register_output(output));
 
+    // 3a. Register a copy of the same output again - already registered
+    const auto output_copy = output;
+    ASSERT_FALSE(tree_cache->register_output(output_copy));
+
     // 4. Register another output with the same output pubkey as existing, different commitment - valid
     auto output_new_commitment = output;
     output_new_commitment.commitment = outputs[1].output_pair.commitment;
@@ -79,6 +83,16 @@ TEST(tree_cache, register_output)
     ASSERT_NE(output_new_commitment.commitment, output.commitment);
 
     ASSERT_TRUE(tree_cache->register_output(output_new_commitment));
+
+    // 5. Register another output with same output pubkey and commitment, but different output pair type - valid
+    ASSERT_EQ(output.type, fcmp_pp::curve_trees::OutputPairType::Legacy);
+    auto output_diff_type = output;
+    output_diff_type.type = fcmp_pp::curve_trees::OutputPairType::Carrot;
+
+    ASSERT_EQ(output_diff_type.output_pubkey, output.output_pubkey);
+    ASSERT_EQ(output_diff_type.commitment, output.commitment);
+
+    ASSERT_TRUE(tree_cache->register_output(output_diff_type));
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_cache, sync_block_simple)

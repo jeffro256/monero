@@ -307,7 +307,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     ? input_tx.rct_signatures.outPk.at(internal_o_idx).mask
     : rct::zeroCommitVartime(spending_out.amount);
   CHECK_AND_ASSERT_MES(C == rct::commit(spend_amount, mask), false, "commitment mismatch");
-  const fcmp_pp::curve_trees::OutputPair output_pair{.output_pubkey = output_pubkey, .commitment = C};
+  const fcmp_pp::curve_trees::OutputPair output_pair(output_pubkey, C, cryptonote::output_pair_type(input_tx));
   tree_cache.register_output(output_pair);
 
   // Prepare to build the FCMP++ curve tree

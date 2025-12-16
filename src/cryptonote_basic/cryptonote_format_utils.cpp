@@ -130,6 +130,8 @@ namespace cryptonote
       last_locked_block,
       block_idx);
 
+    const auto output_pair_type = cryptonote::output_pair_type(tx);
+
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
       const uint64_t output_id = first_output_id + i;
@@ -143,10 +145,11 @@ namespace cryptonote
       CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
           "failed to get tx commitment");
 
+      const fcmp_pp::curve_trees::OutputPair output_pair(output_public_key, commitment, output_pair_type);
+
       const fcmp_pp::curve_trees::OutputContext output_context{
-              .output_id       = output_id,
-              .torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx),
-              .output_pair     = fcmp_pp::curve_trees::OutputPair{output_public_key, commitment}
+              .output_id   = output_id,
+              .output_pair = output_pair
           };
 
       if (has_custom_timelock)
@@ -1205,19 +1208,33 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool tx_outs_checked_for_torsion(const transaction& tx)
+  // Throws if:
+  // 1. this function does not know the type of any of the tx's outs
+  // 2. all tx outs are not of the same type
+  fcmp_pp::curve_trees::OutputPairType output_pair_type(const transaction_prefix& tx)
   {
+    if (tx.vout.empty())
+      return fcmp_pp::curve_trees::OutputPairType::Legacy;
+
+    const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      // This function only knows about these output types. If there is a new type, we want to check it for torsion too.
-      const bool is_known_output_type = o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key) || o.target.type() == typeid(txout_to_key);
-      CHECK_AND_ASSERT_THROW_MES(is_known_output_type, "unknown variant type: " << o.target.type().name() << "in transaction id=" << get_transaction_hash(tx));
+      const std::type_info &cur_type = o.target.type();
 
-      // We start checking for torsion at consensus with carrot outs
-      if (o.target.type() != typeid(txout_to_carrot_v1))
-        return false;
+      // Warning to future devs: if we add a new output type, make sure all tree handling code is updated as expected.
+      // This includes but is not limited to checking new outputs for torsion and using the correct key image generator.
+      const bool is_known_output_type = cur_type == typeid(txout_to_carrot_v1) || cur_type == typeid(txout_to_tagged_key) || cur_type == typeid(txout_to_key);
+      CHECK_AND_ASSERT_THROW_MES(is_known_output_type, "unknown variant type: " << cur_type.name());
+      CHECK_AND_ASSERT_THROW_MES(cur_type == o_type, "non-matching variant types: "
+          << o_type.name() << " and " << cur_type.name() << ", expected matching variant types");
     }
-    return true;
+
+    if (o_type == typeid(txout_to_carrot_v1))
+      return fcmp_pp::curve_trees::OutputPairType::Carrot;
+    else if (o_type == typeid(txout_to_tagged_key) || o_type == typeid(txout_to_key))
+      return fcmp_pp::curve_trees::OutputPairType::Legacy;
+    else
+      CHECK_AND_ASSERT_THROW_MES(false, "unknown output type");
   }
   //---------------------------------------------------------------
   bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device* hwdev)

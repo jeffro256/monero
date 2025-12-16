@@ -61,10 +61,7 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
         crypto::generate_keys(C, c, c, false);
 
         rct::key C_key = rct::pk2rct(C);
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                .output_pubkey = std::move(O),
-                .commitment    = std::move(C_key)
-            };
+        fcmp_pp::curve_trees::OutputPair output_pair(O, C_key, fcmp_pp::curve_trees::OutputPairType::Legacy);
 
         auto output_context = fcmp_pp::curve_trees::OutputContext{
                 .output_id   = output_id,
@@ -91,10 +88,7 @@ const std::pair<rct::xmr_amount, fcmp_pp::curve_trees::OutputContext> generate_m
     const rct::xmr_amount rand_amount = crypto::rand_idx<rct::xmr_amount>(1000000);
     const rct::key C = rct::zeroCommitVartime(rand_amount);
 
-    const fcmp_pp::curve_trees::OutputPair output_pair{
-            .output_pubkey = O,
-            .commitment    = C
-        };
+    const fcmp_pp::curve_trees::OutputPair output_pair(O, C, fcmp_pp::curve_trees::OutputPairType::Legacy);
 
     const fcmp_pp::curve_trees::OutputContext output_context{
             .output_id   = output_id,
@@ -510,8 +504,7 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
         const crypto::public_key &output_pubkey = output_pair.output_pubkey;
         const rct::key &commitment              = output_pair.commitment;
 
-        crypto::ec_point I;
-        crypto::derive_key_image_generator(output_pubkey, I);
+        const crypto::ec_point I = fcmp_pp::curve_trees::derive_key_image_generator(output_pair.type, output_pubkey);
 
         rct::key O = rct::pk2rct(output_pubkey);
         rct::key C = commitment;

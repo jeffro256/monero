@@ -652,10 +652,14 @@ namespace crypto {
     return biased_hash_to_ec(key, res);
   }
 
-  void crypto_ops::derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+  void crypto_ops::biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
     ge_p3 point;
-    hash_to_ec(pub, point);
+    biased_hash_to_ec(pub, point);
     ge_p3_tobytes(&ki_gen, &point);
+  }
+
+  void crypto_ops::unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    unbiased_hash_to_ec(&pub, sizeof(public_key), ki_gen);
   }
 
   void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {

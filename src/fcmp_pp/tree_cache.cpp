@@ -46,11 +46,21 @@ static OutputRef get_output_ref(const OutputPair &o)
     static_assert(sizeof(o.output_pubkey) == sizeof(o.commitment), "unexpected size of output pubkey & commitment");
 
     static const std::size_t N_ELEMS = 2;
-    static_assert(sizeof(o) == (N_ELEMS * sizeof(crypto::public_key)), "unexpected size of output pair");
+    static_assert(sizeof(o) == ((N_ELEMS * sizeof(crypto::public_key)) + 1), "unexpected size of output pair");
 
-    const crypto::public_key data[N_ELEMS] = {o.output_pubkey, rct::rct2pk(o.commitment)};
+    // Use the first byte of 32 when hashing type info
+    crypto::public_key type = crypto::null_pkey;
+    type.data[0] = o.type;
+
+    static constexpr std::size_t N_ELEMS_PLUS_ONE = N_ELEMS + 1;
+    const crypto::public_key data[N_ELEMS_PLUS_ONE] = {
+            o.output_pubkey,
+            rct::rct2pk(o.commitment),
+            type
+        };
+
     crypto::hash h;
-    crypto::cn_fast_hash(data, N_ELEMS * sizeof(crypto::public_key), h);
+    crypto::cn_fast_hash(data, N_ELEMS_PLUS_ONE * sizeof(crypto::public_key), h);
     return h;
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -157,7 +167,11 @@ static uint64_t remove_outputs_created_at_block(const CreatedBlockIdx &created_b
             continue;
         }
 
-        locked_outputs_it->second.resize(n_cur_outputs - n_outputs_to_remove);
+        const uint64_t n_new_outputs = n_cur_outputs - n_outputs_to_remove;
+        locked_outputs_it->second.erase(
+                locked_outputs_it->second.begin() + n_new_outputs,
+                locked_outputs_it->second.end()
+            );
     }
 
     // Don't need the refs anymore, we're done with the outputs created at the given block
@@ -582,7 +596,10 @@ static void shrink_cached_last_leaf_chunk(const uint64_t new_n_leaf_tuples,
     const std::size_t n_leaves_last_chunk = leaf_chunk_it->second.leaves.size();
     CHECK_AND_ASSERT_THROW_MES(n_leaves_last_chunk >= offset, "unexpected n leaves in cached last chunk");
 
-    leaf_chunk_it->second.leaves.resize(offset);
+    leaf_chunk_it->second.leaves.erase(
+            leaf_chunk_it->second.leaves.begin() + offset,
+            leaf_chunk_it->second.leaves.end()
+        );
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -726,7 +743,10 @@ bool TreeCache<C1, C2>::register_output(const OutputPair &output)
     // Add to registered outputs container
     m_registered_outputs.insert({ output_ref, AssignedLeafIdx{} });
 
-    MDEBUG("Registered output " << output.output_pubkey << " , commitment " << output.commitment);
+    MDEBUG("Registered output " << output.output_pubkey
+        << " , commitment "     << output.commitment
+        << " , type: "          << static_cast<uint64_t>(output.type)
+        << " , output ref: "    << output_ref);
 
     return true;
 }

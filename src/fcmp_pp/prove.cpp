@@ -56,7 +56,7 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &on
     const crypto::ec_point &amount_commitment)
 {
     crypto::ec_point I;
-    crypto::derive_key_image_generator(onetime_address, I);
+    crypto::biased_derive_key_image_generator(onetime_address, I);
 
     OutputBytes output_bytes;
     memcpy(output_bytes.O_bytes, onetime_address.data, sizeof(onetime_address));
@@ -94,7 +94,7 @@ FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::publ
 
     // I = Hp(O)
     crypto::ec_point I;
-    crypto::derive_key_image_generator(onetime_address, I);
+    crypto::biased_derive_key_image_generator(onetime_address, I);
 
     // I~ = I + r_i U
     r = ge_frombytes_vartime(&p3_1, to_bytes(I));
@@ -159,7 +159,7 @@ void make_balanced_rerandomized_output_set(
 
         // I = Hp(O)
         crypto::ec_point I;
-        crypto::derive_key_image_generator(onetime_address, I);
+        crypto::biased_derive_key_image_generator(onetime_address, I);
 
         // sample r_i, r_r_i randomly
         crypto::secret_key r_i, r_r_i;

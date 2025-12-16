@@ -167,10 +167,11 @@ struct transfer_details
     };
 
     const fcmp_pp::curve_trees::OutputPair get_output_pair() const {
-        return {
-            .output_pubkey = get_public_key(),
-            .commitment = this->is_rct() ? rct::commit(this->amount(), m_mask) : rct::zeroCommitVartime(this->amount())
-        };
+        return fcmp_pp::curve_trees::OutputPair(
+            get_public_key(),
+            this->is_rct() ? rct::commit(this->amount(), m_mask) : rct::zeroCommitVartime(this->amount()),
+            cryptonote::output_pair_type(m_tx)
+        );
     };
 };
 

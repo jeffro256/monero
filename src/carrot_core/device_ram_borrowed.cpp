@@ -99,7 +99,7 @@ crypto::ec_point generate_image_key_ram_borrowed_device::generate_image_scalar_m
 {
     // I = Hp(K_o)
     crypto::ec_point key_image_generator;
-    crypto::derive_key_image_generator(onetime_address, key_image_generator);
+    crypto::biased_derive_key_image_generator(onetime_address, key_image_generator);
 
     // L_partial = k_gi I
     return rct::rct2pt(rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(m_k_generate_image)));
