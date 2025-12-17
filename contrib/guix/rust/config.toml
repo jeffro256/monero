@@ -6,9 +6,9 @@ git = "https://github.com/kayabaNerve/crypto-bigint"
 branch = "c-repr"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/kayabaNerve/monero-oxide?rev=34dab2669d54bf92631fa3a2b0b6764254a2066f"]
-git = "https://github.com/kayabaNerve/monero-oxide"
-rev = "34dab2669d54bf92631fa3a2b0b6764254a2066f"
+[source."git+https://github.com/j-berman/monero-oxide?rev=5c15bcc00575b26f9411264e9189d36d3f3edce8"]
+git = "https://github.com/j-berman/monero-oxide"
+rev = "5c15bcc00575b26f9411264e9189d36d3f3edce8"
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
