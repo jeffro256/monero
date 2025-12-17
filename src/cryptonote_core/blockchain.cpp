@@ -102,7 +102,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
   // Make sure reference block exists in the chain
-  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
+  CHECK_AND_NO_ASSERT_MES_L1(tx.rct_signatures.p.reference_block < db->height(), false,
       "tx " << get_transaction_hash(tx) << " included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
@@ -3890,9 +3890,11 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 
   // Read the db for the tree root for FCMP txs
   crypto::ec_point ref_tree_root{};
-  if (rct::is_rct_fcmp(tx.rct_signatures.type))
+  if (rct::is_rct_fcmp(tx.rct_signatures.type) && !get_fcmp_tx_tree_root(m_db, tx, ref_tree_root))
   {
-    CHECK_AND_ASSERT_MES(get_fcmp_tx_tree_root(m_db, tx, ref_tree_root), false, "failed to get tree root");
+    // We might not be synced yet and an honest synced peer may have sent us the tx, so we make this a no-drop-offense
+    tvc.m_no_drop_offense = true;
+    return false;
   }
 
   const crypto::hash txid = get_transaction_hash(tx);
