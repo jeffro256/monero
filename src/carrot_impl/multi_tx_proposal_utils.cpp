@@ -64,6 +64,11 @@ void make_multiple_carrot_transaction_proposals_transfer(
 {
     tx_proposals_out.clear();
 
+    // clear out 0-amount input candidates to speed things up / reduce logging down the line
+    tools::for_all_in_vector_erase_no_preserve_order_if(input_candidates,
+            [](const InputCandidate &ic) { return ic.core.amount == 0; }
+        );
+
     static constexpr std::size_t max_n_dsts_per_tx = FCMP_PLUS_PLUS_MAX_OUTPUTS - 1;
 
     std::size_t n_dsts = normal_payment_proposals.size() + selfsend_payment_proposals.size();
