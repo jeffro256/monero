@@ -624,7 +624,11 @@ namespace cryptonote
     /**
      * @brief check if pool has capacity for the given tx
      *
-     * @param txid the txid of the transaction to check
+     * If the tx would push the pool above its max weight limit, then the tx
+     * must pay a fee higher than txs in the pool already in order to enter the
+     * pool. Otherwise, the pool does not have capacity for the tx.
+     *
+     * @param txid the txid of the transaction to check, strictly used for logging
      * @param weight the transaction weight
      * @param fee the tx fee
      *
