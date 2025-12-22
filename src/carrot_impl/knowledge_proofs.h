@@ -1,21 +1,21 @@
 // Copyright (c) 2025, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -29,18 +29,55 @@
 #pragma once
 
 //local headers
+#include "address_device.h"
 #include "crypto/crypto.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "mx25519.h"
+#include "output_opening_types.h"
+#include "ringct/rctTypes.h"
+#include "serialization/serialization.h"
 
 //third party headers
 
 //standard headers
+#include <memory>
 #include <optional>
 
 //forward declarations
 
 namespace carrot
 {
+/**
+ * brief: A reserve proof of at least `threshold_amount` which uses FCMP++s and BP+s to preseve privacy
+ *
+ * This reserve proof has unique privacy properties compared to previous reserve proofs in the following ways:
+ *   - The total amount sum of the input set is not necessarily revealed
+ *   - The amount per input is not revealed
+ *   - The association between key images and one-time addresses is not revealed, preserving sender privacy
+ *
+ * The threshold amount is the minimum amount the given set of inputs contains, if the proof
+ * verifies. The rerandomized outputs here do not have to equal rerandomized outputs in spending
+ * txs, which is nice for the holder since they don't have to store rerandomizations. `inputs`
+ * should be sorted in key image consensus order.`reference_block` and `n_tree_layers` are the same
+ * as if we were making a new transaction spending these enotes. The FCMP++ proof is also
+ * effectively the same as a real transaction, except that the signed message is a reserve-proof
+ * specific message, and can't be used for Monero consensus. The BP+ range proof is a range proof
+ * over C_rem = C_sum - a H, where `a` is `threshold_amount` and `C_sum` is the sum of all C~ in
+ * `inputs`. If `threshold_amount` was greater than the sum of the amounts bound to in
+ * `rerandomized_amount_commitments`, then the opening against `H` would be a scalar much, much
+ * greater than 2^64 and a valid range proof could not be created.
+ */
+struct FcmpReserveProof
+{
+    rct::xmr_amount threshold_amount;
+    std::vector<crypto::key_image> key_images;
+    std::vector<rct::key> rerandomized_amount_commitments;
+    std::uint64_t reference_block;
+    std::uint8_t n_tree_layers;
+    fcmp_pp::FcmpPpProof fcmp_pp;
+    rct::BulletproofPlus bpp;
+};
+
 /**
  * brief: Generate a PoK of `r` s.t. `D = r ConvertPointE(A)` and (`R = r G` or `R = r ConvertPointE(B)`)
  *            where G is the X25519 base point, and ConvertPointE() is the Ed25519->X25519 conversion function
@@ -93,4 +130,27 @@ bool check_carrot_tx_proof_receiver(const crypto::hash &prefix_hash,
     const std::optional<crypto::public_key> &B,
     const mx25519_pubkey &D,
     const crypto::signature &sig);
+/**
+ * @TODO: doc
+ */
+void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
+    std::vector<OutputOpeningHintVariant> opening_hints,
+    std::vector<fcmp_pp::Path> input_paths,
+    const std::uint64_t reference_block,
+    const std::uint8_t n_tree_layers,
+    std::shared_ptr<view_incoming_key_device> k_view_incoming_dev,
+    std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
+    std::shared_ptr<address_device> addr_dev,
+    const crypto::secret_key &privkey_g,
+    const crypto::secret_key &privkey_t,
+    FcmpReserveProof &reserve_proof_out);
+/**
+ * @TODO: doc
+ *
+ * Does not check key image exclusion nor that `n_tree_layers` is correct for `reference_block`
+ */
+bool check_fcmp_reserve_proof_non_exclusion(const FcmpReserveProof &reserve_proof,
+    const fcmp_pp::TreeRootShared &fcmp_tree_root);
+
+DECLARE_SERIALIZE_OBJECT(FcmpReserveProof)
 } //namespace carrot
