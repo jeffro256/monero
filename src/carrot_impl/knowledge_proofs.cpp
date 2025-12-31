@@ -35,6 +35,7 @@
 #include "carrot_core/config.h"
 #include "carrot_core/exceptions.h"
 #include "common/apply_permutation.h"
+#include "common/container_helpers.h"
 #include "common/threadpool.h"
 extern "C"
 {
@@ -49,6 +50,7 @@ extern "C"
 #include "ringct/bulletproofs_plus.h"
 #include "ringct/rctOps.h"
 #include "serialization/crypto.h"
+#include "tx_builder_inputs.h"
 
 //third party headers
 #include <boost/multiprecision/cpp_int.hpp>
@@ -93,28 +95,42 @@ static crypto::public_key x25519_to_edwardsY(const unsigned char * const x)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static int blake2b_update_u64(blake2b_state *S, uint64_t x)
+static int blake2b_update_u64(blake2b_state *S, std::uint64_t x)
 {
+    static_assert(sizeof(std::uint64_t) == 8);
     x = SWAP64LE(x);
     return blake2b_update(S, &x, sizeof(x));
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static crypto::hash get_reserve_proof_prefix_hash(
-    const rct::xmr_amount threshold_amount,
-    const std::vector<crypto::key_image> &key_images)
+static crypto::hash make_generic_proof_prefix_hash(const std::string_view domain_separator,
+    const std::vector<crypto::key_image> &signing_key_images,
+    const std::string_view other_data)
 {
-    static_assert(sizeof(carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX) > sizeof(void*));
-    static_assert(sizeof(carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX) < sizeof(crypto::hash));
+    static_assert(static_cast<std::size_t>(BLAKE2B_BLOCKBYTES) % sizeof(crypto::hash) == 0);
+
+    CARROT_CHECK_AND_THROW(domain_separator.size() <= 255,
+        carrot::carrot_logic_error, "domain separator is too long");
+    const std::uint8_t domain_separator_size = static_cast<std::uint8_t>(domain_separator.size());
 
     blake2b_state S;
     assert_blake_op(blake2b_init(&S, sizeof(crypto::hash)));
-    assert_blake_op(blake2b_update(&S, carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX,
-        sizeof(carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX)));
-    assert_blake_op(blake2b_update_u64(&S, threshold_amount));
-    assert_blake_op(blake2b_update_u64(&S, key_images.size()));
-    for (const crypto::key_image &key_image : key_images)
+    assert_blake_op(blake2b_update(&S, &domain_separator_size, 1));
+    assert_blake_op(blake2b_update(&S, domain_separator.data(), domain_separator.size()));
+    assert_blake_op(blake2b_update_u64(&S, signing_key_images.size()));
+    for (const crypto::key_image &key_image : signing_key_images)
         assert_blake_op(blake2b_update(&S, &key_image, sizeof(key_image)));
+    assert_blake_op(blake2b_update_u64(&S, other_data.size()));
+    assert_blake_op(blake2b_update(&S, other_data.data(), other_data.size()));
+
+    // force transcript length to not be a multiple of 32, since the transcript of the signable tx
+    // hash in MLSAG, CLSAG, and FCMP++ is a multiple of 32 bytes. those transcripts are hashed with
+    // Keccak256, not Blake2b, but it doesn't hurt to be careful.
+    if (S.buflen % sizeof(crypto::hash) == 0)
+    {
+        static constexpr const char PAD_BYTE = '$';
+        assert_blake_op(blake2b_update(&S, &PAD_BYTE, 1));
+    }
 
     crypto::hash h;
     assert_blake_op(blake2b_final(&S, &h, sizeof(h)));
@@ -123,7 +139,7 @@ static crypto::hash get_reserve_proof_prefix_hash(
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static bool get_reserve_proof_remaining_commitment(const rct::xmr_amount threshold_amount,
-    const std::vector<rct::key> &rerandomized_amount_commitments,
+    const std::vector<crypto::ec_point> &rerandomized_amount_commitments,
     rct::key &C_rem_out)
 {
     static ge_p3 H = crypto::get_H_p3();
@@ -139,7 +155,7 @@ static bool get_reserve_proof_remaining_commitment(const rct::xmr_amount thresho
     {
         // C~
         ge_p3 C;
-        if (0 != ge_frombytes_vartime(&C, rerandomized_amount_commitment.bytes))
+        if (0 != ge_frombytes_vartime(&C, to_bytes(rerandomized_amount_commitment)))
             return false;
         ge_cached C_cached;
         ge_p3_to_cached(&C_cached, &C);
@@ -156,63 +172,29 @@ static bool get_reserve_proof_remaining_commitment(const rct::xmr_amount thresho
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static std::tuple<
-    fcmp_pp::OutputBlinds,
-    std::vector<fcmp_pp::SeleneBranchBlind>,
-    std::vector<fcmp_pp::HeliosBranchBlind>
-> get_path_blinds(const FcmpRerandomizedOutputCompressed &rerandomized_output, const std::uint8_t n_tree_layers)
+static bool check_fcmp_pp_extended_proof(const crypto::hash &prefix_hash,
+    const std::vector<crypto::key_image> &key_images,
+    const carrot::FcmpPpProofExtended &fcmp_pp,
+    const fcmp_pp::TreeRootShared &fcmp_tree_root)
 {
-    CARROT_CHECK_AND_THROW(n_tree_layers, carrot::carrot_logic_error, "n_tree_layers must be at least 1");
+    const std::size_t n_inputs = key_images.size();
+    CHECK_AND_ASSERT_MES(fcmp_pp.rerandomized_amount_commitments.size() == n_inputs,
+        false, "FCMP extended proof wrong number of rerandomized amount commitments");
 
-    tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
-    tools::threadpool::waiter waiter(tpool);
+    // assert provided key images are unique and sorted
+    CHECK_AND_ASSERT_MES(tools::is_sorted_and_unique(key_images, std::greater{}),
+        false, "FCMP extended proof wrong order of key images");
 
-    // O~
-    fcmp_pp::BlindedOBlind blinded_o_blind;
-    tpool.submit(&waiter, [&blinded_o_blind, &rerandomized_output](){
-            blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output)); }, /*leaf=*/true);
-    // I~
-    fcmp_pp::BlindedIBlind blinded_i_blind;
-    tpool.submit(&waiter, [&blinded_i_blind, &rerandomized_output](){
-            blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output)); }, /*leaf=*/true);
-    // R
-    fcmp_pp::BlindedIBlindBlind blinded_i_blind_blind;
-    tpool.submit(&waiter, [&blinded_i_blind_blind, &rerandomized_output](){
-            blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
-        }, /*leaf=*/true);
-    // C~
-    fcmp_pp::BlindedCBlind blinded_c_blind;
-    tpool.submit(&waiter, [&blinded_c_blind, &rerandomized_output](){
-            blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output)); }, /*leaf=*/true);
+    // check FCMP++
+    const bool ver = fcmp_pp::verify(prefix_hash,
+        fcmp_pp.fcmp_pp,
+        fcmp_pp.n_tree_layers,
+        fcmp_tree_root,
+        fcmp_pp.rerandomized_amount_commitments,
+        key_images);
+    CHECK_AND_ASSERT_MES(ver, false, "FCMP++ verification of knowledge proof failed");
 
-    // selene
-    const std::size_t n_selene_branch_blinds = n_tree_layers / 2;
-    std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds(n_selene_branch_blinds);
-    for (std::size_t i = 0; i < n_selene_branch_blinds; ++i)
-    {
-        tpool.submit(&waiter, [&selene_branch_blinds, i](){
-            selene_branch_blinds.at(i) = fcmp_pp::gen_selene_branch_blind(); }, /*leaf=*/true);
-    }
-
-    // helios
-    const std::size_t n_helios_branch_blinds = (n_tree_layers - 1) / 2;
-    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
-    helios_branch_blinds.resize(n_helios_branch_blinds);
-    for (std::size_t i = 0; i < n_helios_branch_blinds; ++i)
-    {
-        tpool.submit(&waiter, [&helios_branch_blinds, i](){
-            helios_branch_blinds.at(i) = fcmp_pp::gen_helios_branch_blind(); }, /*leaf=*/true);
-    }
-
-    // wait for tasks to finish
-    CARROT_CHECK_AND_THROW(waiter.wait(),
-        carrot::carrot_runtime_error, "Threadpool waiter failed for path blind tasks");
-
-    return {
-        fcmp_pp::output_blinds_new(blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind),
-        std::move(selene_branch_blinds),
-        std::move(helios_branch_blinds)
-    };
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -420,6 +402,134 @@ bool check_carrot_tx_proof_receiver(const crypto::hash &prefix_hash,
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
+crypto::hash make_fcmp_spend_proof_prefix_hash(
+    const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    const std::vector<crypto::key_image> &signing_key_images)
+{
+    std::string other_data;
+    other_data.resize(sizeof(crypto::hash) + message.size());
+    memcpy(&other_data[0], txid.data, sizeof(txid));
+    memcpy(&other_data[0] + sizeof(crypto::hash), message.data(), message.size());
+
+    return make_generic_proof_prefix_hash(
+        reinterpret_cast<const char*>(carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX),
+        signing_key_images,
+        other_data);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void generate_fcmp_spend_proof(const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    std::vector<OutputOpeningHintVariant> opening_hints,
+    std::vector<fcmp_pp::Path> input_paths,
+    const std::uint64_t reference_block,
+    const std::uint8_t n_tree_layers,
+    const knowledge_proof_device &knowledge_proof_dev,
+    std::vector<crypto::key_image> &key_images_out,
+    FcmpPpProofExtended &spend_proof_out)
+{
+    const std::size_t n_inputs = opening_hints.size();
+    CARROT_CHECK_AND_THROW(input_paths.size() == n_inputs,
+        component_out_of_order, "Wrong number of FCMP paths");
+
+    // rerandomize inputs
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_inputs;
+    std::vector<crypto::ec_point> rerandomized_amount_commitments;
+    rerandomized_inputs.reserve(n_inputs);
+    rerandomized_amount_commitments.reserve(n_inputs);
+    for (std::size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
+    {
+        const crypto::public_key onetime_address = onetime_address_ref(opening_hints.at(input_idx));
+        const rct::key amount_commitment = amount_commitment_ref(opening_hints.at(input_idx));
+
+        // copy O, I, C
+        fcmp_pp::OutputBytes output_bytes{};
+        memcpy(&output_bytes.O_bytes, onetime_address.data, sizeof(onetime_address));
+        crypto::ec_point I;
+        crypto::derive_key_image_generator(onetime_address, I);
+        memcpy(&output_bytes.I_bytes, I.data, sizeof(I));
+        memcpy(&output_bytes.C_bytes, amount_commitment.bytes, sizeof(rct::key));
+
+        // rerandomize
+        FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(output_bytes);
+        rerandomized_inputs.push_back(rerandomized_output);
+        crypto::ec_point &rerandomized_amount_commitment = rerandomized_amount_commitments.emplace_back();
+        memcpy(rerandomized_amount_commitment.data, rerandomized_output.input.C_tilde, sizeof(rct::key));
+    }
+
+    // make SA/Ls
+    crypto::hash prefix_hash_dev;
+    knowledge_proof_device::signed_input_set_t signed_inputs;
+    const bool sign_success = knowledge_proof_dev.try_sign_fcmp_spend_proof_v1(txid,
+        message,
+        opening_hints,
+        rerandomized_inputs,
+        prefix_hash_dev,
+        signed_inputs);
+    CARROT_CHECK_AND_THROW(sign_success, carrot_runtime_error, "Device refused to sign spend proof");
+
+    // collect key images
+    key_images_out.clear();
+    key_images_out.reserve(n_inputs);
+    for (const auto &signed_input : signed_inputs)
+        key_images_out.push_back(signed_input.first);
+
+    // make prefix hash caller-side and compare
+    const crypto::hash prefix_hash = make_fcmp_spend_proof_prefix_hash(txid, message, key_images_out);
+    CARROT_CHECK_AND_THROW(prefix_hash_dev == prefix_hash,
+        carrot_runtime_error, "Device returned wrong prefix hash for spend proof");
+
+    // prove FCMP membership using given paths
+    fcmp_pp::FcmpMembershipProof membership_proof;
+    generate_fcmp_blinds_and_prove_membership(epee::to_span(rerandomized_inputs),
+        epee::to_span(input_paths),
+        n_tree_layers,
+        membership_proof);
+
+    // collect SA/Ls, and format SA/Ls and FCMPs into FCMP++s
+    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
+    sal_proofs.reserve(n_inputs);
+    for (auto &signed_input : signed_inputs)
+        sal_proofs.emplace_back(std::move(signed_input.second.second));
+    fcmp_pp::FcmpPpProof fcmp_pp = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_inputs,
+            sal_proofs,
+            membership_proof,
+            n_tree_layers);
+
+    spend_proof_out = FcmpPpProofExtended{
+        .rerandomized_amount_commitments = std::move(rerandomized_amount_commitments),
+        .reference_block = reference_block,
+        .n_tree_layers = n_tree_layers,
+        .fcmp_pp = std::move(fcmp_pp)
+    };
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool check_fcmp_spend_proof(const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    const std::vector<crypto::key_image> &key_images,
+    const FcmpPpProofExtended &fcmp_pp,
+    const fcmp_pp::TreeRootShared &fcmp_tree_root)
+{
+    // make prefix hash
+    const crypto::hash prefix_hash = make_fcmp_spend_proof_prefix_hash(txid, message, key_images);
+
+    return check_fcmp_pp_extended_proof(prefix_hash, key_images, fcmp_pp, fcmp_tree_root);
+}
+//-------------------------------------------------------------------------------------------------------------------
+crypto::hash make_fcmp_reserve_proof_prefix_hash(
+    rct::xmr_amount threshold_amount,
+    const std::vector<crypto::key_image> &signing_key_images)
+{
+    threshold_amount = SWAP64LE(threshold_amount);
+
+    const std::string_view other_data{reinterpret_cast<const char*>(&threshold_amount), sizeof(threshold_amount)};
+
+    return make_generic_proof_prefix_hash(
+        reinterpret_cast<const char*>(carrot::CARROT_DOMAIN_SEP_RESERVE_PROOF_PREFIX),
+        signing_key_images,
+        other_data);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     std::vector<OutputOpeningHintVariant> opening_hints,
     std::vector<fcmp_pp::Path> input_paths,
@@ -427,18 +537,14 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     const std::uint8_t n_tree_layers,
     std::shared_ptr<view_incoming_key_device> k_view_incoming_dev,
     std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
-    std::shared_ptr<address_device> addr_dev,
-    const crypto::secret_key &privkey_g,
-    const crypto::secret_key &privkey_t,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const knowledge_proof_device &knowledge_proof_dev,
+    std::vector<crypto::key_image> &key_images_out,
     FcmpReserveProof &reserve_proof_out)
 {
     const std::size_t n_inputs = opening_hints.size();
     CARROT_CHECK_AND_THROW(input_paths.size() == n_inputs,
         component_out_of_order, "Wrong number of FCMP paths");
-
-    crypto::public_key main_address_spend_pubkeys_arr[2];
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys =
-        get_all_main_address_spend_pubkeys_span(*addr_dev, main_address_spend_pubkeys_arr);
 
     // derive amount openings [(a, z), ...] where C = z G + a H
     boost::multiprecision::uint128_t input_amount_total = 0;
@@ -467,18 +573,11 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
         too_many_inputs, "Too much money in inputs for threshold amount");
     const rct::xmr_amount remaining_amount = boost::numeric_cast<rct::xmr_amount>(input_amount_total - threshold_amount);
 
-    // form key image device
-    const auto k_generate_image_dev = std::make_shared<generate_image_key_ram_borrowed_device>(privkey_g);
-    key_image_device_composed key_image_dev(k_generate_image_dev,
-        addr_dev,
-        s_view_balance_dev,
-        k_view_incoming_dev);
-
     // derive key images
-    std::vector<crypto::key_image> input_key_images;
-    input_key_images.reserve(n_inputs);
+    key_images_out.clear();
+    key_images_out.reserve(n_inputs);
     for (const OutputOpeningHintVariant &opening_hint : opening_hints)
-        input_key_images.push_back(key_image_dev.derive_key_image(opening_hint));
+        key_images_out.push_back(knowledge_proof_dev.derive_key_image(opening_hint));
 
     // sort data in key image order
     std::vector<std::size_t> key_image_order;
@@ -486,15 +585,15 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     for (std::size_t i = 0; i < n_inputs; ++i)
         key_image_order.push_back(i);
     std::sort(key_image_order.begin(), key_image_order.end(),
-        [&input_key_images](const std::size_t a, const std::size_t b)
+        [&key_images_out](const std::size_t a, const std::size_t b)
         {
-            return input_key_images.at(a) > input_key_images.at(b);
+            return key_images_out.at(a) > key_images_out.at(b);
         }
     );
     tools::apply_permutation(key_image_order, opening_hints);
     tools::apply_permutation(key_image_order, input_paths);
     tools::apply_permutation(key_image_order, amount_openings);
-    tools::apply_permutation(key_image_order, input_key_images);
+    tools::apply_permutation(key_image_order, key_images_out);
 
     // rerandomize inputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_inputs;
@@ -522,16 +621,13 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
         sc_add(individual_amount_opening.bytes, individual_amount_opening.bytes, rerandomized_output.r_c);
     }
 
-    // make prefix hash
-    const crypto::hash prefix_hash = get_reserve_proof_prefix_hash(threshold_amount, input_key_images);
-
     // collect [C~, ...]
-    std::vector<rct::key> rerandomized_amount_commitments;
+    std::vector<crypto::ec_point> rerandomized_amount_commitments;
     rerandomized_amount_commitments.reserve(n_inputs);
     for (const FcmpRerandomizedOutputCompressed &rerandomized_input : rerandomized_inputs)
     {
-        rct::key &rerandomized_amount_commitment = rerandomized_amount_commitments.emplace_back();
-        memcpy(rerandomized_amount_commitment.bytes, rerandomized_input.input.C_tilde, sizeof(rct::key));
+        crypto::ec_point &rerandomized_amount_commitment = rerandomized_amount_commitments.emplace_back();
+        memcpy(rerandomized_amount_commitment.data, rerandomized_input.input.C_tilde, sizeof(rct::key));
     }
 
     // make C_rem
@@ -547,87 +643,58 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     rct::BulletproofPlus bpp = rct::bulletproof_plus_PROVE(remaining_amount, amount_blinding_factor_sum);
 
     // make SA/Ls
-    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-    sal_proofs.reserve(n_inputs);
-    for (std::size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
-    {
-        const OutputOpeningHintVariant &opening_hint = opening_hints.at(input_idx);
+    crypto::hash prefix_hash_dev;
+    knowledge_proof_device::signed_input_set_t signed_inputs;
+    const bool sign_success = knowledge_proof_dev.try_sign_fcmp_reserve_proof_v1(threshold_amount,
+        opening_hints,
+        rerandomized_inputs,
+        prefix_hash_dev,
+        signed_inputs);
+    CARROT_CHECK_AND_THROW(sign_success, carrot_runtime_error, "Device refused to sign reserve proof");
 
-        // x = (k_g + k^j_subext) * k^j_subscal
-        // y = k_t * k^j_subscal
-        crypto::secret_key x;
-        crypto::secret_key y;
-        addr_dev->get_address_openings(subaddress_index_ref(opening_hint), x, y);
-        sc_add(to_bytes(x), to_bytes(x), to_bytes(privkey_g));
-        sc_mul(to_bytes(x), to_bytes(x), to_bytes(y));
-        sc_mul(to_bytes(y), to_bytes(y), to_bytes(privkey_t));
-
-        // x += k^g_o
-        // y += k^t_o
-        crypto::secret_key sender_extension_g;
-        crypto::secret_key sender_extension_t;
-        CARROT_CHECK_AND_THROW(try_scan_opening_hint_sender_extensions(opening_hint,
-                main_address_spend_pubkeys,
-                k_view_incoming_dev.get(),
-                s_view_balance_dev.get(),
-                sender_extension_g, sender_extension_t),
-            unexpected_scan_failure, "Failed to scan for one-time opening");
-        sc_add(to_bytes(x), to_bytes(x), to_bytes(sender_extension_g));
-        sc_add(to_bytes(y), to_bytes(y), to_bytes(sender_extension_t));
-
-        // sign
-        fcmp_pp::FcmpPpSalProof &sal_proof = sal_proofs.emplace_back();
-        crypto::key_image recomputed_key_image;
-        std::tie(sal_proof, recomputed_key_image) = fcmp_pp::prove_sal(prefix_hash, x, y, rerandomized_inputs.at(input_idx));
-        CARROT_CHECK_AND_THROW(recomputed_key_image == input_key_images.at(input_idx),
-            invalid_point, "FCMP++ SA/L proving code returned different key image than key image device");
-    }
+    // make prefix hash caller-side and compare
+    const crypto::hash prefix_hash = make_fcmp_reserve_proof_prefix_hash(threshold_amount, key_images_out);
+    CARROT_CHECK_AND_THROW(prefix_hash_dev == prefix_hash,
+        carrot_runtime_error, "Device returned wrong prefix hash for reserve proof");
 
     // prove FCMP membership using given paths
-    std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_membership_inputs;
-    fcmp_membership_inputs.reserve(n_inputs);
-    for (std::size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
-    {
-        MDEBUG("Generating blinds for path " << (input_idx+1)
-            << "/" << n_inputs << " with n_tree_layers=" << static_cast<int>(n_tree_layers));
-        const auto path_blinds = get_path_blinds(rerandomized_inputs.at(input_idx), n_tree_layers);
-        fcmp_membership_inputs.push_back(fcmp_pp::fcmp_pp_prove_input_new(
-            input_paths.at(input_idx),
-            std::get<0>(path_blinds),
-            std::get<1>(path_blinds),
-            std::get<2>(path_blinds)));
-    }
-    const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_membership_inputs, n_tree_layers);
+    fcmp_pp::FcmpMembershipProof membership_proof;
+    generate_fcmp_blinds_and_prove_membership(epee::to_span(rerandomized_inputs),
+        epee::to_span(input_paths),
+        n_tree_layers,
+        membership_proof);
 
-    // format SA/Ls and FCMPs into FCMP++s
+    // collect SA/Ls, and format SA/Ls and FCMPs into FCMP++s
+    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
+    sal_proofs.reserve(n_inputs);
+    for (auto &signed_input : signed_inputs)
+        sal_proofs.emplace_back(std::move(signed_input.second.second));
     fcmp_pp::FcmpPpProof fcmp_pp = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_inputs,
-        sal_proofs,
-        membership_proof,
-        n_tree_layers);
+            sal_proofs,
+            membership_proof,
+            n_tree_layers);
 
     reserve_proof_out = FcmpReserveProof{
-        .threshold_amount = threshold_amount,
-        .key_images = std::move(input_key_images),
-        .rerandomized_amount_commitments = std::move(rerandomized_amount_commitments),
-        .reference_block = reference_block,
-        .n_tree_layers = n_tree_layers,
-        .fcmp_pp = std::move(fcmp_pp),
+        .fcmp_pp = FcmpPpProofExtended{
+            .rerandomized_amount_commitments = std::move(rerandomized_amount_commitments),
+            .reference_block = reference_block,
+            .n_tree_layers = n_tree_layers,
+            .fcmp_pp = std::move(fcmp_pp)
+        },
         .bpp = std::move(bpp)
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool check_fcmp_reserve_proof_non_exclusion(const FcmpReserveProof &reserve_proof,
+bool check_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
+    const std::vector<crypto::key_image> &key_images,
+    const FcmpReserveProof &reserve_proof,
     const fcmp_pp::TreeRootShared &fcmp_tree_root)
 {
-    const std::size_t n_inputs = reserve_proof.key_images.size();
-    CHECK_AND_ASSERT_MES(reserve_proof.rerandomized_amount_commitments.size() == n_inputs,
-        false, "Reserve proof wrong number of rerandomized amount commitments");
-
     // make C_rem
     rct::key C_rem;
     CHECK_AND_ASSERT_MES(get_reserve_proof_remaining_commitment(
-            reserve_proof.threshold_amount,
-            reserve_proof.rerandomized_amount_commitments,
+            threshold_amount,
+            reserve_proof.fcmp_pp.rerandomized_amount_commitments,
             C_rem),
         false, "Reserve proof remaining amount commitment calculation failed");
 
@@ -638,48 +705,15 @@ bool check_fcmp_reserve_proof_non_exclusion(const FcmpReserveProof &reserve_proo
         false, "Reserve proof's range proof verification failed");
 
     // make prefix hash
-    const crypto::hash prefix_hash = get_reserve_proof_prefix_hash(reserve_proof.threshold_amount,
-        reserve_proof.key_images);
+    const crypto::hash prefix_hash = make_fcmp_reserve_proof_prefix_hash(threshold_amount, key_images);
 
-    // collect rerandomized_amount_commitments as crypto::ec_point's
-    std::vector<crypto::ec_point> rerandomized_amount_commitments;
-    rerandomized_amount_commitments.reserve(n_inputs);
-    for (const rct::key &rerandomized_amount_commitment : reserve_proof.rerandomized_amount_commitments)
-        rerandomized_amount_commitments.push_back(rct::rct2pt(rerandomized_amount_commitment));
-
-    // check FCMP++
-    const bool ver = fcmp_pp::verify(prefix_hash,
-        reserve_proof.fcmp_pp,
-        reserve_proof.n_tree_layers,
-        fcmp_tree_root,
-        rerandomized_amount_commitments,
-        reserve_proof.key_images);
-    CHECK_AND_ASSERT_MES(ver, false, "Reserve proof's FCMP++ verification failed");
-
-    return true;
+    return check_fcmp_pp_extended_proof(prefix_hash, key_images, reserve_proof.fcmp_pp, fcmp_tree_root);
 }
 //-------------------------------------------------------------------------------------------------------------------
-BEGIN_SERIALIZE_OBJECT_FN(FcmpReserveProof)
-    VERSION_FIELD(3)
-    // a
-    VARINT_FIELD_F(threshold_amount)
-    // [L]
-    FIELD_F(key_images)
-    const std::size_t n_inputs = v.key_images.size();
+BEGIN_SERIALIZE_OBJECT_FN(FcmpPpProofExtended)
     // [C~]
-    PREPARE_CUSTOM_VECTOR_SERIALIZATION(n_inputs, v.rerandomized_amount_commitments);
-    if (v.rerandomized_amount_commitments.size() != n_inputs)
-        return false;
-    ar.tag("rerandomized_amount_commitments");
-    ar.begin_array();
-    bool first = true;
-    for (rct::key &rerandomized_amount_commitment : v.rerandomized_amount_commitments)
-    {
-        if (!first)
-            ar.delimit_array();
-        FIELDS(rerandomized_amount_commitment)
-    }
-    ar.end_array();
+    FIELD_F(rerandomized_amount_commitments);
+    const std::size_t n_inputs = v.rerandomized_amount_commitments.size();
     // reference_block, n_tree_layers
     VARINT_FIELD_F(reference_block)
     FIELD_F(n_tree_layers)
@@ -701,6 +735,11 @@ BEGIN_SERIALIZE_OBJECT_FN(FcmpReserveProof)
     ar.serialize_blob(v.fcmp_pp.data(), proof_len);
     if (!ar.good())
         return false;
+END_SERIALIZE()
+//-------------------------------------------------------------------------------------------------------------------
+BEGIN_SERIALIZE_OBJECT_FN(FcmpReserveProof)
+    VERSION_FIELD(3)
+    FIELD_F(fcmp_pp)
     // BP+
     ar.tag("bpp");
     if (!serialize_bpp_exact_outputs(ar, v.bpp, 1))

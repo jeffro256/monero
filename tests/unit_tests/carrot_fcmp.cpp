@@ -33,6 +33,7 @@
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/input_selection.h"
+#include "carrot_impl/knowledge_proof_device_ram_borrowed.h"
 #include "carrot_impl/knowledge_proofs.h"
 #include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/tx_builder_inputs.h"
@@ -188,6 +189,18 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
     }
 
     return outs;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static std::shared_ptr<carrot::knowledge_proof_device> get_knowledge_proof_device_for_carrot(
+    const carrot::mock::mock_carrot_and_legacy_keys &keys)
+{
+    return std::make_shared<carrot::knowledge_proof_ram_borrowed_device>(
+        std::make_shared<carrot::view_incoming_key_ram_borrowed_device>(keys.legacy_acb.get_keys().m_view_secret_key),
+        std::make_shared<carrot::view_balance_secret_ram_borrowed_device>(keys.s_view_balance),
+        keys.addr_dev,
+        keys.k_generate_image,
+        keys.k_prove_spend);
 }
 } //anonymous namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -659,6 +672,205 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_fcmp, spend_proof)
+{
+    // In this test we:
+    // 1. Populate a curve tree with Carrot-derived enotes to Alice
+    // 2. Construct a spend proof
+    // 3. Serialize that proof, then deserialize it
+    // 4. Verify non-key-image parts of the proof
+
+    mock::mock_carrot_and_legacy_keys alice;
+    alice.generate();
+
+    const size_t n_inputs = 1; //! @TODO: crypto::rand_range<size_t>(CARROT_MIN_TX_INPUTS, FCMP_PLUS_PLUS_MAX_INPUTS);
+
+    const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
+    const std::size_t helios_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
+    const std::size_t tree_depth = 3;
+    const std::size_t n_tree_layers = tree_depth + 1;
+
+    LOG_PRINT_L1("Test carrot_impl.spend_proof with selene chunk width "
+        << selene_chunk_width << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth
+        << ", number of inputs " << n_inputs);
+
+    // Tree params
+    uint64_t min_leaves_needed_for_tree_depth = 0;
+    const auto curve_trees = test::init_curve_trees_test(selene_chunk_width,
+        helios_chunk_width,
+        tree_depth,
+        min_leaves_needed_for_tree_depth);
+
+    ASSERT_GT(min_leaves_needed_for_tree_depth, n_inputs);
+
+    // Generate enotes...
+    LOG_PRINT_L1("Generating carrot-derived enotes to Alice");
+    const auto new_outputs = generate_random_carrot_outputs(alice,
+        0,
+        min_leaves_needed_for_tree_depth
+      );
+    ASSERT_GT(min_leaves_needed_for_tree_depth, n_inputs);
+
+    // generate output ids to use as inputs...
+    std::set<size_t> picked_output_ids_set;
+    while (picked_output_ids_set.size() < n_inputs)
+        picked_output_ids_set.insert(crypto::rand_idx(min_leaves_needed_for_tree_depth));
+    std::vector<size_t> picked_output_ids(picked_output_ids_set.cbegin(), picked_output_ids_set.cend());
+    std::shuffle(picked_output_ids.begin(), picked_output_ids.end(), crypto::random_device{});
+
+    // scan inputs and make key images and opening hints...
+    //                                a                  z       C_a           K_o                opening hint          output id
+    using input_info_t = std::tuple<rct::xmr_amount, rct::key, rct::key, crypto::public_key, OutputOpeningHintVariant, std::uint64_t>;
+    LOG_PRINT_L1("Alice scanning inputs");
+    std::unordered_map<crypto::key_image, input_info_t> input_info_by_ki;
+    rct::xmr_amount input_amount_sum = 0;
+    rct::xmr_amount min_input_amount = MONEY_SUPPLY;
+    for (const size_t picked_output_id : picked_output_ids)
+    {
+        // find index into new_outputs based on picked_output_id
+        size_t new_outputs_idx;
+        for (new_outputs_idx = 0; new_outputs_idx < new_outputs.output_pairs.size(); ++new_outputs_idx)
+        {
+            if (new_outputs.output_pairs.at(new_outputs_idx).output_id == picked_output_id)
+                break;
+        }
+        ASSERT_LT(new_outputs_idx, new_outputs.enotes.size());
+
+        // compile information about this enote
+        const CarrotEnoteVariant &enote_v = new_outputs.enotes.at(new_outputs_idx);
+        OutputOpeningHintVariant opening_hint;
+        std::vector<mock::mock_scan_result_t> scan_results;
+        if (std::holds_alternative<CarrotEnoteV1>(enote_v))
+        {
+            const CarrotEnoteV1 &enote = std::get<CarrotEnoteV1>(enote_v);
+            const encrypted_payment_id_t encrypted_payment_id = new_outputs.encrypted_payment_ids.at(new_outputs_idx);
+            mock::mock_scan_enote_set({enote},
+                encrypted_payment_id,
+                alice,
+                scan_results);
+            ASSERT_EQ(1, scan_results.size());
+            const mock::mock_scan_result_t &scan_result = scan_results.front();
+            const auto subaddr_it = alice.subaddress_map.get_index_for_address_spend_pubkey(scan_result.address_spend_pubkey);
+            ASSERT_TRUE(subaddr_it);
+            opening_hint = CarrotOutputOpeningHintV1{
+                .source_enote = enote,
+                .encrypted_payment_id = encrypted_payment_id,
+                .subaddr_index = *subaddr_it
+            };
+        }
+        else // is coinbase
+        {
+            const CarrotCoinbaseEnoteV1 &enote = std::get<CarrotCoinbaseEnoteV1>(enote_v);
+            mock::mock_scan_coinbase_enote_set({enote},
+                alice,
+                scan_results);
+            ASSERT_EQ(1, scan_results.size());
+            const mock::mock_scan_result_t &scan_result = scan_results.front();
+            ASSERT_EQ(alice.cryptonote_address().address_spend_pubkey, scan_result.address_spend_pubkey);
+            opening_hint = CarrotCoinbaseOutputOpeningHintV1{
+                .source_enote = enote,
+                .derive_type = AddressDeriveType::Carrot
+            };
+        }
+        ASSERT_EQ(1, scan_results.size());
+        const mock::mock_scan_result_t &scan_result = scan_results.front();
+        const fcmp_pp::curve_trees::OutputPair &output_pair = new_outputs.output_pairs.at(new_outputs_idx).output_pair;
+        const crypto::key_image ki = alice.derive_key_image(scan_result.address_spend_pubkey,
+            scan_result.sender_extension_g,
+            scan_result.sender_extension_t,
+            output_pair.output_pubkey);
+
+        ASSERT_EQ(0, input_info_by_ki.count(ki));
+
+        input_info_by_ki[ki] = {scan_result.amount,
+            rct::sk2rct(scan_result.amount_blinding_factor),
+            output_pair.commitment,
+            output_pair.output_pubkey,
+            opening_hint,
+            new_outputs.output_pairs.at(new_outputs_idx).output_id};
+        input_amount_sum += scan_result.amount;
+        min_input_amount = std::min(min_input_amount, scan_result.amount);
+    }
+
+    // Init tree in memory
+    LOG_PRINT_L1("Initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
+    CurveTreesGlobalTree global_tree(*curve_trees);
+    ASSERT_TRUE(global_tree.grow_tree(0, min_leaves_needed_for_tree_depth, new_outputs.output_pairs));
+    LOG_PRINT_L1("Finished initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
+
+    // Make FCMP paths
+    LOG_PRINT_L1("Calculating FCMP paths");
+    std::vector<fcmp_pp::Path> input_paths;
+    input_paths.reserve(n_inputs);
+    for (const auto &selected_input : input_info_by_ki)
+    {
+        const size_t leaf_idx = std::get<5>(selected_input.second);
+        const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
+        const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
+
+        const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[path_leaf_idx].O),
+            path.leaves[path_leaf_idx].C};
+        const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
+
+        const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
+
+        const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
+            path_for_proof.c2_scalar_chunks);
+        const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
+            path_for_proof.c1_scalar_chunks);
+
+        auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+            path_for_proof.output_idx,
+            {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
+            {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
+
+        input_paths.push_back(std::move(path_rust));
+    }
+
+    // collect opening hints
+    LOG_PRINT_L1("Collecting opening hints");
+    std::vector<OutputOpeningHintVariant> opening_hints;
+    opening_hints.reserve(n_inputs);
+    for (const auto &selected_input : input_info_by_ki)
+        opening_hints.push_back(std::get<OutputOpeningHintVariant>(selected_input.second));
+
+    // select TXID, message and prove
+    const crypto::hash txid = crypto::rand<crypto::hash>();
+    constexpr const char MSG[] = "I am a dwarf and I'm digging a hole. Diggy diggy hole, digging a hole.";
+    const epee::span<const unsigned char> MSG_span(reinterpret_cast<const unsigned char*>(MSG), sizeof(MSG));
+    const std::uint64_t reference_block = mock::gen_block_index();
+    LOG_PRINT_L1("Proving holders of enotes in TX " << txid << " sign message '" << MSG << "', as of block "
+        << reference_block << ", using " << n_inputs << " inputs");
+    std::vector<crypto::key_image> key_images;
+    FcmpPpProofExtended fcmp_pp;
+    generate_fcmp_spend_proof(txid,
+        MSG_span,
+        opening_hints,
+        std::move(input_paths),
+        reference_block,
+        n_tree_layers,
+        *get_knowledge_proof_device_for_carrot(alice),
+        key_images,
+        fcmp_pp);
+    ASSERT_EQ(n_inputs, key_images.size());
+
+    // Serialize proof to bytes
+    LOG_PRINT_L1("Serializing & deserializing transaction");
+    cryptonote::blobdata proof_blob;
+    ASSERT_TRUE(::serialization::dump_binary(fcmp_pp, proof_blob));
+
+    // Deserialize proof
+    fcmp_pp.fcmp_pp.clear();
+    ASSERT_TRUE(::serialization::parse_binary(proof_blob, fcmp_pp));
+
+    // get root
+    const auto tree_root = global_tree.get_tree_root();
+
+    // Verify non-key-image-related spend proof validity
+    LOG_PRINT_L1("Verifying non-key-image-related spend proof validity");
+    EXPECT_TRUE(check_fcmp_spend_proof(txid, MSG_span, key_images, fcmp_pp, tree_root));
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_fcmp, reserve_proof)
 {
     // In this test we:
@@ -827,6 +1039,7 @@ TEST(carrot_fcmp, reserve_proof)
     LOG_PRINT_L1("Proving reserves of at least " << cryptonote::print_money(threshold_amount)
         << " XMR / " << cryptonote::print_money(input_amount_sum) << " XMR, as of block " << reference_block
         << ", using " << n_inputs << " inputs");
+    std::vector<crypto::key_image> key_images;
     FcmpReserveProof reserve_proof;
     generate_fcmp_reserve_proof(threshold_amount,
         opening_hints,
@@ -835,10 +1048,11 @@ TEST(carrot_fcmp, reserve_proof)
         n_tree_layers,
         std::make_shared<view_incoming_key_ram_borrowed_device>(alice.k_view_incoming_dev),
         std::make_shared<view_balance_secret_ram_borrowed_device>(alice.s_view_balance_dev),
-        alice.addr_dev,
-        alice.k_generate_image,
-        alice.k_prove_spend,
+        {&alice.carrot_account_spend_pubkey, 1},
+        *get_knowledge_proof_device_for_carrot(alice),
+        key_images,
         reserve_proof);
+    ASSERT_EQ(n_inputs, key_images.size());
 
     // Serialize proof to bytes
     LOG_PRINT_L1("Serializing & deserializing transaction");
@@ -846,15 +1060,15 @@ TEST(carrot_fcmp, reserve_proof)
     ASSERT_TRUE(::serialization::dump_binary(reserve_proof, proof_blob));
 
     // Deserialize proof
-    reserve_proof.fcmp_pp.clear();
+    reserve_proof.fcmp_pp.fcmp_pp.clear();
     reserve_proof.bpp = rct::BulletproofPlus();
     ASSERT_TRUE(::serialization::parse_binary(proof_blob, reserve_proof));
 
     // get root
     const auto tree_root = global_tree.get_tree_root();
 
-    // Verify non-input consensus rules on tx
+    // Verify non-key-image-related reserve proof validity
     LOG_PRINT_L1("Verifying non-key-image-related reserve proof validity");
-    EXPECT_TRUE(check_fcmp_reserve_proof_non_exclusion(reserve_proof, tree_root));
+    EXPECT_TRUE(check_fcmp_reserve_proof(threshold_amount, key_images, reserve_proof, tree_root));
 }
 //----------------------------------------------------------------------------------------------------------------------

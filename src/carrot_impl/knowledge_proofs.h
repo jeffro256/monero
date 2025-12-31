@@ -31,6 +31,7 @@
 //local headers
 #include "address_device.h"
 #include "crypto/crypto.h"
+#include "key_image_device.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "mx25519.h"
 #include "output_opening_types.h"
@@ -47,6 +48,36 @@
 
 namespace carrot
 {
+struct knowledge_proof_device: virtual public key_image_device
+{
+    // maps KI -> (OTA, SA/L) in consensus ordering
+    using signed_input_set_t = std::map<crypto::key_image,
+        std::pair<crypto::public_key, fcmp_pp::FcmpPpSalProof>,
+        std::greater<crypto::key_image>>;
+
+    virtual bool try_sign_fcmp_spend_proof_v1(const crypto::hash &txid,
+        const epee::span<const std::uint8_t> message,
+        const std::vector<OutputOpeningHintVariant> &opening_hints,
+        const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+        crypto::hash &prefix_hash_out,
+        signed_input_set_t &signed_inputs_out
+    ) const = 0;
+
+    virtual bool try_sign_fcmp_reserve_proof_v1(const rct::xmr_amount threshold_amount,
+        const std::vector<OutputOpeningHintVariant> &opening_hints,
+        const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+        crypto::hash &prefix_hash_out,
+        signed_input_set_t &signed_inputs_out
+    ) const = 0;
+};
+
+struct FcmpPpProofExtended
+{
+    std::vector<crypto::ec_point> rerandomized_amount_commitments;
+    std::uint64_t reference_block;
+    std::uint8_t n_tree_layers;
+    fcmp_pp::FcmpPpProof fcmp_pp;
+};
 /**
  * brief: A reserve proof of at least `threshold_amount` which uses FCMP++s and BP+s to preseve privacy
  *
@@ -69,12 +100,7 @@ namespace carrot
  */
 struct FcmpReserveProof
 {
-    rct::xmr_amount threshold_amount;
-    std::vector<crypto::key_image> key_images;
-    std::vector<rct::key> rerandomized_amount_commitments;
-    std::uint64_t reference_block;
-    std::uint8_t n_tree_layers;
-    fcmp_pp::FcmpPpProof fcmp_pp;
+    FcmpPpProofExtended fcmp_pp;
     rct::BulletproofPlus bpp;
 };
 
@@ -133,6 +159,39 @@ bool check_carrot_tx_proof_receiver(const crypto::hash &prefix_hash,
 /**
  * @TODO: doc
  */
+crypto::hash make_fcmp_spend_proof_prefix_hash(
+    const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    const std::vector<crypto::key_image> &signing_key_images);
+/**
+ * @TODO: doc
+ */
+void generate_fcmp_spend_proof(const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    std::vector<OutputOpeningHintVariant> opening_hints,
+    std::vector<fcmp_pp::Path> input_paths,
+    const std::uint64_t reference_block,
+    const std::uint8_t n_tree_layers,
+    const knowledge_proof_device &knowledge_proof_dev,
+    std::vector<crypto::key_image> &key_images_out,
+    FcmpPpProofExtended &spend_proof_out);
+/**
+ * @TODO: doc
+ */
+bool check_fcmp_spend_proof(const crypto::hash &txid,
+    const epee::span<const std::uint8_t> message,
+    const std::vector<crypto::key_image> &key_images,
+    const FcmpPpProofExtended &fcmp_pp,
+    const fcmp_pp::TreeRootShared &fcmp_tree_root);
+/**
+ * @TODO: doc
+ */
+crypto::hash make_fcmp_reserve_proof_prefix_hash(
+    rct::xmr_amount threshold_amount,
+    const std::vector<crypto::key_image> &signing_key_images);
+/**
+ * @TODO: doc
+ */
 void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     std::vector<OutputOpeningHintVariant> opening_hints,
     std::vector<fcmp_pp::Path> input_paths,
@@ -140,17 +199,20 @@ void generate_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
     const std::uint8_t n_tree_layers,
     std::shared_ptr<view_incoming_key_device> k_view_incoming_dev,
     std::shared_ptr<view_balance_secret_device> s_view_balance_dev,
-    std::shared_ptr<address_device> addr_dev,
-    const crypto::secret_key &privkey_g,
-    const crypto::secret_key &privkey_t,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const knowledge_proof_device &knowledge_proof_dev,
+    std::vector<crypto::key_image> &key_images_out,
     FcmpReserveProof &reserve_proof_out);
 /**
  * @TODO: doc
  *
  * Does not check key image exclusion nor that `n_tree_layers` is correct for `reference_block`
  */
-bool check_fcmp_reserve_proof_non_exclusion(const FcmpReserveProof &reserve_proof,
+bool check_fcmp_reserve_proof(const rct::xmr_amount threshold_amount,
+    const std::vector<crypto::key_image> &key_images,
+    const FcmpReserveProof &reserve_proof,
     const fcmp_pp::TreeRootShared &fcmp_tree_root);
 
+DECLARE_SERIALIZE_OBJECT(FcmpPpProofExtended)
 DECLARE_SERIALIZE_OBJECT(FcmpReserveProof)
 } //namespace carrot
