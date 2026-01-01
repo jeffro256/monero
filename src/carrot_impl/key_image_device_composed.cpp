@@ -111,12 +111,16 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
         throw make_local_device_error{-3, "derive_key_image"}("enote scan failed");
     }
 
-    return this->derive_key_image_prescanned(sender_extension_g, onetime_address, subaddr_index);
+    return this->derive_key_image_prescanned(sender_extension_g,
+        onetime_address,
+        subaddr_index,
+        use_biased_hash_to_point(opening_hint));
 }
 //-------------------------------------------------------------------------------------------------------------------
 crypto::key_image key_image_device_composed::derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
     const crypto::public_key &onetime_address,
-    const subaddress_index_extended &subaddr_index) const
+    const subaddress_index_extended &subaddr_index,
+    const bool use_biased) const
 {
     // resolve generate-image device
     const generate_image_key_device *used_k_generate_image_dev = nullptr;
@@ -143,11 +147,11 @@ crypto::key_image key_image_device_composed::derive_key_image_prescanned(const c
     // [legacy] L_partial = k_s Hp(K_o)
     // [carrot] L_partial = k_gi Hp(K_o)
     rct::key partial_key_image
-        = rct::pt2rct(used_k_generate_image_dev->generate_image_scalar_mult_hash_to_point(onetime_address));
+        = rct::pt2rct(used_k_generate_image_dev->generate_image_scalar_mult_hash_to_point(onetime_address, use_biased));
 
     // I = Hp(K_o)
     crypto::ec_point key_image_generator;
-    crypto::biased_derive_key_image_generator(onetime_address, key_image_generator);
+    crypto::derive_key_image_generator(onetime_address, use_biased, key_image_generator);
 
     // get k^j_subscal, k^j_subext
     crypto::secret_key subaddr_extension_g;

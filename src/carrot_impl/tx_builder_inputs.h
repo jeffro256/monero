@@ -45,15 +45,19 @@
 
 namespace carrot
 {
+fcmp_pp::curve_trees::OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint);
+
 void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<rct::key> &input_amount_commitments,
+    const std::vector<bool> &input_uses_biased_hash_to_point,
     const std::vector<rct::key> &input_amount_blinding_factors,
     const std::vector<rct::key> &output_amount_blinding_factors,
     std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs_out);
 
 bool verify_rerandomized_output_basic(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment);
+    const rct::key &amount_commitment,
+    const bool use_biased_hash_to_point);
 
 // spend any enote addressed to a legacy address
 void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,

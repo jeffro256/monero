@@ -865,6 +865,7 @@ TEST(fcmp_pp, calculate_fcmp_input_for_rerandomizations_convergence)
     const FcmpInputCompressed recomputed_input = fcmp_pp::calculate_fcmp_input_for_rerandomizations(
         rct::rct2pk(onetime_address),
         rct::rct2pt(amount_commitment),
+        /*use_biased_hash_to_point=*/true,
         load_sk(rerandomized_output.r_o),
         load_sk(rerandomized_output.r_i),
         load_sk(rerandomized_output.r_r_i),

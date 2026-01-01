@@ -133,6 +133,8 @@ namespace crypto {
     friend void biased_derive_key_image_generator(const public_key &, ec_point &);
     static void unbiased_derive_key_image_generator(const public_key &, ec_point &);
     friend void unbiased_derive_key_image_generator(const public_key &, ec_point &);
+    static void derive_key_image_generator(const public_key &, bool, ec_point &);
+    friend void derive_key_image_generator(const public_key &, bool, ec_point &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -266,6 +268,10 @@ namespace crypto {
 
   inline void unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
     crypto_ops::unbiased_derive_key_image_generator(pub, ki_gen);
+  }
+
+  inline void derive_key_image_generator(const public_key &pub, const bool biased, ec_point &ki_gen) {
+    crypto_ops::derive_key_image_generator(pub, biased, ki_gen);
   }
 
   /* To send money to a key:

@@ -270,6 +270,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_pre_car
     }
 
     return enote_view_incoming_scan_info_t{
+        .use_biased_hash_to_point = true,
         .sender_extension_g = sender_extension_g,
         .sender_extension_t = crypto::null_skey,
         .address_spend_pubkey = address_spend_pubkey,
@@ -298,6 +299,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
             res.address_spend_pubkey))
         return std::nullopt;
 
+    res.use_biased_hash_to_point = false;
     res.payment_id = crypto::null_hash;
     res.subaddr_index = subaddress_map.get_index_for_address_spend_pubkey(res.address_spend_pubkey);
     res.amount = enote.amount;
@@ -338,6 +340,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
                 /*check_payment_id=*/false))
             continue;
 
+        res.use_biased_hash_to_point = false;
         res.address_spend_pubkey= destination.address_spend_pubkey;
         res.payment_id = crypto::null_hash;
         res.subaddr_index.reset();
@@ -387,6 +390,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
     memset(&res.payment_id, 0, sizeof(res.payment_id));
     memcpy(&res.payment_id, &payment_id, sizeof(carrot::payment_id_t));
 
+    res.use_biased_hash_to_point = false;
     res.subaddr_index = *subaddr_it;
     res.amount_blinding_factor = rct::sk2rct(amount_blinding_factor_sk);
     res.main_tx_pubkey_index = 0;
@@ -868,7 +872,8 @@ std::optional<crypto::key_image> try_derive_enote_key_image(
 
     return key_image_dev.derive_key_image_prescanned(enote_scan_info.sender_extension_g,
         rct::rct2pk(ota),
-        *enote_scan_info.subaddr_index);
+        *enote_scan_info.subaddr_index,
+        enote_scan_info.use_biased_hash_to_point);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet

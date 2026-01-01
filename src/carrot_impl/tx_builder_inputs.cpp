@@ -53,7 +53,7 @@ namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-rct::key load_key(const std::uint8_t bytes[32])
+static rct::key load_key(const std::uint8_t bytes[32])
 {
     rct::key k;
     memcpy(k.bytes, bytes, sizeof(k));
@@ -63,6 +63,7 @@ rct::key load_key(const std::uint8_t bytes[32])
 //-------------------------------------------------------------------------------------------------------------------
 static FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const rct::key &amount_commitment,
+    const bool use_biased_hash_to_point,
     const rct::key &r_o,
     const rct::key &r_i,
     const rct::key &r_r_i,
@@ -70,6 +71,7 @@ static FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypt
 {
     return fcmp_pp::calculate_fcmp_input_for_rerandomizations(onetime_address,
         rct::rct2pt(amount_commitment),
+        use_biased_hash_to_point,
         rct::rct2sk(r_o),
         rct::rct2sk(r_i),
         rct::rct2sk(r_r_i),
@@ -91,7 +93,8 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
     // O = x G + y T
     CHECK_AND_ASSERT_THROW_MES(verify_rerandomized_output_basic(rerandomized_output,
             onetime_address_ref(opening_hint),
-            amount_commitment_ref(opening_hint)),
+            amount_commitment_ref(opening_hint),
+            use_biased_hash_to_point(opening_hint)),
         "Could not make SA/L proof: failed to verify rerandomized output against opening hint");
 
     // scan k^g_o, k^t_o
@@ -123,8 +126,15 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
         rerandomized_output);
 }
 //-------------------------------------------------------------------------------------------------------------------
+fcmp_pp::curve_trees::OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint)
+{
+    using namespace fcmp_pp::curve_trees;
+    return use_biased_hash_to_point(opening_hint) ? OutputPairType::Legacy : OutputPairType::Carrot;
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<rct::key> &input_amount_commitments,
+    const std::vector<bool> &input_uses_biased_hash_to_point,
     const std::vector<rct::key> &input_amount_blinding_factors,
     const std::vector<rct::key> &output_amount_blinding_factors,
     std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs_out)
@@ -156,6 +166,7 @@ void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::pu
 
     fcmp_pp::make_balanced_rerandomized_output_set(input_onetime_addresses,
         input_amount_commitments_pt,
+        input_uses_biased_hash_to_point,
         input_amount_blinding_factors_sk,
         r_o,
         output_amount_blinding_factor_sum,
@@ -164,11 +175,13 @@ void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::pu
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_rerandomized_output_basic(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment)
+    const rct::key &amount_commitment,
+    const bool use_biased_hash_to_point)
 {
     const FcmpInputCompressed recomputed_input = calculate_fcmp_input_for_rerandomizations(
         onetime_address,
         amount_commitment,
+        use_biased_hash_to_point,
         load_key(rerandomized_output.r_o),
         load_key(rerandomized_output.r_i),
         load_key(rerandomized_output.r_r_i),

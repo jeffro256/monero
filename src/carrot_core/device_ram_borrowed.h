@@ -102,7 +102,9 @@ public:
     generate_image_key_ram_borrowed_device(const crypto::secret_key &k_generate_image):
         m_k_generate_image(k_generate_image) {}
 
-    crypto::ec_point generate_image_scalar_mult_hash_to_point(const crypto::public_key &onetime_address) const override;
+    crypto::ec_point generate_image_scalar_mult_hash_to_point(
+        const crypto::public_key &onetime_address,
+        const bool use_biased) const override;
 
 protected:
     const crypto::secret_key &m_k_generate_image;

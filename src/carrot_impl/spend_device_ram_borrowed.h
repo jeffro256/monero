@@ -64,7 +64,8 @@ public:
 
     crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
         const crypto::public_key &onetime_address,
-        const subaddress_index_extended &subaddr_index) const;
+        const subaddress_index_extended &subaddr_index,
+        const bool use_biased) const override;
 
 protected:
     std::shared_ptr<view_incoming_key_device> m_k_view_incoming_dev;

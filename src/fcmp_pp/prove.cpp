@@ -53,10 +53,11 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output)
 }
 //----------------------------------------------------------------------------------------------------------------------
 FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &onetime_address,
-    const crypto::ec_point &amount_commitment)
+    const crypto::ec_point &amount_commitment,
+    const bool use_biased_hash_to_point)
 {
     crypto::ec_point I;
-    crypto::biased_derive_key_image_generator(onetime_address, I);
+    crypto::derive_key_image_generator(onetime_address, use_biased_hash_to_point, I);
 
     OutputBytes output_bytes;
     memcpy(output_bytes.O_bytes, onetime_address.data, sizeof(onetime_address));
@@ -74,6 +75,7 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &on
 //----------------------------------------------------------------------------------------------------------------------
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const crypto::ec_point &amount_commitment,
+    const bool use_biased_hash_to_point,
     const crypto::secret_key &r_o,
     const crypto::secret_key &r_i,
     const crypto::secret_key &r_r_i,
@@ -94,7 +96,7 @@ FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::publ
 
     // I = Hp(O)
     crypto::ec_point I;
-    crypto::biased_derive_key_image_generator(onetime_address, I);
+    crypto::derive_key_image_generator(onetime_address, use_biased_hash_to_point, I);
 
     // I~ = I + r_i U
     r = ge_frombytes_vartime(&p3_1, to_bytes(I));
@@ -122,6 +124,7 @@ FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::publ
 void make_balanced_rerandomized_output_set(
     const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<crypto::ec_point> &input_amount_commitments,
+    const std::vector<bool> &input_uses_biased_hash_to_point,
     const std::vector<crypto::secret_key> &input_amount_blinding_factors,
     const std::vector<crypto::secret_key> &r_o,
     const crypto::secret_key &output_amount_blinding_factor_sum,
@@ -133,6 +136,8 @@ void make_balanced_rerandomized_output_set(
     CHECK_AND_ASSERT_THROW_MES(nins, "make balanced rerandomized output set: no inputs provided");
     CHECK_AND_ASSERT_THROW_MES(input_amount_commitments.size() == nins,
         "make balanced rerandomized output set: wrong input amount commitments size");
+    CHECK_AND_ASSERT_THROW_MES(input_uses_biased_hash_to_point.size() == nins,
+        "make balanced rerandomized output set: wrong input biased hash-to-point config size");
     CHECK_AND_ASSERT_THROW_MES(input_amount_blinding_factors.size() == nins,
         "make balanced rerandomized output set: wrong input amount blinding factors size");
     CHECK_AND_ASSERT_THROW_MES(r_o.size() == nins,
@@ -157,10 +162,6 @@ void make_balanced_rerandomized_output_set(
         // C
         const crypto::ec_point &amount_commitment = input_amount_commitments.at(i);
 
-        // I = Hp(O)
-        crypto::ec_point I;
-        crypto::biased_derive_key_image_generator(onetime_address, I);
-
         // sample r_i, r_r_i randomly
         crypto::secret_key r_i, r_r_i;
         crypto::random32_unbiased(to_bytes(r_i));
@@ -177,8 +178,9 @@ void make_balanced_rerandomized_output_set(
         sc_sub(to_bytes(blinding_factor_imbalance), to_bytes(blinding_factor_imbalance), to_bytes(r_c));
 
         // calculate FCMP input
+        const bool use_biased_hash_to_point = input_uses_biased_hash_to_point.at(i);
         rerandomized_output.input = calculate_fcmp_input_for_rerandomizations(onetime_address,
-            amount_commitment, r_o.at(i), r_i, r_r_i, r_c);
+            amount_commitment, use_biased_hash_to_point, r_o.at(i), r_i, r_r_i, r_c);
 
         // copy rerandomizations
         memcpy(rerandomized_output.r_o, to_bytes(r_o.at(i)), 32);

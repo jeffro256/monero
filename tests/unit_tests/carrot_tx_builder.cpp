@@ -81,6 +81,8 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         .local_output_index = local_output_index
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
@@ -90,6 +92,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({opening_hint.onetime_address},
         {amount_commitment},
+        {use_biased_htp},
         {amount_blinding_factor},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -168,6 +171,8 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
         .local_output_index = local_output_index
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
@@ -177,6 +182,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({opening_hint.onetime_address},
         {amount_commitment},
+        {use_biased_htp},
         {amount_blinding_factor},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -251,10 +257,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -264,6 +273,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -341,10 +351,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -354,6 +367,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -431,10 +445,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -444,6 +461,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -518,10 +536,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -531,6 +552,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -601,10 +623,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -614,6 +639,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -690,10 +716,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -703,6 +732,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -776,10 +806,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -789,6 +822,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -865,10 +899,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -878,6 +915,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -951,10 +989,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -964,6 +1005,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -1040,10 +1082,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        enote.onetime_address);
+        enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -1053,6 +1098,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
         {enote.amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -1123,10 +1169,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
         .derive_type = keys.default_derive_type
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        coinbase_enote.onetime_address);
+        coinbase_enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -1136,6 +1185,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({coinbase_enote.onetime_address},
         {coinbase_enote_amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);
@@ -1199,10 +1249,13 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
         .derive_type = keys.default_derive_type
     };
 
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
+
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
         scan_result.sender_extension_t,
-        coinbase_enote.onetime_address);
+        coinbase_enote.onetime_address,
+        use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -1212,6 +1265,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable({coinbase_enote.onetime_address},
         {coinbase_enote_amount_commitment},
+        {use_biased_htp},
         {rct::sk2rct(scan_result.amount_blinding_factor)},
         {output_amount_blinding_factor},
         rerandomized_outputs);

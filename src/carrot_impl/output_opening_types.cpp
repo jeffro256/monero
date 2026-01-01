@@ -348,18 +348,18 @@ subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant &o
     return std::visit(subaddress_index_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
-OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint)
+bool use_biased_hash_to_point(const OutputOpeningHintVariant &opening_hint)
 {
     struct output_pair_type_visitor
     {
-        OutputPairType operator()(const LegacyOutputOpeningHintV1 &h) const
-        { return OutputPairType::Legacy; }
-        OutputPairType operator()(const CarrotOutputOpeningHintV1 &h) const
-        { return OutputPairType::Carrot; }
-        OutputPairType operator()(const CarrotOutputOpeningHintV2 &h) const
-        { return OutputPairType::Carrot; }
-        OutputPairType operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
-        { return OutputPairType::Carrot; }
+        bool operator()(const LegacyOutputOpeningHintV1 &h) const
+        { return true; }
+        bool operator()(const CarrotOutputOpeningHintV1 &h) const
+        { return false; }
+        bool operator()(const CarrotOutputOpeningHintV2 &h) const
+        { return false; }
+        bool operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
+        { return false; }
     };
 
     return std::visit(output_pair_type_visitor{}, opening_hint);

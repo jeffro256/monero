@@ -160,7 +160,7 @@ static bool check_test_and_set(const std::size_t n, const std::function<bool(std
   return waiter.wait() && !fail_occurred.test_and_set();
 }
 
-TEST(threapool, test_and_set)
+TEST(threadpool, test_and_set)
 {
   // No failure
   ASSERT_TRUE(check_test_and_set(0, [](std::size_t i) -> bool { return false; }));

@@ -302,7 +302,8 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const crypto::key_image ki = alice.derive_key_image(scan_result.address_spend_pubkey,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
-            output_pair.output_pubkey);
+            output_pair.output_pubkey,
+            output_pair.type == fcmp_pp::curve_trees::OutputPairType::Legacy);
 
         ASSERT_EQ(0, input_info_by_ki.count(ki));
 
@@ -396,6 +397,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // Collect balance info and enotes
     std::vector<crypto::public_key> input_onetime_addresses;
     std::vector<rct::key> input_amount_commitments;
+    std::vector<bool> input_uses_biased_hash_to_point;
     std::vector<rct::key> input_amount_blinding_factors;
     std::vector<rct::xmr_amount> output_amounts;
     std::vector<rct::key> output_amount_blinding_factors;
@@ -405,6 +407,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
         input_onetime_addresses.push_back(std::get<3>(input_info));
         input_amount_commitments.push_back(std::get<2>(input_info));
+        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(std::get<4>(input_info)));
         input_amount_blinding_factors.push_back(std::get<1>(input_info));
     }
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
@@ -446,6 +449,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
     make_carrot_rerandomized_outputs_nonrefundable(input_onetime_addresses,
         input_amount_commitments,
+        input_uses_biased_hash_to_point,
         input_amount_blinding_factors,
         output_amount_blinding_factors,
         rerandomized_outputs);

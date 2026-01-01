@@ -51,7 +51,8 @@ public:
 
     crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
         const crypto::public_key &onetime_address,
-        const subaddress_index_extended &subaddr_index) const override;
+        const subaddress_index_extended &subaddr_index,
+        const bool use_biased) const override;
 
 protected:
     std::unordered_map<crypto::public_key, crypto::key_image> m_key_image_map;
