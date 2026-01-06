@@ -1219,7 +1219,6 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     input_uses_biased_hash_to_point.reserve(n_inputs);
     for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
         input_uses_biased_hash_to_point.emplace_back(use_biased_hash_to_point(input_proposal));
-    tools::apply_permutation(key_image_order, input_uses_biased_hash_to_point);
 
     // collect output k_a
     std::vector<rct::key> output_amount_blinding_factors;
@@ -1253,6 +1252,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
 
     // sort and collect input infos in key image order
     tools::apply_permutation(key_image_order, rerandomized_outputs);
+    tools::apply_permutation(key_image_order, input_uses_biased_hash_to_point);
     std::vector<fcmp_pp::FcmpPpSalProof> sorted_sal_proofs;
     sorted_sal_proofs.reserve(signed_inputs.size());
     for (const auto &signed_input : signed_inputs)
