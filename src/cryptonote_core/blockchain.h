@@ -681,6 +681,15 @@ namespace cryptonote
     }
 
     /**
+     * @brief get reference tx weight, used for fee calculations
+     *
+     * @param hf_version hard fork version
+     *
+     * @return reference tx weight for block with given hard fork version
+     */
+    static uint64_t get_reference_tx_weight(uint8_t hf_version);
+
+    /**
      * @brief get dynamic per kB or byte fee for a given block weight
      *
      * The dynamic fee is based on the block weight in a past window, and
@@ -689,10 +698,11 @@ namespace cryptonote
      *
      * @param block_reward the current block reward
      * @param median_block_weight the median block weight in the past window
+     * @param hf_version hard fork version
      *
      * @return the fee
      */
-    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight);
+    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t hf_version);
 
     /**
      * @brief get four levels of dynamic per byte fee estimate for the next few blocks
@@ -709,18 +719,32 @@ namespace cryptonote
       uint64_t Mlw, std::vector<uint64_t> &fees);
 
     /**
-     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
+     * @brief get five levels of dynamic per byte fee estimate for the next few blocks
      *
      * The dynamic fee is based on the block weight in a past window, and
      * the current block reward. It is expressed per byte, and is based on
-     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
+     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2026-02.pdf
+     *
+     * @param Mlw The median over the last 99000 and future 10 blocks of max(min(Mbw, 1.2*Ml), Zm, Ml/1.2)
+     * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh64, Fh256]
+     */
+    static void get_dynamic_base_fee_estimate_2026_scaling(uint64_t base_reward, uint64_t Mlw,
+      std::vector<uint64_t> &fees);
+
+    /**
+     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed per byte, and is based on:
+     *   - https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
+     *   - https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2026-02.pdf
      * This function calculates an estimate for a dynamic fee which will be
      * valid for the next grace_blocks
      *
      * @param grace_blocks number of blocks we want the fee to be valid for
      * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh]
      */
-    void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const;
+    void get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vector<uint64_t> &fees) const;
 
     /**
      * @brief validate a transaction's fee
@@ -763,7 +787,21 @@ namespace cryptonote
     /**
      * @brief gets the long term block weight for a new block
      *
-     * @return the long term block weight
+     * v01-v09: M_L = M_B
+     * v10-v14: M_L = min(M_B, 1.4 * M^prev_L)
+     * v15-v16: M_L = M_B clamped to [M^prev_L / 1.7, M^prev_L * 1.7]
+     * v17-now: M_L = M_B clamped to [M^prev_L / 1.2, M^prev_L * 1.2]
+     * where:
+     *   M_B is `block_weight`,
+     *   M^prev_L is the median of the previous CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE blocks' values of M_L,
+     *   M^prev_L is forced to always be at least Z_M, the minimum penalty free zone for the next block,
+     *   and the fork version is determined using the ideal fork version of the next block
+     *
+     * Sources for scaling docs:
+     *   - https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
+     *   - https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2026-02.pdf
+     *
+     * @return the long term block weight M_L
      */
     uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
 
@@ -1223,7 +1261,7 @@ namespace cryptonote
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
     bool m_reset_timestamps_and_difficulties_height;
-    uint64_t m_long_term_block_weights_window;
+    uint64_t m_long_term_block_weights_window; // non-0 iff using "custom" long-term window
     uint64_t m_long_term_effective_median_block_weight;
     mutable crypto::hash m_long_term_block_weights_cache_tip_hash;
     mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_weights_cache_rolling_median;

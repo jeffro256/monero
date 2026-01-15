@@ -59,8 +59,11 @@
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    60000 //size of block (bytes) after which reward for block calculated using block size
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1    20000 //size of block (bytes) after which reward for block calculated using block size - before first fork
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5    300000 //size of block (bytes) after which reward for block calculated using block size - second change, from v5
+#define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17   625000 //size of block (bytes) after which reward for block calculated using block size - third change, from v17
 #define CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE   100000 // size in blocks of the long term block weight median window
-#define CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR 50
+#define CRYPTONOTE_STRESSNET_BLOCK_WEIGHT_WINDOW_SIZE   10080 // size in blocks of the long term block weight median window [2 weeks] [STRESSNET ONLY!!!!]
+#define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V10    50
+#define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V17    8
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
@@ -72,7 +75,8 @@
 #define DYNAMIC_FEE_PER_KB_BASE_FEE                     ((uint64_t)2000000000) // 2 * pow(10,9)
 #define DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD            ((uint64_t)10000000000000) // 10 * pow(10,12)
 #define DYNAMIC_FEE_PER_KB_BASE_FEE_V5                  ((uint64_t)2000000000 * (uint64_t)CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 / CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5)
-#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT         ((uint64_t)3000)
+#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT_V8     ((uint64_t)3000)
+#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT_V17    ((uint64_t)10000)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -201,6 +205,7 @@
 #define HF_VERSION_REJECT_LARGE_EXTRA           17
 #define HF_VERSION_REJECT_UNMIXABLE_V1          17
 #define HF_VERSION_REJECT_MANY_MINER_OUTPUTS    17
+#define HF_VERSION_2026_SCALING                 17
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2

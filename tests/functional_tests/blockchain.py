@@ -44,6 +44,8 @@ Test the following RPCs:
 
 from framework.daemon import Daemon
 
+BASE_FEE_ESTIMATE = 910000
+
 class BlockchainTest():
     def run_test(self):
         self.reset()
@@ -80,10 +82,10 @@ class BlockchainTest():
         assert ok
 
         res = daemon.get_fee_estimate()
-        assert res.fee == 1200000
+        assert res.fee == BASE_FEE_ESTIMATE, res.fee
         assert res.quantization_mask == 10000
         res = daemon.get_fee_estimate(10)
-        assert res.fee <= 1200000
+        assert res.fee <= BASE_FEE_ESTIMATE, res.fee
 
         # generate blocks
         res_generateblocks = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', blocks)
@@ -243,10 +245,10 @@ class BlockchainTest():
             assert res.histogram[i].recent_instances == 0
 
         res = daemon.get_fee_estimate()
-        assert res.fee == 1200000
+        assert res.fee == BASE_FEE_ESTIMATE, res.fee
         assert res.quantization_mask == 10000
         res = daemon.get_fee_estimate(10)
-        assert res.fee <= 1200000
+        assert res.fee <= BASE_FEE_ESTIMATE, res.fee
 
     def _test_reorg_handling(self):
         print('Testing reorg handling')
