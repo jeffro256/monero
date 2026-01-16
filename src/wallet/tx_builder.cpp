@@ -853,7 +853,11 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
 cryptonote::transaction finalize_fcmps_and_range_proofs(
     const std::vector<crypto::key_image> &sorted_input_key_images,
     const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
-    const std::vector<bool> &sorted_input_uses_biased_hash_to_point,
+    const std::function<fcmp_pp::OutputPair(
+        const std::size_t,
+        const crypto::public_key&,
+        const crypto::ec_point&
+    )> &to_output_pair,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sorted_sal_proofs,
     const std::vector<carrot::RCTOutputEnoteProposal> &output_enote_proposals,
     const carrot::encrypted_payment_id_t &encrypted_payment_id,
@@ -866,8 +870,6 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     CARROT_CHECK_AND_THROW(n_inputs, carrot::too_few_inputs, "no inputs");
     CARROT_CHECK_AND_THROW(sorted_rerandomized_outputs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of rerandomized outputs");
-    CARROT_CHECK_AND_THROW(sorted_input_uses_biased_hash_to_point.size() == n_inputs,
-        carrot::component_out_of_order, "wrong number of input enote types");
     CARROT_CHECK_AND_THROW(sorted_sal_proofs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of SA/L proofs");
 
@@ -882,7 +884,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
         output_amount_blinding_factors.push_back(rct::sk2rct(output_enote_proposal.amount_blinding_factor));
 
     // collect (O, C) input pairs in key image order
-    std::vector<fcmp_pp::curve_trees::OutputPair> spent_input_pairs;
+    std::vector<fcmp_pp::OutputPair> spent_input_pairs;
     spent_input_pairs.reserve(n_inputs);
     for (std::size_t i = 0; i < n_inputs; ++i)
     {
@@ -904,18 +906,15 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
         rct::scalarmultBase(C, r_c);
         rct::subKeys(C, C_tilde, C);
 
-        const fcmp_pp::curve_trees::OutputPairType output_pair_type = sorted_input_uses_biased_hash_to_point.at(i)
-            ? fcmp_pp::curve_trees::OutputPairType::Legacy
-            : fcmp_pp::curve_trees::OutputPairType::Carrot;
-        spent_input_pairs.emplace_back(rct::rct2pk(O), C, output_pair_type);
+        spent_input_pairs.emplace_back(to_output_pair(i, rct::rct2pk(O), rct::rct2pt(C)));
     }
 
     // collect FCMP paths
     std::vector<fcmp_pp::curve_trees::CurveTreesV1::Path> fcmp_paths;
     fcmp_paths.reserve(n_inputs);
-    for (const fcmp_pp::curve_trees::OutputPair &input_pair : spent_input_pairs)
+    for (const fcmp_pp::OutputPair &input_pair : spent_input_pairs)
     {
-        MDEBUG("Requesting FCMP path from tree cache for onetime address " << input_pair.output_pubkey);
+        MDEBUG("Requesting FCMP path from tree cache for onetime address " << output_pubkey_cref(input_pair));
         fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.emplace_back();
         CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, fcmp_path),
             "failed to get FCMP path from tree cache");
@@ -1009,7 +1008,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.at(i);
-        const fcmp_pp::curve_trees::OutputPair output_pair = spent_input_pairs.at(i);
+        const fcmp_pp::OutputPair &output_pair = spent_input_pairs.at(i);
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
         const auto path_for_proof = curve_trees.path_for_proof(fcmp_path, output_tuple);
@@ -1218,7 +1217,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     std::vector<bool> input_uses_biased_hash_to_point;
     input_uses_biased_hash_to_point.reserve(n_inputs);
     for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
-        input_uses_biased_hash_to_point.emplace_back(use_biased_hash_to_point(input_proposal));
+        input_uses_biased_hash_to_point.emplace_back(cryptonote::use_biased_hash_to_point(input_proposal));
 
     // collect output k_a
     std::vector<rct::key> output_amount_blinding_factors;
@@ -1252,15 +1251,26 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
 
     // sort and collect input infos in key image order
     tools::apply_permutation(key_image_order, rerandomized_outputs);
-    tools::apply_permutation(key_image_order, input_uses_biased_hash_to_point);
     std::vector<fcmp_pp::FcmpPpSalProof> sorted_sal_proofs;
     sorted_sal_proofs.reserve(signed_inputs.size());
     for (const auto &signed_input : signed_inputs)
         sorted_sal_proofs.push_back(signed_input.second.second);
 
+    // Custom lambda to get the output pair variant using the key image order indexing
+    const auto to_output_pair = [&key_image_order, &tx_proposal](
+            std::size_t i,
+            const crypto::public_key &output_pubkey,
+            const crypto::ec_point &commitment
+        ) -> fcmp_pp::OutputPair
+        {
+            const std::size_t original_idx = key_image_order.at(i);
+            const auto &input_hint = tx_proposal.input_proposals.at(original_idx);
+            return cryptonote::to_output_pair(input_hint, output_pubkey, commitment);
+        };
+
     return finalize_fcmps_and_range_proofs(sorted_input_key_images,
         rerandomized_outputs,
-        input_uses_biased_hash_to_point,
+        to_output_pair,
         sorted_sal_proofs,
         output_enote_proposals,
         encrypted_payment_id,

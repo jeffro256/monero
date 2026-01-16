@@ -66,7 +66,7 @@ public:
     // A complete tree, useful for testing (don't want to keep the whole tree in memory during normal operation)
     struct Tree final
     {
-        std::vector<fcmp_pp::curve_trees::OutputPair> leaves;
+        std::vector<fcmp_pp::OutputPair> leaves;
         std::vector<Layer<Selene>> c1_layers;
         std::vector<Layer<Helios>> c2_layers;
     };
@@ -89,7 +89,7 @@ public:
     CurveTreesV1::Path get_path_at_leaf_idx(const std::size_t leaf_idx) const;
 
     // get all leaf indices with given output pair
-    std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::curve_trees::OutputPair &output_pair) const;
+    std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::OutputPair &output_pair) const;
 
     fcmp_pp::TreeRootShared get_tree_root() const;
 

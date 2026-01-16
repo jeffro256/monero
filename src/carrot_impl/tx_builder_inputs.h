@@ -45,8 +45,6 @@
 
 namespace carrot
 {
-fcmp_pp::curve_trees::OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint);
-
 void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<rct::key> &input_amount_commitments,
     const std::vector<bool> &input_uses_biased_hash_to_point,

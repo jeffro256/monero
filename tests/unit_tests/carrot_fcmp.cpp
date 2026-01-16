@@ -167,21 +167,23 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
             break;
         }
 
+        crypto::public_key O;
+        rct::key C;
         if (push_coinbase)
         {
-            output_pair.output_pair.output_pubkey = coinbase_enote.onetime_address;
-            output_pair.output_pair.commitment = rct::zeroCommitVartime(coinbase_enote.amount);
+            O = coinbase_enote.onetime_address;
+            C = rct::zeroCommitVartime(coinbase_enote.amount);
             outs.enotes.push_back(coinbase_enote);
             outs.encrypted_payment_ids.emplace_back();
         }
         else
         {
-            output_pair.output_pair.output_pubkey = rct_output_enote_proposal.enote.onetime_address;
-            output_pair.output_pair.commitment = rct_output_enote_proposal.enote.amount_commitment;
+            O = rct_output_enote_proposal.enote.onetime_address;
+            C = rct_output_enote_proposal.enote.amount_commitment;
             outs.enotes.push_back(rct_output_enote_proposal.enote);
         }
 
-        output_pair.output_pair.type = fcmp_pp::curve_trees::OutputPairType::Carrot;
+        output_pair.output_pair = fcmp_pp::CarrotOutputPairV1{{O, rct::rct2pt(C)}};
 
         outs.encrypted_payment_ids.push_back(encrypted_payment_id);
         outs.output_pairs.push_back(output_pair);
@@ -298,19 +300,19 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         }
         ASSERT_EQ(1, scan_results.size());
         const mock::mock_scan_result_t &scan_result = scan_results.front();
-        const fcmp_pp::curve_trees::OutputPair &output_pair = new_outputs.output_pairs.at(new_outputs_idx).output_pair;
+        const auto &output_pair = new_outputs.output_pairs.at(new_outputs_idx).output_pair;
         const crypto::key_image ki = alice.derive_key_image(scan_result.address_spend_pubkey,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
-            output_pair.output_pubkey,
-            output_pair.type == fcmp_pp::curve_trees::OutputPairType::Legacy);
+            output_pubkey_cref(output_pair),
+            cryptonote::use_biased_hash_to_point(opening_hint));
 
         ASSERT_EQ(0, input_info_by_ki.count(ki));
 
         input_info_by_ki[ki] = {scan_result.amount,
             rct::sk2rct(scan_result.amount_blinding_factor),
-            output_pair.commitment,
-            output_pair.output_pubkey,
+            rct::pt2rct(commitment_cref(output_pair)),
+            output_pubkey_cref(output_pair),
             opening_hint,
             new_outputs.output_pairs.at(new_outputs_idx).output_id};
         input_amount_sum += scan_result.amount;
@@ -407,7 +409,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
         input_onetime_addresses.push_back(std::get<3>(input_info));
         input_amount_commitments.push_back(std::get<2>(input_info));
-        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(std::get<4>(input_info)));
+        input_uses_biased_hash_to_point.push_back(cryptonote::use_biased_hash_to_point(std::get<4>(input_info)));
         input_amount_blinding_factors.push_back(std::get<1>(input_info));
     }
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
@@ -488,9 +490,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 
         const auto &opening_hint = std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i)));
-        const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[path_leaf_idx].O),
-            path.leaves[path_leaf_idx].C,
-            carrot::output_pair_type(opening_hint)};
+        const auto output_pair = cryptonote::to_output_pair(opening_hint,
+            rct::rct2pk(path.leaves[path_leaf_idx].O),
+            rct::rct2pt(path.leaves[path_leaf_idx].C));
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
         const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);

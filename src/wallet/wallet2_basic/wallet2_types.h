@@ -166,12 +166,15 @@ struct transfer_details
         return output_public_key;
     };
 
-    const fcmp_pp::curve_trees::OutputPair get_output_pair() const {
-        return fcmp_pp::curve_trees::OutputPair(
-            get_public_key(),
-            this->is_rct() ? rct::commit(this->amount(), m_mask) : rct::zeroCommitVartime(this->amount()),
-            cryptonote::output_pair_type(m_tx)
-        );
+    const fcmp_pp::OutputPair get_output_pair() const {
+        const rct::key C = this->is_rct()
+            ? rct::commit(this->amount(), m_mask)
+            : rct::zeroCommitVartime(this->amount());
+        return cryptonote::to_output_pair(
+                m_tx.vout.at(m_internal_output_index).target,
+                get_public_key(),
+                rct::rct2pt(C)
+            );
     };
 };
 

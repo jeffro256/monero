@@ -2015,7 +2015,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
 
   // Collect global output id's for outputs we need path data for
   std::vector<uint64_t> global_output_ids;
-  std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
+  std::vector<fcmp_pp::OutputPair> output_pairs;
   const auto push_if_unlocked = [&](const transfer_details &td)
   {
     // Need paths for outputs that are spendable (i.e. unlocked)

@@ -36,6 +36,8 @@
 #include "serialization/binary_utils.h"
 #include "string_tools.h"
 
+#include <variant>
+
 //----------------------------------------------------------------------------------------------------------------------
 #define INIT_SYNC_TEST(tree_depth)                                                                            \
     static const std::size_t selene_chunk_width = 2;                                                          \
@@ -54,6 +56,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_cache, register_output)
 {
+    using namespace fcmp_pp;
+
     // 1. Init
     auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
     auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
@@ -63,7 +67,7 @@ TEST(tree_cache, register_output)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
-    const auto output = outputs[0].output_pair;
+    const auto output = outputs.at(0).output_pair;
 
     // 2. Register output - valid
     ASSERT_TRUE(tree_cache->register_output(output));
@@ -76,21 +80,26 @@ TEST(tree_cache, register_output)
     ASSERT_FALSE(tree_cache->register_output(output_copy));
 
     // 4. Register another output with the same output pubkey as existing, different commitment - valid
-    auto output_new_commitment = output;
-    output_new_commitment.commitment = outputs[1].output_pair.commitment;
+    const OutputPair output_new_commitment = LegacyOutputPair{{
+            output_pubkey_cref(output),
+            commitment_cref(outputs.at(1).output_pair)
+        }};
 
-    ASSERT_EQ(output_new_commitment.output_pubkey, output.output_pubkey);
-    ASSERT_NE(output_new_commitment.commitment, output.commitment);
+    ASSERT_EQ(output_pubkey_cref(output_new_commitment), output_pubkey_cref(output));
+    ASSERT_NE(commitment_cref(output_new_commitment), commitment_cref(output));
 
     ASSERT_TRUE(tree_cache->register_output(output_new_commitment));
 
     // 5. Register another output with same output pubkey and commitment, but different output pair type - valid
-    ASSERT_EQ(output.type, fcmp_pp::curve_trees::OutputPairType::Legacy);
-    auto output_diff_type = output;
-    output_diff_type.type = fcmp_pp::curve_trees::OutputPairType::Carrot;
+    ASSERT_TRUE(std::holds_alternative<LegacyOutputPair>(output));
+    const OutputPair output_diff_type = CarrotOutputPairV1{{
+            output_pubkey_cref(output),
+            commitment_cref(output)
+        }};
 
-    ASSERT_EQ(output_diff_type.output_pubkey, output.output_pubkey);
-    ASSERT_EQ(output_diff_type.commitment, output.commitment);
+    ASSERT_EQ(output_pubkey_cref(output_diff_type), output_pubkey_cref(output));
+    ASSERT_EQ(commitment_cref(output_diff_type), commitment_cref(output));
+    ASSERT_TRUE(!(output == output_diff_type));
 
     ASSERT_TRUE(tree_cache->register_output(output_diff_type));
 }
@@ -154,7 +163,7 @@ TEST(tree_cache, sync_n_chunks_of_blocks)
     std::vector<std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock>> chunks_of_outputs;
     std::size_t leaf_count = 0;
     uint64_t last_locked_block_idx = 0;
-    fcmp_pp::curve_trees::OutputPair output;
+    fcmp_pp::OutputPair output;
     for (std::size_t i = 0; i < N_CHUNKS; ++i)
     {
         std::vector<crypto::hash> block_hashes;
@@ -228,7 +237,7 @@ TEST(tree_cache, sync_n_blocks_register_n_outputs)
     crypto::hash prev_block_hash = crypto::hash{};
 
     // Keep track of all registered outputs so that we can make sure ALL output paths update correctly every block
-    std::vector<fcmp_pp::curve_trees::OutputPair> registered_outputs;
+    std::vector<fcmp_pp::OutputPair> registered_outputs;
     registered_outputs.reserve(n_leaves_needed);
 
     while (n_unlocked_outputs < n_leaves_needed)
@@ -298,7 +307,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
         LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
         auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
 
-        fcmp_pp::curve_trees::OutputPair registered_output;
+        fcmp_pp::OutputPair registered_output;
         bool registered = false;
 
         crypto::hash prev_block_hash = crypto::hash{};
@@ -391,7 +400,7 @@ TEST(tree_cache, sync_past_max_reorg_depth)
         uint64_t n_unlocked_outputs = 0;
         crypto::hash prev_block_hash = crypto::hash{};
 
-        fcmp_pp::curve_trees::OutputPair registered_output;
+        fcmp_pp::OutputPair registered_output;
         bool registered = false;
 
         while (n_unlocked_outputs < n_leaves_needed || block_idx <= max_reorg_depth)
@@ -466,7 +475,7 @@ TEST(tree_cache, reorg_after_register)
         LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
         auto tree_cache = new fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);
 
-        fcmp_pp::curve_trees::OutputPair registered_output;
+        fcmp_pp::OutputPair registered_output;
         bool registered = false;
         uint64_t last_locked_block_idx = 0;
         crypto::hash last_locked_block_hash;
@@ -700,8 +709,8 @@ TEST(tree_cache, serialization)
 
     // 3. Make sure the output is present in the serialized string
     const std::string blob_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
-    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(output.output_pubkey)) != std::string::npos);
-    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(output.commitment)) != std::string::npos);
+    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(fcmp_pp::output_pubkey_cref(output))) != std::string::npos);
+    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(fcmp_pp::commitment_cref(output))) != std::string::npos);
 
     // 4. De-serialize the string into a new tree_cache2 object
     auto tree_cache2 = fcmp_pp::curve_trees::TreeCache<Selene, Helios>(curve_trees);

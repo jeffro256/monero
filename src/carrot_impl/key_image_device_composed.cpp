@@ -33,6 +33,7 @@
 #include "address_utils.h"
 #include "carrot_core/address_utils.h"
 #include "carrot_core/exceptions.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 
@@ -114,7 +115,7 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
     return this->derive_key_image_prescanned(sender_extension_g,
         onetime_address,
         subaddr_index,
-        use_biased_hash_to_point(opening_hint));
+        cryptonote::use_biased_hash_to_point(opening_hint));
 }
 //-------------------------------------------------------------------------------------------------------------------
 crypto::key_image key_image_device_composed::derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,

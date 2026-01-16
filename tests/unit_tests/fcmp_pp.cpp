@@ -59,7 +59,7 @@ struct OutputContextsAndKeys
 static rct::key biased_derive_key_image_generator(const rct::key O)
 {
     crypto::public_key I;
-    crypto::biased_derive_key_image_generator(rct::rct2pk(O), I);
+    crypto::derive_key_image_generator(rct::rct2pk(O), true/*biased*/, I);
     return rct::pk2rct(I);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -173,8 +173,8 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
                 crypto::generate_keys(O, o, o, false);
                 crypto::generate_keys(C, c, c, false);
 
-                rct::key C_key = rct::pk2rct(C);
-                fcmp_pp::curve_trees::OutputPair output_pair(O, C_key, fcmp_pp::curve_trees::OutputPairType::Legacy);
+                const crypto::ec_point C_pt = rct::rct2pt(rct::pk2rct(C));
+                const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
                 auto output_context = fcmp_pp::curve_trees::OutputContext{
                         .output_id   = output_id,
@@ -385,9 +385,9 @@ TEST(fcmp_pp, prove)
             const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
-                path.leaves[output_idx].C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(path.leaves[output_idx].O),
+                rct::rct2pt(path.leaves[output_idx].C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
@@ -566,9 +566,9 @@ TEST(fcmp_pp, verify)
             const auto &leaf_chunk = paths.leaves_by_chunk_idx.find(leaf_chunk_idx)->second;
             const auto &leaf = leaf_chunk[leaf_offset];
 
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(leaf.O),
-                leaf.C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(leaf.O),
+                rct::rct2pt(leaf.C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             const auto &x = new_outputs.x_vec[leaf_idx];
@@ -769,9 +769,9 @@ TEST(fcmp_pp, membership_completeness)
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
             // Set up rust path
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
-                path.leaves[output_idx].C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(path.leaves[output_idx].O),
+                rct::rct2pt(path.leaves[output_idx].C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 

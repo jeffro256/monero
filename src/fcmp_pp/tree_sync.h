@@ -69,15 +69,6 @@ public:
     // - The block must be contiguous to the most recently synced block
     // - If any registered outputs are present in the new leaf tuples, keeps track of their paths in the tree
     // - Uses the new leaf tuples to update any existing known output paths in the tree
-    // TODO: Sync from arbitrary restore height:
-    // - the client needs the last chunks at each layer at the given height, n leaf tuples, and n outputs in the chain
-    // - the client also needs to know the state of all locked outputs at the given height, so that the client knows how to grow the tree correctly
-    // - naive: client is required to build the tree from genesis
-    // - better solution: daemon separately keeps a table of all timelocked outputs and their creation height into perpetuity
-    // - client requests:
-    // - all timelocked outputs with unlock height > current height. Once the hf is past, all timelocked outputs in the chain can potentially be hard-coded in the client.
-    // - all coinbase outputs created in all blocks starting at current height - 60
-    // - all normal outputs created in all blocks starting at current height - 10
     virtual void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,

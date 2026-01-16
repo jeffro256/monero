@@ -57,6 +57,7 @@
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/tree_cache.h"
 #include "multisig/multisig_account.h"
 #include "ringct/rctTypes.h"

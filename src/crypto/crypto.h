@@ -129,10 +129,6 @@ namespace crypto {
     friend void generate_tx_proof_v1(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
     static bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
     friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
-    static void biased_derive_key_image_generator(const public_key &, ec_point &);
-    friend void biased_derive_key_image_generator(const public_key &, ec_point &);
-    static void unbiased_derive_key_image_generator(const public_key &, ec_point &);
-    friend void unbiased_derive_key_image_generator(const public_key &, ec_point &);
     static void derive_key_image_generator(const public_key &, bool, ec_point &);
     friend void derive_key_image_generator(const public_key &, bool, ec_point &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
@@ -260,14 +256,6 @@ namespace crypto {
   }
   inline bool check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const signature &sig, const int version) {
     return crypto_ops::check_tx_proof(prefix_hash, R, A, B, D, sig, version);
-  }
-
-  inline void biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
-    crypto_ops::biased_derive_key_image_generator(pub, ki_gen);
-  }
-
-  inline void unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
-    crypto_ops::unbiased_derive_key_image_generator(pub, ki_gen);
   }
 
   inline void derive_key_image_generator(const public_key &pub, const bool biased, ec_point &ki_gen) {

@@ -29,6 +29,7 @@
 #include "curve_trees.h"
 
 #include "common/threadpool.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 #include "string_tools.h"
@@ -66,55 +67,19 @@ template Selene::Point get_new_parent<Selene>(const std::unique_ptr<Selene> &cur
 template Helios::Point get_new_parent<Helios>(const std::unique_ptr<Helios> &curve,
     const typename Helios::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-crypto::ec_point derive_key_image_generator(const OutputPairType type, const crypto::public_key &output_pubkey)
-{
-    crypto::ec_point I;
-    switch (type)
-    {
-        case OutputPairType::Legacy:
-        {
-            crypto::biased_derive_key_image_generator(output_pubkey, I);
-            break;
-        }
-        case OutputPairType::Carrot:
-        {
-            crypto::unbiased_derive_key_image_generator(output_pubkey, I);
-            break;
-        }
-        default:
-        {
-            CHECK_AND_ASSERT_THROW_MES(false, "derive_key_image_generator: unexpected output pair type");
-        }
-    }
-    return I;
-}
-//----------------------------------------------------------------------------------------------------------------------
-bool output_checked_for_torsion(const OutputPairType type)
-{
-    switch (type)
-    {
-        case OutputPairType::Legacy:
-            return false;
-        case OutputPairType::Carrot:
-            return true;
-        default:
-            CHECK_AND_ASSERT_THROW_MES(false, "output_checked_for_torsion: unexpected output pair type");
-    }
-}
-//----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check)
 {
-    const crypto::public_key &output_pubkey = output_pair.output_pubkey;
-    const rct::key &commitment              = output_pair.commitment;
+    const crypto::public_key &output_pubkey = output_pubkey_cref(output_pair);
+    const crypto::ec_point &commitment      = commitment_cref(output_pair);
 
     const rct::key &O_key = rct::pk2rct(output_pubkey);
-    const rct::key &C_key = commitment;
+    const rct::key &C_key = rct::pt2rct(commitment);
 
     rct::key O = O_key;
     rct::key C = C_key;
 
     // If the output has already been checked for torsion, then we don't need to clear torsion here
-    if (!output_checked_for_torsion(output_pair.type))
+    if (!cryptonote::output_checked_for_torsion(output_pair))
     {
         TIME_MEASURE_NS_START(clear_torsion_ns);
 
@@ -165,7 +130,8 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check)
     TIME_MEASURE_NS_START(derive_key_image_generator_ns);
 
     // Derive key image generator
-    const crypto::ec_point I = derive_key_image_generator(output_pair.type, output_pubkey);
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(output_pubkey, cryptonote::use_biased_hash_to_point(output_pair), I);
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 
@@ -1530,8 +1496,9 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                         catch(...)
                         {
                             /* Invalid outputs can't be added to the tree */
-                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey " <<
-                                output_pair.output_pubkey << " , commitment " << output_pair.commitment << ")");
+                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey "
+                                << output_pubkey_cref(output_pair)
+                                << " , commitment " << commitment_cref(output_pair) << ")");
                             continue;
                         }
 

@@ -142,8 +142,6 @@ const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant&);
 rct::key amount_commitment_ref(const OutputOpeningHintVariant&);
 subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
 
-bool use_biased_hash_to_point(const OutputOpeningHintVariant&);
-
 /**
  * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint
  * param: opening_hint
