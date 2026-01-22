@@ -35,14 +35,12 @@
 #include "account.h"
 #include "subaddress_index.h"
 #include "include_base_utils.h"
-#include "carrot_impl/output_opening_types.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "fcmp_pp/curve_trees.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "span.h"
 #include <unordered_map>
-#include <variant>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/variant.hpp>
 
@@ -296,19 +294,6 @@ namespace cryptonote
     const uint64_t first_output_id,
     const uint64_t block_idx);
 
-  inline bool output_checked_for_torsion(const fcmp_pp::OutputPair &output_pair)
-  {
-    struct output_pair_visitor
-    {
-      bool operator()(const fcmp_pp::CarrotOutputPairV1&) const
-      { return true; }
-      bool operator()(const fcmp_pp::LegacyOutputPair&) const
-      { return false; }
-    };
-
-    return std::visit(output_pair_visitor{}, output_pair);
-  }
-
   inline bool output_checked_for_torsion(const cryptonote::txout_target_v &tx_out)
   {
     struct tx_out_visitor
@@ -326,41 +311,7 @@ namespace cryptonote
     return boost::apply_visitor(tx_out_visitor{}, tx_out);
   }
 
-  inline bool use_biased_hash_to_point(const fcmp_pp::OutputPair &output_pair)
-  {
-    struct output_pair_visitor
-    {
-      bool operator()(const fcmp_pp::CarrotOutputPairV1&) const
-      { return false; }
-      bool operator()(const fcmp_pp::LegacyOutputPair&) const
-      { return true; }
-    };
-
-    return std::visit(output_pair_visitor{}, output_pair);
-  }
-
-  inline bool use_biased_hash_to_point(const carrot::OutputOpeningHintVariant &opening_hint)
-  {
-    struct hint_visitor
-    {
-      bool operator()(const carrot::LegacyOutputOpeningHintV1 &h) const
-      { return true; }
-      bool operator()(const carrot::CarrotOutputOpeningHintV1 &h) const
-      { return false; }
-      bool operator()(const carrot::CarrotOutputOpeningHintV2 &h) const
-      { return false; }
-      bool operator()(const carrot::CarrotCoinbaseOutputOpeningHintV1 &h) const
-      { return false; }
-    };
-
-    return std::visit(hint_visitor{}, opening_hint);
-  }
-
   fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment);
-
-  fcmp_pp::OutputPair to_output_pair(const carrot::OutputOpeningHintVariant &opening_hint,
     const crypto::public_key &output_pubkey,
     const crypto::ec_point &commitment);
 

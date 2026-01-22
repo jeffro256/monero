@@ -33,7 +33,6 @@
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fake_pruned_blockchain.h"
 #include "fcmp_pp/prove.h"
 #include "tx_construction_helpers.h"
@@ -347,7 +346,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
             const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(
                 onetime_address_ref(opening_hint),
                 rct::rct2pt(amount_commitment_ref(opening_hint)),
-                cryptonote::use_biased_hash_to_point(opening_hint));
+                carrot::use_biased_hash_to_point(opening_hint));
 
             fcmp_pp::FcmpPpSalProof sal_proof;
             crypto::key_image spent_key_image;

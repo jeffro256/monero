@@ -31,7 +31,6 @@
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fcmp_pp/prove.h"
 
 using namespace carrot;
@@ -82,7 +81,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         .local_output_index = local_output_index
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
@@ -172,7 +171,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
         .local_output_index = local_output_index
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
@@ -258,7 +257,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -352,7 +351,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -446,7 +445,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -537,7 +536,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -624,7 +623,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -717,7 +716,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -807,7 +806,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -900,7 +899,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -990,7 +989,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
         .subaddr_index = {{0, 0}, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -1083,7 +1082,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
         .subaddr_index = {subaddr_index, keys.default_derive_type}
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -1170,7 +1169,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
         .derive_type = keys.default_derive_type
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,
@@ -1250,7 +1249,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
         .derive_type = keys.default_derive_type
     };
 
-    const bool use_biased_htp = cryptonote::use_biased_hash_to_point(opening_hint);
+    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
 
     const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
         scan_result.sender_extension_g,

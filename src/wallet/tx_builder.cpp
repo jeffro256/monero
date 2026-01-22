@@ -1217,7 +1217,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     std::vector<bool> input_uses_biased_hash_to_point;
     input_uses_biased_hash_to_point.reserve(n_inputs);
     for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
-        input_uses_biased_hash_to_point.emplace_back(cryptonote::use_biased_hash_to_point(input_proposal));
+        input_uses_biased_hash_to_point.emplace_back(carrot::use_biased_hash_to_point(input_proposal));
 
     // collect output k_a
     std::vector<rct::key> output_amount_blinding_factors;
@@ -1265,7 +1265,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
         {
             const std::size_t original_idx = key_image_order.at(i);
             const auto &input_hint = tx_proposal.input_proposals.at(original_idx);
-            return cryptonote::to_output_pair(input_hint, output_pubkey, commitment);
+            return carrot::to_output_pair(input_hint, output_pubkey, commitment);
         };
 
     return finalize_fcmps_and_range_proofs(sorted_input_key_images,

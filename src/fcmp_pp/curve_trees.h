@@ -29,7 +29,6 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 #include "fcmp_pp_crypto.h"
 #include "fcmp_pp_types.h"
 #include "misc_log_ex.h"

@@ -305,7 +305,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
             output_pubkey_cref(output_pair),
-            cryptonote::use_biased_hash_to_point(opening_hint));
+            use_biased_hash_to_point(opening_hint));
 
         ASSERT_EQ(0, input_info_by_ki.count(ki));
 
@@ -409,7 +409,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
         input_onetime_addresses.push_back(std::get<3>(input_info));
         input_amount_commitments.push_back(std::get<2>(input_info));
-        input_uses_biased_hash_to_point.push_back(cryptonote::use_biased_hash_to_point(std::get<4>(input_info)));
+        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(std::get<4>(input_info)));
         input_amount_blinding_factors.push_back(std::get<1>(input_info));
     }
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
@@ -490,7 +490,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 
         const auto &opening_hint = std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i)));
-        const auto output_pair = cryptonote::to_output_pair(opening_hint,
+        const auto output_pair = to_output_pair(opening_hint,
             rct::rct2pk(path.leaves[path_leaf_idx].O),
             rct::rct2pt(path.leaves[path_leaf_idx].C));
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);

@@ -348,6 +348,45 @@ subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant &o
     return std::visit(subaddress_index_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool use_biased_hash_to_point(const OutputOpeningHintVariant &opening_hint)
+{
+    struct hint_visitor
+    {
+        bool operator()(const LegacyOutputOpeningHintV1&) const
+        { return true; }
+        bool operator()(const CarrotOutputOpeningHintV1&) const
+        { return false; }
+        bool operator()(const CarrotOutputOpeningHintV2&) const
+        { return false; }
+        bool operator()(const CarrotCoinbaseOutputOpeningHintV1&) const
+        { return false; }
+    };
+
+    return std::visit(hint_visitor{}, opening_hint);
+}
+//-------------------------------------------------------------------------------------------------------------------
+fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint,
+    const crypto::public_key &output_pubkey,
+    const crypto::ec_point &commitment)
+{
+    struct hint_visitor
+    {
+        const crypto::public_key &O;
+        const crypto::ec_point &C;
+
+        fcmp_pp::OutputPair operator()(const LegacyOutputOpeningHintV1&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotOutputOpeningHintV1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotOutputOpeningHintV2&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotCoinbaseOutputOpeningHintV1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+    };
+
+    return std::visit(hint_visitor{output_pubkey, commitment}, opening_hint);
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device *k_view_incoming_dev,

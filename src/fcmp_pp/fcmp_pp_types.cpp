@@ -260,5 +260,31 @@ const crypto::ec_point &commitment_cref(const OutputPair &output_pair)
     return std::visit(output_pair_visitor{}, output_pair);
 }
 //----------------------------------------------------------------------------------------------------------------------
+bool output_checked_for_torsion(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        bool operator()(const CarrotOutputPairV1&) const
+        { return true; }
+        bool operator()(const LegacyOutputPair&) const
+        { return false; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool use_biased_hash_to_point(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        bool operator()(const CarrotOutputPairV1&) const
+        { return false; }
+        bool operator()(const LegacyOutputPair&) const
+        { return true; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

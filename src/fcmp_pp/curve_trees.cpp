@@ -29,7 +29,6 @@
 #include "curve_trees.h"
 
 #include "common/threadpool.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 #include "string_tools.h"
@@ -79,7 +78,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check)
     rct::key C = C_key;
 
     // If the output has already been checked for torsion, then we don't need to clear torsion here
-    if (!cryptonote::output_checked_for_torsion(output_pair))
+    if (!output_checked_for_torsion(output_pair))
     {
         TIME_MEASURE_NS_START(clear_torsion_ns);
 
@@ -131,7 +130,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check)
 
     // Derive key image generator
     crypto::ec_point I;
-    crypto::derive_key_image_generator(output_pubkey, cryptonote::use_biased_hash_to_point(output_pair), I);
+    crypto::derive_key_image_generator(output_pubkey, use_biased_hash_to_point(output_pair), I);
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 

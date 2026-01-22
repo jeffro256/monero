@@ -2001,26 +2001,4 @@ namespace cryptonote
 
     return boost::apply_visitor(tx_out_visitor{output_pubkey, commitment}, tx_out);
   }
-  //---------------------------------------------------------------
-  fcmp_pp::OutputPair to_output_pair(const carrot::OutputOpeningHintVariant &opening_hint,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment)
-  {
-    struct hint_visitor
-    {
-      const crypto::public_key &O;
-      const crypto::ec_point &C;
-
-      fcmp_pp::OutputPair operator()(const carrot::LegacyOutputOpeningHintV1 &h) const
-      { return fcmp_pp::LegacyOutputPair{{O, C}}; }
-      fcmp_pp::OutputPair operator()(const carrot::CarrotOutputOpeningHintV1 &h) const
-      { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
-      fcmp_pp::OutputPair operator()(const carrot::CarrotOutputOpeningHintV2 &h) const
-      { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
-      fcmp_pp::OutputPair operator()(const carrot::CarrotCoinbaseOutputOpeningHintV1 &h) const
-      { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
-    };
-
-    return std::visit(hint_visitor{output_pubkey, commitment}, opening_hint);
-  }
 }

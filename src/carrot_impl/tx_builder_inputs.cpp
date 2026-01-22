@@ -37,7 +37,6 @@
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_utils.h"
 #include "crypto/generators.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fcmp_pp/prove.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
@@ -95,7 +94,7 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
     CHECK_AND_ASSERT_THROW_MES(verify_rerandomized_output_basic(rerandomized_output,
             onetime_address_ref(opening_hint),
             amount_commitment_ref(opening_hint),
-            cryptonote::use_biased_hash_to_point(opening_hint)),
+            use_biased_hash_to_point(opening_hint)),
         "Could not make SA/L proof: failed to verify rerandomized output against opening hint");
 
     // scan k^g_o, k^t_o

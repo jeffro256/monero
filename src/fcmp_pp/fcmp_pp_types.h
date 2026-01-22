@@ -168,6 +168,10 @@ using OutputPair = std::variant<LegacyOutputPair, CarrotOutputPairV1>;
 
 const crypto::public_key &output_pubkey_cref(const OutputPair &output_pair);
 const crypto::ec_point &commitment_cref(const OutputPair &output_pair);
+
+bool output_checked_for_torsion(const OutputPair &output_pair);
+bool use_biased_hash_to_point(const OutputPair &output_pair);
+
 //----------------------------------------------------------------------------------------------------------------------
 // Byte buffer containing the fcmp++ proof
 using FcmpPpSalProof = std::vector<uint8_t>;
