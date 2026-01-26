@@ -2594,7 +2594,7 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock Blockchain::get_recent_locked_output
         const auto &out = out_data[i];
         const auto &tx_out = tx.vout.at(i).target;
 
-        auto output_pair = cryptonote::to_output_pair(tx_out, out.data.pubkey, rct::rct2pt(out.data.commitment));
+        auto output_pair = cryptonote::to_output_pair(tx_out, out.data.commitment);
         const fcmp_pp::curve_trees::OutputContext output_context{ out.output_id, std::move(output_pair) };
 
         outs[last_locked_block].emplace_back(output_context);

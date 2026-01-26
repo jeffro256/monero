@@ -1766,13 +1766,8 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       throw0(DB_ERROR("Missing tx for provided output id."));
     const auto &tx = tx_it->second;
 
-    // Output pub key
-    const auto &out = tx.vout.at(toi.second);
-    crypto::public_key output_pubkey;
-    if (!get_output_public_key(out, output_pubkey))
-      throw0(DB_ERROR("Could not get an output public key from a tx output."));
-
     // Amount commitment
+    const auto &out = tx.vout.at(toi.second);
     rct::key commitment;
     if (out.amount == 0)
     {
@@ -1787,7 +1782,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
 
     output_contexts.emplace_back(fcmp_pp::curve_trees::OutputContext{
         .output_id = output_id,
-        .output_pair = cryptonote::to_output_pair(out.target, output_pubkey, rct::rct2pt(commitment))
+        .output_pair = cryptonote::to_output_pair(out.target, commitment)
       });
   }
 

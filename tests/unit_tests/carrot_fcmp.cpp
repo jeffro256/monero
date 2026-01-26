@@ -490,9 +490,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 
         const auto &opening_hint = std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i)));
-        const auto output_pair = to_output_pair(opening_hint,
-            rct::rct2pk(path.leaves[path_leaf_idx].O),
-            rct::rct2pt(path.leaves[path_leaf_idx].C));
+        const auto output_pair = to_output_pair(opening_hint);
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
         const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);

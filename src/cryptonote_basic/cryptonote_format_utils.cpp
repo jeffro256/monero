@@ -135,17 +135,13 @@ namespace cryptonote
       const uint64_t output_id = first_output_id + i;
       const auto &out = tx.vout[i];
 
-      crypto::public_key output_public_key;
-      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(out, output_public_key),
-          "failed to get out pubkey");
-
       rct::key commitment;
       CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
           "failed to get tx commitment");
 
       const fcmp_pp::curve_trees::OutputContext output_context{
               .output_id   = output_id,
-              .output_pair = cryptonote::to_output_pair(out.target, output_public_key, rct::rct2pt(commitment))
+              .output_pair = cryptonote::to_output_pair(out.target, commitment)
           };
 
       if (has_custom_timelock)
@@ -1980,9 +1976,7 @@ namespace cryptonote
     return outs_by_last_locked_block_meta_out;
   }
   //---------------------------------------------------------------
-  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment)
+  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment)
   {
     struct tx_out_visitor
     {
@@ -1999,6 +1993,8 @@ namespace cryptonote
         { return fcmp_pp::LegacyOutputPair{{O, C}}; }
     };
 
-    return boost::apply_visitor(tx_out_visitor{output_pubkey, commitment}, tx_out);
+    const crypto::public_key &O = cryptonote::output_pubkey_cref(tx_out);
+    const crypto::ec_point &C = rct::rct2pt(commitment);
+    return boost::apply_visitor(tx_out_visitor{O, C}, tx_out);
   }
 }

@@ -311,9 +311,7 @@ namespace cryptonote
     return boost::apply_visitor(tx_out_visitor{}, tx_out);
   }
 
-  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment);
+  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment);
 
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \

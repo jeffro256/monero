@@ -365,9 +365,7 @@ bool use_biased_hash_to_point(const OutputOpeningHintVariant &opening_hint)
     return std::visit(hint_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
-fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment)
+fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
 {
     struct hint_visitor
     {
@@ -384,7 +382,9 @@ fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint,
         { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
     };
 
-    return std::visit(hint_visitor{output_pubkey, commitment}, opening_hint);
+    const crypto::public_key &O = onetime_address_ref(opening_hint);
+    const rct::key &C = amount_commitment_ref(opening_hint);
+    return std::visit(hint_visitor{O, rct::rct2pt(C)}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,

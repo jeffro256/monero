@@ -102,6 +102,7 @@ using namespace epee;
 #include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/spend_device_ram_borrowed.h"
 #include "carrot_impl/subaddress_map_legacy.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
 #include "hot_cold_serialization.h" //! @TODO: remove line after #52 is merged

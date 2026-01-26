@@ -31,6 +31,7 @@
 //local headers
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/subaddress_index.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "wallet/wallet_errors.h"
 
 //third party headers
@@ -170,11 +171,7 @@ struct transfer_details
         const rct::key C = this->is_rct()
             ? rct::commit(this->amount(), m_mask)
             : rct::zeroCommitVartime(this->amount());
-        return cryptonote::to_output_pair(
-                m_tx.vout.at(m_internal_output_index).target,
-                get_public_key(),
-                rct::rct2pt(C)
-            );
+        return cryptonote::to_output_pair(m_tx.vout.at(m_internal_output_index).target, C);
     };
 };
 

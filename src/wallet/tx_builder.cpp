@@ -853,11 +853,7 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
 cryptonote::transaction finalize_fcmps_and_range_proofs(
     const std::vector<crypto::key_image> &sorted_input_key_images,
     const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
-    const std::function<fcmp_pp::OutputPair(
-        const std::size_t,
-        const crypto::public_key&,
-        const crypto::ec_point&
-    )> &to_output_pair,
+    const std::vector<fcmp_pp::OutputPair> &sorted_output_pairs,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sorted_sal_proofs,
     const std::vector<carrot::RCTOutputEnoteProposal> &output_enote_proposals,
     const carrot::encrypted_payment_id_t &encrypted_payment_id,
@@ -870,6 +866,8 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     CARROT_CHECK_AND_THROW(n_inputs, carrot::too_few_inputs, "no inputs");
     CARROT_CHECK_AND_THROW(sorted_rerandomized_outputs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of rerandomized outputs");
+    CARROT_CHECK_AND_THROW(sorted_output_pairs.size() == n_inputs,
+        carrot::component_out_of_order, "wrong number of output pairs");
     CARROT_CHECK_AND_THROW(sorted_sal_proofs.size() == n_inputs,
         carrot::component_out_of_order, "wrong number of SA/L proofs");
 
@@ -883,9 +881,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     for (const carrot::RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
         output_amount_blinding_factors.push_back(rct::sk2rct(output_enote_proposal.amount_blinding_factor));
 
-    // collect (O, C) input pairs in key image order
-    std::vector<fcmp_pp::OutputPair> spent_input_pairs;
-    spent_input_pairs.reserve(n_inputs);
+    // check (O, C) input pairs against rerandomized outputs
     for (std::size_t i = 0; i < n_inputs; ++i)
     {
         const FcmpRerandomizedOutputCompressed &rerandomized_output = sorted_rerandomized_outputs.at(i);
@@ -906,13 +902,16 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
         rct::scalarmultBase(C, r_c);
         rct::subKeys(C, C_tilde, C);
 
-        spent_input_pairs.emplace_back(to_output_pair(i, rct::rct2pk(O), rct::rct2pt(C)));
+        CHECK_AND_ASSERT_THROW_MES(O == rct::pk2rct(fcmp_pp::output_pubkey_cref(sorted_output_pairs.at(i))),
+            "mismatched calculated O <> output pubkey");
+        CHECK_AND_ASSERT_THROW_MES(C == rct::pt2rct(fcmp_pp::commitment_cref(sorted_output_pairs.at(i))),
+            "mismatched calculated C <> amount commitment");
     }
 
     // collect FCMP paths
     std::vector<fcmp_pp::curve_trees::CurveTreesV1::Path> fcmp_paths;
     fcmp_paths.reserve(n_inputs);
-    for (const fcmp_pp::OutputPair &input_pair : spent_input_pairs)
+    for (const fcmp_pp::OutputPair &input_pair : sorted_output_pairs)
     {
         MDEBUG("Requesting FCMP path from tree cache for onetime address " << output_pubkey_cref(input_pair));
         fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.emplace_back();
@@ -1008,7 +1007,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.at(i);
-        const fcmp_pp::OutputPair &output_pair = spent_input_pairs.at(i);
+        const fcmp_pp::OutputPair &output_pair = sorted_output_pairs.at(i);
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
         const auto path_for_proof = curve_trees.path_for_proof(fcmp_path, output_tuple);
@@ -1193,16 +1192,20 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
         "unexpected number of output enote proposals");
 
     // collect input (K_o, C_a, k_a)
+    std::vector<fcmp_pp::OutputPair> output_pairs;
     std::vector<crypto::public_key> input_onetime_addresses;
     std::vector<rct::key> input_amount_commitments;
     std::vector<rct::key> input_amount_blinding_factors;
+    output_pairs.reserve(n_inputs);
     input_onetime_addresses.reserve(n_inputs);
     input_amount_commitments.reserve(n_inputs);
     input_amount_blinding_factors.reserve(n_inputs);
     for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
     {
-        input_onetime_addresses.push_back(onetime_address_ref(input_proposal));
-        input_amount_commitments.push_back(amount_commitment_ref(input_proposal));
+        fcmp_pp::OutputPair output_pair = carrot::to_output_pair(input_proposal);
+
+        input_onetime_addresses.push_back(fcmp_pp::output_pubkey_cref(output_pair));
+        input_amount_commitments.push_back(rct::pt2rct(fcmp_pp::commitment_cref(output_pair)));
 
         rct::xmr_amount amount;
         carrot::try_scan_opening_hint_amount(input_proposal,
@@ -1211,6 +1214,8 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
             s_view_balance_dev,
             amount,
             input_amount_blinding_factors.emplace_back());
+
+        output_pairs.emplace_back(std::move(output_pair));
     }
 
     // collect and sort input enote types in key image order
@@ -1251,26 +1256,15 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
 
     // sort and collect input infos in key image order
     tools::apply_permutation(key_image_order, rerandomized_outputs);
+    tools::apply_permutation(key_image_order, output_pairs);
     std::vector<fcmp_pp::FcmpPpSalProof> sorted_sal_proofs;
     sorted_sal_proofs.reserve(signed_inputs.size());
     for (const auto &signed_input : signed_inputs)
         sorted_sal_proofs.push_back(signed_input.second.second);
 
-    // Custom lambda to get the output pair variant using the key image order indexing
-    const auto to_output_pair = [&key_image_order, &tx_proposal](
-            std::size_t i,
-            const crypto::public_key &output_pubkey,
-            const crypto::ec_point &commitment
-        ) -> fcmp_pp::OutputPair
-        {
-            const std::size_t original_idx = key_image_order.at(i);
-            const auto &input_hint = tx_proposal.input_proposals.at(original_idx);
-            return carrot::to_output_pair(input_hint, output_pubkey, commitment);
-        };
-
     return finalize_fcmps_and_range_proofs(sorted_input_key_images,
         rerandomized_outputs,
-        to_output_pair,
+        output_pairs,
         sorted_sal_proofs,
         output_enote_proposals,
         encrypted_payment_id,

@@ -307,8 +307,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(o, output_pubkey),
                     "cannot get output pubkey");
                 const rct::key amount_commitment = rct::zeroCommitVartime(o.amount);
-                const auto output_pair = cryptonote::to_output_pair(o.target,
-                    output_pubkey, rct::rct2pt(amount_commitment));
+                const auto output_pair = cryptonote::to_output_pair(o.target, amount_commitment);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =
@@ -332,8 +331,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                     "cannot get output pubkey");
                 const rct::key amount_commitment = o.amount
                     ? rct::zeroCommitVartime(o.amount) : unlocked_tx.rct_signatures.outPk.at(local_output_index).mask;
-                const auto output_pair = cryptonote::to_output_pair(o.target,
-                    output_pubkey, rct::rct2pt(amount_commitment));
+                const auto output_pair = cryptonote::to_output_pair(o.target, amount_commitment);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =

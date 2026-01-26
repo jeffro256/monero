@@ -145,9 +145,7 @@ subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
 
 bool use_biased_hash_to_point(const OutputOpeningHintVariant&);
 
-fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint,
-    const crypto::public_key &output_pubkey,
-    const crypto::ec_point &commitment);
+fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint);
 
 /**
  * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint
