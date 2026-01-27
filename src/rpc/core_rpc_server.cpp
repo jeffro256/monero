@@ -649,8 +649,8 @@ namespace cryptonote
     const uint64_t sync_start_idx = init_block_idx + 1;
     auto custom_outs_by_last_locked_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(sync_start_idx);
 
-    // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx] inclusive
-    // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx] inclusive
+    // 2a. Coinbase unified outputs created between blocks [init_block_idx - 60, init_block_idx] inclusive
+    // 2b. Normal unified outputs created between blocks [init_block_idx - 10, init_block_idx] inclusive
     auto outs_by_last_locked_block = m_core.get_blockchain_storage().get_recent_locked_outputs(init_block_idx);
 
     // 3. Combine all locked outputs into vec
@@ -670,9 +670,9 @@ namespace cryptonote
       }
 
       // Merge custom locked with other outs
-      const auto is_less = [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
-          { return a.output_id < b.output_id; };
-      std::vector<fcmp_pp::curve_trees::OutputContext> sorted_outs;
+      const auto is_less = [](const fcmp_pp::UnifiedOutput &a, const fcmp_pp::UnifiedOutput &b)
+          { return a.unified_id < b.unified_id; };
+      std::vector<fcmp_pp::UnifiedOutput> sorted_outs;
       if (!tools::merge_sorted_vectors(o.second, outs_it->second, is_less, sorted_outs))
       {
         LOG_ERROR("Failed to merge locked outs");
@@ -1123,21 +1123,21 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_path_by_global_output_id_bin(const COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response& res, const connection_context *ctx)
+  bool core_rpc_server::on_get_path_by_unified_id_bin(const COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_outs);
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_global_output_id.bin", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_unified_id.bin", req, res, r))
       return r;
 
-    CHECK_PAYMENT_MIN1(req, res, req.global_output_ids.size() * COST_PER_OUT, false);
+    CHECK_PAYMENT_MIN1(req, res, req.unified_ids.size() * COST_PER_OUT, false);
 
     res.status = "Failed";
 
     const bool restricted = m_restricted && ctx;
     if (restricted)
     {
-      if (req.global_output_ids.size() > MAX_RESTRICTED_PATHS_COUNT)
+      if (req.unified_ids.size() > MAX_RESTRICTED_PATHS_COUNT)
       {
         res.status = "Too many paths requested";
         return true;
@@ -1148,10 +1148,10 @@ namespace cryptonote
     {
       std::vector<uint64_t> leaf_idxs;
       std::vector<fcmp_pp::curve_trees::PathBytes> paths;
-      res.n_leaf_tuples = m_core.get_blockchain_storage().get_db().get_path_by_global_output_id(req.global_output_ids, req.as_of_n_blocks, leaf_idxs, paths);
+      res.n_leaf_tuples = m_core.get_blockchain_storage().get_db().get_path_by_unified_id(req.unified_ids, req.as_of_n_blocks, leaf_idxs, paths);
       res.paths.reserve(leaf_idxs.size());
       for (std::size_t i = 0; i < leaf_idxs.size(); ++i)
-        res.paths.emplace_back(COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry{ leaf_idxs.at(i), std::move(paths.at(i)) });
+        res.paths.emplace_back(COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::response::path_entry{ leaf_idxs.at(i), std::move(paths.at(i)) });
     }
     catch (...)
     {
@@ -1408,11 +1408,11 @@ namespace cryptonote
         }
 
         e.output_indices.reserve(tx_outs_data.size());
-        e.global_output_ids.reserve(tx_outs_data.size());
+        e.unified_ids.reserve(tx_outs_data.size());
         for (const auto &tx_out_data : tx_outs_data)
         {
           e.output_indices.push_back(tx_out_data.amount_index);
-          e.global_output_ids.push_back(tx_out_data.output_id);
+          e.unified_ids.push_back(tx_out_data.unified_id);
         }
       }
     }

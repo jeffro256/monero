@@ -707,7 +707,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<std::vector<OutputContext>> &&new_outputs,
+    std::vector<std::vector<UnifiedOutput>> &&new_outputs,
     const bool use_fast_torsion_check)
 {
     TreeExtension tree_extension;
@@ -720,14 +720,14 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     // Sort the outputs by order they appear in the chain
     // Note: the outputs are expected to be grouped by last locked block
-    std::vector<OutputContext> flat_sorted_outputs;
+    std::vector<UnifiedOutput> flat_sorted_outputs;
     for (auto &unsorted_outputs : new_outputs)
     {
-        const auto sort_fn = [](const OutputContext &a, const OutputContext &b){return a.output_id < b.output_id;};
+        const auto sort_fn = [](const UnifiedOutput &a, const UnifiedOutput &b){return a.unified_id < b.unified_id;};
         std::sort(unsorted_outputs.begin(), unsorted_outputs.end(), sort_fn);
 
         // No duplicates allowed
-        const auto dup_check = [](const OutputContext &a, const OutputContext &b){return a.output_id == b.output_id;};
+        const auto dup_check = [](const UnifiedOutput &a, const UnifiedOutput &b){return a.unified_id == b.unified_id;};
         CHECK_AND_ASSERT_THROW_MES(std::adjacent_find(unsorted_outputs.begin(), unsorted_outputs.end(), dup_check)
             == unsorted_outputs.end(), "get_tree_extension: duplicate output id's");
 
@@ -823,7 +823,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<std::vector<OutputContext>> &&new_outputs,
+    std::vector<std::vector<UnifiedOutput>> &&new_outputs,
     const bool use_fast_torsion_check);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -1171,7 +1171,7 @@ template std::vector<crypto::ec_point> CurveTrees<Selene, Helios>::calc_hashes_f
 //----------------------------------------------------------------------------------------------------------------------
 template<>
 CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
-    const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs,
+    const std::vector<fcmp_pp::UnifiedOutput> &outputs,
     uint8_t n_layers) const
 {
     CHECK_AND_ASSERT_THROW_MES(this->n_layers(outputs.size()) <= n_layers, "n_layers is too low");
@@ -1445,8 +1445,8 @@ template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::p
 template<typename C1, typename C2>
 void CurveTrees<C1, C2>::set_valid_leaves(
     std::vector<typename C1::Scalar> &flattened_leaves_out,
-    std::vector<OutputContext> &tuples_out,
-    std::vector<OutputContext> &&new_outputs,
+    std::vector<UnifiedOutput> &tuples_out,
+    std::vector<UnifiedOutput> &&new_outputs,
     const bool use_fast_torsion_check)
 {
     TIME_MEASURE_START(set_valid_leaves);
@@ -1495,7 +1495,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                         catch(...)
                         {
                             /* Invalid outputs can't be added to the tree */
-                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey "
+                            LOG_PRINT_L2("Output " << new_outputs[j].unified_id << " is invalid (out pubkey "
                                 << output_pubkey_cref(output_pair)
                                 << " , commitment " << commitment_cref(output_pair) << ")");
                             continue;
@@ -1624,7 +1624,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
         CHECK_AND_ASSERT_THROW_MES(new_outputs.size() > i, "unexpected size of valid outputs");
 
-        // We can derive leaf tuples from output pairs, so we store just the output context in the db to save 32 bytes
+        // We can derive leaf tuples from output pairs, so we store just the unified output in the db to save 32 bytes
         tuples_out.emplace_back(std::move(new_outputs[i]));
     }
 

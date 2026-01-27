@@ -32,6 +32,7 @@
 #include "fake_pruned_blockchain.h"
 
 //local headers
+#include "fcmp_pp/curve_trees.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "tx_construction_helpers.h"
@@ -293,7 +294,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
         static_assert(CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW >= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
             "Cannot assume that we should always try pulling non-miner outputs when we can pull miner outputs");
 
-        std::vector<fcmp_pp::curve_trees::OutputContext> new_spendable_outputs;
+        std::vector<fcmp_pp::UnifiedOutput> new_spendable_outputs;
         if (should_try_pull_coinbase_outs)
         {
             const tools::wallet2::parsed_block parsed_block_with_unlocked_miner_tx = 
@@ -310,10 +311,10 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 const auto output_pair = cryptonote::to_output_pair(o.target, amount_commitment);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
-                const uint64_t global_output_index =
+                const uint64_t unified_id =
                     parsed_block_with_unlocked_miner_tx.o_indices.indices.at(0).indices.at(local_output_index);
-                new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, output_pair
+                new_spendable_outputs.push_back(fcmp_pp::UnifiedOutput{
+                    unified_id, output_pair
                 });
             }
         }
@@ -334,10 +335,10 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 const auto output_pair = cryptonote::to_output_pair(o.target, amount_commitment);
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
-                const uint64_t global_output_index =
+                const uint64_t unified_id =
                     parsed_block_with_unlocked_txs.o_indices.indices.at(tx_index + 1).indices.at(local_output_index);
-                new_spendable_outputs.push_back(fcmp_pp::curve_trees::OutputContext{
-                    global_output_index, output_pair
+                new_spendable_outputs.push_back(fcmp_pp::UnifiedOutput{
+                    unified_id, output_pair
                 });
             }
         }

@@ -2015,7 +2015,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
   };
 
   // Collect global output id's for outputs we need path data for
-  std::vector<uint64_t> global_output_ids;
+  std::vector<uint64_t> unified_ids;
   std::vector<fcmp_pp::OutputPair> output_pairs;
   const auto push_if_unlocked = [&](const transfer_details &td)
   {
@@ -2029,62 +2029,62 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
     THROW_WALLET_EXCEPTION_IF(!in_txids && !in_tx_hashes_to_reprocess,
       error::wallet_internal_error, "Missing tx we need path data for");
 
-    const auto find_global_output_id = [&td](const std::vector<process_tx_entry_t> &entries) -> uint64_t
+    const auto find_unified_id = [&td](const std::vector<process_tx_entry_t> &entries) -> uint64_t
     {
       for (const auto &entry : entries)
       {
         if (entry.tx_hash == td.m_txid)
-          return entry.tx_entry.global_output_ids.at(td.m_internal_output_index);
+          return entry.tx_entry.unified_ids.at(td.m_internal_output_index);
       }
       THROW_WALLET_EXCEPTION(error::wallet_internal_error, "tx entries missing expected tx");
     };
 
     if (in_txids)
     {
-      global_output_ids.push_back(find_global_output_id(scan_tx_entries));
+      unified_ids.push_back(find_unified_id(scan_tx_entries));
     }
     else // if (in_tx_hashes_to_reprocess)
     {
-      global_output_ids.push_back(find_global_output_id(rescan_tx_entries));
+      unified_ids.push_back(find_unified_id(rescan_tx_entries));
     }
 
     output_pairs.emplace_back(td.get_output_pair());
   };
 
   // Collect received global output id's for *newly* identified receives
-  global_output_ids.reserve(txids.size());
+  unified_ids.reserve(txids.size());
   output_pairs.reserve(txids.size());
   for (const auto &td : m_transfers)
     if (txids.count(td.m_txid) && !detached_tx_hashes.count(td.m_txid))
       push_if_unlocked(td);
 
-  THROW_WALLET_EXCEPTION_IF(output_pairs.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of output pairs to global output id's");
+  THROW_WALLET_EXCEPTION_IF(output_pairs.size() != unified_ids.size(), error::wallet_internal_error, "Mismatched number of output pairs to global output id's");
 
   // Get all the paths from daemon using collected global output id's
   // TODO: get consolidated paths
-  std::vector<cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry> paths;
-  paths.reserve(global_output_ids.size());
+  std::vector<cryptonote::COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::response::path_entry> paths;
+  paths.reserve(unified_ids.size());
   static constexpr std::size_t N_PATHS_PER_REQ = 50; // MAX_RESTRICTED_PATHS_COUNT
   uint64_t n_leaf_tuples = 0;
-  for (std::size_t i = 0; i < global_output_ids.size(); i += N_PATHS_PER_REQ)
+  for (std::size_t i = 0; i < unified_ids.size(); i += N_PATHS_PER_REQ)
   {
-    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response res = AUTO_VAL_INIT(res);
+    cryptonote::COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN::response res = AUTO_VAL_INIT(res);
 
     req.as_of_n_blocks = n_blocks_synced;
 
-    req.global_output_ids.reserve(N_PATHS_PER_REQ);
-    const std::size_t end_j = std::min(i + N_PATHS_PER_REQ, global_output_ids.size());
+    req.unified_ids.reserve(N_PATHS_PER_REQ);
+    const std::size_t end_j = std::min(i + N_PATHS_PER_REQ, unified_ids.size());
     for (std::size_t j = i; j < end_j; ++j)
     {
-      req.global_output_ids.push_back(std::move(global_output_ids.at(j)));
+      req.unified_ids.push_back(std::move(unified_ids.at(j)));
     }
 
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_bin("/get_path_by_global_output_id.bin", req, res, *m_http_client, rpc_timeout);
+      bool r = net_utils::invoke_http_bin("/get_path_by_unified_id.bin", req, res, *m_http_client, rpc_timeout);
       THROW_WALLET_EXCEPTION_IF(!r || res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "Failed to get paths by global output id from daemon");
-      THROW_WALLET_EXCEPTION_IF(res.paths.size() != req.global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths in request for paths by global output id");
+      THROW_WALLET_EXCEPTION_IF(res.paths.size() != req.unified_ids.size(), error::wallet_internal_error, "Mismatched number of paths in request for paths by global output id");
       THROW_WALLET_EXCEPTION_IF(n_leaf_tuples > 0 && n_leaf_tuples != res.n_leaf_tuples, error::wallet_internal_error, "Unexpected different n_leaf_tuples across responses");
       n_leaf_tuples = res.n_leaf_tuples;
     }
@@ -2096,7 +2096,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
       paths.emplace_back(std::move(path_entry));
     }
   }
-  THROW_WALLET_EXCEPTION_IF(paths.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths to global output id's");
+  THROW_WALLET_EXCEPTION_IF(paths.size() != unified_ids.size(), error::wallet_internal_error, "Mismatched number of paths to global output id's");
 
   // Now process paths returned above
   for (std::size_t i = 0; i < paths.size(); ++i)
@@ -3184,12 +3184,12 @@ static void prepare_tree_state_change_async(const TreeSyncStartParams &tree_sync
   // Collect all outs from all blocks by last locked block
   TIME_MEASURE_START(collecting_outs_by_last_locked_block);
   std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-  std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs_by_last_locked_blocks;
+  std::vector<fcmp_pp::OutsByLastLockedBlock> outs_by_last_locked_blocks;
 
   new_block_hashes_out.reserve(n_new_blocks);
   outs_by_last_locked_blocks.reserve(n_new_blocks);
 
-  uint64_t first_output_id = tree_cache.get_output_count();
+  uint64_t first_unified_id = tree_cache.get_output_count();
   for (size_t i = start_parsed_block_i; i < parsed_blocks.size(); ++i)
   {
     const uint64_t created_block_idx = sync_start_block_idx + (i - start_parsed_block_i);
@@ -3197,10 +3197,10 @@ static void prepare_tree_state_change_async(const TreeSyncStartParams &tree_sync
 
     // Slow: collect transparent amount commitments
     const auto tx_refs = cryptonote::collect_transparent_amount_commitments(parsed_blocks[i].block.miner_tx, parsed_blocks[i].txes, transparent_amount_commitments);
-    auto res = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, created_block_idx);
+    auto res = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_unified_id, created_block_idx);
 
     outs_by_last_locked_blocks.emplace_back(std::move(res.outs_by_last_locked_block));
-    first_output_id = res.next_output_id;
+    first_unified_id = res.next_unified_id;
   }
 
   TIME_MEASURE_FINISH(collecting_outs_by_last_locked_block);
@@ -3888,7 +3888,7 @@ void wallet2::pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start
       THROW_WALLET_EXCEPTION_IF(m_blockchain[init_block_idx] != init_block_hash, error::wallet_internal_error, "init hash mismatch in m_blockchain");
 
       // Initialize tree cache
-      fcmp_pp::curve_trees::OutsByLastLockedBlock locked_outputs;
+      fcmp_pp::OutsByLastLockedBlock locked_outputs;
       for (auto &lo : init_tree_sync_data->locked_outputs)
         locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
 

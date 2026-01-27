@@ -119,8 +119,8 @@ static uint64_t add_to_locked_outputs_cache(const OutsByLastLockedBlock &outs_by
 
         // Merge existing sorted locked outputs with new sorted locked outputs
         const auto &locked_outputs = locked_outputs_it->second;
-        std::vector<OutputContext> all_locked_outputs;
-        const auto is_less = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
+        std::vector<UnifiedOutput> all_locked_outputs;
+        const auto is_less = [](const UnifiedOutput &a, const UnifiedOutput &b) { return a.unified_id < b.unified_id; };
         bool r = tools::merge_sorted_vectors(locked_outputs, new_locked_outputs, is_less, all_locked_outputs);
         CHECK_AND_ASSERT_THROW_MES(r, "failed to merge sorted locked outputs");
 
@@ -760,10 +760,10 @@ template<typename C1, typename C2>
 void TreeCache<C1, C2>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
-    const fcmp_pp::curve_trees::OutsByLastLockedBlock &outs_by_last_locked_block)
+    const fcmp_pp::OutsByLastLockedBlock &outs_by_last_locked_block)
 {
     const std::vector<crypto::hash> new_block_hashes{block_hash};
-    const std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs{outs_by_last_locked_block};
+    const std::vector<fcmp_pp::OutsByLastLockedBlock> outs{outs_by_last_locked_block};
 
     CacheStateChange cache_state_change;
 
@@ -780,13 +780,13 @@ void TreeCache<C1, C2>::sync_block(const uint64_t block_idx,
 template void TreeCache<Selene, Helios>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
-    const fcmp_pp::curve_trees::OutsByLastLockedBlock &outs_by_last_locked_block);
+    const fcmp_pp::OutsByLastLockedBlock &outs_by_last_locked_block);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
     const crypto::hash &prev_block_hash,
     const std::vector<crypto::hash> &new_block_hashes,
-    const std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
+    const std::vector<fcmp_pp::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
     CacheStateChange &cache_state_change_out) const
 {
     CHECK_AND_ASSERT_THROW_MES(new_block_hashes.size() == outs_by_last_locked_blocks.size(), "size mismatch sync_blocks");
@@ -824,10 +824,10 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
     cache_state_change_out.locked_output_ref_hashes = m_locked_output_ref_hashes;
 
     // Update the locked outputs cache with all outputs set to unlock, and collect unlocked outputs and output id's
-    std::vector<std::vector<OutputContext>> unlocked_outputs;
-    std::vector<std::vector<uint64_t>> unlocked_output_ids_by_block;
+    std::vector<std::vector<UnifiedOutput>> unlocked_outputs;
+    std::vector<std::vector<uint64_t>> unlocked_unified_ids_by_block;
     unlocked_outputs.reserve(n_new_blocks);
-    unlocked_output_ids_by_block.reserve(n_new_blocks);
+    unlocked_unified_ids_by_block.reserve(n_new_blocks);
     uint64_t n_unlocked_outputs = 0;
     for (uint64_t i = 0; i < n_new_blocks; ++i)
     {
@@ -847,13 +847,13 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
         n_unlocked_outputs += n_new_unlocked_outputs;
 
         // Collect unlock output id's by block
-        std::vector<uint64_t> new_unlocked_output_ids;
-        new_unlocked_output_ids.reserve(n_new_unlocked_outputs);
+        std::vector<uint64_t> new_unlocked_unified_ids;
+        new_unlocked_unified_ids.reserve(n_new_unlocked_outputs);
         for (const auto &unlocked_output : unlocked_outputs_in_blk)
-            new_unlocked_output_ids.push_back(unlocked_output.output_id);
+            new_unlocked_unified_ids.push_back(unlocked_output.unified_id);
 
         unlocked_outputs.emplace_back(std::move(unlocked_outputs_in_blk));
-        unlocked_output_ids_by_block.emplace_back(std::move(new_unlocked_output_ids));
+        unlocked_unified_ids_by_block.emplace_back(std::move(new_unlocked_unified_ids));
     }
     TIME_MEASURE_FINISH(getting_unlocked_outputs);
 
@@ -878,11 +878,11 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
     {
         uint64_t n_leaf_tuples_in_block = 0;
 
-        const auto &unlocked_output_ids = unlocked_output_ids_by_block[i];
-        for (const uint64_t output_id : unlocked_output_ids)
+        const auto &unlocked_unified_ids = unlocked_unified_ids_by_block[i];
+        for (const uint64_t unified_id : unlocked_unified_ids)
         {
             // This expects the unlocked outputs in a block to be inserted to the tree in sorted order
-            if (output_id == new_leaf_tuple_it->output_id)
+            if (unified_id == new_leaf_tuple_it->unified_id)
             {
                 ++n_leaf_tuples_in_block;
                 ++new_leaf_tuple_it;
@@ -906,7 +906,7 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
 template void TreeCache<Selene, Helios>::prepare_to_grow_cache(const uint64_t start_block_idx,
     const crypto::hash &prev_block_hash,
     const std::vector<crypto::hash> &new_block_hashes,
-    const std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
+    const std::vector<fcmp_pp::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
     CacheStateChange &cache_state_change_out) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -1269,8 +1269,8 @@ void TreeCache<C1, C2>::init(const uint64_t start_block_idx,
     // case), then the output count would be 0 even if initializing at a block index > 0
     for (const auto &bl: timelocked_outputs)
         for (const auto &o : bl.second)
-            if (o.output_id >= m_output_count)
-                m_output_count = o.output_id + 1;
+            if (o.unified_id >= m_output_count)
+                m_output_count = o.unified_id + 1;
 }
 
 // Explicit instantiation

@@ -43,6 +43,7 @@
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -145,13 +146,13 @@ struct output_data_t
 
 typedef struct pre_rct_outkey {
     uint64_t amount_index;
-    uint64_t output_id;
+    uint64_t unified_id;
     pre_rct_output_data_t data;
 } pre_rct_outkey;
 
 typedef struct outkey {
     uint64_t amount_index;
-    uint64_t output_id;
+    uint64_t unified_id;
     output_data_t data;
 } outkey;
 
@@ -566,7 +567,7 @@ private:
   //
 
   // TODO: descriptions
-  virtual std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id) const = 0;
+  virtual std::vector<fcmp_pp::UnifiedOutput> get_outs_at_last_locked_block_idx(uint64_t block_id) const = 0;
 
   virtual void del_locked_outs_at_block_idx(uint64_t block_idx) = 0;
 
@@ -589,7 +590,7 @@ private:
 
   virtual fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const = 0;
 
-  virtual uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const = 0;
+  virtual uint64_t find_leaf_idx_by_unified_id_bounded_search(uint64_t unified_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const = 0;
 
   /*********************************************************************
    * private concrete members
@@ -1501,13 +1502,13 @@ public:
    * @brief gets an output's tx hash and index
    *
    * The subclass should return the hash of the transaction which created the
-   * output with the global index given, as well as its index in that transaction.
+   * output with the unified index given, as well as its index in that transaction.
    *
-   * @param index an output's global index
+   * @param index an output's unified index
    *
    * @return the tx hash and output index
    */
-  virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const = 0;
+  virtual tx_out_index get_output_tx_and_index_from_unified(const uint64_t& index) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1860,9 +1861,9 @@ public:
   //
 
   // TODO: descriptions
-  virtual void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs);
+  virtual void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::UnifiedOutput> &known_new_outputs);
 
-  void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
+  void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::UnifiedOutput> &&new_outputs);
 
   void trim_block();
 
@@ -1870,7 +1871,7 @@ public:
 
   std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const;
 
-  uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+  uint64_t get_path_by_unified_id(const std::vector<uint64_t> &unified_ids,
     const uint64_t as_of_n_blocks,
     std::vector<uint64_t> &leaf_idxs_out,
     std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
@@ -1885,7 +1886,7 @@ public:
    * @param timelocked_outputs custom timelocked outputs
    *
    */
-  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) = 0;
+  virtual void add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) = 0;
 
   // TODO: descriptions
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
@@ -1927,7 +1928,7 @@ public:
    *
    * @return custom timelocked outputs grouped by last locked block
    */
-  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
+  virtual fcmp_pp::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
 
   //
   // Hard fork related storage

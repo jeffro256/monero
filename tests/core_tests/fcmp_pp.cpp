@@ -313,8 +313,8 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   // Prepare to build the FCMP++ curve tree
   std::vector<crypto::hash> new_block_hashes;
   std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-  std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs_by_last_locked_blocks;
-  uint64_t first_output_id = 0;
+  std::vector<fcmp_pp::OutsByLastLockedBlock> outs_by_last_locked_blocks;
+  uint64_t first_unified_id = 0;
   for (uint64_t blk_idx = 0; blk_idx < (1 + n_manual_blocks); ++blk_idx)
   {
     const auto &blk = blk_idx == 0 ? blk_0 : blocks[blk_idx - 1];
@@ -324,9 +324,9 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       : blk_idx == bpp_block_idx ? std::vector<transaction>{bpp_tx}
       : std::vector<transaction>{};
     const auto tx_refs = cryptonote::collect_transparent_amount_commitments(blk.miner_tx, txs, transparent_amount_commitments);
-    auto outs_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, blk_idx);
+    auto outs_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_unified_id, blk_idx);
     outs_by_last_locked_blocks.emplace_back(std::move(outs_meta.outs_by_last_locked_block));
-    first_output_id = outs_meta.next_output_id;
+    first_unified_id = outs_meta.next_unified_id;
   }
 
   // Build the tree, keeping track of output's path in the tree

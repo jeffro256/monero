@@ -294,8 +294,8 @@ public:
   outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const override;
   void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const override;
 
-  tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const override;
-  void get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
+  tx_out_index get_output_tx_and_index_from_unified(const uint64_t& index) const override;
+  void get_output_tx_and_index_from_unified(const std::vector<uint64_t> &unified_ids,
       std::vector<tx_out_index> &tx_out_indices) const;
 
   tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const override;
@@ -432,7 +432,7 @@ private:
   // Curve tree related db calls (private)
   //
 
-  void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) override;
+  void add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) override;
 
   void del_locked_outs_at_block_idx(uint64_t block_idx) override;
 
@@ -472,15 +472,15 @@ private:
     const uint64_t child_layer_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id) const override;
+  std::vector<fcmp_pp::UnifiedOutput> get_outs_at_last_locked_block_idx(uint64_t block_id) const override;
 
   uint64_t get_tree_block_idx() const override;
 
-  fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override;
+  fcmp_pp::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override;
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> get_output_context_by_output_id(const std::vector<uint64_t> &output_ids) const;
+  std::vector<fcmp_pp::UnifiedOutput> get_unified_output_by_id(const std::vector<uint64_t> &unified_ids) const;
 
-  uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const override;
+  uint64_t find_leaf_idx_by_unified_id_bounded_search(uint64_t unified_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const override;
 
   // Hard fork
   void set_hard_fork_version(uint64_t height, uint8_t version) override;

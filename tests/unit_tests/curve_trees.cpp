@@ -34,6 +34,7 @@
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
+#include "unit_tests_utils.h"
 
 #include <algorithm>
 
@@ -44,15 +45,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 namespace test
 {
-const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const std::size_t old_n_leaf_tuples,
+const std::vector<fcmp_pp::UnifiedOutput> generate_random_outputs(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    std::vector<fcmp_pp::curve_trees::OutputContext> outs;
+    std::vector<fcmp_pp::UnifiedOutput> outs;
     outs.reserve(new_n_leaf_tuples);
 
     for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
     {
-        const std::uint64_t output_id = old_n_leaf_tuples + i;
+        const std::uint64_t unified_id = old_n_leaf_tuples + i;
 
         // Generate random output tuple
         crypto::secret_key o,c;
@@ -63,21 +64,21 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
         const crypto::ec_point &C_pt = (crypto::ec_point&)C;
         fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
-        auto output_context = fcmp_pp::curve_trees::OutputContext{
-                .output_id   = output_id,
+        auto unified_output = fcmp_pp::UnifiedOutput{
+                .unified_id   = unified_id,
                 .output_pair = std::move(output_pair)
             };
 
-        outs.emplace_back(std::move(output_context));
+        outs.emplace_back(std::move(unified_output));
     }
 
     return outs;
 }
 //----------------------------------------------------------------------------------------------------------------------
-const std::pair<rct::xmr_amount, fcmp_pp::curve_trees::OutputContext> generate_miner_output(
+const std::pair<rct::xmr_amount, fcmp_pp::UnifiedOutput> generate_miner_output(
     const std::size_t old_n_leaf_tuples)
 {
-    const std::uint64_t output_id = old_n_leaf_tuples;
+    const std::uint64_t unified_id = old_n_leaf_tuples;
 
     // Generate random output pubkey
     crypto::secret_key o;
@@ -90,12 +91,12 @@ const std::pair<rct::xmr_amount, fcmp_pp::curve_trees::OutputContext> generate_m
 
     const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, rct::rct2pt(C)}};
 
-    const fcmp_pp::curve_trees::OutputContext output_context{
-            .output_id   = output_id,
+    const fcmp_pp::UnifiedOutput unified_output{
+            .unified_id  = unified_id,
             .output_pair = output_pair
         };
 
-    return {rand_amount, output_context};
+    return {rand_amount, unified_output};
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t selene_chunk_width,
@@ -162,15 +163,15 @@ static bool grow_tree_db(const uint64_t block_idx,
     blk.prev_id = block_idx > 0 ? test_db.m_db->get_block_hash_from_height(block_idx - 1) : crypto::hash{};
 
     using namespace fcmp_pp;
-    const auto make_mock_tx = [block_idx](const fcmp_pp::curve_trees::OutputContext &output_context,
+    const auto make_mock_tx = [block_idx](const fcmp_pp::UnifiedOutput &unified_output,
             bool miner_tx,
             rct::xmr_amount amount) -> std::pair<cryptonote::transaction, cryptonote::blobdata>
         {
             cryptonote::transaction tx;
             const cryptonote::tx_out tx_out{
                 .amount = amount,
-                .target = cryptonote::txout_to_key(output_pubkey_cref(output_context.output_pair))};
-            const crypto::ec_point &C = commitment_cref(output_context.output_pair);
+                .target = cryptonote::txout_to_key(output_pubkey_cref(unified_output.output_pair))};
+            const crypto::ec_point &C = commitment_cref(unified_output.output_pair);
             const rct::ctkey ctkey{.dest = rct::key(), .mask = rct::pt2rct(C)};
 
             tx.version = 2;
@@ -180,7 +181,7 @@ static bool grow_tree_db(const uint64_t block_idx,
             if (!miner_tx)
             {
                 tx.rct_signatures.type = rct::RCTTypeFcmpPlusPlus;
-                const crypto::key_image mock_ki = (crypto::key_image&) output_pubkey_cref(output_context.output_pair);
+                const crypto::key_image mock_ki = (crypto::key_image&) output_pubkey_cref(unified_output.output_pair);
                 tx.vin = {cryptonote::txin_to_key{.amount = 0, .key_offsets = {}, .k_image = mock_ki}};
                 tx.rct_signatures.outPk = {ctkey};
                 tx.rct_signatures.ecdhInfo = {{}};
@@ -343,7 +344,7 @@ std::size_t CurveTreesGlobalTree::get_n_leaf_tuples() const
 //----------------------------------------------------------------------------------------------------------------------
 bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples,
-    const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs,
+    const std::vector<fcmp_pp::UnifiedOutput> &new_outputs,
     const bool audit_tree)
 {
     CHECK_AND_ASSERT_MES(new_outputs.size() == new_n_leaf_tuples, false, "unexpected n new outputs");

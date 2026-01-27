@@ -53,11 +53,11 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-struct OutputContextsAndKeys
+struct UnifiedOutputsAndKeys
 {
     std::vector<crypto::secret_key> x_vec;
     std::vector<crypto::secret_key> y_vec;
-    std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
+    std::vector<fcmp_pp::UnifiedOutput> outputs;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -149,11 +149,11 @@ static FcmpRerandomizedOutputCompressed rerandomize_output_manual(const rct::key
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &curve_trees,
+static const UnifiedOutputsAndKeys generate_random_outputs(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    OutputContextsAndKeys outs;
+    UnifiedOutputsAndKeys outs;
     outs.x_vec.resize(new_n_leaf_tuples);
     outs.y_vec.resize(new_n_leaf_tuples);
     outs.outputs.resize(new_n_leaf_tuples);
@@ -169,7 +169,7 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
         {
             for (std::size_t j = i; j < end; ++j)
             {
-                const std::uint64_t output_id = old_n_leaf_tuples + j;
+                const std::uint64_t unified_id = old_n_leaf_tuples + j;
 
                 // Generate random output tuple
                 // Note: lock contention slows this down quite a bit
@@ -181,8 +181,8 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
                 const crypto::ec_point C_pt = rct::rct2pt(rct::pk2rct(C));
                 const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
-                auto output_context = fcmp_pp::curve_trees::OutputContext{
-                        .output_id   = output_id,
+                auto unified_output = fcmp_pp::UnifiedOutput{
+                        .unified_id  = unified_id,
                         .output_pair = std::move(output_pair)
                     };
 
@@ -194,7 +194,7 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
 
                 outs.x_vec[j] = std::move(x);
                 outs.y_vec[j] = std::move(y);
-                outs.outputs[j] = std::move(output_context);
+                outs.outputs[j] = std::move(unified_output);
             }
         });
     }

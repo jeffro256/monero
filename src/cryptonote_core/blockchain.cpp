@@ -2551,14 +2551,14 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   }
 }
 //------------------------------------------------------------------
-fcmp_pp::curve_trees::OutsByLastLockedBlock Blockchain::get_recent_locked_outputs(uint64_t end_block_idx) const
+fcmp_pp::OutsByLastLockedBlock Blockchain::get_recent_locked_outputs(uint64_t end_block_idx) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   db_rtxn_guard rtxn_guard(m_db);
 
-  fcmp_pp::curve_trees::OutsByLastLockedBlock outs;
+  fcmp_pp::OutsByLastLockedBlock outs;
 
   const uint64_t height = m_db->height();
   if (height == 0)
@@ -2595,9 +2595,9 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock Blockchain::get_recent_locked_output
         const auto &tx_out = tx.vout.at(i).target;
 
         auto output_pair = cryptonote::to_output_pair(tx_out, out.data.commitment);
-        const fcmp_pp::curve_trees::OutputContext output_context{ out.output_id, std::move(output_pair) };
+        const fcmp_pp::UnifiedOutput unified_output{ out.unified_id, std::move(output_pair) };
 
-        outs[last_locked_block].emplace_back(output_context);
+        outs[last_locked_block].emplace_back(unified_output);
       }
     };
 
@@ -2845,17 +2845,17 @@ static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db,
   return true;
 }
 //------------------------------------------------------------------
-static void handle_fcmp_tree(BlockchainDB *db, const uint64_t block_idx, const uint64_t first_output_id, const std::vector<std::reference_wrapper<const transaction>> &tx_refs, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments)
+static void handle_fcmp_tree(BlockchainDB *db, const uint64_t block_idx, const uint64_t first_unified_id, const std::vector<std::reference_wrapper<const transaction>> &tx_refs, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments)
 {
   // Collect outs by last locked block to add to the db
-  OutsByLastLockedBlockMeta new_locked_outs = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, block_idx);
+  OutsByLastLockedBlockMeta new_locked_outs = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_unified_id, block_idx);
 
   // Get the outputs with default last locked block
   const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(block_idx);
   auto new_default_locked_outs_it = new_locked_outs.outs_by_last_locked_block.find(default_last_locked_block);
   const auto new_default_locked_outs = new_default_locked_outs_it != new_locked_outs.outs_by_last_locked_block.end()
     ? std::move(new_default_locked_outs_it->second)
-    : std::vector<fcmp_pp::curve_trees::OutputContext>{};
+    : std::vector<fcmp_pp::UnifiedOutput>{};
 
   // Insert the new locked outputs into the db, excluding outputs created in
   // this block with default last locked block. Outputs with default last locked
@@ -4748,7 +4748,7 @@ leave:
   if(precomputed)
     block_processing_time += m_fake_pow_calc_time;
 
-  const uint64_t first_output_id = m_db->num_outputs();
+  const uint64_t first_unified_id = m_db->num_outputs();
 
   rtxn_guard.stop();
   TIME_MEASURE_START(addblock);
@@ -4803,7 +4803,7 @@ leave:
 
   TIME_MEASURE_START(advance_tree);
 
-  try { handle_fcmp_tree(m_db, new_height-1, first_output_id, tx_refs, transparent_amount_commitments); }
+  try { handle_fcmp_tree(m_db, new_height-1, first_unified_id, tx_refs, transparent_amount_commitments); }
   catch (const std::exception& e)
   {
     LOG_ERROR("Failed to advance tree at block with hash: " << id << ", what = " << e.what());

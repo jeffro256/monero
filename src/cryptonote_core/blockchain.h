@@ -612,7 +612,7 @@ namespace cryptonote
      *
      * @return outputs grouped by last locked block idx
      */
-    fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
+    fcmp_pp::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
 
     /**
      * @brief stores the blockchain
