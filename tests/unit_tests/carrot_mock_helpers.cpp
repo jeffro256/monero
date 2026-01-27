@@ -337,7 +337,8 @@ bool mock_carrot_and_legacy_keys::can_open_fcmp_onetime_address(const crypto::pu
 crypto::key_image mock_carrot_and_legacy_keys::derive_key_image(const crypto::public_key &address_spend_pubkey,
     const crypto::secret_key &sender_extension_g,
     const crypto::secret_key &sender_extension_t,
-    const crypto::public_key &onetime_address) const
+    const crypto::public_key &onetime_address,
+    const bool use_biased) const
 {
     CHECK_AND_ASSERT_THROW_MES(can_open_fcmp_onetime_address(
             address_spend_pubkey,
@@ -346,6 +347,7 @@ crypto::key_image mock_carrot_and_legacy_keys::derive_key_image(const crypto::pu
             onetime_address),
         "mock carrot and legacy keys: derive key image: cannot open onetime address");
 
+    // find x, y s.t. O = x G + y T
     crypto::secret_key x, y;
     try_searching_for_opening_for_onetime_address(address_spend_pubkey,
         sender_extension_g,
@@ -353,8 +355,12 @@ crypto::key_image mock_carrot_and_legacy_keys::derive_key_image(const crypto::pu
         x,
         y);
 
-    crypto::key_image L;
-    crypto::generate_key_image(onetime_address, x, L);
+    // I = Hp(O)
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(onetime_address, use_biased, I);
+
+    // L = x I
+    const crypto::key_image L = rct::rct2ki(rct::scalarmultKey(rct::pt2rct(I), rct::sk2rct(x)));
     return L;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -410,7 +416,8 @@ crypto::key_image dummy_key_image_device::derive_key_image(const OutputOpeningHi
 crypto::key_image dummy_key_image_device::derive_key_image_prescanned(
     const crypto::secret_key &sender_extension_g,
     const crypto::public_key &onetime_address,
-    const subaddress_index_extended &subaddr_index) const
+    const subaddress_index_extended &subaddr_index,
+    const bool use_biased) const
 {
     return this->respond(onetime_address);
 }

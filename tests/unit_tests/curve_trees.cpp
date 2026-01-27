@@ -60,11 +60,8 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        rct::key C_key = rct::pk2rct(C);
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                .output_pubkey = std::move(O),
-                .commitment    = std::move(C_key)
-            };
+        const crypto::ec_point &C_pt = (crypto::ec_point&)C;
+        fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
         auto output_context = fcmp_pp::curve_trees::OutputContext{
                 .output_id   = output_id,
@@ -91,10 +88,7 @@ const std::pair<rct::xmr_amount, fcmp_pp::curve_trees::OutputContext> generate_m
     const rct::xmr_amount rand_amount = crypto::rand_idx<rct::xmr_amount>(1000000);
     const rct::key C = rct::zeroCommitVartime(rand_amount);
 
-    const fcmp_pp::curve_trees::OutputPair output_pair{
-            .output_pubkey = O,
-            .commitment    = C
-        };
+    const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, rct::rct2pt(C)}};
 
     const fcmp_pp::curve_trees::OutputContext output_context{
             .output_id   = output_id,
@@ -167,6 +161,7 @@ static bool grow_tree_db(const uint64_t block_idx,
     blk.major_version = block_idx > 0 ? HF_VERSION_FCMP_PLUS_PLUS : 1;
     blk.prev_id = block_idx > 0 ? test_db.m_db->get_block_hash_from_height(block_idx - 1) : crypto::hash{};
 
+    using namespace fcmp_pp;
     const auto make_mock_tx = [block_idx](const fcmp_pp::curve_trees::OutputContext &output_context,
             bool miner_tx,
             rct::xmr_amount amount) -> std::pair<cryptonote::transaction, cryptonote::blobdata>
@@ -174,8 +169,9 @@ static bool grow_tree_db(const uint64_t block_idx,
             cryptonote::transaction tx;
             const cryptonote::tx_out tx_out{
                 .amount = amount,
-                .target = cryptonote::txout_to_key(output_context.output_pair.output_pubkey)};
-            const rct::ctkey ctkey{.dest = rct::key(), .mask = output_context.output_pair.commitment};
+                .target = cryptonote::txout_to_key(output_pubkey_cref(output_context.output_pair))};
+            const crypto::ec_point &C = commitment_cref(output_context.output_pair);
+            const rct::ctkey ctkey{.dest = rct::key(), .mask = rct::pt2rct(C)};
 
             tx.version = 2;
             tx.unlock_time = 0;
@@ -184,7 +180,7 @@ static bool grow_tree_db(const uint64_t block_idx,
             if (!miner_tx)
             {
                 tx.rct_signatures.type = rct::RCTTypeFcmpPlusPlus;
-                const crypto::key_image mock_ki = (crypto::key_image&) output_context.output_pair.output_pubkey;
+                const crypto::key_image mock_ki = (crypto::key_image&) output_pubkey_cref(output_context.output_pair);
                 tx.vin = {cryptonote::txin_to_key{.amount = 0, .key_offsets = {}, .k_image = mock_ki}};
                 tx.rct_signatures.outPk = {ctkey};
                 tx.rct_signatures.ecdhInfo = {{}};
@@ -214,7 +210,7 @@ static bool grow_tree_db(const uint64_t block_idx,
     }
     const cryptonote::blobdata block_blob = cryptonote::block_to_blob(blk);
     const std::unordered_map<rct::xmr_amount, rct::key> transparent_amount_commitments{
-        {new_miner_output.first, new_miner_output.second.output_pair.commitment}};
+        {new_miner_output.first, rct::pt2rct(commitment_cref(new_miner_output.second.output_pair))}};
 
     // Now add the block to the db, which adds all the tx out data we need saved
     test_db.m_db->add_block({blk, block_blob},
@@ -506,23 +502,7 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     for (std::size_t i = leaf_range.first; i < leaf_range.second; ++i)
     {
         const auto &output_pair = m_tree.leaves[i];
-
-        const crypto::public_key &output_pubkey = output_pair.output_pubkey;
-        const rct::key &commitment              = output_pair.commitment;
-
-        crypto::ec_point I;
-        crypto::derive_key_image_generator(output_pubkey, I);
-
-        rct::key O = rct::pk2rct(output_pubkey);
-        rct::key C = commitment;
-
-        auto output_tuple = fcmp_pp::curve_trees::OutputTuple{
-            .O = std::move(O),
-            .I = std::move(rct::pt2rct(I)),
-            .C = std::move(C)
-        };
-
-        path_out.leaves.emplace_back(std::move(output_tuple));
+        path_out.leaves.emplace_back(fcmp_pp::curve_trees::output_to_tuple(output_pair));
     }
 
     // Get parents
@@ -571,7 +551,7 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::set<std::size_t> CurveTreesGlobalTree::get_leaf_idxs_with_output_pair(
-    const fcmp_pp::curve_trees::OutputPair &output_pair) const
+    const fcmp_pp::OutputPair &output_pair) const
 {
     std::set<std::size_t> leaf_idx;
     for (std::size_t i = 0; i < m_tree.leaves.size(); ++i)

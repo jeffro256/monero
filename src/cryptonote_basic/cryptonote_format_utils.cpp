@@ -135,18 +135,13 @@ namespace cryptonote
       const uint64_t output_id = first_output_id + i;
       const auto &out = tx.vout[i];
 
-      crypto::public_key output_public_key;
-      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(out, output_public_key),
-          "failed to get out pubkey");
-
       rct::key commitment;
       CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
           "failed to get tx commitment");
 
       const fcmp_pp::curve_trees::OutputContext output_context{
-              .output_id       = output_id,
-              .torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx),
-              .output_pair     = fcmp_pp::curve_trees::OutputPair{output_public_key, commitment}
+              .output_id   = output_id,
+              .output_pair = cryptonote::to_output_pair(out.target, commitment)
           };
 
       if (has_custom_timelock)
@@ -1205,21 +1200,6 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool tx_outs_checked_for_torsion(const transaction& tx)
-  {
-    for (const auto &o: tx.vout)
-    {
-      // This function only knows about these output types. If there is a new type, we want to check it for torsion too.
-      const bool is_known_output_type = o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key) || o.target.type() == typeid(txout_to_key);
-      CHECK_AND_ASSERT_THROW_MES(is_known_output_type, "unknown variant type: " << o.target.type().name() << "in transaction id=" << get_transaction_hash(tx));
-
-      // We start checking for torsion at consensus with carrot outs
-      if (o.target.type() != typeid(txout_to_carrot_v1))
-        return false;
-    }
-    return true;
-  }
-  //---------------------------------------------------------------
   bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device* hwdev)
   {
     // If there is no view tag to check, the output can possibly belong to the account.
@@ -1994,5 +1974,27 @@ namespace cryptonote
     }
 
     return outs_by_last_locked_block_meta_out;
+  }
+  //---------------------------------------------------------------
+  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment)
+  {
+    struct tx_out_visitor
+    {
+        const crypto::public_key &O;
+        const crypto::ec_point &C;
+
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_carrot_v1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_tagged_key&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_key&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_scripthash&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+    };
+
+    const crypto::public_key &O = cryptonote::output_pubkey_cref(tx_out);
+    const crypto::ec_point &C = rct::rct2pt(commitment);
+    return boost::apply_visitor(tx_out_visitor{O, C}, tx_out);
   }
 }

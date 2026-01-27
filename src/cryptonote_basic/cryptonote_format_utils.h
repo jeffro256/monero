@@ -38,9 +38,11 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "span.h"
 #include <unordered_map>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/variant.hpp>
 
 namespace epee
 {
@@ -94,7 +96,6 @@ namespace cryptonote
   bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id);
   void set_tx_out(const uint64_t amount, const crypto::public_key& output_public_key, const bool use_view_tags, const crypto::view_tag& view_tag, tx_out& out);
   bool check_output_types(const transaction& tx, const uint8_t hf_version);
-  bool tx_outs_checked_for_torsion(const transaction& tx);
   bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device *hwdev = nullptr);
   bool is_out_to_acc(const account_keys& acc, const crypto::public_key& output_public_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t output_index, const boost::optional<crypto::view_tag>& view_tag_opt = boost::optional<crypto::view_tag>());
   struct subaddress_receive_info
@@ -292,6 +293,25 @@ namespace cryptonote
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
     const uint64_t first_output_id,
     const uint64_t block_idx);
+
+  inline bool output_checked_for_torsion(const cryptonote::txout_target_v &tx_out)
+  {
+    struct tx_out_visitor
+    {
+      bool operator()(const cryptonote::txout_to_carrot_v1&) const
+      { return true; }
+      bool operator()(const cryptonote::txout_to_tagged_key&) const
+      { return false; }
+      bool operator()(const cryptonote::txout_to_key&) const
+      { return false; }
+      bool operator()(const cryptonote::txout_to_scripthash&) const
+      { return false; }
+    };
+
+    return boost::apply_visitor(tx_out_visitor{}, tx_out);
+  }
+
+  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment);
 
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \

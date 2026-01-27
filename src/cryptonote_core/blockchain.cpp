@@ -1520,8 +1520,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     std::vector<rct::key> pubkeys_and_commitments;
     pubkeys_and_commitments.reserve(b.miner_tx.vout.size() * 2);
 
-    if (cryptonote::tx_outs_checked_for_torsion(b.miner_tx)
-        && !collect_pubkeys_and_commitments(b.miner_tx, transparent_amount_commitments, pubkeys_and_commitments))
+    if (!collect_points_for_torsion_check(b.miner_tx, transparent_amount_commitments, pubkeys_and_commitments))
     {
         MERROR_VER("failed to collect pubkeys and commitments from miner tx");
         return false;
@@ -2590,10 +2589,14 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock Blockchain::get_recent_locked_output
       if (cryptonote::is_custom_timelocked(is_coinbase, last_locked_block, b_idx))
         return;
 
-      const bool torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
-      for (auto &out : out_data)
+      for (std::size_t i = 0; i < out_data.size(); ++i)
       {
-        const fcmp_pp::curve_trees::OutputContext output_context{ out.output_id, torsion_checked, {out.data.pubkey, out.data.commitment}};
+        const auto &out = out_data[i];
+        const auto &tx_out = tx.vout.at(i).target;
+
+        auto output_pair = cryptonote::to_output_pair(tx_out, out.data.commitment);
+        const fcmp_pp::curve_trees::OutputContext output_context{ out.output_id, std::move(output_pair) };
+
         outs[last_locked_block].emplace_back(output_context);
       }
     };

@@ -66,20 +66,19 @@ template Selene::Point get_new_parent<Selene>(const std::unique_ptr<Selene> &cur
 template Helios::Point get_new_parent<Helios>(const std::unique_ptr<Helios> &curve,
     const typename Helios::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked, bool use_fast_check)
+OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check)
 {
-    const crypto::public_key &output_pubkey = output_pair.output_pubkey;
-    const rct::key &commitment              = output_pair.commitment;
+    const crypto::public_key &output_pubkey = output_pubkey_cref(output_pair);
+    const crypto::ec_point &commitment      = commitment_cref(output_pair);
 
     const rct::key &O_key = rct::pk2rct(output_pubkey);
-    const rct::key &C_key = commitment;
+    const rct::key &C_key = rct::pt2rct(commitment);
 
     rct::key O = O_key;
     rct::key C = C_key;
 
     // If the output has already been checked for torsion, then we don't need to clear torsion here
-    // TODO: is there a cleaner torsion approach than this nested if statement?
-    if (!torsion_checked)
+    if (!output_checked_for_torsion(output_pair))
     {
         TIME_MEASURE_NS_START(clear_torsion_ns);
 
@@ -129,11 +128,9 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
 
     TIME_MEASURE_NS_START(derive_key_image_generator_ns);
 
-    // Must use the original output pubkey to derive I to prevent double spends, since torsioned outputs yield a
-    // a distinct I and key image from their respective torsion cleared output (and torsioned outputs are spendable
-    // before fcmp++)
+    // Derive key image generator
     crypto::ec_point I;
-    crypto::derive_key_image_generator(output_pubkey, I);
+    crypto::derive_key_image_generator(output_pubkey, use_biased_hash_to_point(output_pair), I);
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 
@@ -604,11 +601,9 @@ static PreLeafTuple output_tuple_to_pre_leaf_tuple(const OutputTuple &o)
     return plt;
 }
 //----------------------------------------------------------------------------------------------------------------------
-static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair,
-    bool torsion_checked = false,
-    bool use_fast_check = false)
+static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair, bool use_fast_check = false)
 {
-    const auto o = output_to_tuple(output_pair, torsion_checked, use_fast_check);
+    const auto o = output_to_tuple(output_pair, use_fast_check);
     return output_tuple_to_pre_leaf_tuple(o);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1061,7 +1056,7 @@ CurveTrees<Selene, Helios>::Path CurveTrees<Selene, Helios>::path_bytes_to_path(
     // Leaves
     path.leaves.reserve(path_bytes.leaves.size());
     for (const auto &leaf : path_bytes.leaves)
-        path.leaves.emplace_back(output_to_tuple(leaf.output_pair, leaf.torsion_checked));
+        path.leaves.emplace_back(output_to_tuple(leaf.output_pair));
 
     // Layers
     bool parent_is_c1 = true;
@@ -1493,19 +1488,16 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                         CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > j, "unexpected pre_leaves size");
 
                         const auto &output_pair = new_outputs[j].output_pair;
-                        const bool torsion_checked = new_outputs[j].torsion_checked;
-
                         try
                         {
-                            pre_leaves[j] = output_to_pre_leaf_tuple(output_pair,
-                                torsion_checked,
-                                use_fast_torsion_check);
+                            pre_leaves[j] = output_to_pre_leaf_tuple(output_pair, use_fast_torsion_check);
                         }
                         catch(...)
                         {
                             /* Invalid outputs can't be added to the tree */
-                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey " <<
-                                output_pair.output_pubkey << " , commitment " << output_pair.commitment << ")");
+                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey "
+                                << output_pubkey_cref(output_pair)
+                                << " , commitment " << commitment_cref(output_pair) << ")");
                             continue;
                         }
 

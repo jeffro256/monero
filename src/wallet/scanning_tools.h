@@ -57,6 +57,8 @@ namespace wallet
 /// @brief Post-scanned info for any Monero enote
 struct enote_view_incoming_scan_info_t
 {
+    bool use_biased_hash_to_point;
+
     // k^g_o
     crypto::secret_key sender_extension_g;
     // k^t_o

@@ -179,11 +179,12 @@ crypto::key_image spend_device_ram_borrowed::derive_key_image(const OutputOpenin
 crypto::key_image spend_device_ram_borrowed::derive_key_image_prescanned(
     const crypto::secret_key &sender_extension_g,
     const crypto::public_key &onetime_address,
-    const subaddress_index_extended &subaddr_index) const
+    const subaddress_index_extended &subaddr_index,
+    const bool use_biased) const
 {
     DEFINE_SUB_DEVICES()
 
-    return key_image_dev.derive_key_image_prescanned(sender_extension_g, onetime_address, subaddr_index);
+    return key_image_dev.derive_key_image_prescanned(sender_extension_g, onetime_address, subaddr_index, use_biased);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

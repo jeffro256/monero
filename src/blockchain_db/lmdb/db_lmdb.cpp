@@ -1766,13 +1766,8 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       throw0(DB_ERROR("Missing tx for provided output id."));
     const auto &tx = tx_it->second;
 
-    // Output pub key
-    const auto &out = tx.vout.at(toi.second);
-    crypto::public_key output_pubkey;
-    if (!get_output_public_key(out, output_pubkey))
-      throw0(DB_ERROR("Could not get an output public key from a tx output."));
-
     // Amount commitment
+    const auto &out = tx.vout.at(toi.second);
     rct::key commitment;
     if (out.amount == 0)
     {
@@ -1785,12 +1780,9 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       commitment = transparent_amount_commitments[out.amount];
     }
 
-    const uint8_t torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
-    const fcmp_pp::curve_trees::OutputPair output_pair{.output_pubkey = output_pubkey, .commitment = commitment};
     output_contexts.emplace_back(fcmp_pp::curve_trees::OutputContext{
         .output_id = output_id,
-        .torsion_checked = torsion_checked,
-        .output_pair = output_pair
+        .output_pair = cryptonote::to_output_pair(out.target, commitment)
       });
   }
 
@@ -7303,15 +7295,14 @@ void BlockchainLMDB::migrate_5_6()
           last_output.n_outputs_read = i;
         }
 
-        // Prepare the output for insertion to the tree
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-            .output_pubkey = std::move(output_data.pubkey),
-            .commitment    = std::move(output_data.commitment)
-          };
+        // Prepare the output for insertion to the tree (all outputs in the db at this point must be legacy)
+        fcmp_pp::LegacyOutputPair output_pair{{
+            output_data.pubkey,
+            rct::rct2pt(output_data.commitment),
+          }};
 
-        auto output_context = fcmp_pp::curve_trees::OutputContext{
+        const fcmp_pp::curve_trees::OutputContext output_context{
             .output_id       = output_id,
-            .torsion_checked = 0,
             .output_pair     = std::move(output_pair)
           };
 

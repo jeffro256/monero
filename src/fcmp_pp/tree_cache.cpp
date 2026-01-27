@@ -41,16 +41,28 @@ namespace fcmp_pp
 namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
-static OutputRef get_output_ref(const OutputPair &o)
+static OutputRefHash get_output_ref_hash(const OutputPair &o_variant)
 {
-    static_assert(sizeof(o.output_pubkey) == sizeof(o.commitment), "unexpected size of output pubkey & commitment");
+    const crypto::public_key &output_pubkey = output_pubkey_cref(o_variant);
+    const crypto::ec_point &commitment = commitment_cref(o_variant);
 
-    static const std::size_t N_ELEMS = 2;
-    static_assert(sizeof(o) == (N_ELEMS * sizeof(crypto::public_key)), "unexpected size of output pair");
+    static_assert(sizeof(output_pubkey) == sizeof(commitment), "unexpected size of output pubkey & commitment");
 
-    const crypto::public_key data[N_ELEMS] = {o.output_pubkey, rct::rct2pk(o.commitment)};
+    // Hash the type info as well
+    rct::key type = rct::key{};
+    const std::size_t variant_index = o_variant.index();
+    static_assert(sizeof(type.bytes) >= sizeof(variant_index), "variant index type is too large");
+    memcpy(type.bytes, &variant_index, sizeof(variant_index));
+
+    static constexpr std::size_t N_HASH_ELEMS = 3;
+    const rct::key data[N_HASH_ELEMS] = {
+            rct::pk2rct(output_pubkey),
+            rct::pt2rct(commitment),
+            type
+        };
+
     crypto::hash h;
-    crypto::cn_fast_hash(data, N_ELEMS * sizeof(crypto::public_key), h);
+    crypto::cn_fast_hash(data, N_HASH_ELEMS * sizeof(rct::key), h);
     return h;
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -58,9 +70,9 @@ static void assign_new_output(const OutputPair &output_pair,
     const LeafIdx leaf_idx,
     RegisteredOutputs &registered_outputs_inout)
 {
-    const auto output_ref = get_output_ref(output_pair);
+    const auto output_ref_hash = get_output_ref_hash(output_pair);
 
-    auto registered_output_it = registered_outputs_inout.find(output_ref);
+    auto registered_output_it = registered_outputs_inout.find(output_ref_hash);
     if (registered_output_it == registered_outputs_inout.end())
         return;
 
@@ -69,7 +81,7 @@ static void assign_new_output(const OutputPair &output_pair,
     if (registered_output_it->second.assigned_leaf_idx)
         return;
 
-    LOG_PRINT_L1("Found output " << output_pair.output_pubkey << " in curve tree at leaf idx " << leaf_idx);
+    LOG_PRINT_L1("Found output " << output_pubkey_cref(output_pair) << " at leaf idx " << leaf_idx);
 
     registered_output_it->second.assign_leaf(leaf_idx);
 
@@ -83,7 +95,7 @@ static uint64_t add_to_locked_outputs_cache(const OutsByLastLockedBlock &outs_by
 {
     uint64_t n_outputs_added = 0;
 
-    LockedOutputRefs locked_output_refs;
+    LockedOutputRefHashes locked_output_ref_hashes;
     for (const auto &last_locked_block : outs_by_last_locked_block)
     {
         const LastLockedBlockIdx last_locked_block_idx = last_locked_block.first;
@@ -93,7 +105,7 @@ static uint64_t add_to_locked_outputs_cache(const OutsByLastLockedBlock &outs_by
         // We keep track of the number outputs we're adding to the cache at a specific last locked block, so that we can
         // quickly remove those outputs from the cache upon popping a block.
         const auto n_new_outputs = new_locked_outputs.size();
-        locked_output_refs[last_locked_block_idx] = n_new_outputs;
+        locked_output_ref_hashes[last_locked_block_idx] = n_new_outputs;
 
         n_outputs_added += n_new_outputs;
 
@@ -119,7 +131,7 @@ static uint64_t add_to_locked_outputs_cache(const OutsByLastLockedBlock &outs_by
     // quickly remove locked outputs form the cache cache upon popping the block from the chain.
     CHECK_AND_ASSERT_THROW_MES(locked_outputs_refs_inout.find(created_block_idx) == locked_outputs_refs_inout.end(),
         "unexpected locked output refs found");
-    locked_outputs_refs_inout[created_block_idx] = std::move(locked_output_refs);
+    locked_outputs_refs_inout[created_block_idx] = std::move(locked_output_ref_hashes);
 
     return n_outputs_added;
 }
@@ -131,14 +143,14 @@ static uint64_t remove_outputs_created_at_block(const CreatedBlockIdx &created_b
     uint64_t n_outputs_removed = 0;
 
     // Get the outputs created at the provided creation block
-    auto locked_output_refs_it = locked_outputs_refs_inout.find(created_block_idx);
-    CHECK_AND_ASSERT_THROW_MES(locked_output_refs_it != locked_outputs_refs_inout.end(), "missing locked output refs");
+    auto locked_output_ref_hashes_it = locked_outputs_refs_inout.find(created_block_idx);
+    CHECK_AND_ASSERT_THROW_MES(locked_output_ref_hashes_it != locked_outputs_refs_inout.end(), "missing locked output refs");
 
-    for (const auto &locked_output_refs : locked_output_refs_it->second)
+    for (const auto &locked_output_ref_hashes : locked_output_ref_hashes_it->second)
     {
         // The outputs are grouped by last locked block
-        const LastLockedBlockIdx last_locked_block_idx = locked_output_refs.first;
-        const NumOutputs n_outputs_to_remove = locked_output_refs.second;
+        const LastLockedBlockIdx last_locked_block_idx = locked_output_ref_hashes.first;
+        const NumOutputs n_outputs_to_remove = locked_output_ref_hashes.second;
 
         // Find the locked outputs using the last locked block
         const auto locked_outputs_it = locked_outputs_inout.find(last_locked_block_idx);
@@ -157,11 +169,15 @@ static uint64_t remove_outputs_created_at_block(const CreatedBlockIdx &created_b
             continue;
         }
 
-        locked_outputs_it->second.resize(n_cur_outputs - n_outputs_to_remove);
+        const uint64_t n_new_outputs = n_cur_outputs - n_outputs_to_remove;
+        locked_outputs_it->second.erase(
+                locked_outputs_it->second.begin() + n_new_outputs,
+                locked_outputs_it->second.end()
+            );
     }
 
     // Don't need the refs anymore, we're done with the outputs created at the given block
-    locked_outputs_refs_inout.erase(locked_output_refs_it);
+    locked_outputs_refs_inout.erase(locked_output_ref_hashes_it);
 
     return n_outputs_removed;
 }
@@ -582,7 +598,10 @@ static void shrink_cached_last_leaf_chunk(const uint64_t new_n_leaf_tuples,
     const std::size_t n_leaves_last_chunk = leaf_chunk_it->second.leaves.size();
     CHECK_AND_ASSERT_THROW_MES(n_leaves_last_chunk >= offset, "unexpected n leaves in cached last chunk");
 
-    leaf_chunk_it->second.leaves.resize(offset);
+    leaf_chunk_it->second.leaves.erase(
+            leaf_chunk_it->second.leaves.begin() + offset,
+            leaf_chunk_it->second.leaves.end()
+        );
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -719,14 +738,17 @@ static void cache_last_chunks(const std::shared_ptr<CurveTrees<C1, C2>> &curve_t
 template<typename C1, typename C2>
 bool TreeCache<C1, C2>::register_output(const OutputPair &output)
 {
-    auto output_ref = get_output_ref(output);
-    CHECK_AND_ASSERT_MES(m_registered_outputs.find(output_ref) == m_registered_outputs.end(), false,
+    auto output_ref_hash = get_output_ref_hash(output);
+    CHECK_AND_ASSERT_MES(m_registered_outputs.find(output_ref_hash) == m_registered_outputs.end(), false,
         "output is already registered");
 
     // Add to registered outputs container
-    m_registered_outputs.insert({ output_ref, AssignedLeafIdx{} });
+    m_registered_outputs.insert({ output_ref_hash, AssignedLeafIdx{} });
 
-    MDEBUG("Registered output " << output.output_pubkey << " , commitment " << output.commitment);
+    MDEBUG("Registered output " << fcmp_pp::output_pubkey_cref(output)
+        << " , commitment "     << fcmp_pp::commitment_cref(output)
+        << " , type: "          << output.index()
+        << " , output ref: "    << output_ref_hash);
 
     return true;
 }
@@ -799,7 +821,7 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
     // TODO: return state diff instead of copying the whole thing
     TIME_MEASURE_START(getting_unlocked_outputs);
     cache_state_change_out.locked_outputs = m_locked_outputs;
-    cache_state_change_out.locked_output_refs = m_locked_output_refs;
+    cache_state_change_out.locked_output_ref_hashes = m_locked_output_ref_hashes;
 
     // Update the locked outputs cache with all outputs set to unlock, and collect unlocked outputs and output id's
     std::vector<std::vector<OutputContext>> unlocked_outputs;
@@ -814,7 +836,7 @@ void TreeCache<C1, C2>::prepare_to_grow_cache(const uint64_t start_block_idx,
         cache_state_change_out.n_outputs_observed += add_to_locked_outputs_cache(outs_by_last_locked_blocks[i],
                 blk_idx,
                 cache_state_change_out.locked_outputs,
-                cache_state_change_out.locked_output_refs
+                cache_state_change_out.locked_output_ref_hashes
             );
 
         // Copy the unlocked outputs in the block. The reason we copy here is to make sure we handle reorgs correctly.
@@ -924,7 +946,7 @@ void TreeCache<C1, C2>::grow_cache(const uint64_t start_block_idx,
 
     // Set the next locked outputs and refs
     m_locked_outputs = std::move(cache_state_change.locked_outputs);
-    m_locked_output_refs = std::move(cache_state_change.locked_output_refs);
+    m_locked_output_ref_hashes = std::move(cache_state_change.locked_output_ref_hashes);
 
     // Update the existing last hashes in the cache using the tree extension
     const auto &tree_extension = cache_state_change.tree_extension;
@@ -1028,7 +1050,7 @@ void TreeCache<C1, C2>::shrink_to_reorg_depth()
         // We keep locked output refs around for outputs *created* in the oldest block, so we can quickly remove them
         // from the locked outputs cache upon popping the block. Once the reorg depth is exceeded, we can't remove those
         // outputs anyway, so remove from the cache.
-        m_locked_output_refs.erase(/*CreatedBlockIdx*/oldest_block.blk_idx);
+        m_locked_output_ref_hashes.erase(/*CreatedBlockIdx*/oldest_block.blk_idx);
 
         this->deque_block(oldest_block.n_leaf_tuples);
         m_cached_blocks.pop_front();
@@ -1097,7 +1119,7 @@ bool TreeCache<C1, C2>::pop_to_block(const uint64_t new_top_blk_idx, const crypt
         const uint64_t n_outputs_removed = remove_outputs_created_at_block(
             pop_block_idx,
             m_locked_outputs,
-            m_locked_output_refs);
+            m_locked_output_ref_hashes);
         CHECK_AND_ASSERT_MES(m_output_count >= n_outputs_removed, false, "pop_to_block: output count too low");
         m_output_count -= n_outputs_removed;
     }
@@ -1167,7 +1189,7 @@ bool TreeCache<C1, C2>::get_output_path(const OutputPair &output,
     path_out.clear();
 
     // Return false if the output isn't registered
-    auto registered_output_it = m_registered_outputs.find(get_output_ref(output));
+    auto registered_output_it = m_registered_outputs.find(get_output_ref_hash(output));
     if (registered_output_it == m_registered_outputs.end())
         return false;
 
@@ -1240,7 +1262,7 @@ void TreeCache<C1, C2>::init(const uint64_t start_block_idx,
     // grow the tree with those outputs correctly upon unlock.
     // - Assume the created block idx is the genesis block so the outputs won't get pruned.
     const CreatedBlockIdx created_block_idx{0};
-    add_to_locked_outputs_cache(timelocked_outputs, created_block_idx, m_locked_outputs, m_locked_output_refs);
+    add_to_locked_outputs_cache(timelocked_outputs, created_block_idx, m_locked_outputs, m_locked_output_ref_hashes);
 
     // Set the output count to the max output id + 1
     // WARNING: this is a little hacky because if there are no timelocked outputs provided (which should never be the
@@ -1271,7 +1293,7 @@ template<typename C1, typename C2>
 void TreeCache<C1, C2>::clear()
 {
     m_locked_outputs.clear();
-    m_locked_output_refs.clear();
+    m_locked_output_ref_hashes.clear();
     m_output_count = 0;
     m_registered_outputs.clear();
     m_leaf_cache.clear();
@@ -1286,7 +1308,8 @@ void TreeCache<C1, C2>::force_add_output_path(const OutputPair &output,
     const PathBytes &path_bytes,
     const uint64_t n_leaf_tuples)
 {
-    MDEBUG("Force adding output " << output.output_pubkey << " , commitment " << output.commitment);
+    MDEBUG("Force adding output " << fcmp_pp::output_pubkey_cref(output)
+        << " , commitment "       << fcmp_pp::commitment_cref(output));
 
     // If an empty path is passed in here, this function is not sufficiently capable of handling it. The output must
     // be added to the locked outputs cache in this case, which would require the output's last locked block.
@@ -1294,7 +1317,7 @@ void TreeCache<C1, C2>::force_add_output_path(const OutputPair &output,
         "force_add_output_path: unexpected empty path");
 
     // This function expects the output to be registered already, but not yet assigned.
-    const auto registered_output_it = m_registered_outputs.find(get_output_ref(output));
+    const auto registered_output_it = m_registered_outputs.find(get_output_ref_hash(output));
     CHECK_AND_ASSERT_THROW_MES(registered_output_it != m_registered_outputs.end(),
         "force_add_output_path: output is not already registered");
     CHECK_AND_ASSERT_THROW_MES(!registered_output_it->second.assigned_leaf_idx,

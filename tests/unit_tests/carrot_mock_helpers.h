@@ -143,7 +143,8 @@ struct mock_carrot_and_legacy_keys
     crypto::key_image derive_key_image(const crypto::public_key &address_spend_pubkey,
         const crypto::secret_key &sender_extension_g,
         const crypto::secret_key &sender_extension_t,
-        const crypto::public_key &onetime_address) const;
+        const crypto::public_key &onetime_address,
+        const bool use_biased) const;
 
     void generate_subaddress_map();
 
@@ -158,7 +159,8 @@ struct dummy_key_image_device final: public key_image_device
     crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const final;
     crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
         const crypto::public_key &onetime_address,
-        const subaddress_index_extended &subaddr_index) const final;
+        const subaddress_index_extended &subaddr_index,
+        const bool use_biased) const final;
 
 private:
     crypto::key_image respond(const crypto::public_key &onetime_address) const;

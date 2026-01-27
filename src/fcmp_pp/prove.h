@@ -42,10 +42,12 @@ namespace fcmp_pp
 
 FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output);
 FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &onetime_address,
-    const crypto::ec_point &amount_commitment);
+    const crypto::ec_point &amount_commitment,
+    const bool use_biased_hash_to_point);
 
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const crypto::ec_point &amount_commitment,
+    const bool use_biased_hash_to_point,
     const crypto::secret_key &r_o,
     const crypto::secret_key &r_i,
     const crypto::secret_key &r_r_i,
@@ -54,6 +56,7 @@ FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::publ
 void make_balanced_rerandomized_output_set(
     const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<crypto::ec_point> &input_amount_commitments,
+    const std::vector<bool> &input_uses_biased_hash_to_point,
     const std::vector<crypto::secret_key> &input_amount_blinding_factors,
     const std::vector<crypto::secret_key> &r_o,
     const crypto::secret_key &output_amount_blinding_factor_sum,

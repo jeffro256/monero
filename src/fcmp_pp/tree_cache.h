@@ -31,6 +31,7 @@
 #include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
+#include "fcmp_pp_serialization.h"
 #include "fcmp_pp_types.h"
 #include "ringct/rctTypes.h"
 #include "serialization/containers.h"
@@ -60,7 +61,7 @@ using LastLockedBlockIdx = BlockIdx;
 using CreatedBlockIdx = BlockIdx;
 using NumOutputs      = std::size_t;
 
-using OutputRef = crypto::hash;
+using OutputRefHash = crypto::hash;
 
 struct BlockMeta final
 {
@@ -116,10 +117,10 @@ struct AssignedLeafIdx final
 };
 
 using LockedOutsByLastLockedBlock = std::unordered_map<LastLockedBlockIdx, std::vector<OutputContext>>;
-using LockedOutputRefs       = std::unordered_map<LastLockedBlockIdx, NumOutputs>;
-using LockedOutputsByCreated = std::unordered_map<CreatedBlockIdx, LockedOutputRefs>;
+using LockedOutputRefHashes       = std::unordered_map<LastLockedBlockIdx, NumOutputs>;
+using LockedOutputsByCreated      = std::unordered_map<CreatedBlockIdx, LockedOutputRefHashes>;
 
-using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
+using RegisteredOutputs = std::unordered_map<OutputRefHash, AssignedLeafIdx>;
 using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
 using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>;
 
@@ -147,7 +148,7 @@ public:
     {
         uint64_t n_outputs_observed{0};
         LockedOutsByLastLockedBlock locked_outputs;
-        LockedOutputsByCreated locked_output_refs;
+        LockedOutputsByCreated locked_output_ref_hashes;
         typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension tree_extension;
         std::vector<uint64_t> n_new_leaf_tuples_per_block;
     };
@@ -252,7 +253,7 @@ private:
 private:
     // Locked outputs in the chain that we use to grow the tree with internally upon unlock
     LockedOutsByLastLockedBlock m_locked_outputs;
-    LockedOutputsByCreated m_locked_output_refs;
+    LockedOutputsByCreated m_locked_output_ref_hashes;
 
     // Keep a global output counter so the caller knows how output id's should be set
     uint64_t m_output_count{0};
@@ -278,7 +279,7 @@ public:
     BEGIN_SERIALIZE_OBJECT()
         VERSION_FIELD(TREE_CACHE_VERSION)
         FIELD(m_locked_outputs)
-        FIELD(m_locked_output_refs)
+        FIELD(m_locked_output_ref_hashes)
         FIELD(m_output_count)
         FIELD(m_registered_outputs)
         FIELD(m_leaf_cache)

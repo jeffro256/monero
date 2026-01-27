@@ -55,12 +55,14 @@ struct key_image_device
      * param: sender_extension_g - k^g_o
      * param: onetime_address - K_o
      * param: subaddr_index - j
+     * param: use_biased - true if should use biased hash-to-point function
      * return: L = x Hp(K_o) given K_o and some y s.t. K_o = x G + y T
      *
      * The _caller_ is expected to validate that this enote passes the burning bug check, Janus check, etc.
      */
     virtual crypto::key_image derive_key_image_prescanned(const crypto::secret_key &sender_extension_g,
         const crypto::public_key &onetime_address,
-        const subaddress_index_extended &subaddr_index) const = 0;
+        const subaddress_index_extended &subaddr_index,
+        const bool use_biased) const = 0;
 };
 } //namespace carrot

@@ -29,7 +29,6 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 #include "fcmp_pp_crypto.h"
 #include "fcmp_pp_types.h"
 #include "misc_log_ex.h"
@@ -81,63 +80,31 @@ struct GrowLayerInstructions final
     uint64_t next_parent_start_index;
 };
 
-// Output pub key and commitment, ready to be converted to a leaf tuple
-// - From {output_pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
-// - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
-//   to derive the correct I (when deriving {O.x,O.y,I.x,I.y,C.x,C.y}). Torsion clearing O before deriving I from O
-//   would enable spending a torsioned output once before FCMP++ fork and again with a different key image via FCMP++.
-#pragma pack(push, 1)
-struct OutputPair final
-{
-    crypto::public_key output_pubkey;
-    rct::key           commitment;
-
-    bool operator==(const OutputPair &other) const { return output_pubkey == other.output_pubkey && commitment == other.commitment; }
-
-    BEGIN_SERIALIZE_OBJECT()
-        FIELD(output_pubkey)
-        FIELD(commitment)
-    END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_VAL_POD_AS_BLOB(output_pubkey)
-        KV_SERIALIZE_VAL_POD_AS_BLOB(commitment)
-    END_KV_SERIALIZE_MAP()
-};
-
 // Contextual wrapper for the output
+// TODO: move to fcmp_pp_types.h
+#pragma pack(push, 1)
 struct OutputContext final
 {
     // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
     uint64_t output_id{0};
-    // TODO: consider using a variant instead
-    // True if the output pair elems are guaranteed to not have torsion and are not equal to identity
-    uint8_t torsion_checked{0};
     OutputPair output_pair;
 
-    // Using uint8_t for torsion_checked because sizeof(bool) is platform-dependent: https://github.com/seraphis-migration/monero/pull/20#discussion_r2027787352
-    // These static asserts ensure booleans cast to the expected uint8_t value and vice versa
-    static_assert((uint8_t) 0 == (uint8_t) false && (uint8_t) 1 == (uint8_t) true, "Unexpected bool <> uint8_t casting");
-    static_assert((bool) ((uint8_t) 0) == false && (bool) ((uint8_t) 1) == true, "Unexpected uint8_t <> bool casting");
-
-    bool operator==(const OutputContext &other) const { return output_id == other.output_id && output_pair == other.output_pair; }
+    bool operator==(const OutputContext &other) const
+    {
+        return output_id == other.output_id && output_pair == other.output_pair;
+    }
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(output_id)
-        FIELD(torsion_checked)
         FIELD(output_pair)
     END_SERIALIZE()
 
     BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(output_id)
-        KV_SERIALIZE(torsion_checked)
         KV_SERIALIZE(output_pair)
     END_KV_SERIALIZE_MAP()
 };
 #pragma pack(pop)
-
-static_assert(sizeof(OutputPair)    == (32+32),   "db expects 64 bytes for output pairs");
-static_assert(sizeof(OutputContext) == (8+1+32+32), "db expects 73 bytes for output context");
 
 using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
 
@@ -212,7 +179,7 @@ struct PathIndexes final
 template<typename C>
 typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked = false, bool use_fast_check = false);
+OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check = false);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory

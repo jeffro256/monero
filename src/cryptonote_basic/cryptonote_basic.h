@@ -165,6 +165,22 @@ namespace cryptonote
 
   };
 
+  inline const crypto::public_key &output_pubkey_cref(const txout_target_v &tx_out)
+  {
+    struct tx_out_visitor
+    {
+      const crypto::public_key &operator()(const cryptonote::txout_to_carrot_v1 &out) const
+      { return out.key; }
+      const crypto::public_key &operator()(const cryptonote::txout_to_tagged_key &out) const
+      { return out.key; }
+      const crypto::public_key &operator()(const cryptonote::txout_to_key &out) const
+      { return out.key; }
+      const crypto::public_key &operator()(const cryptonote::txout_to_scripthash&) const
+      { throw std::runtime_error("Unexpected usage of txout to scripthash"); }
+    };
+    return boost::apply_visitor(tx_out_visitor{}, tx_out);
+  }
+
   class transaction_prefix
   {
 

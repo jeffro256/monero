@@ -40,6 +40,7 @@
 //third party headers
 
 //standard headers
+#include <functional>
 #include <unordered_map>
 
 //forward declarations
@@ -273,6 +274,7 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
  * brief: finalize FCMPs and BP+ range proofs for output amounts for Carrot/FCMP++ txs
  * param: sorted_input_key_images - key images in input order
  * param: sorted_rerandomized_outputs - rerandomized outputs in key image order
+ * param: sorted_output_pairs - output pairs {O,C} in input order
  * param: sorted_sal_proofs - SA/L proofs in key image order
  * param: encrypted_payment_id - pid_enc
  * param: fee -
@@ -282,6 +284,7 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
 cryptonote::transaction finalize_fcmps_and_range_proofs(
     const std::vector<crypto::key_image> &sorted_input_key_images,
     const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
+    const fcmp_pp::OutputPair &sorted_output_pairs,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sorted_sal_proofs,
     const std::vector<carrot::RCTOutputEnoteProposal> &output_enote_proposals,
     const carrot::encrypted_payment_id_t &encrypted_payment_id,
