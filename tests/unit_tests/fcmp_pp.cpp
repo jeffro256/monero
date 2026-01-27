@@ -33,15 +33,20 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+#include "fcmp_pp/fcmp_pp_serialization.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
+#include "string_tools.h"
 
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
+
+#include <utility>
+#include <vector>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.fcmp_pp"
@@ -59,7 +64,7 @@ struct OutputContextsAndKeys
 static rct::key biased_derive_key_image_generator(const rct::key O)
 {
     crypto::public_key I;
-    crypto::biased_derive_key_image_generator(rct::rct2pk(O), I);
+    crypto::derive_key_image_generator(rct::rct2pk(O), true/*biased*/, I);
     return rct::pk2rct(I);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -173,8 +178,8 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
                 crypto::generate_keys(O, o, o, false);
                 crypto::generate_keys(C, c, c, false);
 
-                rct::key C_key = rct::pk2rct(C);
-                fcmp_pp::curve_trees::OutputPair output_pair(O, C_key, fcmp_pp::curve_trees::OutputPairType::Legacy);
+                const crypto::ec_point C_pt = rct::rct2pt(rct::pk2rct(C));
+                const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
                 auto output_context = fcmp_pp::curve_trees::OutputContext{
                         .output_id   = output_id,
@@ -385,9 +390,9 @@ TEST(fcmp_pp, prove)
             const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
-                path.leaves[output_idx].C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(path.leaves[output_idx].O),
+                rct::rct2pt(path.leaves[output_idx].C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
@@ -566,9 +571,9 @@ TEST(fcmp_pp, verify)
             const auto &leaf_chunk = paths.leaves_by_chunk_idx.find(leaf_chunk_idx)->second;
             const auto &leaf = leaf_chunk[leaf_offset];
 
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(leaf.O),
-                leaf.C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(leaf.O),
+                rct::rct2pt(leaf.C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             const auto &x = new_outputs.x_vec[leaf_idx];
@@ -769,9 +774,9 @@ TEST(fcmp_pp, membership_completeness)
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
             // Set up rust path
-            const fcmp_pp::curve_trees::OutputPair output_pair(rct::rct2pk(path.leaves[output_idx].O),
-                path.leaves[output_idx].C,
-                fcmp_pp::curve_trees::OutputPairType::Legacy);
+            const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{
+                rct::rct2pk(path.leaves[output_idx].O),
+                rct::rct2pt(path.leaves[output_idx].C)}};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 
@@ -1075,6 +1080,50 @@ TEST(fcmp_pp, dump_pruned_tx_bytesizes)
             std::cout << serialized_blob.size() << ',';
         }
         std::cout << '\n';
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, output_pair_serialization)
+{
+    static const crypto::public_key O{0x01};
+    static const crypto::ec_point C{0x02};
+
+    static const std::string O_str = "0100000000000000000000000000000000000000000000000000000000000000";
+    static const std::string C_str = "0200000000000000000000000000000000000000000000000000000000000000";
+
+    // 1. Check serialized bytes size
+    const fcmp_pp::OutputPair legacy_output = fcmp_pp::LegacyOutputPair{{O, C}};
+    const fcmp_pp::OutputPair carrot_output = fcmp_pp::CarrotOutputPairV1{{O, C}};
+    ASSERT_FALSE(legacy_output == carrot_output);
+
+    const cryptonote::blobdata legacy_serialized = cryptonote::t_serializable_object_to_blob(legacy_output);
+    const cryptonote::blobdata carrot_out_v1_ser = cryptonote::t_serializable_object_to_blob(carrot_output);
+
+    ASSERT_EQ(legacy_serialized.size(), (1+32+32));
+    ASSERT_EQ(carrot_out_v1_ser.size(), (1+32+32));
+
+    // 2. Check serialized byte string
+    const std::string legacy_hex = epee::string_tools::buff_to_hex_nodelimer(legacy_serialized);
+    const std::string carrot_hex = epee::string_tools::buff_to_hex_nodelimer(carrot_out_v1_ser);
+
+    static const std::string LEGACY_TAG = "70";
+    static const std::string CARROT_TAG = "71";
+
+    ASSERT_EQ(legacy_hex, LEGACY_TAG + O_str + C_str);
+    ASSERT_EQ(carrot_hex, CARROT_TAG + O_str + C_str);
+
+    // 3. Check de-serialization
+    const std::vector<std::pair<fcmp_pp::OutputPair, cryptonote::blobdata>> vec{
+            {legacy_output, legacy_serialized},
+            {carrot_output, carrot_out_v1_ser}
+        };
+
+    for (const auto &serialized : vec)
+    {
+        fcmp_pp::OutputPair output;
+        binary_archive<false> ar{epee::strspan<std::uint8_t>(serialized.second)};
+        ASSERT_TRUE(::serialization::serialize(ar, output));
+        ASSERT_EQ(output, serialized.first);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

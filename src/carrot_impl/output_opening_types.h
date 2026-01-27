@@ -32,6 +32,7 @@
 
 //third party headers
 #include "carrot_core/carrot_enote_types.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "span.h"
 #include "subaddress_index.h"
 
@@ -143,6 +144,8 @@ rct::key amount_commitment_ref(const OutputOpeningHintVariant&);
 subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
 
 bool use_biased_hash_to_point(const OutputOpeningHintVariant&);
+
+fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint);
 
 /**
  * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint

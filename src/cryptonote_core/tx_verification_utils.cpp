@@ -480,14 +480,12 @@ bool collect_points_for_torsion_check(const transaction& tx,
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
     std::vector<rct::key> &pubkeys_and_commitments_inout)
 {
-    const auto type = cryptonote::output_pair_type(tx);
-
-    // Don't need to collect points if we're not checking the tx outs for torsion
-    if (!fcmp_pp::curve_trees::output_checked_for_torsion(type))
-        return true;
-
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
+        // Don't need to collect points if we're not checking the tx outs for torsion
+        if (!cryptonote::output_checked_for_torsion(tx.vout[i].target))
+            continue;
+
         crypto::public_key output_pubkey;
         if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
             return false;

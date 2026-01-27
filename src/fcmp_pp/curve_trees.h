@@ -29,7 +29,6 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 #include "fcmp_pp_crypto.h"
 #include "fcmp_pp_types.h"
 #include "misc_log_ex.h"
@@ -81,70 +80,9 @@ struct GrowLayerInstructions final
     uint64_t next_parent_start_index;
 };
 
-enum OutputPairType : uint8_t
-{
-    Legacy = 0, // May have torsion, use biased key image generator
-    Carrot,     // No torsion, use unbiased key image generator
-};
-
-// Output pub key and commitment, ready to be converted to a leaf tuple
-// - From {output_pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
-// - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
-//   to derive the correct I (when deriving {O.x,O.y,I.x,I.y,C.x,C.y}). Torsion clearing O before deriving I from O
-//   would enable spending a torsioned output once before FCMP++ fork and again with a different key image via FCMP++.
-#pragma pack(push, 1)
-struct OutputPair final
-{
-    crypto::public_key output_pubkey;
-    rct::key           commitment;
-    OutputPairType     type;
-
-    OutputPair(const crypto::public_key &_output_pubkey, const rct::key &_commitment, const OutputPairType _type):
-        output_pubkey(_output_pubkey),
-        commitment(_commitment),
-        type(_type)
-    {};
-
-    OutputPair():
-        output_pubkey{},
-        commitment{},
-        type(OutputPairType::Legacy)
-    {};
-
-    bool operator==(const OutputPair &other) const
-    {
-        return output_pubkey == other.output_pubkey
-            && commitment == other.commitment
-            && type == other.type;
-    }
-
-    BEGIN_SERIALIZE_OBJECT()
-        FIELD(output_pubkey)
-        FIELD(commitment)
-
-        // Read/write the type field
-        static_assert(sizeof(OutputPairType) == sizeof(uint8_t), "Unexpected size of OutputPairType");
-        uint8_t type_u8;
-        if (!typename Archive<W>::is_saving())
-        {
-            FIELD_N("type", type_u8)
-            type = static_cast<OutputPairType>(type_u8);
-        }
-        else
-        {
-            type_u8 = static_cast<uint8_t>(type);
-            FIELD_N("type", type_u8)
-        }
-    END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_VAL_POD_AS_BLOB(output_pubkey)
-        KV_SERIALIZE_VAL_POD_AS_BLOB(commitment)
-        KV_SERIALIZE(type)
-    END_KV_SERIALIZE_MAP()
-};
-
 // Contextual wrapper for the output
+// TODO: move to fcmp_pp_types.h
+#pragma pack(push, 1)
 struct OutputContext final
 {
     // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
@@ -167,9 +105,6 @@ struct OutputContext final
     END_KV_SERIALIZE_MAP()
 };
 #pragma pack(pop)
-
-static_assert(sizeof(OutputPair)    == (32+32+1),   "db expects 65 bytes for output pairs");
-static_assert(sizeof(OutputContext) == (8+32+32+1), "db expects 73 bytes for output context");
 
 using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
 
@@ -243,10 +178,6 @@ struct PathIndexes final
 // Hash a chunk of new children
 template<typename C>
 typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
-//----------------------------------------------------------------------------------------------------------------------
-crypto::ec_point derive_key_image_generator(const OutputPairType type, const crypto::public_key &output_pubkey);
-//----------------------------------------------------------------------------------------------------------------------
-bool output_checked_for_torsion(const OutputPairType type);
 //----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_to_tuple(const OutputPair &output_pair, bool use_fast_check = false);
 //----------------------------------------------------------------------------------------------------------------------

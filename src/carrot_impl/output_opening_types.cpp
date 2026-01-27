@@ -350,19 +350,41 @@ subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant &o
 //-------------------------------------------------------------------------------------------------------------------
 bool use_biased_hash_to_point(const OutputOpeningHintVariant &opening_hint)
 {
-    struct output_pair_type_visitor
+    struct hint_visitor
     {
-        bool operator()(const LegacyOutputOpeningHintV1 &h) const
+        bool operator()(const LegacyOutputOpeningHintV1&) const
         { return true; }
-        bool operator()(const CarrotOutputOpeningHintV1 &h) const
+        bool operator()(const CarrotOutputOpeningHintV1&) const
         { return false; }
-        bool operator()(const CarrotOutputOpeningHintV2 &h) const
+        bool operator()(const CarrotOutputOpeningHintV2&) const
         { return false; }
-        bool operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
+        bool operator()(const CarrotCoinbaseOutputOpeningHintV1&) const
         { return false; }
     };
 
-    return std::visit(output_pair_type_visitor{}, opening_hint);
+    return std::visit(hint_visitor{}, opening_hint);
+}
+//-------------------------------------------------------------------------------------------------------------------
+fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
+{
+    struct hint_visitor
+    {
+        const crypto::public_key &O;
+        const crypto::ec_point &C;
+
+        fcmp_pp::OutputPair operator()(const LegacyOutputOpeningHintV1&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotOutputOpeningHintV1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotOutputOpeningHintV2&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const CarrotCoinbaseOutputOpeningHintV1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+    };
+
+    const crypto::public_key &O = onetime_address_ref(opening_hint);
+    const rct::key &C = amount_commitment_ref(opening_hint);
+    return std::visit(hint_visitor{O, rct::rct2pt(C)}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,

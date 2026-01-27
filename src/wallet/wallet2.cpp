@@ -102,6 +102,7 @@ using namespace epee;
 #include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/spend_device_ram_borrowed.h"
 #include "carrot_impl/subaddress_map_legacy.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
 #include "hot_cold_serialization.h" //! @TODO: remove line after #52 is merged
@@ -2015,7 +2016,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced,
 
   // Collect global output id's for outputs we need path data for
   std::vector<uint64_t> global_output_ids;
-  std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
+  std::vector<fcmp_pp::OutputPair> output_pairs;
   const auto push_if_unlocked = [&](const transfer_details &td)
   {
     // Need paths for outputs that are spendable (i.e. unlocked)

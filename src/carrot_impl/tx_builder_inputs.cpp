@@ -126,12 +126,6 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
         rerandomized_output);
 }
 //-------------------------------------------------------------------------------------------------------------------
-fcmp_pp::curve_trees::OutputPairType output_pair_type(const OutputOpeningHintVariant &opening_hint)
-{
-    using namespace fcmp_pp::curve_trees;
-    return use_biased_hash_to_point(opening_hint) ? OutputPairType::Legacy : OutputPairType::Carrot;
-}
-//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
     const std::vector<rct::key> &input_amount_commitments,
     const std::vector<bool> &input_uses_biased_hash_to_point,

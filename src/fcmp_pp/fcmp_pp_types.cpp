@@ -234,5 +234,57 @@ fcmp_pp::FcmpPpProof fcmp_pp_proof_from_parts_v1(
     return proof_bytes;
 }
 //----------------------------------------------------------------------------------------------------------------------
+const crypto::public_key &output_pubkey_cref(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        const crypto::public_key &operator()(const LegacyOutputPair &o) const
+        { return o.output_pubkey; }
+        const crypto::public_key &operator()(const CarrotOutputPairV1 &o) const
+        { return o.output_pubkey; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
+const crypto::ec_point &commitment_cref(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        const crypto::ec_point &operator()(const LegacyOutputPair &o) const
+        { return o.commitment; }
+        const crypto::ec_point &operator()(const CarrotOutputPairV1 &o) const
+        { return o.commitment; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool output_checked_for_torsion(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        bool operator()(const CarrotOutputPairV1&) const
+        { return true; }
+        bool operator()(const LegacyOutputPair&) const
+        { return false; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool use_biased_hash_to_point(const OutputPair &output_pair)
+{
+    struct output_pair_visitor
+    {
+        bool operator()(const CarrotOutputPairV1&) const
+        { return false; }
+        bool operator()(const LegacyOutputPair&) const
+        { return true; }
+    };
+
+    return std::visit(output_pair_visitor{}, output_pair);
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

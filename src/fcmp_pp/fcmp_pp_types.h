@@ -29,6 +29,7 @@
 #pragma once
 
 #include <memory>
+#include <variant>
 #include <vector>
 
 #include "crypto/crypto.h"
@@ -126,6 +127,51 @@ DEFINE_FCMP_FFI_TYPE(FcmpPpVerifyInput,
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types
+//----------------------------------------------------------------------------------------------------------------------
+// Output pub key and commitment, ready to be converted to a leaf tuple
+// - From {output_pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
+// - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
+//   to derive the correct I (when deriving {O.x,O.y,I.x,I.y,C.x,C.y}). Torsion clearing O before deriving I from O
+//   would enable spending a torsioned output once before FCMP++ fork and again with a different key image via FCMP++.
+#pragma pack(push, 1)
+template<typename T>
+struct OutputPairTemplate
+{
+    crypto::public_key output_pubkey;
+    // Uses the ec_point type to avoid a circular dep to ringct/rctTypes.h, and to differentiate from output_pubkey
+    crypto::ec_point commitment;
+
+    OutputPairTemplate(const crypto::public_key &_output_pubkey, const crypto::ec_point &_commitment):
+        output_pubkey(_output_pubkey),
+        commitment(_commitment)
+    {};
+
+    OutputPairTemplate():
+        output_pubkey{},
+        commitment{}
+    {};
+
+    bool operator==(const OutputPairTemplate &other) const
+    {
+        return output_pubkey == other.output_pubkey
+            && commitment == other.commitment;
+    }
+};
+#pragma pack(pop)
+
+// May have torsion, use biased key image generator for I
+struct LegacyOutputPair : public OutputPairTemplate<LegacyOutputPair>{};
+// No torsion, use unbiased key image generator for I
+struct CarrotOutputPairV1 : public OutputPairTemplate<CarrotOutputPairV1>{};
+
+using OutputPair = std::variant<LegacyOutputPair, CarrotOutputPairV1>;
+
+const crypto::public_key &output_pubkey_cref(const OutputPair &output_pair);
+const crypto::ec_point &commitment_cref(const OutputPair &output_pair);
+
+bool output_checked_for_torsion(const OutputPair &output_pair);
+bool use_biased_hash_to_point(const OutputPair &output_pair);
+
 //----------------------------------------------------------------------------------------------------------------------
 // Byte buffer containing the fcmp++ proof
 using FcmpPpSalProof = std::vector<uint8_t>;

@@ -647,13 +647,13 @@ namespace crypto {
     ge_p3_tobytes(&res, &res_ge_p3);
   }
 
-  void crypto_ops::biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+  static void biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
     ge_p3 point;
     biased_hash_to_ec(pub, point);
     ge_p3_tobytes(&ki_gen, &point);
   }
 
-  void crypto_ops::unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+  static void unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
     unbiased_hash_to_ec(&pub, sizeof(public_key), ki_gen);
   }
 
