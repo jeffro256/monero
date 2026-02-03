@@ -29,6 +29,7 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -134,7 +135,6 @@ DEFINE_FCMP_FFI_TYPE(FcmpPpVerifyInput,
 // - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
 //   to derive the correct I (when deriving {O.x,O.y,I.x,I.y,C.x,C.y}). Torsion clearing O before deriving I from O
 //   would enable spending a torsioned output once before FCMP++ fork and again with a different key image via FCMP++.
-#pragma pack(push, 1)
 template<typename T>
 struct OutputPairTemplate
 {
@@ -158,12 +158,17 @@ struct OutputPairTemplate
             && commitment == other.commitment;
     }
 };
-#pragma pack(pop)
 
 // May have torsion, use biased key image generator for I
 struct LegacyOutputPair : public OutputPairTemplate<LegacyOutputPair>{};
 // No torsion, use unbiased key image generator for I
 struct CarrotOutputPairV1 : public OutputPairTemplate<CarrotOutputPairV1>{};
+
+static_assert(sizeof(LegacyOutputPair)   == (32+32), "sizeof LegacyOutputPair unexpected");
+static_assert(sizeof(CarrotOutputPairV1) == (32+32), "sizeof CarrotOutputPairV1 unexpected");
+
+static_assert(std::has_unique_object_representations_v<LegacyOutputPair>);
+static_assert(std::has_unique_object_representations_v<CarrotOutputPairV1>);
 
 using OutputPair = std::variant<LegacyOutputPair, CarrotOutputPairV1>;
 
@@ -174,7 +179,6 @@ bool output_checked_for_torsion(const OutputPair &output_pair);
 bool use_biased_hash_to_point(const OutputPair &output_pair);
 
 // Wrapper for outputs with context to insert the output into the FCMP++ curve tree
-#pragma pack(push, 1)
 struct UnifiedOutput final
 {
     // Output's unique id in the chain, used to insert the output in the tree in the order it entered the chain
@@ -192,7 +196,8 @@ struct UnifiedOutput final
         KV_SERIALIZE(output_pair)
     END_KV_SERIALIZE_MAP()
 };
-#pragma pack(pop)
+
+#define SIZEOF_SERIALIZED_UNIFIED_OUTPUT 73 // 8+1+32+32
 
 using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<UnifiedOutput>>;
 //----------------------------------------------------------------------------------------------------------------------

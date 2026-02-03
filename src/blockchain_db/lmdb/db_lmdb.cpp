@@ -43,6 +43,7 @@
 #include "common/pruning.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
+#include "fcmp_pp/fcmp_pp_serialization.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
@@ -1382,10 +1383,12 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_
   for (const auto &last_locked_block : outs_by_last_locked_block)
   {
     const uint64_t last_locked_block_idx = last_locked_block.first;
-    for (const auto &locked_output : last_locked_block.second)
+    for (const fcmp_pp::UnifiedOutput &locked_output : last_locked_block.second)
     {
+      const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(locked_output);
+
       MDB_val_set(k_block_id, last_locked_block_idx);
-      MDB_val_set(v_output, locked_output);
+      MDB_val_sized(v_output, output_blob);
       int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
@@ -1395,7 +1398,7 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_
 
       // Add to custom timelocked outputs table also so it does not get removed in del_locked_outs_at_block_idx
       MDB_val_set(k_timelocked_block_id, last_locked_block_idx);
-      MDB_val_set(v_timelocked_output, locked_output);
+      MDB_val_sized(v_timelocked_output, output_blob);
       result = mdb_cursor_put(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));
@@ -1901,11 +1904,12 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
   const auto unified_outputs = this->get_unified_output_by_id(unified_ids);
 
   MDB_val_set(k_block_id, trim_block_idx);
-  for (const auto &unified_output : unified_outputs)
+  for (const fcmp_pp::UnifiedOutput &unified_output : unified_outputs)
   {
     // Re-add the output to the locked output table in order. The output should
     // still be in the outputs tables.
-    MDB_val_set(v_output, unified_output);
+    const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
+    MDB_val_sized(v_output, output_blob);
     MDEBUG("Re-adding locked unified_id: " << unified_output.unified_id << " , last locked block: " << trim_block_idx);
     int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
     if (result != MDB_SUCCESS)
@@ -2399,8 +2403,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_outs_at_last_locked_block_idx(
-  uint64_t block_idx) const
+std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_outs_at_last_locked_block_idx(uint64_t block_idx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2428,19 +2431,31 @@ std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_outs_at_last_locked_bloc
     if (blk_id != block_idx)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_idx)).c_str()));
 
-    const auto range_begin = ((const fcmp_pp::UnifiedOutput*)v_output.mv_data);
-    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::UnifiedOutput);
+    const char *range_begin = (const char*)v_output.mv_data;
+    const char *range_end = range_begin + v_output.mv_size;
 
     auto it = range_begin;
 
+    static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
+
     // The first MDB_NEXT_MULTIPLE includes the val from MDB_SET, so skip it
     if (outs.size() == 1)
-      ++it;
+      it += SIZEOF_SERIALIZED_UNIFIED_OUTPUT;
 
     while (it < range_end)
     {
-      outs.push_back(*it);
-      ++it;
+      if ((it + SIZEOF_SERIALIZED_UNIFIED_OUTPUT) > range_end)
+        throw0(DB_ERROR("Out of bounds reading locked outputs"));
+
+      cryptonote::blobdata bd;
+      bd.assign(it, SIZEOF_SERIALIZED_UNIFIED_OUTPUT);
+
+      fcmp_pp::UnifiedOutput out;
+      if (!cryptonote::t_serializable_object_from_blob(out, bd))
+        throw0(DB_ERROR("Failed to de-serialize locked output"));
+
+      outs.emplace_back(std::move(out));
+      it += SIZEOF_SERIALIZED_UNIFIED_OUTPUT;
     }
   }
 
@@ -2508,7 +2523,13 @@ fcmp_pp::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocked_outputs(uin
       break;
 
     // Include the out in the result container
-    auto timelocked_output = *((const fcmp_pp::UnifiedOutput*)v.mv_data);
+    cryptonote::blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+
+    fcmp_pp::UnifiedOutput timelocked_output;
+    if (!cryptonote::t_serializable_object_from_blob(timelocked_output, bd))
+      throw0(DB_ERROR("Failed to de-serialize timelocked output"));
+
     outs[last_locked_block_idx].emplace_back(std::move(timelocked_output));
 
     op = MDB_PREV;
@@ -7305,13 +7326,14 @@ void BlockchainLMDB::migrate_5_6()
             .unified_id       = unified_id,
             .output_pair     = std::move(output_pair)
           };
+        const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
 
         // Get the output's last locked block
         const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(output_data.unlock_time, output_data.height);
 
         // Add the output to the locked outputs table
         MDB_val_set(k_block_id, last_locked_block);
-        MDB_val_set(v_output, unified_output);
+        MDB_val_sized(v_output, output_blob);
 
         // MDB_NODUPDATA because all output id's should be unique
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
@@ -7335,7 +7357,7 @@ void BlockchainLMDB::migrate_5_6()
           continue;
 
         MDB_val_set(k_timelocked_block_id, last_locked_block);
-        MDB_val_set(v_timelocked_output, unified_output);
+        MDB_val_sized(v_timelocked_output, output_blob);
 
         // MDB_NODUPDATA because all output id's should be unique
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
