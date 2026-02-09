@@ -275,18 +275,23 @@ crypto::secret_key carrot_hierarchy_address_device::get_subaddress_scalar(const 
 {
     if (subaddr_index.is_subaddress())
     {
-        // s^j_gen = H_32[s_ga](j_major, j_minor)
+        // s^j_ap1 = H_32[s_ga](j_major, j_minor)
         crypto::secret_key res;
-        this->m_s_generate_address_dev->make_index_extension_generator(subaddr_index.major,
+        this->m_s_generate_address_dev->make_address_index_preimage_1(subaddr_index.major,
             subaddr_index.minor,
             res);
 
-        // k^j_subscal = H_n[s^j_gen](K_s, K_v, j_major, j_minor)
-        make_carrot_subaddress_scalar(this->m_carrot_account_spend_pubkey,
-            this->m_carrot_account_view_pubkey,
-            res,
+        // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+        make_carrot_address_index_preimage_2(res,
             subaddr_index.major,
             subaddr_index.minor,
+            this->m_carrot_account_spend_pubkey,
+            this->m_carrot_account_view_pubkey,
+            res);
+
+        // k^j_subscal = H_n[s^j_ap2](K_s)
+        make_carrot_subaddress_scalar(res,
+            this->m_carrot_account_view_pubkey,
             res);
 
         return res;

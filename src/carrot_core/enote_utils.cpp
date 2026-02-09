@@ -100,6 +100,68 @@ static OtherPid convert_payment_id(const Pid &v)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+/**
+* brief: create a coinbase FCMP++ onetime address extension pubkey
+*    K^o_ext = k^o_g G + k^o_t T
+* param: s_sender_receiver - s^ctx_sr
+* param: amount - a
+* param: main_address_spend_pubkey - K^0_s
+* outparam: sender_extension_pubkey_out - K^o_ext
+*/
+static void make_carrot_sender_extension_pubkey_coinbase(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::public_key &sender_extension_pubkey_out)
+{
+    // k^o_g = H_n("..g..", s^ctx_sr, a, K^0_s)
+    crypto::secret_key sender_extension_g;
+    make_carrot_sender_extension_g_coinbase(s_sender_receiver, amount, main_address_spend_pubkey, sender_extension_g);
+
+    // k^o_t = H_n("..t..", s^ctx_sr, a, K^0_s)
+    crypto::secret_key sender_extension_t;
+    make_carrot_sender_extension_t_coinbase(s_sender_receiver, amount, main_address_spend_pubkey, sender_extension_t);
+
+    // K^o_ext = k^o_g G + k^o_t T
+    rct::key sender_extension_pubkey_tmp;
+    rct::addKeys2(sender_extension_pubkey_tmp,
+        rct::sk2rct(sender_extension_g),
+        rct::sk2rct(sender_extension_t),
+        rct::pk2rct(crypto::get_T()));
+
+    sender_extension_pubkey_out = rct::rct2pk(sender_extension_pubkey_tmp);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+/**
+* brief: create a non-coinbase FCMP++ onetime address extension pubkey
+*    K^o_ext = k^o_g G + k^o_t T
+* param: s_sender_receiver - s^ctx_sr
+* param: amount_commitment - C_a
+* outparam: sender_extension_pubkey_out - K^o_ext
+*/
+static void make_carrot_sender_extension_pubkey(const crypto::hash &s_sender_receiver,
+    const rct::key &amount_commitment,
+    crypto::public_key &sender_extension_pubkey_out)
+{
+    // k^o_g = H_n("..g..", s^ctx_sr, C_a)
+    crypto::secret_key sender_extension_g;
+    make_carrot_sender_extension_g(s_sender_receiver, amount_commitment, sender_extension_g);
+
+    // k^o_t = H_n("..t..", s^ctx_sr, C_a)
+    crypto::secret_key sender_extension_t;
+    make_carrot_sender_extension_t(s_sender_receiver, amount_commitment, sender_extension_t);
+
+    // K^o_ext = k^o_g G + k^o_t T
+    rct::key sender_extension_pubkey_tmp;
+    rct::addKeys2(sender_extension_pubkey_tmp,
+        rct::sk2rct(sender_extension_g),
+        rct::sk2rct(sender_extension_t),
+        rct::pk2rct(crypto::get_T()));
+
+    sender_extension_pubkey_out = rct::rct2pk(sender_extension_pubkey_tmp);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
@@ -230,7 +292,44 @@ void make_carrot_sender_receiver_secret(const unsigned char s_sender_receiver_un
     derive_bytes_32(transcript.data(), transcript.size(), s_sender_receiver_unctx, &s_sender_receiver_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_onetime_address_extension_g(const crypto::hash &s_sender_receiver,
+void make_carrot_sender_extension_g_coinbase(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_out)
+{
+    // k^o_g = H_n("..g..", s^ctx_sr, a, K^0_s)
+    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G_COINBASE>(amount,
+        main_address_spend_pubkey);
+    derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_sender_extension_t_coinbase(const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_out)
+{
+    // k^o_t = H_n("..t..", s^ctx_sr, a, K^0_s)
+    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T_COINBASE>(amount,
+        main_address_spend_pubkey);
+    derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_onetime_address_coinbase(const crypto::public_key &main_address_spend_pubkey,
+    const crypto::hash &s_sender_receiver,
+    const rct::xmr_amount amount,
+    crypto::public_key &onetime_address_out)
+{
+    // K^o_ext = k^o_g G + k^o_t T
+    crypto::public_key sender_extension_pubkey;
+    make_carrot_sender_extension_pubkey_coinbase(s_sender_receiver, amount, main_address_spend_pubkey,
+        sender_extension_pubkey);
+
+    // Ko = K^0_s + K^o_ext
+    onetime_address_out = rct::rct2pk(rct::addKeys(
+        rct::pk2rct(main_address_spend_pubkey), rct::pk2rct(sender_extension_pubkey)));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_sender_extension_g(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
@@ -239,35 +338,13 @@ void make_carrot_onetime_address_extension_g(const crypto::hash &s_sender_receiv
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_onetime_address_extension_t(const crypto::hash &s_sender_receiver,
+void make_carrot_sender_extension_t(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
     // k^o_t = H_n("..t..", s^ctx_sr, C_a)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T>(amount_commitment);
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_carrot_onetime_address_extension_pubkey(const crypto::hash &s_sender_receiver,
-    const rct::key &amount_commitment,
-    crypto::public_key &sender_extension_pubkey_out)
-{
-    // k^o_g = H_n("..g..", s^ctx_sr, C_a)
-    crypto::secret_key sender_extension_g;
-    make_carrot_onetime_address_extension_g(s_sender_receiver, amount_commitment, sender_extension_g);
-
-    // k^o_t = H_n("..t..", s^ctx_sr, C_a)
-    crypto::secret_key sender_extension_t;
-    make_carrot_onetime_address_extension_t(s_sender_receiver, amount_commitment, sender_extension_t);
-
-    // K^o_ext = k^o_g G + k^o_t T
-    rct::key sender_extension_pubkey_tmp;
-    rct::addKeys2(sender_extension_pubkey_tmp,
-        rct::sk2rct(sender_extension_g),
-        rct::sk2rct(sender_extension_t),
-        rct::pk2rct(crypto::get_T()));
-
-    sender_extension_pubkey_out = rct::rct2pk(sender_extension_pubkey_tmp);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
@@ -277,7 +354,7 @@ void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
 {
     // K^o_ext = k^o_g G + k^o_t T
     crypto::public_key sender_extension_pubkey;
-    make_carrot_onetime_address_extension_pubkey(s_sender_receiver, amount_commitment, sender_extension_pubkey);
+    make_carrot_sender_extension_pubkey(s_sender_receiver, amount_commitment, sender_extension_pubkey);
 
     // Ko = K^j_s + K^o_ext
     onetime_address_out = rct::rct2pk(rct::addKeys(
@@ -408,17 +485,20 @@ void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubk
 }
 //-------------------------------------------------------------------------------------------------------------------
 void recover_address_spend_pubkey(const crypto::public_key &onetime_address,
-    const crypto::hash &s_sender_receiver,
-    const rct::key &amount_commitment,
+    const crypto::secret_key &sender_extension_g,
+    const crypto::secret_key &sender_extension_t,
     crypto::public_key &address_spend_key_out)
 {
     // K^o_ext = k^o_g G + k^o_t T
-    crypto::public_key sender_extension_pubkey;
-    make_carrot_onetime_address_extension_pubkey(s_sender_receiver, amount_commitment, sender_extension_pubkey);
+    rct::key sender_extension_pubkey;
+    rct::addKeys2(sender_extension_pubkey,
+        rct::sk2rct(sender_extension_g),
+        rct::sk2rct(sender_extension_t),
+        rct::pk2rct(crypto::get_T()));
 
     // K^j_s = Ko - K^o_ext
     rct::key res_tmp;
-    rct::subKeys(res_tmp, rct::pk2rct(onetime_address), rct::pk2rct(sender_extension_pubkey));
+    rct::subKeys(res_tmp, rct::pk2rct(onetime_address), sender_extension_pubkey);
     address_spend_key_out = rct::rct2pk(res_tmp);
 }
 //-------------------------------------------------------------------------------------------------------------------

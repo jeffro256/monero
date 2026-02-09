@@ -99,37 +99,41 @@ struct hex_value_t
 static const hex_value_t<crypto::secret_key> s_master("6e02e67b303dc713276bb1a4d70b0083b78e4f50e34e209da9f0377cdc3d376e"); // chosen by fair dice roll.
                                                                                                                      // guaranteed to be random.
 static const hex_value_t<crypto::secret_key> k_prove_spend("c9651fc906015afeefdb8d3bf7be621c36e035de2a85cb22dd4b869a22086f0e");
+static const hex_value_t<crypto::public_key> partial_spend_pubkey("eef3184e91505660c8ccbdeec1bd3b1b7b56d2c39efcad8a036f963470d6f498");
 static const hex_value_t<crypto::secret_key> s_view_balance("59b2ee8646923309384704613418f5982b0167eb3cd87c6c067ee10700c3af91");
-static const hex_value_t<crypto::secret_key> k_generate_image("2ec40d3dd3a06b2f9a580c41e852be26950b7398d27f248efad5a81cdeead70b");
+static const hex_value_t<crypto::secret_key> s_generate_image_preimage("0f3bf96a0642ab4cd10e8c64fba1cc535379ec18dbc7d304d50eb753197e266f");
+static const hex_value_t<crypto::secret_key> k_generate_image("dabc1ed54dc44f68f67200a1a66ee30b3237f05c2f6dc0dd47e5743431ac800b");
 static const hex_value_t<crypto::secret_key> k_view_incoming("12624c702b4c1a22fd710a836894ed0705955502e6498e5c6e3ad6f5920bb00f");
 static const hex_value_t<crypto::secret_key> s_generate_address("039f0744fb138954072ee6bcbda4b5c085fd05e09b476a7b34ad20bf9ad440bc");
-static const hex_value_t<crypto::public_key> account_spend_pubkey("674a9892b538aaaafa2412dabf13a2e3f843c7e323810630d05c10cc64077077");
-static const hex_value_t<crypto::public_key> account_view_pubkey("55960ccffdfb5e596b867658ac881f4d378e45bb76395964f2402037ec4685ff");
+static const hex_value_t<crypto::public_key> account_spend_pubkey("4198f391723f6c64eb75e4f0e341d576dc344e8a8ad3164444451855dbd862b4");
+static const hex_value_t<crypto::public_key> account_view_pubkey("14d12188409591353096b41abeccf66a88d916dfe0e6d1998672293ebc1cc83d");
 static const std::uint32_t address_index_major = 5;
 static const std::uint32_t address_index_minor = 16;
-static const hex_value_t<crypto::secret_key> address_index_generator("fa26210179cdf94ae6ca2a7c93620909cb77e4923478a204ebe93794ab30bc7a");
-static const hex_value_t<crypto::secret_key> subaddress_scalar("70b70912ffa1c01e073ef1e0a7cd46c810f839fe57ca3d0af1f3451194d56408");
-static const hex_value_t<crypto::public_key> subaddress_spend_pubkey("837744f1da3cbefcf64214b88e1a4c6dbbac5d18965d8052648486a74a2b08bb");
-static const hex_value_t<crypto::public_key> subaddress_view_pubkey("d8b83883dd375b3a7536d9a9ceffa6c6505fbffbee883d825d32c25b99a9a450");
+static const hex_value_t<crypto::secret_key> address_index_preimage_1("9c21bf89635102f5379f97b5d08074e6ed36084544262f92a93d7644945475f1");
+static const hex_value_t<crypto::secret_key> address_index_preimage_2("523188ad4482797566397e9e7f13c9e7169b04aefd9eb449c31baaab82713a19");
+static const hex_value_t<crypto::secret_key> subaddress_scalar("016b3265a2b7b0d05bcffd6f4e87df9fd9b8cd2a39dfc38c4731ca243cca5f09");
+static const hex_value_t<crypto::public_key> subaddress_spend_pubkey("8f2f38e702678ae59751dc55818240e0330851e77bfaff003b671885ed06871e");
+static const hex_value_t<crypto::public_key> subaddress_view_pubkey("369bdcf4f434f42eb09f4372cb6be30de7b17d21e4f98e244459a90b58cd0610");
 
 static const hex_value_t<carrot::janus_anchor_t> anchor_norm("caee1381775487a0982557f0d2680b55");
-static const hex_value_t<carrot::janus_anchor_t> anchor_special("cea1a83cbe3b2c82f36fbcb4d5af85d8");
+static const hex_value_t<carrot::janus_anchor_t> anchor_special("70fe9b941fe1ef3b2345c87485f70a6e");
 static const hex_value_t<carrot::input_context_t> input_context("9423f74f3e869dc8427d8b35bb24c917480409c3f4750bff3c742f8e4d5af7bef7");
 static const hex_value_t<carrot::payment_id_t> payment_id("4321734f56621440");
-static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("7c2fbbe9d38ecc35fdeab8be7ed9659c05407a2c96d6fe251229cb8274305b07");
-static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_cryptonote("81f59f8d2207ce0403a552c7069d8b35945d25bb1426417d71860be2c2efbc44");
-static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_subaddress("68b04386b14657aa221ac63b6b008d123e8dbd84814abcdb660997cbfa837c65");
-static const hex_value_t<mx25519_pubkey> s_sender_receiver_unctx("ae62faa4d5b1277fe9c4777a950969f56deee7bfba7b2c2921e301e12f46411d");
-static const hex_value_t<crypto::hash> s_sender_receiver("300f88e1626c74c97e8b2f3d627a0444a34d515d8657c2e7dc2291e75727e268");
+static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("6aea0ed0c34ad3483415377658841a75e0da8b462e637d8bf783b9bcd320b303");
+static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_cryptonote("8df2a40a42ecc10348a461310c1afc2c2b1be7b29fd27a3921a1aefba5efa27b");
+static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_subaddress("a3c3cdf84fd301cfc4675096f1c896543f2efc1001d899bbab3a0fd137f6a630");
+static const hex_value_t<mx25519_pubkey> s_sender_receiver_unctx("1f848f8384e7a9f217dc9dc2691703cf392eaf6c92931acd0fc840c900d3ed49");
+static const hex_value_t<crypto::hash> s_sender_receiver("6e99852ed7b3744177bb669e73fd1c544d88555ea6fffe3787ca6af48d2fe9f6");
 static const rct::xmr_amount amount = 67000000000000;
-static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("ee02780bf4b4a90a9577e694bbba25264f2604e4933590bd1efffd2a558a4d0a");
-static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("abac509b18e04c39a70a3e1e72b4c06b7b21c43dd95c2d2e97ceace6c44ba90c");
-static const hex_value_t<rct::key> amount_commitment("edd30d1b0808defb3c5a33dcc55dd05a1b197242f427f88f80b4dda63ed39958");
-static const hex_value_t<crypto::public_key> onetime_address("1e3c78039277f79d373e21c629291e49d64a36dd1948c6913227da1088e66280");
-static const hex_value_t<carrot::view_tag_t> view_tag("93096d");
-static const hex_value_t<carrot::encrypted_janus_anchor_t> anchor_encryption_mask("c6df4ecdfe1beed0cdadf0483467391e");
-static const hex_value_t<carrot::encrypted_amount_t> amount_encryption_mask("2a982ec96a940a5d");
-static const hex_value_t<carrot::encrypted_payment_id_t> payment_id_encryption_mask("39b004624a1170d4");
+static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("5a01cc9f8ca9556c429d623d848fe036c76593005c63a62df57afc4b51d3c20b");
+static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("f69587a2e01d039758b5dd61999e4d60f226eb7b8027be2ff2656ecbb584d103");
+static const hex_value_t<rct::key> amount_commitment("f5df40aeba877e8ccadd9dff363d90ec28efbfd1201573897cd70c61c026edb9");
+static const hex_value_t<crypto::public_key> onetime_address_coinbase("0c4ee83d079ebd77882f894b2e0a43e3d572af9c330871f1dfbcc62f5c64e4ae");
+static const hex_value_t<crypto::public_key> onetime_address("522347147e41f22ebe155abc32b9def985b2e454045c6edd8921ee4253cd4516");
+static const hex_value_t<carrot::view_tag_t> view_tag("5f58e1");
+static const hex_value_t<carrot::encrypted_janus_anchor_t> anchor_encryption_mask("6ba7e188fb315ad2158ac6b6652408d4");
+static const hex_value_t<carrot::encrypted_amount_t> amount_encryption_mask("2b739fdb6d1d5e50");
+static const hex_value_t<carrot::encrypted_payment_id_t> payment_id_encryption_mask("043d7e9ed13a3484");
 } //anonymous namespace
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -149,10 +153,24 @@ TEST(carrot_convergence, make_carrot_viewbalance_secret)
     EXPECT_TRUE(s_view_balance.matches(s_view_balance_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, make_carrot_partial_spend_pubkey)
+{
+    crypto::public_key partial_spend_pubkey_rc;
+    make_carrot_partial_spend_pubkey(k_prove_spend.value, partial_spend_pubkey_rc);
+    EXPECT_TRUE(partial_spend_pubkey.matches(partial_spend_pubkey_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, make_carrot_generateimage_preimage)
+{
+    crypto::secret_key s_generate_image_preimage_rc;
+    make_carrot_generateimage_preimage(s_view_balance.value, s_generate_image_preimage_rc);
+    EXPECT_TRUE(s_generate_image_preimage.matches(s_generate_image_preimage_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_generateimage_key)
 {
     crypto::secret_key k_generate_image_rc;
-    make_carrot_generateimage_key(s_view_balance.value, k_generate_image_rc);
+    make_carrot_generateimage_key(s_generate_image_preimage.value, partial_spend_pubkey.value, k_generate_image_rc);
     EXPECT_TRUE(k_generate_image.matches(k_generate_image_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -184,20 +202,26 @@ TEST(carrot_convergence, make_view_pubkey)
     EXPECT_TRUE(account_view_pubkey.matches(account_view_pubkey_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_index_extension_generator)
+TEST(carrot_convergence, make_carrot_address_index_preimage_1)
 {
-    crypto::secret_key address_index_generator_rc;
-    make_carrot_index_extension_generator(s_generate_address.value, address_index_major, address_index_minor,
-        address_index_generator_rc);
-    EXPECT_TRUE(address_index_generator.matches(address_index_generator_rc));
+    crypto::secret_key address_index_preimage_1_rc;
+    make_carrot_address_index_preimage_1(s_generate_address.value, address_index_major, address_index_minor,
+        address_index_preimage_1_rc);
+    EXPECT_TRUE(address_index_preimage_1.matches(address_index_preimage_1_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, make_carrot_address_index_preimage_2)
+{
+    crypto::secret_key address_index_preimage_2_rc;
+    make_carrot_address_index_preimage_2(address_index_preimage_1.value, address_index_major, address_index_minor,
+        account_spend_pubkey.value, account_view_pubkey.value, address_index_preimage_2_rc);
+    EXPECT_TRUE(address_index_preimage_2.matches(address_index_preimage_2_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_subaddress_scalar)
 {
     crypto::secret_key subaddress_scalar_rc;
-    make_carrot_subaddress_scalar(account_spend_pubkey.value,
-        account_view_pubkey.value, address_index_generator.value, address_index_major, address_index_minor,
-        subaddress_scalar_rc);
+    make_carrot_subaddress_scalar(address_index_preimage_2.value, account_spend_pubkey.value, subaddress_scalar_rc);
     EXPECT_TRUE(subaddress_scalar.matches(subaddress_scalar_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -298,6 +322,16 @@ TEST(carrot_convergence, commit)
 {
     const rct::key amount_commitment_rc = rct::commit(amount, rct::sk2rct(amount_blinding_factor_payment.value));
     EXPECT_TRUE(amount_commitment.matches(amount_commitment_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, make_carrot_onetime_address_coinbase)
+{
+    crypto::public_key onetime_address_coinbase_rc;
+    make_carrot_onetime_address_coinbase(subaddress_spend_pubkey.value,
+        s_sender_receiver.value,
+        amount,
+        onetime_address_coinbase_rc);
+    EXPECT_TRUE(onetime_address_coinbase.matches(onetime_address_coinbase_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_onetime_address)

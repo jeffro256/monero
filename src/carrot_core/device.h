@@ -179,14 +179,14 @@ struct generate_address_secret_device
 {
     /**
     * brief: make_index_extension_generator - make carrot index extension generator s^j_gen
-    *   s^j_gen = H_32[s_ga](j_major, j_minor)
+    *   s^j_ap1 = H_32[s_ga](j_major, j_minor)
     * param: major_index - j_major
     * param: minor_index - j_minor
-    * outparam: address_generator_out - s^j_gen
+    * outparam: address_index_preimage_1 - s^j_ap1
     */
-    virtual void make_index_extension_generator(const std::uint32_t major_index,
+    virtual void make_address_index_preimage_1(const std::uint32_t major_index,
         const std::uint32_t minor_index,
-        crypto::secret_key &address_generator_out) const = 0;
+        crypto::secret_key &address_index_preimage_1) const = 0;
 
     virtual ~generate_address_secret_device() = default;
 };

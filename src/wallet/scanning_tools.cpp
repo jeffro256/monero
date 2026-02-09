@@ -33,7 +33,6 @@
 #include "carrot_core/destination.h"
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/enote_utils.h"
-#include "carrot_core/lazy_amount_commitment.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_utils.h"
 #include "carrot_impl/format_utils.h"

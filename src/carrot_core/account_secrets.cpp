@@ -54,6 +54,14 @@ void make_carrot_provespend_key(const crypto::secret_key &s_master,
     derive_scalar(transcript.data(), transcript.size(), &s_master, to_bytes(k_prove_spend_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_carrot_partial_spend_pubkey(const crypto::secret_key &k_prove_spend,
+    crypto::public_key &partial_spend_pubkey_out)
+{
+    // K_ps = k_ps T
+    partial_spend_pubkey_out = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(crypto::get_T()),
+        rct::sk2rct(k_prove_spend)));
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     crypto::secret_key &s_view_balance_out)
 {
@@ -62,12 +70,21 @@ void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     derive_bytes_32(transcript.data(), transcript.size(), &s_master, to_bytes(s_view_balance_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_generateimage_key(const crypto::secret_key &s_view_balance,
+void make_carrot_generateimage_preimage(const crypto::secret_key &s_view_balance,
+    crypto::secret_key &s_generate_image_preimage_out)
+{
+    // s_gp = H_n(s_vb)
+    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_PREIMAGE>();
+    derive_bytes_32(transcript.data(), transcript.size(), &s_view_balance, to_bytes(s_generate_image_preimage_out));
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_generateimage_key(const crypto::secret_key &s_generate_image_preimage,
+    const crypto::public_key &partial_spend_pubkey,
     crypto::secret_key &k_generate_image_out)
 {
-    // k_gi = H_n(s_vb)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_KEY>();
-    derive_scalar(transcript.data(), transcript.size(), &s_view_balance, to_bytes(k_generate_image_out));
+    // k_gi = H_n(s_gp, K_ps)
+    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_KEY>(partial_spend_pubkey);
+    derive_scalar(transcript.data(), transcript.size(), &s_generate_image_preimage, to_bytes(k_generate_image_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_viewincoming_key(const crypto::secret_key &s_view_balance,

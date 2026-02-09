@@ -73,22 +73,20 @@ static crypto::secret_key make_enote_ephemeral_privkey_sender(const janus_anchor
 static bool try_scan_carrot_coinbase_enote_checked(
     const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const epee::span<const crypto::public_key> main_addresss_spend_pubkeys,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out)
 {
-    // s^ctx_sr, k^g_o, k^g_t, K^j_s, pid, anchor
+    // k^g_o, k^g_t, K^j_s, pid, anchor
     janus_anchor_t nominal_janus_anchor;
     if (!try_scan_carrot_coinbase_enote_no_janus(enote,
             s_sender_receiver_unctx,
+            main_address_spend_pubkeys,
             sender_extension_g_out,
             sender_extension_t_out,
             address_spend_pubkey_out,
             nominal_janus_anchor))
-        return false;
-
-    if (!is_main_address_spend_pubkey(address_spend_pubkey_out, main_addresss_spend_pubkeys))
         return false;
 
     return verify_carrot_normal_janus_protection(nominal_janus_anchor,

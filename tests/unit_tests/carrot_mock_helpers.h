@@ -87,10 +87,12 @@ struct mock_carrot_and_legacy_keys
     crypto::secret_key s_master;
     crypto::secret_key k_prove_spend;
     crypto::secret_key s_view_balance;
+    crypto::secret_key s_generate_image_preimage;
     crypto::secret_key k_generate_image;
     crypto::secret_key s_generate_address;
 
     // carrot public keys (minus K^0_v, which is shared with legacy K^0_v)
+    crypto::public_key carrot_partial_spend_pubkey;
     crypto::public_key carrot_account_spend_pubkey;
     crypto::public_key carrot_account_view_pubkey;
 
