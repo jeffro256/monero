@@ -1905,7 +1905,7 @@ static bool pq_turnstile_verify_coinbase(const crypto::hash &txid,
 
     // step 12
     crypto::ec_point I;
-    crypto::derive_key_image_generator(output_pubkey, I);
+    crypto::derive_key_image_generator(output_pubkey, false, I);
 
     crypto::secret_key sender_extension_g;
     make_carrot_sender_extension_g_coinbase(s_sender_receiver,
@@ -2000,7 +2000,7 @@ static bool pq_turnstile_verify(const crypto::hash &txid,
 
     // step 15
     crypto::ec_point I;
-    crypto::derive_key_image_generator(output_pubkey, I);
+    crypto::derive_key_image_generator(output_pubkey, false, I);
 
     crypto::secret_key sender_extension_g;
     make_carrot_sender_extension_g(s_sender_receiver, amount_commitment, sender_extension_g);
@@ -2100,7 +2100,8 @@ TEST(carrot_core, pq_turnstile_completeness_main)
         recovered_address_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
-        output_enote.enote.onetime_address);
+        output_enote.enote.onetime_address,
+        false);
     ASSERT_EQ(scanned_ki, ki);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -2199,7 +2200,8 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
         recovered_address_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
-        output_enote.enote.onetime_address);
+        output_enote.enote.onetime_address,
+        false);
     ASSERT_EQ(scanned_ki, ki);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -2273,7 +2275,8 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
         recovered_address_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
-        output_enote.onetime_address);
+        output_enote.onetime_address,
+        false);
     ASSERT_EQ(scanned_ki, ki);
 }
 //----------------------------------------------------------------------------------------------------------------------
