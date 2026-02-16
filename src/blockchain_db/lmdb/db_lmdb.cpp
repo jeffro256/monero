@@ -43,6 +43,7 @@
 #include "common/pruning.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
+#include "fcmp_pp/fcmp_pp_serialization.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
@@ -201,13 +202,13 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * locked_outputs   block ID     [{OutputContext}...]
+ * locked_outputs   block ID     [{UnifiedOutput}...]
  * leaves           leaf_idx     {mdb_leaf}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  * tree_edges       block ID     [child_chunk_hash]
  * tree_meta        block ID     n_leaf_tuples
  *
- * timelocked_outputs block ID   [{OutputContext}...]
+ * timelocked_outputs block ID   [{UnifiedOutput}...]
  *
  * txpool_meta      txn hash     txn metadata
  * txpool_blob      txn hash     txn blob
@@ -354,7 +355,7 @@ typedef struct blk_height {
 } blk_height;
 
 typedef struct outtx {
-    uint64_t output_id;
+    uint64_t unified_id;
     crypto::hash tx_hash;
     uint64_t local_index;
 } outtx;
@@ -362,7 +363,7 @@ typedef struct outtx {
 #pragma pack(push, 1)
 typedef struct mdb_leaf {
     uint64_t leaf_idx;
-    uint64_t output_id;
+    uint64_t unified_id;
 } mdb_leaf;
 #pragma pack(pop)
 static_assert(sizeof(mdb_leaf) == (8+8), "mdb_leaf unexpected size");
@@ -1117,7 +1118,7 @@ uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
     throw0(DB_ERROR(lmdb_error("Failed to get output amount in db transaction: ", result).c_str()));
   else
     ok.amount_index = 0;
-  ok.output_id = m_num_outputs;
+  ok.unified_id = m_num_outputs;
   ok.data.pubkey = output_public_key;
   ok.data.unlock_time = unlock_time;
   ok.data.height = m_height;
@@ -1202,7 +1203,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
     throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
   const pre_rct_outkey *ok = (const pre_rct_outkey *)v.mv_data;
-  MDB_val_set(otxk, ok->output_id);
+  MDB_val_set(otxk, ok->unified_id);
   result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &otxk, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
   {
@@ -1228,7 +1229,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(ok->data.unlock_time, ok->data.height);
 
   MDB_val_set(k_block_id, last_locked_block);
-  MDB_val_set(v_output, ok->output_id);
+  MDB_val_set(v_output, ok->unified_id);
 
   result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
@@ -1250,7 +1251,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   CURSOR(timelocked_outputs);
 
   MDB_val_set(k_timelocked_block_id, last_locked_block);
-  MDB_val_set(v_timelocked_output, ok->output_id);
+  MDB_val_set(v_timelocked_output, ok->unified_id);
 
   result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
@@ -1300,29 +1301,29 @@ void BlockchainLMDB::prune_outputs(uint64_t amount)
   mdb_size_t num_elems;
   mdb_cursor_count(m_cur_output_amounts, &num_elems);
   MINFO(num_elems << " outputs found");
-  std::vector<uint64_t> output_ids;
-  output_ids.reserve(num_elems);
+  std::vector<uint64_t> unified_ids;
+  unified_ids.reserve(num_elems);
   while (1)
   {
     const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
-    output_ids.push_back(okp->output_id);
-    MDEBUG("output id " << okp->output_id);
+    unified_ids.push_back(okp->unified_id);
+    MDEBUG("output id " << okp->unified_id);
     result = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_NEXT_DUP);
     if (result == MDB_NOTFOUND)
       break;
     if (result)
       throw0(DB_ERROR(lmdb_error("Error counting outputs: ", result).c_str()));
   }
-  if (output_ids.size() != num_elems)
+  if (unified_ids.size() != num_elems)
     throw0(DB_ERROR("Unexpected number of outputs"));
 
   result = mdb_cursor_del(m_cur_output_amounts, MDB_NODUPDATA);
   if (result)
     throw0(DB_ERROR(lmdb_error("Error deleting outputs: ", result).c_str()));
 
-  for (uint64_t output_id: output_ids)
+  for (uint64_t unified_id: unified_ids)
   {
-    MDB_val_set(v, output_id);
+    MDB_val_set(v, unified_id);
     result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
     if (result)
       throw0(DB_ERROR(lmdb_error("Error looking up output: ", result).c_str()));
@@ -1369,7 +1370,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs)
+void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1382,20 +1383,22 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLocke
   for (const auto &last_locked_block : outs_by_last_locked_block)
   {
     const uint64_t last_locked_block_idx = last_locked_block.first;
-    for (const auto &locked_output : last_locked_block.second)
+    for (const fcmp_pp::UnifiedOutput &locked_output : last_locked_block.second)
     {
+      const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(locked_output);
+
       MDB_val_set(k_block_id, last_locked_block_idx);
-      MDB_val_set(v_output, locked_output);
+      MDB_val_sized(v_output, output_blob);
       int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
 
-      if (timelocked_outputs.find(locked_output.output_id) == timelocked_outputs.end())
+      if (timelocked_outputs.find(locked_output.unified_id) == timelocked_outputs.end())
         continue;
 
       // Add to custom timelocked outputs table also so it does not get removed in del_locked_outs_at_block_idx
       MDB_val_set(k_timelocked_block_id, last_locked_block_idx);
-      MDB_val_set(v_timelocked_output, locked_output);
+      MDB_val_sized(v_timelocked_output, output_blob);
       result = mdb_cursor_put(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));
@@ -1440,7 +1443,7 @@ std::vector<crypto::ec_point> BlockchainLMDB::grow_with_tree_extension(const fcm
   for (uint64_t i = 0; i < leaves.tuples.size(); ++i)
   {
     const uint64_t leaf_idx = i + leaves.start_leaf_tuple_idx;
-    mdb_leaf val{.leaf_idx = leaf_idx, .output_id = leaves.tuples.at(i).output_id};
+    mdb_leaf val{.leaf_idx = leaf_idx, .unified_id = leaves.tuples.at(i).unified_id};
     MDB_val_set(v, val);
 
     int result = mdb_cursor_put(m_cur_leaves, (MDB_val *)&zerokval, &v, MDB_APPENDDUP);
@@ -1668,8 +1671,8 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
   {
     if (path_indexes.leaf_range.second > path_indexes.leaf_range.first)
     {
-      std::vector<uint64_t> output_ids;
-      output_ids.reserve(path_indexes.leaf_range.second - path_indexes.leaf_range.first);
+      std::vector<uint64_t> unified_ids;
+      unified_ids.reserve(path_indexes.leaf_range.second - path_indexes.leaf_range.first);
 
       uint64_t idx = path_indexes.leaf_range.first;
 
@@ -1687,13 +1690,13 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
           throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
         const auto *db_leaf = (mdb_leaf *)v.mv_data;
-        output_ids.push_back(db_leaf->output_id);
+        unified_ids.push_back(db_leaf->unified_id);
 
         ++idx;
       }
       while (idx < path_indexes.leaf_range.second);
 
-      leaves_out = this->get_output_context_by_output_id(output_ids);
+      leaves_out = this->get_unified_output_by_id(unified_ids);
     }
   }
 
@@ -1731,20 +1734,20 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
   return path_bytes;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_context_by_output_id(
-  const std::vector<uint64_t> &output_ids) const
+std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_unified_output_by_id(
+  const std::vector<uint64_t> &unified_ids) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
   TXN_PREFIX_RDONLY();
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> output_contexts;
-  output_contexts.reserve(output_ids.size());
+  std::vector<fcmp_pp::UnifiedOutput> unified_outputs;
+  unified_outputs.reserve(unified_ids.size());
 
   // Collect tx hashes from output id's, reading db output_txs
   std::vector<tx_out_index> tois;
-  this->get_output_tx_and_index_from_global(output_ids, tois);
+  this->get_output_tx_and_index_from_unified(unified_ids, tois);
 
   // Collect pruned txs from tx hashes, reading db tx_indices, and txs_pruned
   std::unordered_map<crypto::hash, cryptonote::transaction> txs;
@@ -1754,11 +1757,11 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       txs[toi.first] = this->get_pruned_tx(toi.first);
   }
 
-  // Collect output contexts from pruned tx data
+  // Collect unified outputs from pruned tx data
   std::unordered_map<rct::xmr_amount, rct::key> transparent_amount_commitments;
-  for (std::size_t i = 0; i < output_ids.size(); ++i)
+  for (std::size_t i = 0; i < unified_ids.size(); ++i)
   {
-    const uint64_t output_id = output_ids.at(i);
+    const uint64_t unified_id = unified_ids.at(i);
     const auto &toi = tois.at(i);
 
     const auto tx_it = txs.find(toi.first);
@@ -1780,21 +1783,21 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_output_cont
       commitment = transparent_amount_commitments[out.amount];
     }
 
-    output_contexts.emplace_back(fcmp_pp::curve_trees::OutputContext{
-        .output_id = output_id,
+    unified_outputs.emplace_back(fcmp_pp::UnifiedOutput{
+        .unified_id = unified_id,
         .output_pair = cryptonote::to_output_pair(out.target, commitment)
       });
   }
 
-  if (output_ids.size() != output_contexts.size())
-    throw0(DB_ERROR("get_output_context_by_output_id: output_ids <> output_contexts size mismatch"));
+  if (unified_ids.size() != unified_outputs.size())
+    throw0(DB_ERROR("get_unified_output_by_id: unified_ids <> unified_outputs size mismatch"));
 
   TXN_POSTFIX_RDONLY();
 
-  return output_contexts;
+  return unified_outputs;
 }
 
-uint64_t BlockchainLMDB::find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const
+uint64_t BlockchainLMDB::find_leaf_idx_by_unified_id_bounded_search(uint64_t unified_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1830,7 +1833,7 @@ uint64_t BlockchainLMDB::find_leaf_idx_by_output_id_bounded_search(uint64_t outp
 
     while (it < range_end)
     {
-      found_leaf_idx = it->output_id == output_id;
+      found_leaf_idx = it->unified_id == unified_id;
       if (found_leaf_idx)
       {
         leaf_idx = it->leaf_idx;
@@ -1875,8 +1878,8 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     return old_n_leaf_tuples;
 
   // Trim the leaves, re-adding to locked outputs table
-  std::vector<uint64_t> output_ids;
-  output_ids.reserve(old_n_leaf_tuples - new_n_leaf_tuples);
+  std::vector<uint64_t> unified_ids;
+  unified_ids.reserve(old_n_leaf_tuples - new_n_leaf_tuples);
   for (uint64_t i = new_n_leaf_tuples; i < old_n_leaf_tuples; ++i)
   {
     MDB_val_copy<uint64_t> k(i);
@@ -1888,7 +1891,7 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
       throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
     const auto *o = (mdb_leaf *)v.mv_data;
-    output_ids.push_back(o->output_id);
+    unified_ids.push_back(o->unified_id);
 
     // Delete the leaf
     result = mdb_cursor_del(m_cur_leaves, 0);
@@ -1898,15 +1901,16 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     MDEBUG("Successfully removed leaf at leaf_tuple_idx: " << i);
   }
 
-  const auto output_contexts = this->get_output_context_by_output_id(output_ids);
+  const auto unified_outputs = this->get_unified_output_by_id(unified_ids);
 
   MDB_val_set(k_block_id, trim_block_idx);
-  for (const auto &output_context : output_contexts)
+  for (const fcmp_pp::UnifiedOutput &unified_output : unified_outputs)
   {
     // Re-add the output to the locked output table in order. The output should
     // still be in the outputs tables.
-    MDB_val_set(v_output, output_context);
-    MDEBUG("Re-adding locked output_id: " << output_context.output_id << " , last locked block: " << trim_block_idx);
+    const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
+    MDB_val_sized(v_output, output_blob);
+    MDEBUG("Re-adding locked unified_id: " << unified_output.unified_id << " , last locked block: " << trim_block_idx);
     int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to re-add locked output: ", result).c_str()));
@@ -2153,8 +2157,8 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       MINFO("Auditing layer " << layer_idx << ", child_chunk_idx " << child_chunk_idx);
 
     // Iterate until chunk is full or we get to the end of all leaves, collecting leaf output ID's
-    std::vector<uint64_t> output_ids;
-    output_ids.reserve(m_curve_trees->m_c1_width);
+    std::vector<uint64_t> unified_ids;
+    unified_ids.reserve(m_curve_trees->m_c1_width);
     MDB_val k_leaf, v_leaf;
     while (1)
     {
@@ -2166,19 +2170,19 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
         throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
 
       const auto *o = (mdb_leaf *)v_leaf.mv_data;
-      output_ids.push_back(o->output_id);
+      unified_ids.push_back(o->unified_id);
 
-      if (output_ids.size() == m_curve_trees->m_c1_width)
+      if (unified_ids.size() == m_curve_trees->m_c1_width)
         break;
     }
 
     // Get leaves from output ID's
     std::vector<fcmp_pp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples_chunk;
     leaf_tuples_chunk.reserve(m_curve_trees->m_c1_width);
-    const auto output_contexts = this->get_output_context_by_output_id(output_ids);
-    for (const auto &output_context : output_contexts)
+    const auto unified_outputs = this->get_unified_output_by_id(unified_ids);
+    for (const auto &unified_output : unified_outputs)
     {
-      auto leaf_tuple = m_curve_trees->leaf_tuple(output_context.output_pair);
+      auto leaf_tuple = m_curve_trees->leaf_tuple(unified_output.output_pair);
       leaf_tuples_chunk.emplace_back(std::move(leaf_tuple));
     }
 
@@ -2399,8 +2403,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_idx(
-  uint64_t block_idx) const
+std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_outs_at_last_locked_block_idx(uint64_t block_idx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2412,7 +2415,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
-  std::vector<fcmp_pp::curve_trees::OutputContext> outs;
+  std::vector<fcmp_pp::UnifiedOutput> outs;
 
   MDB_cursor_op op = MDB_SET;
   while (1)
@@ -2428,19 +2431,31 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
     if (blk_id != block_idx)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_idx)).c_str()));
 
-    const auto range_begin = ((const fcmp_pp::curve_trees::OutputContext*)v_output.mv_data);
-    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputContext);
+    const char *range_begin = (const char*)v_output.mv_data;
+    const char *range_end = range_begin + v_output.mv_size;
 
     auto it = range_begin;
 
+    static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
+
     // The first MDB_NEXT_MULTIPLE includes the val from MDB_SET, so skip it
     if (outs.size() == 1)
-      ++it;
+      it += SIZEOF_SERIALIZED_UNIFIED_OUTPUT;
 
     while (it < range_end)
     {
-      outs.push_back(*it);
-      ++it;
+      if ((it + SIZEOF_SERIALIZED_UNIFIED_OUTPUT) > range_end)
+        throw0(DB_ERROR("Out of bounds reading locked outputs"));
+
+      cryptonote::blobdata bd;
+      bd.assign(it, SIZEOF_SERIALIZED_UNIFIED_OUTPUT);
+
+      fcmp_pp::UnifiedOutput out;
+      if (!cryptonote::t_serializable_object_from_blob(out, bd))
+        throw0(DB_ERROR("Failed to de-serialize locked output"));
+
+      outs.emplace_back(std::move(out));
+      it += SIZEOF_SERIALIZED_UNIFIED_OUTPUT;
     }
   }
 
@@ -2471,7 +2486,7 @@ uint64_t BlockchainLMDB::get_tree_block_idx() const
   return block_idx;
 }
 
-fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocked_outputs(uint64_t start_block_idx) const
+fcmp_pp::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocked_outputs(uint64_t start_block_idx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2479,7 +2494,7 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocke
   TXN_PREFIX_RDONLY();
   RCURSOR(timelocked_outputs)
 
-  fcmp_pp::curve_trees::OutsByLastLockedBlock outs;
+  fcmp_pp::OutsByLastLockedBlock outs;
 
   /*
     We expect the timelocked outputs table to be sorted primarily by key, i.e.
@@ -2508,7 +2523,13 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocke
       break;
 
     // Include the out in the result container
-    auto timelocked_output = *((const fcmp_pp::curve_trees::OutputContext*)v.mv_data);
+    cryptonote::blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+
+    fcmp_pp::UnifiedOutput timelocked_output;
+    if (!cryptonote::t_serializable_object_from_blob(timelocked_output, bd))
+      throw0(DB_ERROR("Failed to de-serialize timelocked output"));
+
     outs[last_locked_block_idx].emplace_back(std::move(timelocked_output));
 
     op = MDB_PREV;
@@ -2518,22 +2539,22 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocke
 
   // 2. Only return outputs that were created BEFORE start_block_idx
   // 2a. Place all output id's in a flat vector
-  using output_id_pair_t = std::pair<uint64_t/*output_id*/, uint64_t/*last_locked_block*/>;
-  std::vector<output_id_pair_t> output_ids;
+  using unified_id_pair_t = std::pair<uint64_t/*unified_id*/, uint64_t/*last_locked_block*/>;
+  std::vector<unified_id_pair_t> unified_ids;
   for (const auto &outs_by_last_locked_block : outs)
   {
     for (const auto &o : outs_by_last_locked_block.second)
-      output_ids.push_back({ o.output_id, outs_by_last_locked_block.first });
+      unified_ids.push_back({ o.unified_id, outs_by_last_locked_block.first });
   }
 
   // 2b. Sort the vector in descending order by output ID, so outputs are ordered most recently created first
-  std::sort(output_ids.begin(), output_ids.end(), [](const output_id_pair_t &a, const output_id_pair_t &b)
+  std::sort(unified_ids.begin(), unified_ids.end(), [](const unified_id_pair_t &a, const unified_id_pair_t &b)
     {return a.first > b.first; });
 
   // 2c. Remove all outputs from the result container that were created at height start_block_idx or higher
-  for (const auto &output_id : output_ids)
+  for (const auto &unified_id : unified_ids)
   {
-    const auto output_tx = this->get_output_tx_and_index_from_global(output_id.first);
+    const auto output_tx = this->get_output_tx_and_index_from_unified(unified_id.first);
     const uint64_t created_block_idx = this->get_tx_block_height(output_tx.first);
 
     // As soon as we encounter an output created before start_block_idx, we're done, we've removed all we needed to
@@ -2541,14 +2562,14 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocke
       break;
 
     // Find the output in the outs container
-    auto blk_it = outs.find(output_id.second/*last_locked_block*/);
+    auto blk_it = outs.find(unified_id.second/*last_locked_block*/);
 
     // The first one in the vec should be the output id since outputs were added from the table in descending order
     if (blk_it == outs.end())
       throw0(DB_ERROR("Missing output's last locked block"));
     if (blk_it->second.empty())
       throw0(DB_ERROR("last locked block missing outputs"));
-    if (blk_it->second.front().output_id != output_id.first)
+    if (blk_it->second.front().unified_id != unified_id.first)
       throw0(DB_ERROR("Output id is not first in outs by last locked block"));
 
     // Remove the output from outs container
@@ -2562,8 +2583,8 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_custom_timelocke
   {
     auto &unsorted = outs_by_last_locked_block.second;
     std::sort(unsorted.begin(), unsorted.end(),
-      [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
-        {return a.output_id < b.output_id; });
+      [](const fcmp_pp::UnifiedOutput &a, const fcmp_pp::UnifiedOutput &b)
+        {return a.unified_id < b.unified_id; });
   }
 
   TXN_POSTFIX_RDONLY();
@@ -4304,7 +4325,7 @@ uint64_t BlockchainLMDB::num_outputs() const
   if (result == MDB_NOTFOUND)
     num = 0;
   else if (result == 0)
-    num = 1 + ((const outtx*)v.mv_data)->output_id;
+    num = 1 + ((const outtx*)v.mv_data)->unified_id;
   else
     throw0(DB_ERROR(lmdb_error("Failed to query m_output_txs: ", result).c_str()));
 
@@ -4824,7 +4845,7 @@ outkey BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& in
   {
     const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
     ret.amount_index = okp->amount_index;
-    ret.output_id = okp->output_id;
+    ret.unified_id = okp->unified_id;
     memcpy(&ret.data, &okp->data, sizeof(pre_rct_output_data_t));
     if (include_commitmemt)
       ret.data.commitment = rct::zeroCommitVartime(amount);
@@ -4833,7 +4854,7 @@ outkey BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& in
   return ret;
 }
 
-tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t& output_id) const
+tx_out_index BlockchainLMDB::get_output_tx_and_index_from_unified(const uint64_t& unified_id) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -4841,7 +4862,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index_from_global(const uint64_t&
   TXN_PREFIX_RDONLY();
   RCURSOR(output_txs);
 
-  MDB_val_set(v, output_id);
+  MDB_val_set(v, unified_id);
 
   auto get_result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
   if (get_result == MDB_NOTFOUND)
@@ -5098,7 +5119,7 @@ bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const c
       throw0(DB_ERROR("Failed to enumerate outputs"));
     uint64_t amount = *(const uint64_t*)k.mv_data;
     outkey *ok = (outkey *)v.mv_data;
-    tx_out_index toi = get_output_tx_and_index_from_global(ok->output_id);
+    tx_out_index toi = get_output_tx_and_index_from_unified(ok->unified_id);
     if (!f(amount, toi.first, ok->data.height, toi.second)) {
       fret = false;
       break;
@@ -5479,20 +5500,20 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   }
 }
 
-void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
+void BlockchainLMDB::get_output_tx_and_index_from_unified(const std::vector<uint64_t> &unified_ids,
     std::vector<tx_out_index> &tx_out_indices) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   tx_out_indices.clear();
-  tx_out_indices.reserve(global_indices.size());
+  tx_out_indices.reserve(unified_ids.size());
 
   TXN_PREFIX_RDONLY();
   RCURSOR(output_txs);
 
-  for (const uint64_t &output_id : global_indices)
+  for (const uint64_t &unified_id : unified_ids)
   {
-    MDB_val_set(v, output_id);
+    MDB_val_set(v, unified_id);
 
     auto get_result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
     if (get_result == MDB_NOTFOUND)
@@ -5586,13 +5607,13 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output from the db", get_result).c_str()));
 
     const outkey *okp = (const outkey *)v.mv_data;
-    tx_indices.push_back(okp->output_id);
+    tx_indices.push_back(okp->unified_id);
   }
 
   TIME_MEASURE_START(db3);
   if(tx_indices.size() > 0)
   {
-    get_output_tx_and_index_from_global(tx_indices, indices);
+    get_output_tx_and_index_from_unified(tx_indices, indices);
   }
   TIME_MEASURE_FINISH(db3);
   LOG_PRINT_L3("db3: " << db3);
@@ -7218,7 +7239,7 @@ void BlockchainLMDB::migrate_5_6()
               if (n_outputs == cached_last_o.n_outputs_read)
                 break;
 
-              MDEBUG("Found cached output " << cached_last_o.ok.output_id
+              MDEBUG("Found cached output " << cached_last_o.ok.unified_id
                 << ", migrated " << cached_last_o.n_outputs_read << " outputs already");
               found_cached_output = true;
 
@@ -7269,12 +7290,12 @@ void BlockchainLMDB::migrate_5_6()
         // Read the output data
         uint64_t amount = *(const uint64_t*)k.mv_data;
         output_data_t output_data;
-        uint64_t output_id;
+        uint64_t unified_id;
         if (amount == 0)
         {
           const outkey *okp = (const outkey *)v.mv_data;
           output_data = okp->data;
-          output_id = okp->output_id;
+          unified_id = okp->unified_id;
           if (commit_next_iter)
             memcpy(&last_output.ok, okp, sizeof(outkey));
         }
@@ -7283,7 +7304,7 @@ void BlockchainLMDB::migrate_5_6()
           const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
           memcpy(&output_data, &okp->data, sizeof(pre_rct_output_data_t));
           output_data.commitment = rct::zeroCommitVartime(amount);
-          output_id = okp->output_id;
+          unified_id = okp->unified_id;
           if (commit_next_iter)
             memcpy(&last_output.ok, okp, sizeof(pre_rct_outkey));
         }
@@ -7301,20 +7322,21 @@ void BlockchainLMDB::migrate_5_6()
             rct::rct2pt(output_data.commitment),
           }};
 
-        const fcmp_pp::curve_trees::OutputContext output_context{
-            .output_id       = output_id,
+        const fcmp_pp::UnifiedOutput unified_output{
+            .unified_id       = unified_id,
             .output_pair     = std::move(output_pair)
           };
+        const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
 
         // Get the output's last locked block
         const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(output_data.unlock_time, output_data.height);
 
         // Add the output to the locked outputs table
         MDB_val_set(k_block_id, last_locked_block);
-        MDB_val_set(v_output, output_context);
+        MDB_val_sized(v_output, output_blob);
 
         // MDB_NODUPDATA because all output id's should be unique
-        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by output_id
+        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
         result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
@@ -7325,7 +7347,7 @@ void BlockchainLMDB::migrate_5_6()
         if (has_coinbase_last_locked_block)
         {
           // Only coinbase outputs could potentially have the coinbase last locked block (see prevalidate_miner_transaction)
-          auto toi = this->get_output_tx_and_index_from_global(output_id);
+          auto toi = this->get_output_tx_and_index_from_unified(unified_id);
           auto tx = this->get_pruned_tx(toi.first);
           is_coinbase = cryptonote::is_coinbase(tx);
         }
@@ -7335,10 +7357,10 @@ void BlockchainLMDB::migrate_5_6()
           continue;
 
         MDB_val_set(k_timelocked_block_id, last_locked_block);
-        MDB_val_set(v_timelocked_output, output_context);
+        MDB_val_sized(v_timelocked_output, output_blob);
 
         // MDB_NODUPDATA because all output id's should be unique
-        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by output_id
+        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
         result = mdb_cursor_put(c_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));

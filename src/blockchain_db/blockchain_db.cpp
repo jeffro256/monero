@@ -310,7 +310,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   return ++prev_height;
 }
 
-void BlockchainDB::advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs)
+void BlockchainDB::advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::UnifiedOutput> &known_new_outputs)
 {
   LOG_PRINT_L3("BlockchainDB::" << __func__);
 
@@ -343,7 +343,7 @@ void BlockchainDB::advance_tree(const uint64_t blk_idx, const std::vector<fcmp_p
   this->del_locked_outs_at_block_idx(earliest_last_locked_block);
 }
 
-void BlockchainDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs)
+void BlockchainDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::UnifiedOutput> &&new_outputs)
 {
   LOG_PRINT_L3("BlockchainDB::" << __func__);
 
@@ -482,7 +482,7 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainDB::get_last_path
   return { block_n_leaf_tuples, path };
 }
 
-uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+uint64_t BlockchainDB::get_path_by_unified_id(const std::vector<uint64_t> &unified_ids,
   const uint64_t as_of_n_blocks,
   std::vector<uint64_t> &leaf_idxs_out,
   std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const
@@ -493,10 +493,10 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
 
   // Initialize result vectors with 0 values. If outptut is not in the tree,
   // result vectors kept as 0 values
-  leaf_idxs_out = std::vector<uint64_t>(global_output_ids.size(), 0);
-  paths_out = std::vector<fcmp_pp::curve_trees::PathBytes>(global_output_ids.size(), fcmp_pp::curve_trees::PathBytes{});
+  leaf_idxs_out = std::vector<uint64_t>(unified_ids.size(), 0);
+  paths_out = std::vector<fcmp_pp::curve_trees::PathBytes>(unified_ids.size(), fcmp_pp::curve_trees::PathBytes{});
 
-  if (global_output_ids.empty())
+  if (unified_ids.empty())
     return 0;
 
   const uint64_t cur_n_blocks = this->height();
@@ -506,7 +506,7 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
   // We're getting path data assuming chain tip is as_of_block_idx
   const uint64_t as_of_block_idx = as_of_n_blocks ? (as_of_n_blocks - 1) : (cur_n_blocks - 1);
 
-  CHECK_AND_ASSERT_THROW_MES(as_of_block_idx <= this->get_tree_block_idx(), "get_path_by_global_output_id: as_of_block_idx is higher than highest tree block idx");
+  CHECK_AND_ASSERT_THROW_MES(as_of_block_idx <= this->get_tree_block_idx(), "get_path_by_unified_id: as_of_block_idx is higher than highest tree block idx");
 
   // TODO: de-duplicate db reads where possible (steps 1, 2, 3, 5, 6 can all be de-dup'd especially 6)
   // TODO: return consolidated path
@@ -514,21 +514,21 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
 
   // 1. Read DB for tx out indexes with global output id
   std::vector<tx_out_index> tois;
-  tois.reserve(global_output_ids.size());
-  for (const auto &goi : global_output_ids)
+  tois.reserve(unified_ids.size());
+  for (const auto &uid : unified_ids)
   {
       // Throws if output not found
-    tois.emplace_back(this->get_output_tx_and_index_from_global(goi));
+    tois.emplace_back(this->get_output_tx_and_index_from_unified(uid));
   }
 
   // 2. Read DB for output metadata {unlock_time, created block idx}
   std::vector<outkey> out_keys;
-  out_keys.reserve(global_output_ids.size());
+  out_keys.reserve(unified_ids.size());
   for (const auto &tois : tois)
   {
     cryptonote::transaction _;
     const auto tx_out_keys = this->get_tx_output_data(tois.first, _);
-    CHECK_AND_ASSERT_THROW_MES(tois.second < tx_out_keys.size(), "get_path_by_global_output_id: tx out keys too small");
+    CHECK_AND_ASSERT_THROW_MES(tois.second < tx_out_keys.size(), "get_path_by_unified_id: tx out keys too small");
     out_keys.emplace_back(tx_out_keys.at(tois.second));
   }
 
@@ -572,9 +572,9 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
     // If the output is still expected locked, then it won't have a leaf idx
     if (not_expected_in_tree.at(i))
       continue;
-    const uint64_t output_id = out_keys.at(i).output_id;
+    const uint64_t unified_id = out_keys.at(i).unified_id;
     const auto tuple_range = n_leaf_tuple_ranges.at(i);
-    leaf_idxs_out.at(i) = this->find_leaf_idx_by_output_id_bounded_search(output_id, tuple_range.first, tuple_range.second);
+    leaf_idxs_out.at(i) = this->find_leaf_idx_by_unified_id_bounded_search(unified_id, tuple_range.first, tuple_range.second);
   }
 
   // 6. Use leaf idxs to get paths
@@ -590,7 +590,7 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
     const auto path_idxs = m_curve_trees->get_path_indexes(n_leaf_tuples, leaf_idxs_out.at(i));
     auto path = this->get_path(path_idxs);
 
-    CHECK_AND_ASSERT_THROW_MES(path.leaves.size() && path.layer_chunks.size(), "get_path_by_global_output_id: empty path");
+    CHECK_AND_ASSERT_THROW_MES(path.leaves.size() && path.layer_chunks.size(), "get_path_by_unified_id: empty path");
 
     // If the path is part of the last path, then we'll need to update the last
     // elem in each layer
@@ -599,9 +599,9 @@ uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> 
       if (last_path_idxs.layers.at(i).second != path_idxs.layers.at(i).second)
         continue;
 
-      CHECK_AND_ASSERT_THROW_MES(path.layer_chunks.at(i).chunk_bytes.size(), "get_path_by_global_output_id: empty layer in path");
+      CHECK_AND_ASSERT_THROW_MES(path.layer_chunks.at(i).chunk_bytes.size(), "get_path_by_unified_id: empty layer in path");
       CHECK_AND_ASSERT_THROW_MES(path.layer_chunks.at(i).chunk_bytes.size() == last_path.second.layer_chunks.at(i).chunk_bytes.size(),
-        "get_path_by_global_output_id: unexpected size of last path");
+        "get_path_by_unified_id: unexpected size of last path");
 
       path.layer_chunks.at(i).chunk_bytes.back() = last_path.second.layer_chunks.at(i).chunk_bytes.back();
     }

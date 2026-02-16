@@ -55,3 +55,8 @@ VARIANT_TAG(json_archive, fcmp_pp::CarrotOutputPairV1, "carrot_out_pair_v1");
 
 VARIANT_TAG(debug_archive, fcmp_pp::LegacyOutputPair, "legacy_out_pair");
 VARIANT_TAG(debug_archive, fcmp_pp::CarrotOutputPairV1, "carrot_out_pair_v1");
+
+BEGIN_SERIALIZE_OBJECT_FN(fcmp_pp::UnifiedOutput)
+    FIELD_F(unified_id)
+    FIELD_F(output_pair)
+END_SERIALIZE()

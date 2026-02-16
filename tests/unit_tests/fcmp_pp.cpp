@@ -53,11 +53,11 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-struct OutputContextsAndKeys
+struct UnifiedOutputsAndKeys
 {
     std::vector<crypto::secret_key> x_vec;
     std::vector<crypto::secret_key> y_vec;
-    std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
+    std::vector<fcmp_pp::UnifiedOutput> outputs;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -149,11 +149,11 @@ static FcmpRerandomizedOutputCompressed rerandomize_output_manual(const rct::key
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &curve_trees,
+static const UnifiedOutputsAndKeys generate_random_outputs(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    OutputContextsAndKeys outs;
+    UnifiedOutputsAndKeys outs;
     outs.x_vec.resize(new_n_leaf_tuples);
     outs.y_vec.resize(new_n_leaf_tuples);
     outs.outputs.resize(new_n_leaf_tuples);
@@ -169,7 +169,7 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
         {
             for (std::size_t j = i; j < end; ++j)
             {
-                const std::uint64_t output_id = old_n_leaf_tuples + j;
+                const std::uint64_t unified_id = old_n_leaf_tuples + j;
 
                 // Generate random output tuple
                 // Note: lock contention slows this down quite a bit
@@ -181,8 +181,8 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
                 const crypto::ec_point C_pt = rct::rct2pt(rct::pk2rct(C));
                 const fcmp_pp::OutputPair output_pair = fcmp_pp::LegacyOutputPair{{O, C_pt}};
 
-                auto output_context = fcmp_pp::curve_trees::OutputContext{
-                        .output_id   = output_id,
+                auto unified_output = fcmp_pp::UnifiedOutput{
+                        .unified_id  = unified_id,
                         .output_pair = std::move(output_pair)
                     };
 
@@ -194,7 +194,7 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
 
                 outs.x_vec[j] = std::move(x);
                 outs.y_vec[j] = std::move(y);
-                outs.outputs[j] = std::move(output_context);
+                outs.outputs[j] = std::move(unified_output);
             }
         });
     }
@@ -1083,7 +1083,7 @@ TEST(fcmp_pp, dump_pruned_tx_bytesizes)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(fcmp_pp, output_pair_serialization)
+TEST(fcmp_pp, output_serialization)
 {
     static const crypto::public_key O{0x01};
     static const crypto::ec_point C{0x02};
@@ -1092,12 +1092,12 @@ TEST(fcmp_pp, output_pair_serialization)
     static const std::string C_str = "0200000000000000000000000000000000000000000000000000000000000000";
 
     // 1. Check serialized bytes size
-    const fcmp_pp::OutputPair legacy_output = fcmp_pp::LegacyOutputPair{{O, C}};
-    const fcmp_pp::OutputPair carrot_output = fcmp_pp::CarrotOutputPairV1{{O, C}};
-    ASSERT_FALSE(legacy_output == carrot_output);
+    const fcmp_pp::OutputPair legacy_output_pair = fcmp_pp::LegacyOutputPair{{O, C}};
+    const fcmp_pp::OutputPair carrot_output_pair = fcmp_pp::CarrotOutputPairV1{{O, C}};
+    ASSERT_FALSE(legacy_output_pair == carrot_output_pair);
 
-    const cryptonote::blobdata legacy_serialized = cryptonote::t_serializable_object_to_blob(legacy_output);
-    const cryptonote::blobdata carrot_out_v1_ser = cryptonote::t_serializable_object_to_blob(carrot_output);
+    const cryptonote::blobdata legacy_serialized = cryptonote::t_serializable_object_to_blob(legacy_output_pair);
+    const cryptonote::blobdata carrot_out_v1_ser = cryptonote::t_serializable_object_to_blob(carrot_output_pair);
 
     ASSERT_EQ(legacy_serialized.size(), (1+32+32));
     ASSERT_EQ(carrot_out_v1_ser.size(), (1+32+32));
@@ -1113,16 +1113,47 @@ TEST(fcmp_pp, output_pair_serialization)
     ASSERT_EQ(carrot_hex, CARROT_TAG + O_str + C_str);
 
     // 3. Check de-serialization
-    const std::vector<std::pair<fcmp_pp::OutputPair, cryptonote::blobdata>> vec{
-            {legacy_output, legacy_serialized},
-            {carrot_output, carrot_out_v1_ser}
+    const std::vector<std::pair<fcmp_pp::OutputPair, cryptonote::blobdata>> op_vec{
+            {legacy_output_pair, legacy_serialized},
+            {carrot_output_pair, carrot_out_v1_ser}
         };
 
-    for (const auto &serialized : vec)
+    for (const auto &serialized : op_vec)
     {
         fcmp_pp::OutputPair output;
-        binary_archive<false> ar{epee::strspan<std::uint8_t>(serialized.second)};
-        ASSERT_TRUE(::serialization::serialize(ar, output));
+        ASSERT_TRUE(cryptonote::t_serializable_object_from_blob(output, serialized.second));
+        ASSERT_EQ(output, serialized.first);
+    }
+
+    // 4. Check UnifiedOutput
+    const uint64_t output_id = 8321;
+    const fcmp_pp::UnifiedOutput legacy_unified_output{output_id, legacy_output_pair};
+    const fcmp_pp::UnifiedOutput carrot_unified_output{output_id, carrot_output_pair};
+
+    const cryptonote::blobdata legacy_unified_ser = cryptonote::t_serializable_object_to_blob(legacy_unified_output);
+    const cryptonote::blobdata carrot_unified_ser = cryptonote::t_serializable_object_to_blob(carrot_unified_output);
+
+    ASSERT_EQ(legacy_unified_ser.size(), SIZEOF_SERIALIZED_UNIFIED_OUTPUT);
+    ASSERT_EQ(carrot_unified_ser.size(), SIZEOF_SERIALIZED_UNIFIED_OUTPUT);
+
+    const std::string legacy_unified_hex = epee::string_tools::buff_to_hex_nodelimer(legacy_unified_ser);
+    const std::string carrot_unified_hex = epee::string_tools::buff_to_hex_nodelimer(carrot_unified_ser);
+    const std::string outpt_id_hex = epee::string_tools::buff_to_hex_nodelimer(
+            cryptonote::t_serializable_object_to_blob(output_id)
+        );
+
+    ASSERT_EQ(legacy_unified_hex, outpt_id_hex + LEGACY_TAG + O_str + C_str);
+    ASSERT_EQ(carrot_unified_hex, outpt_id_hex + CARROT_TAG + O_str + C_str);
+
+    const std::vector<std::pair<fcmp_pp::UnifiedOutput, cryptonote::blobdata>> unified_vec{
+            {legacy_unified_output, legacy_unified_ser},
+            {carrot_unified_output, carrot_unified_ser}
+        };
+
+    for (const auto &serialized : unified_vec)
+    {
+        fcmp_pp::UnifiedOutput output;
+        ASSERT_TRUE(cryptonote::t_serializable_object_from_blob(output, serialized.second));
         ASSERT_EQ(output, serialized.first);
     }
 }

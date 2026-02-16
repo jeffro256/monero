@@ -116,7 +116,7 @@ struct AssignedLeafIdx final
     END_SERIALIZE()
 };
 
-using LockedOutsByLastLockedBlock = std::unordered_map<LastLockedBlockIdx, std::vector<OutputContext>>;
+using LockedOutsByLastLockedBlock = std::unordered_map<LastLockedBlockIdx, std::vector<UnifiedOutput>>;
 using LockedOutputRefHashes       = std::unordered_map<LastLockedBlockIdx, NumOutputs>;
 using LockedOutputsByCreated      = std::unordered_map<CreatedBlockIdx, LockedOutputRefHashes>;
 
@@ -213,7 +213,7 @@ public:
     void prepare_to_grow_cache(const uint64_t start_block_idx,
         const crypto::hash &prev_block_hash,
         const std::vector<crypto::hash> &new_block_hashes,
-        const std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
+        const std::vector<fcmp_pp::OutsByLastLockedBlock> &outs_by_last_locked_blocks,
         CacheStateChange &cache_state_change) const;
 
     // Advance the cache state, processing the state change prepared above

@@ -64,29 +64,29 @@ static constexpr rct::xmr_amount MAX_AMOUNT_FCMP_PP = MONEY_SUPPLY /
 using CarrotEnoteVariant = std::variant<CarrotCoinbaseEnoteV1, CarrotEnoteV1>;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-struct CarrotOutputContextsAndKeys
+struct CarrotUnifiedOutputsAndKeys
 {
     std::vector<CarrotEnoteVariant> enotes;
     std::vector<encrypted_payment_id_t> encrypted_payment_ids;
-    std::vector<fcmp_pp::curve_trees::OutputContext> output_pairs;
+    std::vector<fcmp_pp::UnifiedOutput> output_pairs;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
+static const CarrotUnifiedOutputsAndKeys generate_random_carrot_outputs(
     const mock::mock_carrot_and_legacy_keys &keys,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    CarrotOutputContextsAndKeys outs;
+    CarrotUnifiedOutputsAndKeys outs;
     outs.enotes.reserve(new_n_leaf_tuples);
     outs.encrypted_payment_ids.reserve(new_n_leaf_tuples);
     outs.output_pairs.reserve(new_n_leaf_tuples);
 
     for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
     {
-        const std::uint64_t output_id = old_n_leaf_tuples + i;
-        fcmp_pp::curve_trees::OutputContext output_pair{
-            .output_id = output_id
+        const std::uint64_t unified_id = old_n_leaf_tuples + i;
+        fcmp_pp::UnifiedOutput output_pair{
+            .unified_id = unified_id
         };
 
         CarrotPaymentProposalV1 normal_payment_proposal{
@@ -257,7 +257,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         size_t new_outputs_idx;
         for (new_outputs_idx = 0; new_outputs_idx < new_outputs.output_pairs.size(); ++new_outputs_idx)
         {
-            if (new_outputs.output_pairs.at(new_outputs_idx).output_id == picked_output_id)
+            if (new_outputs.output_pairs.at(new_outputs_idx).unified_id == picked_output_id)
                 break;
         }
         ASSERT_LT(new_outputs_idx, new_outputs.enotes.size());
@@ -314,7 +314,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             rct::pt2rct(commitment_cref(output_pair)),
             output_pubkey_cref(output_pair),
             opening_hint,
-            new_outputs.output_pairs.at(new_outputs_idx).output_id};
+            new_outputs.output_pairs.at(new_outputs_idx).unified_id};
         input_amount_sum += scan_result.amount;
     }
 

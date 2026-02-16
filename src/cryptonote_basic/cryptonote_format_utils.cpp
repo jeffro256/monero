@@ -120,10 +120,10 @@ namespace cryptonote
   // Helper function to group outputs by last locked block idx
   static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
-    const uint64_t &first_output_id,
+    const uint64_t &first_unified_id,
     const uint64_t block_idx,
-    fcmp_pp::curve_trees::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
-    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
+    fcmp_pp::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
+    std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
   {
     const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(tx.unlock_time, block_idx);
     const bool has_custom_timelock = cryptonote::is_custom_timelocked(cryptonote::is_coinbase(tx),
@@ -132,24 +132,24 @@ namespace cryptonote
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
-      const uint64_t output_id = first_output_id + i;
+      const uint64_t unified_id = first_unified_id + i;
       const auto &out = tx.vout[i];
 
       rct::key commitment;
       CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
           "failed to get tx commitment");
 
-      const fcmp_pp::curve_trees::OutputContext output_context{
-              .output_id   = output_id,
+      const fcmp_pp::UnifiedOutput unified_output{
+              .unified_id  = unified_id,
               .output_pair = cryptonote::to_output_pair(out.target, commitment)
           };
 
       if (has_custom_timelock)
       {
-          timelocked_outputs_inout[output_id] = last_locked_block;
+          timelocked_outputs_inout[unified_id] = last_locked_block;
       }
 
-      outs_by_last_locked_block_inout[last_locked_block].emplace_back(output_context);
+      outs_by_last_locked_block_inout[last_locked_block].emplace_back(unified_output);
     }
 
     return tx.vout.size();
@@ -1956,18 +1956,18 @@ namespace cryptonote
   OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
-    const uint64_t first_output_id,
+    const uint64_t first_unified_id,
     const uint64_t block_idx)
   {
     OutsByLastLockedBlockMeta outs_by_last_locked_block_meta_out;
-    outs_by_last_locked_block_meta_out.next_output_id = first_output_id;
+    outs_by_last_locked_block_meta_out.next_unified_id = first_unified_id;
 
     for (const auto &tx : txs)
     {
-      outs_by_last_locked_block_meta_out.next_output_id += set_tx_outs_by_last_locked_block(
+      outs_by_last_locked_block_meta_out.next_unified_id += set_tx_outs_by_last_locked_block(
         tx.get(),
         transparent_amount_commitments,
-        outs_by_last_locked_block_meta_out.next_output_id,
+        outs_by_last_locked_block_meta_out.next_unified_id,
         block_idx,
         outs_by_last_locked_block_meta_out.outs_by_last_locked_block,
         outs_by_last_locked_block_meta_out.timelocked_outputs);

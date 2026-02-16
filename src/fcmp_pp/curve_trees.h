@@ -80,34 +80,6 @@ struct GrowLayerInstructions final
     uint64_t next_parent_start_index;
 };
 
-// Contextual wrapper for the output
-// TODO: move to fcmp_pp_types.h
-#pragma pack(push, 1)
-struct OutputContext final
-{
-    // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
-    uint64_t output_id{0};
-    OutputPair output_pair;
-
-    bool operator==(const OutputContext &other) const
-    {
-        return output_id == other.output_id && output_pair == other.output_pair;
-    }
-
-    BEGIN_SERIALIZE_OBJECT()
-        FIELD(output_id)
-        FIELD(output_pair)
-    END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(output_id)
-        KV_SERIALIZE(output_pair)
-    END_KV_SERIALIZE_MAP()
-};
-#pragma pack(pop)
-
-using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
-
 // Ed25519 points (can go from OutputTuple -> LeafTuple)
 struct OutputTuple final
 {
@@ -151,7 +123,7 @@ struct ChunkBytes final
 
 struct PathBytes final
 {
-    std::vector<OutputContext> leaves;
+    std::vector<UnifiedOutput> leaves;
     std::vector<ChunkBytes> layer_chunks;
 
     bool operator==(const PathBytes &other) const {return leaves == other.leaves && layer_chunks == other.layer_chunks;}
@@ -228,7 +200,7 @@ public:
         // Starting leaf tuple index in the leaf layer
         uint64_t                   start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
-        std::vector<OutputContext> tuples;
+        std::vector<UnifiedOutput> tuples;
     };
 
     // A struct useful to extend an existing tree
@@ -306,7 +278,7 @@ public:
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<std::vector<OutputContext>> &&new_outputs,
+        std::vector<std::vector<UnifiedOutput>> &&new_outputs,
         const bool use_fast_torsion_check = false);
 
     // Calculate the number of elems in each layer of the tree based on the number of leaf tuples
@@ -338,8 +310,7 @@ public:
 
     TreeExtension path_to_tree_extension(const PathBytes &path_bytes, const PathIndexes &path_idxs) const;
 
-    ConsolidatedPaths get_dummy_paths(const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs,
-        uint8_t n_layers) const;
+    ConsolidatedPaths get_dummy_paths(const std::vector<fcmp_pp::UnifiedOutput> &outputs, uint8_t n_layers) const;
 
     Path get_single_dummy_path(const ConsolidatedPaths &dummy_paths,
         const uint64_t n_leaf_tuples,
@@ -348,8 +319,8 @@ private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(
         std::vector<typename C1::Scalar> &flattened_leaves_out,
-        std::vector<OutputContext> &tuples_out,
-        std::vector<OutputContext> &&new_outputs,
+        std::vector<UnifiedOutput> &tuples_out,
+        std::vector<UnifiedOutput> &&new_outputs,
         const bool use_fast_torsion_check = false);
 
     // Helper function used to set the next layer extension used to grow the next layer in the tree

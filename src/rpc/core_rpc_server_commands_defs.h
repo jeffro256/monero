@@ -251,7 +251,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     struct locked_outputs_t
     {
       uint64_t last_locked_block;
-      std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
+      std::vector<fcmp_pp::UnifiedOutput> outputs;
 
       bool operator==(const locked_outputs_t& other) const
       {
@@ -471,7 +471,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t block_timestamp;
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
-      std::vector<uint64_t> global_output_ids; // not tethered to amount
+      std::vector<uint64_t> unified_ids;
       bool relayed;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -489,7 +489,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
           KV_SERIALIZE(confirmations)
           KV_SERIALIZE(block_timestamp)
           KV_SERIALIZE(output_indices)
-          KV_SERIALIZE(global_output_ids)
+          KV_SERIALIZE(unified_ids)
         }
         else
         {
@@ -680,17 +680,17 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN
+  struct COMMAND_RPC_GET_PATH_BY_UNIFIED_ID_BIN
   {
     struct request_t: public rpc_access_request_base
     {
       uint64_t as_of_n_blocks;
-      std::vector<uint64_t> global_output_ids;
+      std::vector<uint64_t> unified_ids;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE_OPT(as_of_n_blocks, (uint64_t)0)
-        KV_SERIALIZE(global_output_ids)
+        KV_SERIALIZE(unified_ids)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

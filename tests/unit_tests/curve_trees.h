@@ -29,8 +29,8 @@
 #pragma once
 
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/tower_cycle.h"
-#include "unit_tests_utils.h"
 
 #include <set>
 
@@ -41,7 +41,7 @@ using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
 //----------------------------------------------------------------------------------------------------------------------
 namespace test
 {
-const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const std::size_t old_n_leaf_tuples,
+const std::vector<fcmp_pp::UnifiedOutput> generate_random_outputs(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples);
 
 std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
@@ -79,7 +79,7 @@ public:
     // Grow tree by provided new_n_leaf_tuples
     bool grow_tree(const std::size_t expected_old_n_leaf_tuples,
         const std::size_t new_n_leaf_tuples,
-        const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs,
+        const std::vector<fcmp_pp::UnifiedOutput> &new_outputs,
         const bool audit_tree = true);
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer

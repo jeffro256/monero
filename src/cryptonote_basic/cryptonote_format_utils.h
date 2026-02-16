@@ -283,15 +283,15 @@ namespace cryptonote
 
   struct OutsByLastLockedBlockMeta
   {
-    fcmp_pp::curve_trees::OutsByLastLockedBlock outs_by_last_locked_block;
-    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> timelocked_outputs;
-    uint64_t next_output_id;
+    fcmp_pp::OutsByLastLockedBlock outs_by_last_locked_block;
+    std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/> timelocked_outputs;
+    uint64_t next_unified_id;
   };
 
   OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
-    const uint64_t first_output_id,
+    const uint64_t first_unified_id,
     const uint64_t block_idx);
 
   inline bool output_checked_for_torsion(const cryptonote::txout_target_v &tx_out)
