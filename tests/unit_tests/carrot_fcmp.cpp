@@ -30,21 +30,17 @@
 
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
-#include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/format_utils.h"
-#include "carrot_impl/input_selection.h"
-#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
 #include "carrot_mock_helpers.h"
-#include "crypto/generators.h"
-#include "cryptonote_basic/account.h"
-#include "cryptonote_basic/subaddress_index.h"
+#include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/blockchain.h"
 #include "curve_trees.h"
 #include "fcmp_pp/prove.h"
+#include "output_opening_types.h"
 #include "ringct/bulletproofs_plus.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
@@ -246,8 +242,8 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::shuffle(picked_output_ids.begin(), picked_output_ids.end(), crypto::random_device{});
 
     // scan inputs and make key images and opening hints...
-    //                                a                  z       C_a           K_o                opening hint          output id
-    using input_info_t = std::tuple<rct::xmr_amount, rct::key, rct::key, crypto::public_key, OutputOpeningHintVariant, std::uint64_t>;
+    //                                a                  z        opening hint             output id
+    using input_info_t = std::tuple<rct::xmr_amount, rct::key, OutputOpeningHintVariant, std::uint64_t>;
     LOG_PRINT_L1("Alice scanning inputs");
     std::unordered_map<crypto::key_image, input_info_t> input_info_by_ki;
     rct::xmr_amount input_amount_sum = 0;
@@ -307,12 +303,13 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             output_pubkey_cref(output_pair),
             use_biased_hash_to_point(opening_hint));
 
+        const crypto::key_image ki2 = alice.key_image_dev->derive_key_image(opening_hint);
+        ASSERT_EQ(ki, ki2);
+
         ASSERT_EQ(0, input_info_by_ki.count(ki));
 
         input_info_by_ki[ki] = {scan_result.amount,
             rct::sk2rct(scan_result.amount_blinding_factor),
-            rct::pt2rct(commitment_cref(output_pair)),
-            output_pubkey_cref(output_pair),
             opening_hint,
             new_outputs.output_pairs.at(new_outputs_idx).unified_id};
         input_amount_sum += scan_result.amount;
@@ -360,7 +357,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             {
                 key_images_out.push_back(CarrotSelectedInput{
                     .amount = std::get<0>(info.second),
-                    .input = std::get<4>(info.second)
+                    .input = std::get<2>(info.second)
                 });
             }
         },
@@ -407,9 +404,10 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
-        input_onetime_addresses.push_back(std::get<3>(input_info));
-        input_amount_commitments.push_back(std::get<2>(input_info));
-        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(std::get<4>(input_info)));
+        const OutputOpeningHintVariant &opening_hint = std::get<2>(input_info);
+        input_onetime_addresses.push_back(onetime_address_ref(opening_hint));
+        input_amount_commitments.push_back(amount_commitment_ref(opening_hint));
+        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(opening_hint));
         input_amount_blinding_factors.push_back(std::get<1>(input_info));
     }
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
@@ -464,7 +462,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     {
         make_sal_proof_any_to_carrot_v1(signable_tx_hash,
             rerandomized_outputs.at(i),
-            std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i))),
+            std::get<2>(input_info_by_ki.at(sorted_input_key_images.at(i))),
             alice.k_prove_spend,
             alice.k_generate_image,
             alice.s_view_balance_dev,
@@ -485,11 +483,10 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<fcmp_pp::ProofInput> fcmp_proof_inputs(n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const size_t leaf_idx = std::get<5>(input_info_by_ki.at(sorted_input_key_images.at(i)));
+        const size_t leaf_idx = std::get<3>(input_info_by_ki.at(sorted_input_key_images.at(i)));
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
-        const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 
-        const auto &opening_hint = std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i)));
+        const auto &opening_hint = std::get<2>(input_info_by_ki.at(sorted_input_key_images.at(i)));
         const auto output_pair = to_output_pair(opening_hint);
         const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 

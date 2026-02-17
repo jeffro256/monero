@@ -291,7 +291,7 @@ crypto::secret_key carrot_hierarchy_address_device::get_subaddress_scalar(const 
 
         // k^j_subscal = H_n[s^j_ap2](K_s)
         make_carrot_subaddress_scalar(res,
-            this->m_carrot_account_view_pubkey,
+            this->m_carrot_account_spend_pubkey,
             res);
 
         return res;
