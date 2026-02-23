@@ -30,8 +30,6 @@
 #include "tx_builder.h"
 
 //local headers
-#include "carrot_core/device_ram_borrowed.h"
-#include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
@@ -45,11 +43,13 @@
 #include "common/threadpool.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_config.h"
 #include "cryptonote_core/blockchain.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
+#include "misc_log_ex.h"
 #include "ringct/bulletproofs_plus.h"
 #include "ringct/rctSigs.h"
 
@@ -76,7 +76,7 @@ static constexpr T div_ceil(T dividend, T divisor)
 //-------------------------------------------------------------------------------------------------------------------
 static bool is_transfer_usable_for_input_selection(const wallet2_basic::transfer_details &td,
     const std::uint32_t from_account,
-    const std::set<std::uint32_t> from_subaddresses,
+    const std::set<std::uint32_t> &from_subaddresses,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
     const uint64_t top_block_index)
@@ -91,6 +91,7 @@ static bool is_transfer_usable_for_input_selection(const wallet2_basic::transfer
         && (from_subaddresses.empty() || from_subaddresses.count(td.m_subaddr_index.minor) == 1)
         && td.amount() >= ignore_below
         && td.amount() <= ignore_above
+        && td.amount() > 0
     ;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -562,6 +563,8 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         ignore_above,
         ignore_below,
         top_block_index);
+    CARROT_CHECK_AND_THROW(!input_candidates.empty(),
+        carrot::not_enough_usable_money, "No unlocked/usable money");
 
     const carrot::input_selection_policy_t isp = &carrot::ispolicy::select_greedy_aging;
 
