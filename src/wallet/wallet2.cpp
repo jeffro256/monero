@@ -134,7 +134,8 @@ using namespace cryptonote;
 #define RECENT_OUTPUT_ZONE ((time_t)(RECENT_OUTPUT_DAYS * 86400))
 #define RECENT_OUTPUT_BLOCKS (RECENT_OUTPUT_DAYS * 720)
 
-#define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
+#define FEE_ESTIMATE_GRACE_BLOCKS_2021   10 // estimate fee valid for that many blocks
+#define FEE_ESTIMATE_GRACE_BLOCKS_2026 1000 // estimate fee valid for that many blocks
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
@@ -8736,8 +8737,10 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_dynamic_base_fee_estimate()
 {
+  const std::uint64_t grace_blocks = use_fork_rules(HF_VERSION_2026_SCALING)
+    ? FEE_ESTIMATE_GRACE_BLOCKS_2026 : FEE_ESTIMATE_GRACE_BLOCKS_2021;
   uint64_t fee;
-  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate(FEE_ESTIMATE_GRACE_BLOCKS, fee);
+  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate(grace_blocks, fee);
   if (!result)
     return fee;
   const uint64_t base_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE) ? FEE_PER_BYTE : FEE_PER_KB;
@@ -8768,8 +8771,11 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
     priority = fee_priority_utilities::clamp_modified(priority);
     priority = fee_priority_utilities::decrease(priority);
 
+    const std::uint64_t grace_blocks = use_fork_rules(HF_VERSION_2026_SCALING)
+      ? FEE_ESTIMATE_GRACE_BLOCKS_2026 : FEE_ESTIMATE_GRACE_BLOCKS_2021;
+
     std::vector<uint64_t> fees;
-    boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate_2021_scaling(FEE_ESTIMATE_GRACE_BLOCKS, fees);
+    boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, fees);
     if (result)
     {
       MERROR("Failed to determine base fee, using default");

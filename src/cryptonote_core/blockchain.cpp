@@ -4075,6 +4075,7 @@ void Blockchain::get_dynamic_base_fee_estimate_2026_scaling(const uint64_t base_
 
   const uint64_t Mfw = std::max<std::uint64_t>(Mlw, CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17);
 
+  // f_X
   std::uint64_t max_marginal_penalty_rate{};
   {
     // Maximum penalty per byte for a tx paying for itself at the edge of B=1
@@ -4154,7 +4155,11 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
   const uint8_t version = get_current_hard_fork_version();
   const uint64_t db_height = m_db->height();
 
-  CHECK_AND_ASSERT_THROW_MES(grace_blocks <= CRYPTONOTE_REWARD_BLOCKS_WINDOW, "Grace blocks invalid In 2021 fee scaling estimate.");
+  if (version < HF_VERSION_2026_SCALING)
+  {
+    CHECK_AND_ASSERT_THROW_MES(grace_blocks <= CRYPTONOTE_REWARD_BLOCKS_WINDOW,
+      "Grace blocks invalid In 2021 fee scaling estimate.");
+  }
 
   const uint64_t already_generated_coins = db_height ? m_db->get_block_already_generated_coins(db_height - 1) : 0;
   uint64_t base_reward;
@@ -4169,7 +4174,7 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
   // Ml: penalty free zone (dynamic), aka long_term_median, aka median of max((min(Mb, 1.7 * Ml), Zm), Ml / 1.7)
   // Zm: 300000 (minimum penalty free zone)
   //
-  // So we copy the current rolling median state, add 10 (grace_blocks) zeroes to it, and get back Mlw
+  // So we copy the current rolling median state, add `grace_blocks` zeroes to it, and get back Mlw
 
   epee::misc_utils::rolling_median_t<uint64_t> rm = m_long_term_block_weights_cache_rolling_median;
   for (size_t i = 0; i < grace_blocks; ++i)
@@ -4193,7 +4198,7 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
 
   const uint64_t Mnw = std::min(Msw_effective_short_term_median, 50 * Mlw_penalty_free_zone_for_wallet);
 
-  get_dynamic_base_fee_estimate_2021_scaling(base_reward, Mnw, Mlw_penalty_free_zone_for_wallet, fees);    
+  get_dynamic_base_fee_estimate_2021_scaling(base_reward, Mnw, Mlw_penalty_free_zone_for_wallet, fees);
 }
 //------------------------------------------------------------------
 // This function checks to see if a tx is unlocked.  unlock_time is either
