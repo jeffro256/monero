@@ -1113,7 +1113,7 @@ private:
      * return: true iff wallet's cached blockchain is past the fork version, within said threshold
      */
     bool use_fork_rules_offline(uint8_t version, int64_t early_blocks = 0) const;
-    fee_algorithm get_fee_algorithm();
+    fee_algorithm get_fee_algorithm(bool offline = false);
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
