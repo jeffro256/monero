@@ -4110,9 +4110,8 @@ void Blockchain::get_dynamic_base_fee_estimate_2026_scaling(const uint64_t base_
     boost::multiprecision::uint128_t fee = f_l;
     fee *= fee_multipler;
 
-    const bool is_last_fee_level = (i + 1) == n_fee_levels;
-    const std::uint64_t fee_floor = is_last_fee_level ? max_marginal_penalty_rate : 0;
-    const std::uint64_t fee64 = std::max(fee_floor, boost::numeric_cast<std::uint64_t>(fee));
+    const bool is_last_level = (i + 1) == n_fee_levels;
+    const std::uint64_t fee64 = is_last_level ? max_marginal_penalty_rate : boost::numeric_cast<std::uint64_t>(fee);
     assert(fee64 >= get_dynamic_base_fee(base_reward, Mfw, HF_VERSION_2026_SCALING));
     fees.push_back(cryptonote::round_money_up(fee64, CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES));
 
