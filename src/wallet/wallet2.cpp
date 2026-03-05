@@ -5399,13 +5399,13 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
     if (field_default_priority_found)
     {
-      m_default_priority = fee_priority_utilities::from_integral(boost::numeric_cast<uint32_t>(field_default_priority));
+      m_default_priority = fee_priority_utilities::from_integral(boost::numeric_cast<uint32_t>(field_default_priority), get_fee_algorithm(true/*offline*/));
     }
     else
     {
       GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
       if (field_default_fee_multiplier_found)
-        m_default_priority = fee_priority_utilities::from_integral(boost::numeric_cast<uint32_t>(field_default_fee_multiplier));
+        m_default_priority = fee_priority_utilities::from_integral(boost::numeric_cast<uint32_t>(field_default_fee_multiplier), get_fee_algorithm(true/*offline*/));
       else
         m_default_priority = fee_priority::Default;
     }
@@ -8695,7 +8695,7 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
   struct fee_step
   {
     fee_priority maximum_priority; // Determines the maximum priority available for said fee algorithm.
-    uint64_t fee_multipliers[4]; // Determines the fee multiplier applied at various priorities for said fee algorithm.
+    uint64_t fee_multipliers[5]; // Determines the fee multiplier applied at various priorities for said fee algorithm.
   };
 
   static constexpr fee_step fee_steps[] =
@@ -8704,6 +8704,7 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
     { fee_priority::Elevated, {1, 20, 166} },
     { fee_priority::Priority, {1, 4, 20, 166} },
     { fee_priority::Priority, {1, 5, 25, 1000} },
+    { fee_priority::Max,      {1, 4, 16, 64, 125} },
   };
 
   if (fee_algorithm == fee_algorithm::Unset)
@@ -8739,10 +8740,10 @@ uint64_t wallet2::get_dynamic_base_fee_estimate()
 {
   const std::uint64_t grace_blocks = use_fork_rules(HF_VERSION_2026_SCALING)
     ? FEE_ESTIMATE_GRACE_BLOCKS_2026 : FEE_ESTIMATE_GRACE_BLOCKS_2021;
-  uint64_t fee;
-  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate(grace_blocks, fee);
+  std::vector<uint64_t> fees;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate(grace_blocks, fees);
   if (!result)
-    return fee;
+    return fees.at(0);
   const uint64_t base_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE) ? FEE_PER_BYTE : FEE_PER_KB;
   LOG_PRINT_L1("Failed to query base fee, using " << print_money(base_fee));
   return base_fee;
@@ -8759,7 +8760,7 @@ uint64_t wallet2::get_base_fee()
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(uint32_t priority)
 {
-  return get_base_fee(fee_priority_utilities::from_integral(priority));
+  return get_base_fee(fee_priority_utilities::from_integral(priority, get_fee_algorithm()));
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(fee_priority priority)
@@ -8767,15 +8768,15 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
   const bool use_2021_scaling = use_fork_rules(HF_VERSION_2021_SCALING, -30 * 1);
   if (use_2021_scaling)
   {
-    // clamp and map to 0..3 indices, mapping 0 (default, but should not end up here) to 0, and 1..4 to 0..3
-    priority = fee_priority_utilities::clamp_modified(priority);
+    // clamp and map to fee indices, mapping 0 (default, but should not end up here) to 0, and 1..5 to 0..4
+    priority = fee_priority_utilities::clamp_modified(priority, get_fee_algorithm());
     priority = fee_priority_utilities::decrease(priority);
 
     const std::uint64_t grace_blocks = use_fork_rules(HF_VERSION_2026_SCALING)
       ? FEE_ESTIMATE_GRACE_BLOCKS_2026 : FEE_ESTIMATE_GRACE_BLOCKS_2021;
 
     std::vector<uint64_t> fees;
-    boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, fees);
+    boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate(grace_blocks, fees);
     if (result)
     {
       MERROR("Failed to determine base fee, using default");
@@ -8811,14 +8812,24 @@ uint64_t wallet2::get_fee_quantization_mask()
   return fee_quantization_mask;
 }
 //----------------------------------------------------------------------------------------------------
-fee_algorithm wallet2::get_fee_algorithm()
+fee_algorithm wallet2::get_fee_algorithm(bool offline)
 {
-  // changes at v3, v5, v8
-  if (use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0))
+  offline = offline || m_offline;
+  const auto use_fork_rules_fn = [this, offline](uint8_t version, int64_t early_blocks = 0) -> bool
+  {
+    return offline
+      ? use_fork_rules_offline(version, early_blocks)
+      : use_fork_rules(version, early_blocks);
+  };
+
+  // changes at v3, v5, v8, v17
+  if (use_fork_rules_fn(HF_VERSION_2026_SCALING, 0))
+    return fee_algorithm::HardforkV17;
+  if (use_fork_rules_fn(HF_VERSION_PER_BYTE_FEE, 0))
     return fee_algorithm::HardforkV8;
-  if (use_fork_rules(5, 0))
+  if (use_fork_rules_fn(5, 0))
     return fee_algorithm::HardforkV5;
-  if (use_fork_rules(3, -30 * 14))
+  if (use_fork_rules_fn(3, -30 * 14))
    return fee_algorithm::HardforkV3;
   return fee_algorithm::PreHardforkV3;
 }
@@ -8872,7 +8883,7 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
 //----------------------------------------------------------------------------------------------------
 fee_priority wallet2::adjust_priority(uint32_t priority)
 {
-  return adjust_priority(fee_priority_utilities::from_integral(priority));
+  return adjust_priority(fee_priority_utilities::from_integral(priority, get_fee_algorithm()));
 }
 //----------------------------------------------------------------------------------------------------
 fee_priority wallet2::adjust_priority(fee_priority priority)

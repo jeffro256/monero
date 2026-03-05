@@ -4160,6 +4160,10 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
     CHECK_AND_ASSERT_THROW_MES(grace_blocks <= CRYPTONOTE_REWARD_BLOCKS_WINDOW,
       "Grace blocks invalid In 2021 fee scaling estimate.");
   }
+  else if (grace_blocks != 1000 /*FEE_ESTIMATE_GRACE_BLOCKS_2026*/)
+  {
+    MWARNING("Grace blocks not equal to expected 1000 in dynamic base fee estimate, possible wallet fingerprint.");
+  }
 
   const uint64_t already_generated_coins = db_height ? m_db->get_block_already_generated_coins(db_height - 1) : 0;
   uint64_t base_reward;
@@ -4168,13 +4172,6 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
     MERROR("Failed to determine block reward, using placeholder " << print_money(BLOCK_REWARD_OVERESTIMATE) << " as a high bound");
     base_reward = BLOCK_REWARD_OVERESTIMATE;
   }
-
-  // we want Mlw = median of max((min(Mbw, 1.7 * Ml), Zm), Ml / 1.7)
-  // Mbw: block weight for the last 99990 blocks, 0 for the next 10
-  // Ml: penalty free zone (dynamic), aka long_term_median, aka median of max((min(Mb, 1.7 * Ml), Zm), Ml / 1.7)
-  // Zm: 300000 (minimum penalty free zone)
-  //
-  // So we copy the current rolling median state, add `grace_blocks` zeroes to it, and get back Mlw
 
   epee::misc_utils::rolling_median_t<uint64_t> rm = m_long_term_block_weights_cache_rolling_median;
   for (size_t i = 0; i < grace_blocks; ++i)
@@ -4187,6 +4184,13 @@ void Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vecto
   {
     return get_dynamic_base_fee_estimate_2026_scaling(base_reward, Mlw_penalty_free_zone_for_wallet, fees);
   }
+
+  // we want Mlw = median of max((min(Mbw, 1.7 * Ml), Zm), Ml / 1.7)
+  // Mbw: block weight for the last 99990 blocks, 0 for the next 10
+  // Ml: penalty free zone (dynamic), aka long_term_median, aka median of max((min(Mb, 1.7 * Ml), Zm), Ml / 1.7)
+  // Zm: 300000 (minimum penalty free zone)
+  //
+  // So we copy the current rolling median state, add `grace_blocks` zeroes to it, and get back Mlw
 
   // Msw: median over [100 - grace blocks] past + [grace blocks] future blocks
   std::vector<uint64_t> weights;
