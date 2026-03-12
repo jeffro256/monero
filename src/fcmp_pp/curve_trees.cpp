@@ -713,7 +713,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
     std::vector<std::vector<UnifiedOutput>> &&new_outputs,
-    const bool use_fast_torsion_check)
+    const bool use_fast_torsion_check) const
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -747,9 +747,9 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
     // they cannot be inserted to the tree.
     std::vector<typename C1::Scalar> flattened_leaves;
-    this->set_valid_leaves(flattened_leaves,
+    this->outputs_to_leaves(std::move(flat_sorted_outputs),
+        flattened_leaves,
         tree_extension.leaves.tuples,
-        std::move(flat_sorted_outputs),
         use_fast_torsion_check);
 
     if (flattened_leaves.empty())
@@ -829,7 +829,7 @@ template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::g
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
     std::vector<std::vector<UnifiedOutput>> &&new_outputs,
-    const bool use_fast_torsion_check);
+    const bool use_fast_torsion_check) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 CompressedTreeExtension CurveTrees<C1, C2>::compress_tree_extension(
@@ -1508,13 +1508,15 @@ template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::p
 // CurveTrees private member functions
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void CurveTrees<C1, C2>::set_valid_leaves(
+void CurveTrees<C1, C2>::outputs_to_leaves(std::vector<UnifiedOutput> &&new_outputs,
     std::vector<typename C1::Scalar> &flattened_leaves_out,
-    std::vector<UnifiedOutput> &tuples_out,
-    std::vector<UnifiedOutput> &&new_outputs,
-    const bool use_fast_torsion_check)
+    std::vector<UnifiedOutput> &valid_outputs_out,
+    const bool use_fast_torsion_check) const
 {
-    TIME_MEASURE_START(set_valid_leaves);
+    flattened_leaves_out.clear();
+    valid_outputs_out.clear();
+
+    TIME_MEASURE_START(outputs_to_leaves);
 
     // Keep track of valid outputs to make sure we only use leaves from valid outputs. Can't use std::vector<bool>
     // because std::vector<bool> concurrent access is not thread safe.
@@ -1673,8 +1675,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     TIME_MEASURE_FINISH(get_selene_scalars);
 
     // Step 5. Set valid tuples to be stored in the db
-    tuples_out.clear();
-    tuples_out.reserve(n_valid_outputs);
+    valid_outputs_out.reserve(n_valid_outputs);
     for (std::size_t i = 0; i < valid_outputs.size(); ++i)
     {
         if (!valid_outputs[i])
@@ -1683,19 +1684,19 @@ void CurveTrees<C1, C2>::set_valid_leaves(
         CHECK_AND_ASSERT_THROW_MES(new_outputs.size() > i, "unexpected size of valid outputs");
 
         // We can derive leaf tuples from output pairs, so we store just the unified output in the db to save 32 bytes
-        tuples_out.emplace_back(std::move(new_outputs[i]));
+        valid_outputs_out.emplace_back(std::move(new_outputs[i]));
     }
 
-    TIME_MEASURE_FINISH(set_valid_leaves);
+    TIME_MEASURE_FINISH(outputs_to_leaves);
 
     m_convert_valid_leaves_ms += convert_valid_leaves;
     m_collect_derivatives_ms  += collect_derivatives;
     m_batch_invert_ms         += batch_invert;
     m_get_selene_scalars_ms   += get_selene_scalars;
 
-    m_set_valid_leaves_ms     += set_valid_leaves;
+    m_outputs_to_leaves_ms     += outputs_to_leaves;
 
-    LOG_PRINT_L2("Total time spent setting leaves: " << m_set_valid_leaves_ms / 1000
+    LOG_PRINT_L2("Total time spent setting leaves: " << m_outputs_to_leaves_ms / 1000
         << " , converting valid leaves: " << m_convert_valid_leaves_ms / 1000
         << " , collecting derivatives: "  << m_collect_derivatives_ms / 1000
         << " , batch invert: "            << m_batch_invert_ms / 1000
