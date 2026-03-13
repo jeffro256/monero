@@ -6340,6 +6340,9 @@ bool simple_wallet::prompt_if_old(const std::vector<tools::wallet2::pending_tx> 
   int max_n_old = 0;
   for (const auto &ptx: ptx_vector)
   {
+    if (ptx.tx.rct_signatures.type >= rct::RCTTypeFcmpPlusPlus)
+      continue;
+
     int n_old = 0;
     for (const auto i: ptx.selected_transfers)
     {
