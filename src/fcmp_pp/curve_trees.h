@@ -206,7 +206,7 @@ public:
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
         std::vector<std::vector<UnifiedOutput>> &&new_outputs,
-        const bool use_fast_torsion_check = false);
+        const bool use_fast_torsion_check = false) const;
 
     // Compress all the points in the tree extension
     CompressedTreeExtension compress_tree_extension(TreeExtension &&tree_extension) const;
@@ -246,12 +246,11 @@ public:
         const uint64_t n_leaf_tuples,
         const uint64_t leaf_tuple_idx) const;
 private:
-    // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
-    void set_valid_leaves(
+    // Multithreaded helper function to convert valid outputs to leaf tuples ready for insertion to the tree & db
+    void outputs_to_leaves(std::vector<UnifiedOutput> &&new_outputs,
         std::vector<typename C1::Scalar> &flattened_leaves_out,
-        std::vector<UnifiedOutput> &tuples_out,
-        std::vector<UnifiedOutput> &&new_outputs,
-        const bool use_fast_torsion_check = false);
+        std::vector<UnifiedOutput> &valid_outputs_out,
+        const bool use_fast_torsion_check = false) const;
 
     // Helper function used to set the next layer extension used to grow the next layer in the tree
     // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
@@ -266,15 +265,15 @@ private:
 
 //private state
 private:
-    uint64_t m_set_valid_leaves_ms{0};
-    uint64_t m_get_selene_scalars_ms{0};
-    uint64_t m_batch_invert_ms{0};
-    uint64_t m_collect_derivatives_ms{0};
-    uint64_t m_convert_valid_leaves_ms{0};
+    mutable uint64_t m_outputs_to_leaves_ms{0};
+    mutable uint64_t m_get_selene_scalars_ms{0};
+    mutable uint64_t m_batch_invert_ms{0};
+    mutable uint64_t m_collect_derivatives_ms{0};
+    mutable uint64_t m_convert_valid_leaves_ms{0};
 
-    uint64_t m_sorting_outputs_ms{0};
-    uint64_t m_hash_leaves_ms{0};
-    uint64_t m_hash_layers_ms{0};
+    mutable uint64_t m_sorting_outputs_ms{0};
+    mutable uint64_t m_hash_leaves_ms{0};
+    mutable uint64_t m_hash_layers_ms{0};
 
 //public member variables
 public:
