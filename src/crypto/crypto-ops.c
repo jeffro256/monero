@@ -3904,9 +3904,84 @@ of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
 We reduce by converting the field elem to its byte repr, then re-deriving the
 field elem from the byte repr.
 */
-int fe_reduce_vartime(fe reduced_f, const fe f)
+void fe_reduce(fe reduced_f, const fe f)
 {
-  unsigned char f_bytes[32];
-  fe_tobytes(f_bytes, f);
-  return fe_frombytes_vartime(reduced_f, f_bytes);
+#define D24 (1l << 24)
+#define D25 (1l << 25)
+
+  int32_t f0 = f[0];
+  int32_t f1 = f[1];
+  int32_t f2 = f[2];
+  int32_t f3 = f[3];
+  int32_t f4 = f[4];
+  int32_t f5 = f[5];
+  int32_t f6 = f[6];
+  int32_t f7 = f[7];
+  int32_t f8 = f[8];
+  int32_t f9 = f[9];
+  int32_t q;
+  int32_t carry0;
+  int32_t carry1;
+  int32_t carry2;
+  int32_t carry3;
+  int32_t carry4;
+  int32_t carry5;
+  int32_t carry6;
+  int32_t carry7;
+  int32_t carry8;
+  int32_t carry9;
+
+  /*
+  According to the C standard, the resulting value of right-shift of negative
+  signed integers is implementation-defined. Worse, left-shift of negative
+  signed integers triggers undefined behavior for some strange reason. So, this
+  code is not technically portable. However, both types of shifts are
+  well-defined in GCC as "arithmetic shifts", as well as other compilers aiming
+  to be compatible with GCC (e.g. Clang). In practice, Visual Studio will
+  *probably* also use arithmetic shifts for signed integers on major desktop
+  platforms. The rest of this file assumes arithmetic shifts, so we keep using
+  it here, but it's important to notice.
+  */
+
+  q = (19 * f9 + D24 + D24) >> 25;
+  q = (f0 + q + D25) >> 26;
+  q = (f1 + q + D24) >> 25;
+  q = (f2 + q + D25) >> 26;
+  q = (f3 + q + D24) >> 25;
+  q = (f4 + q + D25) >> 26;
+  q = (f5 + q + D24) >> 25;
+  q = (f6 + q + D25) >> 26;
+  q = (f7 + q + D24) >> 25;
+  q = (f8 + q + D25) >> 26;
+  q = (f9 + q + D24) >> 25;
+
+  /* Goal: Output f-(2^255-19)q, which is between 0 and 2^255-20. */
+  f0 += 19 * q;
+  /* Goal: Output h-2^255 q, which is between 0 and 2^255-20. */
+
+  carry0 = (f0 + D25) >> 26; f1 += carry0; f0 -= carry0 << 26;
+  carry1 = (f1 + D24) >> 25; f2 += carry1; f1 -= carry1 << 25;
+  carry2 = (f2 + D25) >> 26; f3 += carry2; f2 -= carry2 << 26;
+  carry3 = (f3 + D24) >> 25; f4 += carry3; f3 -= carry3 << 25;
+  carry4 = (f4 + D25) >> 26; f5 += carry4; f4 -= carry4 << 26;
+  carry5 = (f5 + D24) >> 25; f6 += carry5; f5 -= carry5 << 25;
+  carry6 = (f6 + D25) >> 26; f7 += carry6; f6 -= carry6 << 26;
+  carry7 = (f7 + D24) >> 25; f8 += carry7; f7 -= carry7 << 25;
+  carry8 = (f8 + D25) >> 26; f9 += carry8; f8 -= carry8 << 26;
+  carry9 = (f9 + D24) >> 25;               f9 -= carry9 << 25;
+                  /* f10 = carry9 */
+
+  reduced_f[0] = f0;
+  reduced_f[1] = f1;
+  reduced_f[2] = f2;
+  reduced_f[3] = f3;
+  reduced_f[4] = f4;
+  reduced_f[5] = f5;
+  reduced_f[6] = f6;
+  reduced_f[7] = f7;
+  reduced_f[8] = f8;
+  reduced_f[9] = f9;
+
+#undef D24
+#undef D25
 }

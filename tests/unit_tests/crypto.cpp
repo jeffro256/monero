@@ -26,18 +26,21 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "crypto/crypto.h"
+#include <boost/numeric/conversion/cast.hpp>
 #include <cstdint>
+#include <cstring>
 #include <gtest/gtest.h>
-#include <memory>
 #include <sstream>
 #include <string>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/generators.h"
-#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
@@ -344,4 +347,111 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+static bool fe_is_reduced(const fe f)
+{
+  static constexpr int32_t limit_even = (1 << 25) * 11 / 10;
+  static constexpr int32_t limit_odd = (1 << 24) * 11 / 10;
+  for (int i = 0; i < 10; ++i)
+  {
+    const int32_t limit = (i & 1) ? limit_odd : limit_even;
+    if (f[i] < -limit || f[i] > limit)
+      return false;
+  }
+  return true;
+}
+
+static void fe_frombytes_from64(fe f, const int64_t x)
+{
+  boost::multiprecision::int256_t x_256 = x;
+  if (x_256 < 0)
+  {
+    boost::multiprecision::int256_t q = 1;
+    q <<= 254;
+    q -= 10;
+    q <<= 1;
+    q += 1;
+    x_256 += q;
+  }
+  assert(x_256 >= 0);
+  assert(!(x_256 >> 255));
+  unsigned char x_bytes[32]{};
+  for (int i = 0; i < 32; ++i)
+  {
+    x_bytes[i] = boost::numeric_cast<unsigned char>(x_256 & 255);
+    x_256 >>= 8;
+  }
+  const int r = fe_frombytes_vartime(f, x_bytes);
+  (void) r;
+  assert(r == 0);
+}
+
+TEST(Crypto, fe_reduce_simple_reprs)
+{
+  static constexpr int MIN = -400;
+  static constexpr int MAX = 400;
+
+  for (int a = MIN; a <= MAX; ++a)
+  {
+    for (int b = MIN; b <= MAX; ++b)
+    {
+      /*
+      For each (a, b) in [MIN, MAX], check that fe_reduce(a + b) == a + b,
+      after converting to byte representation.
+      */
+      fe a_fe;
+      fe b_fe;
+      fe c_fe;
+      fe c_fe_reduced;
+      unsigned char c_bytes_1[32];
+      unsigned char c_bytes_2[32];
+      fe_frombytes_from64(a_fe, a);
+      fe_frombytes_from64(b_fe, b);
+      fe_add(c_fe, a_fe, b_fe);
+      fe_reduce(c_fe_reduced, c_fe);
+      ASSERT_TRUE(fe_is_reduced(c_fe_reduced));
+      fe_tobytes(c_bytes_1, c_fe);
+      fe_tobytes(c_bytes_2, c_fe_reduced);
+      ASSERT_EQ(0, memcmp(c_bytes_1, c_bytes_2, 32));
+
+      // UNIT TEST ONLY: Check fe_frombytes_from64()
+      {
+        fe c_fe_from64;
+        const int c = a + b;
+        fe_frombytes_from64(c_fe_from64, c);
+        fe_tobytes(c_bytes_2, c_fe_from64);
+        ASSERT_EQ(0, memcmp(c_bytes_1, c_bytes_2, 32));
+      }
+    }
+  }
+}
+
+TEST(Crypto, fe_reduce_random_reprs)
+{
+  static constexpr int32_t repr_limit_even = (1 << 26) * 11 / 10;
+  static constexpr int32_t repr_limit_odd = (1 << 25) * 11 / 10;
+  static constexpr int n_tries = 100000;
+
+  for (int i = 0; i < n_tries; ++i)
+  {
+    fe a;
+    fe a_reduced;
+    unsigned char a_bytes[32];
+    unsigned char a_reduced_bytes[32];
+
+    // Generate a random fe representation
+    for (int j = 0; j < 10; ++j)
+    {
+      const int32_t repr_limit = (j & 1) ? repr_limit_odd : repr_limit_even;
+      a[j] = crypto::rand_range(-repr_limit, repr_limit);
+    }
+
+    // Check that tobytes(a) == tobytes(reduced(a))
+    fe_reduce(a_reduced, a);
+    ASSERT_TRUE(fe_is_reduced(a_reduced));
+    fe_tobytes(a_bytes, a);
+    fe_tobytes(a_reduced_bytes, a_reduced);
+    ASSERT_EQ(0, memcmp(a_bytes, a_reduced_bytes, 32));
+  }
 }
