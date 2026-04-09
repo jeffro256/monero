@@ -40,7 +40,6 @@
 #include "cryptonote_core/blockchain.h"
 #include "curve_trees.h"
 #include "fcmp_pp/prove.h"
-#include "output_opening_types.h"
 #include "ringct/bulletproofs_plus.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
@@ -109,7 +108,7 @@ static const CarrotUnifiedOutputsAndKeys generate_random_carrot_outputs(
         switch (enote_derive_type)
         {
         case 0: // coinbase enote
-            get_coinbase_output_proposal_v1(normal_payment_proposal,
+            get_coinbase_enote_v1(normal_payment_proposal,
                 mock::gen_block_index(),
                 coinbase_enote);
             push_coinbase = true;

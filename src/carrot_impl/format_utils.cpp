@@ -464,7 +464,7 @@ cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const C
     };
 
     std::vector<CarrotCoinbaseEnoteV1> enotes(1);
-    get_coinbase_output_proposal_v1(payment_proposal, block_index, enotes.front());
+    get_coinbase_enote_v1(payment_proposal, block_index, enotes.front());
 
     return store_carrot_to_coinbase_transaction_v1(enotes, extra_nonce);
 }

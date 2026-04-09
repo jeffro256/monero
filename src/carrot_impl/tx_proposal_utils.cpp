@@ -77,7 +77,7 @@ static void append_additional_payment_proposal_if_necessary(
         if (selfsend_payment_proposal.proposal.enote_type == CarrotEnoteType::PAYMENT)
             have_payment_type_selfsend = true;
 
-    const auto additional_output_proposal = get_additional_output_proposal(normal_payment_proposals_inout.size(),
+    const auto additional_payment_proposal = get_additional_payment_proposal(normal_payment_proposals_inout.size(),
         selfsend_payment_proposals_inout.size(),
         /*needed_change_amount=*/0,
         have_payment_type_selfsend,
@@ -87,7 +87,7 @@ static void append_additional_payment_proposal_if_necessary(
         normal_payment_proposals_inout,
         selfsend_payment_proposals_inout,
         change_subaddr_index
-    }, additional_output_proposal);
+    }, additional_payment_proposal);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

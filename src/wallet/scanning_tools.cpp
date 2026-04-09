@@ -284,14 +284,14 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_pre_car
 //-------------------------------------------------------------------------------------------------------------------
 static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_coinbase_enote(
     const carrot::CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const carrot::subaddress_map &subaddress_map)
 {
     enote_view_incoming_scan_info_t res;
 
     if (!carrot::try_scan_carrot_coinbase_enote_receiver(enote,
-            s_sender_receiver_unctx,
+            s_sender_receiver,
             main_address_spend_pubkeys,
             res.sender_extension_g,
             res.sender_extension_t,
@@ -312,7 +312,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
 static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_enote_sender(
     const carrot::CarrotEnoteV1 &enote,
     const std::optional<carrot::encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const cryptonote::account_public_address &cn_addr)
 {
     for (unsigned is_subaddress = 0; is_subaddress < 2; ++is_subaddress)
@@ -330,7 +330,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
         if (!carrot::try_scan_carrot_enote_external_sender(enote,
                 encrypted_payment_id,
                 destination,
-                s_sender_receiver_unctx,
+                s_sender_receiver,
                 res.sender_extension_g,
                 res.sender_extension_t,
                 res.amount,
@@ -356,7 +356,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
 static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_enote_receiver(
     const carrot::CarrotEnoteV1 &enote,
     const std::optional<carrot::encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const carrot::subaddress_map &subaddress_map)
@@ -368,7 +368,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
     carrot::CarrotEnoteType dummy_enote_type;
     if (!carrot::try_scan_carrot_enote_external_receiver(enote,
             encrypted_payment_id,
-            s_sender_receiver_unctx,
+            s_sender_receiver,
             main_address_spend_pubkeys,
             k_view_incoming_dev,
             res.sender_extension_g,
@@ -521,11 +521,11 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote(
             const crypto::key_derivation &kd = main_derivations.size()
                 ? main_derivations[0]
                 : additional_derivations[local_output_index];
-            const mx25519_pubkey s_sender_receiver_unctx = carrot::raw_byte_convert<mx25519_pubkey>(kd);
+            const mx25519_pubkey s_sender_receiver = carrot::raw_byte_convert<mx25519_pubkey>(kd);
 
             const bool scan_as_sender = k_view_incoming_dev == nullptr;
             return view_incoming_scan_carrot_coinbase_enote(enote,
-                s_sender_receiver_unctx,
+                s_sender_receiver,
                 scan_as_sender
                     ? epee::span<const crypto::public_key>(&address.m_spend_public_key, 1)
                     : main_address_spend_pubkeys,
@@ -537,21 +537,21 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote(
             const crypto::key_derivation &kd = main_derivations.size()
                 ? main_derivations[0]
                 : additional_derivations[local_output_index];
-            const mx25519_pubkey s_sender_receiver_unctx = carrot::raw_byte_convert<mx25519_pubkey>(kd);
+            const mx25519_pubkey s_sender_receiver = carrot::raw_byte_convert<mx25519_pubkey>(kd);
 
             const bool scan_as_sender = k_view_incoming_dev == nullptr;
             if (scan_as_sender)
             {
                 return view_incoming_scan_carrot_enote_sender(enote,
                     encrypted_payment_id,
-                    s_sender_receiver_unctx,
+                    s_sender_receiver,
                     address);
             }
             else
             {
                 return view_incoming_scan_carrot_enote_receiver(enote,
                     encrypted_payment_id,
-                    s_sender_receiver_unctx,
+                    s_sender_receiver,
                     *k_view_incoming_dev,
                     main_address_spend_pubkeys,
                     subaddress_map);
