@@ -129,9 +129,11 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     // 4. s_sr = k_v D_e
     const mx25519_pubkey &enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(ephemeral_pubkey_idx);
     mx25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(addr_dev,
-        enote_ephemeral_pubkey,
-        s_sender_receiver);
+    CHECK_AND_ASSERT_THROW_MES(
+        carrot::try_make_carrot_shared_key_receiver(addr_dev,
+            enote_ephemeral_pubkey,
+            s_sender_receiver),
+        "Invalid enote ephemeral pubkey point");
 
     // 5. input_context
     carrot::input_context_t input_context;

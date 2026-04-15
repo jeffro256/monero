@@ -227,9 +227,10 @@ public:
         m_enote = output_proposal.enote;
 
         mx25519_pubkey s_sender_receiver;
-        carrot::try_make_carrot_shared_key_receiver(m_k_view_incoming,
-            m_enote.enote_ephemeral_pubkey,
-            s_sender_receiver);
+        if (!carrot::try_make_carrot_shared_key_receiver(m_k_view_incoming,
+                m_enote.enote_ephemeral_pubkey,
+                s_sender_receiver))
+            return false;
 
         crypto::secret_key _1, _2, _3;
         crypto::public_key recovered_address_spend_pubkey;
@@ -271,7 +272,7 @@ public:
     bool test()
     {
         mx25519_pubkey s_sender_receiver;
-        carrot::try_make_carrot_shared_key_receiver(m_k_view_incoming,
+        const bool s_sr_ok = carrot::try_make_carrot_shared_key_receiver(m_k_view_incoming,
             m_enote.enote_ephemeral_pubkey,
             s_sender_receiver);
 
@@ -293,7 +294,7 @@ public:
             recovered_payment_id,
             recovered_enote_type);
 
-        return scan_success ^ m_test_view_tag_check;
+        return s_sr_ok & (scan_success ^ m_test_view_tag_check);
     }
 
 private:

@@ -189,9 +189,10 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
             {
                 // s_sr = k_v D_e
                 mx25519_pubkey s_sender_receiver;
-                carrot::try_make_carrot_shared_key_receiver(*k_view_incoming_dev,
-                    hint.enote_ephemeral_pubkey,
-                    s_sender_receiver);
+                if (!carrot::try_make_carrot_shared_key_receiver(*k_view_incoming_dev,
+                        hint.enote_ephemeral_pubkey,
+                        s_sender_receiver))
+                    return false;
 
                 // s^ctx_sr = H_32(k_v D_e, D_e, input_context)
                 carrot::make_carrot_contextualized_sender_receiver_secret(

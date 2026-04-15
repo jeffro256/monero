@@ -37,7 +37,7 @@
 #include "crypto/generators.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
-#include "device/device_default.hpp"
+#include "device/device.hpp"
 #include "ringct/rctOps.h"
 
 using namespace carrot;

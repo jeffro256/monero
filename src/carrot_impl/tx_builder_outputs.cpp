@@ -147,7 +147,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     for (const auto &selfsend_payment_proposal : selfsend_payment_proposals)
         selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
 
-    // derive enote proposals
+    // derive enote proposals (only to get proposal order in output set)
     std::vector<RCTOutputEnoteProposal> output_enote_proposals_out;
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals(normal_payment_proposals,
@@ -185,8 +185,9 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
                 make_carrot_input_context(tx_first_key_image));
             // s_sr = d_e ConvertPointE(K^j_v)
             mx25519_pubkey s_sender_receiver;
-            try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
-                normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver);
+            CARROT_CHECK_AND_THROW(try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
+                    normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver),
+                invalid_point, "Invalid address view pubkey");
             crypto::secret_key &s_sender_receiver_sk = s_sender_receiver_out.emplace_back();
             memcpy(&unwrap(unwrap(s_sender_receiver_sk)), &s_sender_receiver, sizeof(s_sender_receiver_sk));
         }
