@@ -46,7 +46,6 @@
 #include "cryptonote_config.h"
 #include "cryptonote_core/blockchain.h"
 #include "fcmp_pp/fcmp_pp_types.h"
-#include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"

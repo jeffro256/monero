@@ -921,7 +921,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(
     let inputs: &[*const FcmpPpProveMembershipInput] = inputs.into();
     debug_assert_eq!(
         proof_len,
-        _slow_membership_proof_size(inputs.len(), n_tree_layers)
+        membership_proof_size(inputs.len(), n_tree_layers)
     );
     let mut buf_out = core::slice::from_raw_parts_mut(fcmp_proof_out, proof_len);
 
@@ -934,14 +934,13 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(
     }
 }
 
-// These functions are slow as implemented. We use a table in fcmp_pp/proof_len.h
 #[no_mangle]
-pub extern "C" fn _slow_membership_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+pub extern "C" fn membership_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
     Fcmp::<Curves>::proof_size(n_inputs, n_tree_layers)
 }
 
 #[no_mangle]
-pub extern "C" fn _slow_fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+pub extern "C" fn fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
     FcmpPlusPlus::proof_size(n_inputs, n_tree_layers)
 }
 
@@ -980,7 +979,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     if n_inputs != key_images.len {
         return -3;
     }
-    debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
+    debug_assert_eq!(proof_len, fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
     let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return -4;
