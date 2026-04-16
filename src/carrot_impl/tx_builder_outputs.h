@@ -82,7 +82,7 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
  * param: s_view_balance_dev - device for s_vb (optional)
  * param: k_view_dev - device for k_v (optional)
  * param: tx_first_key_image - KI_1
- * outparam: s_sender_receiver_unctx_out - s_sr for each enote in order of output enote enote set
+ * outparam: s_sender_receiver_out - s_sr for each enote in order of output enote enote set
  * outparam: payment_proposal_order_out - order of payment proposals in resultant output enote set
  */
 void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
@@ -90,7 +90,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::key_image &tx_first_key_image,
-    std::vector<crypto::secret_key> &s_sender_receiver_unctx_out,
+    std::vector<crypto::secret_key> &s_sender_receiver_out,
     std::vector<std::pair<bool, std::size_t>> &payment_proposal_order_out);
 /**
  * brief: make_signable_tx_hash_from_proposal_v1 - make signable transaction hash from tx proposal and keys

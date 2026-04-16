@@ -133,13 +133,13 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::key_image &tx_first_key_image,
-    std::vector<crypto::secret_key> &s_sender_receiver_unctx_out,
+    std::vector<crypto::secret_key> &s_sender_receiver_out,
     std::vector<std::pair<bool, std::size_t>> &payment_proposal_order_out)
 {
-    s_sender_receiver_unctx_out.clear();
+    s_sender_receiver_out.clear();
 
     const std::size_t n_outputs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
-    s_sender_receiver_unctx_out.reserve(n_outputs);
+    s_sender_receiver_out.reserve(n_outputs);
 
     // collect self-sends proposal cores
     std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
@@ -147,7 +147,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     for (const auto &selfsend_payment_proposal : selfsend_payment_proposals)
         selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
 
-    // derive enote proposals
+    // derive enote proposals (only to get proposal order in output set)
     std::vector<RCTOutputEnoteProposal> output_enote_proposals_out;
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals(normal_payment_proposals,
@@ -163,7 +163,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     // special case: 2-out, 2-selfsend tx
     if (n_outputs == 2 && selfsend_payment_proposals.size() == 2)
     {
-        s_sender_receiver_unctx_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+        s_sender_receiver_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
         return;
     }
 
@@ -175,7 +175,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
         {
             if (n_outputs == 2)
                 continue;
-            s_sender_receiver_unctx_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+            s_sender_receiver_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
         }
         else
         {
@@ -184,11 +184,12 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
             const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(normal_payment_proposal,
                 make_carrot_input_context(tx_first_key_image));
             // s_sr = d_e ConvertPointE(K^j_v)
-            mx25519_pubkey s_sender_receiver_unctx;
-            make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
-                normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver_unctx);
-            crypto::secret_key &s_sender_receiver_unctx_sk = s_sender_receiver_unctx_out.emplace_back();
-            memcpy(&unwrap(unwrap(s_sender_receiver_unctx_sk)), &s_sender_receiver_unctx, sizeof(s_sender_receiver_unctx_sk));
+            mx25519_pubkey s_sender_receiver;
+            CARROT_CHECK_AND_THROW(try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
+                    normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver),
+                invalid_point, "Invalid address view pubkey");
+            crypto::secret_key &s_sender_receiver_sk = s_sender_receiver_out.emplace_back();
+            memcpy(&unwrap(unwrap(s_sender_receiver_sk)), &s_sender_receiver, sizeof(s_sender_receiver_sk));
         }
     }
 }

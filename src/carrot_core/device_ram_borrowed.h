@@ -43,7 +43,7 @@
 namespace carrot
 {
 
-class view_incoming_key_ram_borrowed_device: virtual public view_incoming_key_device
+class view_incoming_key_ram_borrowed_device : virtual public view_incoming_key_device
 {
 public:
     view_incoming_key_ram_borrowed_device(const crypto::secret_key &k_view_incoming):
@@ -64,7 +64,7 @@ protected:
     const crypto::secret_key &m_k_view_incoming;
 };
 
-class view_balance_secret_ram_borrowed_device: public view_balance_secret_device
+class view_balance_secret_ram_borrowed_device final : public view_balance_secret_device
 {
 public:
     view_balance_secret_ram_borrowed_device(const crypto::secret_key &s_view_balance):
@@ -76,13 +76,13 @@ public:
 
     void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
-        crypto::hash &s_sender_receiver_out) const override;
+        crypto::hash &s_sender_receiver_ctx_out) const override;
 
 protected:
     const crypto::secret_key &m_s_view_balance;
 };
 
-class generate_address_secret_ram_borrowed_device: public generate_address_secret_device
+class generate_address_secret_ram_borrowed_device final : public generate_address_secret_device
 {
 public:
     generate_address_secret_ram_borrowed_device(const crypto::secret_key &s_generate_address):
@@ -96,7 +96,7 @@ protected:
     const crypto::secret_key &m_s_generate_address;
 };
 
-class generate_image_key_ram_borrowed_device: public generate_image_key_device
+class generate_image_key_ram_borrowed_device final : public generate_image_key_device
 {
 public:
     generate_image_key_ram_borrowed_device(const crypto::secret_key &k_generate_image):

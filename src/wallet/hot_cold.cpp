@@ -128,10 +128,12 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
 
     // 4. s_sr = k_v D_e
     const mx25519_pubkey &enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(ephemeral_pubkey_idx);
-    mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(addr_dev,
-        enote_ephemeral_pubkey,
-        s_sender_receiver_unctx);
+    mx25519_pubkey s_sender_receiver;
+    CHECK_AND_ASSERT_THROW_MES(
+        carrot::try_make_carrot_shared_key_receiver(addr_dev,
+            enote_ephemeral_pubkey,
+            s_sender_receiver),
+        "Invalid enote ephemeral pubkey point");
 
     // 5. input_context
     carrot::input_context_t input_context;
@@ -139,11 +141,12 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
         "cannot export transfer details: failed to parse input context");
 
     // 6. s^ctx_sr = H_32(s_sr, D_e, input_context)
-    crypto::hash s_sender_receiver; //! @TODO: wipe
-    carrot::make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+    crypto::hash s_sender_receiver_ctx; //! @TODO: wipe
+    carrot::make_carrot_contextualized_sender_receiver_secret(
+        s_sender_receiver.data,
         enote_ephemeral_pubkey,
         input_context,
-        s_sender_receiver);
+        s_sender_receiver_ctx);
 
     // 7. get encrypted janus anchor: anchor_enc
     CHECK_AND_ASSERT_THROW_MES(td.m_internal_output_index < td.m_tx.vout.size(),
@@ -155,7 +158,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     const crypto::public_key &onetime_address = o_carrot->key;
 
     // 8. anchor = m_anchor XOR anchor_enc
-    etd.janus_anchor = carrot::decrypt_carrot_anchor(encrypted_janus_anchor, s_sender_receiver, onetime_address);
+    etd.janus_anchor = carrot::decrypt_carrot_anchor(encrypted_janus_anchor, s_sender_receiver_ctx, onetime_address);
 
     // 9. treat as selfsend iff special janus check passes
     etd.flags.m_selfsend = 0;
@@ -184,7 +187,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
 
     // 12. calc k_a assuming enote_type="change": k_a' = H_n(s^ctx_sr, a, K^j_s, "change")
     crypto::secret_key change_amount_blinding_factor;
-    carrot::make_carrot_amount_blinding_factor(s_sender_receiver,
+    carrot::make_carrot_amount_blinding_factor(s_sender_receiver_ctx,
         td.amount(),
         address_spend_pubkey,
         carrot::CarrotEnoteType::CHANGE,
@@ -198,7 +201,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     {
         // pid = m_pid XOR pid_enc
         etd.payment_id = carrot::decrypt_legacy_payment_id(*encrypted_payment_id,
-            s_sender_receiver,
+            s_sender_receiver_ctx,
             onetime_address);
 
         // do normal janus verification and reset PID if d_e is null-bound
@@ -369,7 +372,7 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
         };
 
         carrot::CarrotCoinbaseEnoteV1 enote;
-        carrot::get_coinbase_output_proposal_v1(payment_proposal, etd.block_index, enote);
+        carrot::get_coinbase_enote_v1(payment_proposal, etd.block_index, enote);
         td.m_tx = carrot::store_carrot_to_coinbase_transaction_v1({enote}, {});
         td.m_mask = rct::I;
         opening_hint = carrot::CarrotCoinbaseOutputOpeningHintV1{

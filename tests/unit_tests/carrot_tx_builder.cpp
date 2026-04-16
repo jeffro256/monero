@@ -1149,7 +1149,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
     const uint64_t block_index = mock::gen_block_index();
 
     CarrotCoinbaseEnoteV1 coinbase_enote;
-    get_coinbase_output_proposal_v1(normal_payment_proposal,
+    get_coinbase_enote_v1(normal_payment_proposal,
         block_index,
         coinbase_enote);
     const rct::key coinbase_enote_amount_commitment = rct::zeroCommitVartime(coinbase_enote.amount);
@@ -1229,7 +1229,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
     const uint64_t block_index = mock::gen_block_index();
 
     CarrotCoinbaseEnoteV1 coinbase_enote;
-    get_coinbase_output_proposal_v1(normal_payment_proposal,
+    get_coinbase_enote_v1(normal_payment_proposal,
         block_index,
         coinbase_enote);
     const rct::key coinbase_enote_amount_commitment = rct::zeroCommitVartime(coinbase_enote.amount);
