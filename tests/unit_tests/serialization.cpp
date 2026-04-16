@@ -39,7 +39,6 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "fcmp_pp/fcmp_pp_types.h"
-#include "fcmp_pp/proof_len.h"
 #include "ringct/rctSigs.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"

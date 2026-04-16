@@ -28,8 +28,8 @@
 
 #include "fcmp_pp_types.h"
 
+#include "cryptonote_config.h"
 #include "misc_log_ex.h"
-#include "proof_len.h"
 
 namespace fcmp_pp
 {
@@ -210,6 +210,23 @@ FcmpPpVerifyInput fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
     return FcmpPpVerifyInput(raw_ptr);
 }
 //----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
+{
+    CHECK_AND_ASSERT_THROW_MES(n_inputs > 0, "n_inputs must be >0");
+    CHECK_AND_ASSERT_THROW_MES(n_layers > 0, "n_layers must be >0");
+    CHECK_AND_ASSERT_THROW_MES(n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS, "n_inputs must be <= FCMP_PLUS_PLUS_MAX_INPUTS");
+    CHECK_AND_ASSERT_THROW_MES(n_layers <= FCMP_PLUS_PLUS_MAX_LAYERS, "n_layers must be <= FCMP_PLUS_PLUS_MAX_LAYERS");
+
+    return ::membership_proof_size(n_inputs, n_layers);
+};
+
+std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
+{
+    // https://github.com/monero-oxide/monero-oxide/blob/0d6f5e840ad1f955e4e4dec00c5165f134815b15/monero-oxide/ringct/fcmp%2B%2B/src/lib.rs#L188
+    return membership_proof_len(n_inputs, n_layers)
+        + (n_inputs * (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1));
+};
 //----------------------------------------------------------------------------------------------------------------------
 fcmp_pp::FcmpPpProof fcmp_pp_proof_from_parts_v1(
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,

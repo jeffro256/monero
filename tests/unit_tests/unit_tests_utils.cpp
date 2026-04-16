@@ -29,7 +29,7 @@
 #include "unit_tests_utils.h"
 
 #include "fcmp_pp/curve_trees.h"
-#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "serialization/binary_utils.h"
 #include "serialization/containers.h"
 #include "serialization/crypto.h"

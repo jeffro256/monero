@@ -38,6 +38,7 @@
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "ringct/rctOps.h"
 
 using namespace epee;

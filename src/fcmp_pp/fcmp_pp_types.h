@@ -282,6 +282,12 @@ struct PathIndexes final
 using FcmpPpSalProof = std::vector<uint8_t>;
 using FcmpMembershipProof = std::vector<uint8_t>;
 
+// Size of the membership proof alone
+std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
+
+// Size of the FCMP++ proof (membership proof + spend-auth + linkability proofs & input tuples)
+std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
+
 struct ProofInput final
 {
     Path path;

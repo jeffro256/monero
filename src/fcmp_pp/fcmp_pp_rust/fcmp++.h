@@ -315,11 +315,9 @@ int fcmp_pp_prove_membership(const struct FcmpPpProveMembershipInputSliceUnsafe 
                                              uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[]);
 
-// The following proof_size functions are tabled through proof_len.h. Use
-// those functions instead.
-uintptr_t _slow_membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+uintptr_t membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
-uintptr_t _slow_fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+uintptr_t fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
 int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,
