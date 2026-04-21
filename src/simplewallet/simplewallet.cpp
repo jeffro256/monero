@@ -5612,28 +5612,12 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
     tr("idx ") << subaddr_index;
 
   const uint64_t warn_height = m_wallet->nettype() == TESTNET ? 1000000 : m_wallet->nettype() == STAGENET ? 50000 : 1650000;
-  if (height >= warn_height && !is_change)
+  if (height >= warn_height && !is_change && payment_id != crypto::null_hash)
   {
-    std::vector<tx_extra_field> tx_extra_fields;
-    parse_tx_extra(tx.extra, tx_extra_fields); // failure ok
-    tx_extra_nonce extra_nonce;
-    crypto::hash8 payment_id8 = crypto::null_hash8;
-    {
-      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-      {
-        if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-        {
-          memcpy(payment_id8.data, payment_id.data, sizeof(payment_id8));
-        }
-     }
-    }
-
-    if (payment_id8 != crypto::null_hash8)
+    if (!tools::wallet::is_long_payment_id(payment_id))
       message_writer() <<
         tr("NOTE: this transaction uses an encrypted payment ID: consider using subaddresses instead");
-
-    crypto::hash payment_id = crypto::null_hash;
-    if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+    else
       message_writer(console_color_red, false) <<
         tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete and ignored. Use subaddresses instead.");
   }
