@@ -65,6 +65,8 @@ struct SerializableFcmpPpVerify final
 
 namespace unit_test
 {
+  boost::filesystem::path data_dir;
+
   bool write_fcmp_pp_verify_input_to_file(
     const std::size_t n_inputs,
     const crypto::hash &signable_tx_hash,
