@@ -75,8 +75,6 @@
 
 namespace po = boost::program_options;
 
-boost::filesystem::path unit_test::data_dir;
-
 int main(int argc, char** argv)
 {
   TRY_ENTRY();
