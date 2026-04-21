@@ -104,6 +104,8 @@ const hardfork_t testnet_hard_forks[] = {
   { 14, 1544659, 0, 1599069377 },
   { 15, 1982800, 0, 1652727000 },
   { 16, 1983520, 0, 1652813400 },
+  { 17, 2997100, 0, 1778086800 }, // MRL meeting time Wednesday, May 6th at 17:00 UTC, rounded down to 100 blocks
+  { 18, 2997820, 0, 1778173200 }, // 24 hours after v17
 };
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
 const uint64_t testnet_hard_fork_version_1_till = 624633;
