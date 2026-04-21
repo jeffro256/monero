@@ -1,21 +1,21 @@
 // Copyright (c) 2025, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -170,13 +170,13 @@ void make_multiple_carrot_transaction_proposals_sweep(
 
     const std::size_t n_outputs = std::max<std::size_t>(CARROT_MIN_TX_OUTPUTS, normal_payment_proposals.size()
         + std::max<std::size_t>(1, selfsend_payment_proposals.size()));
-    
+
     const std::map<std::size_t, rct::xmr_amount> fee_by_input_count = get_fee_by_input_count(n_outputs, extra.size(), fee_per_weight);
 
     tx_proposals_out.reserve((selected_inputs.size() + FCMP_PLUS_PLUS_MAX_INPUTS - 1) / FCMP_PLUS_PLUS_MAX_INPUTS);
 
     // callback for calling `get_input_count_for_max_usable_money()` on some slice of inputs starting at `window_offset`
-    const auto get_input_count_for_max_usable_money_in_window = 
+    const auto get_input_count_for_max_usable_money_in_window =
         [&selected_inputs, &fee_by_input_count](const std::size_t window_offset)
     {
             CARROT_CHECK_AND_THROW(window_offset <= selected_inputs.size(),
