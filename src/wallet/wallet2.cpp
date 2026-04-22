@@ -9989,6 +9989,9 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   using namespace cryptonote;
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
+  // throw if attempting a pre-RingCT transaction after the FCMP++ hardfork (unmixable sweep txs finally banned)
+  THROW_WALLET_EXCEPTION_IF(use_fork_rules(HF_VERSION_CARROT),
+    error::wallet_internal_error, "Should not be making pre-RingCT transactions after the FCMP++ hardfork");
 
   THROW_WALLET_EXCEPTION_IF(m_multisig, error::wallet_internal_error, "Multisig wallets cannot spend non rct outputs");
 
@@ -10151,6 +10154,9 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   using namespace cryptonote;
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
+  // throw if attempting a pre-Carrot transaction after the FCMP++ hardfork
+  THROW_WALLET_EXCEPTION_IF(use_fork_rules(HF_VERSION_CARROT),
+    error::wallet_internal_error, "Should not be making pre-CARROT/FCMP++ transactions after the FCMP++ hardfork");
 
   uint64_t upper_transaction_weight_limit = get_upper_transaction_weight_limit();
   uint64_t needed_money = fee;
