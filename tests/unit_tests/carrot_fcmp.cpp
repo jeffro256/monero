@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 
+#include "carrot_core/config.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/format_utils.h"
@@ -96,7 +97,7 @@ static const CarrotUnifiedOutputsAndKeys generate_random_carrot_outputs(
                 .enote_type = i % 2 ? CarrotEnoteType::CHANGE : CarrotEnoteType::PAYMENT,
                 .enote_ephemeral_pubkey = gen_x25519_pubkey()
             },
-            .subaddr_index = {0, 0}
+            .subaddr_index = {{0, 0}}
         };
 
         bool push_coinbase = false;

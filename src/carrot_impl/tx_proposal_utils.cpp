@@ -30,6 +30,7 @@
 #include "tx_proposal_utils.h"
 
 //local headers
+#include "carrot_core/config.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
