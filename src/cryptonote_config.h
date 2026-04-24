@@ -231,7 +231,7 @@
 #define FCMP_PLUS_PLUS_MAX_INPUTS               128
 #define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
 #define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
-#define FCMP_PLUS_PLUS_MAX_TX_WEIGHT            203599
+#define FCMP_PLUS_PLUS_MAX_TX_WEIGHT            178063
 
 // Restricting n layers keeps the proof_len table size very small and portable
 // 12 layers means the tree can support over 100 quadrillion outputs
