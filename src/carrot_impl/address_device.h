@@ -63,11 +63,16 @@ struct address_device
         crypto::public_key &address_view_pubkey_out) const = 0;
 
     /**
-     * get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
+     * brief: get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
      */
     virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const = 0;
+
+    /**
+     * brief: query whether address derivation type is supported by this device
+     */
+    virtual bool supports_address_derive_type(AddressDeriveType derive_type) const = 0;
 
     virtual ~address_device() = default;
 };

@@ -32,6 +32,7 @@
 //local headers
 #include "carrot_core/address_utils.h"
 #include "carrot_core/exceptions.h"
+#include "carrot_impl/subaddress_index.h"
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
 extern "C"
@@ -150,6 +151,11 @@ void cryptonote_hierarchy_address_device::get_address_openings(const subaddress_
 
     // k^j_subscal = 1
     address_scalar_out = crypto::secret_key{{1}};
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool cryptonote_hierarchy_address_device::supports_address_derive_type(const AddressDeriveType derive_type) const
+{
+    return derive_type == AddressDeriveType::Auto || derive_type == AddressDeriveType::PreCarrot;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool cryptonote_hierarchy_address_device::view_key_scalar_mult_ed25519(const crypto::public_key &P,
@@ -275,6 +281,11 @@ void carrot_hierarchy_address_device::get_address_openings(const subaddress_inde
     address_scalar_out = this->get_subaddress_scalar(subaddr_index.index);
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool carrot_hierarchy_address_device::supports_address_derive_type(const AddressDeriveType derive_type) const
+{
+    return derive_type == AddressDeriveType::Auto || derive_type == AddressDeriveType::Carrot;
+}
+//-------------------------------------------------------------------------------------------------------------------
 crypto::secret_key carrot_hierarchy_address_device::get_subaddress_scalar(const subaddress_index &subaddr_index) const
 {
     if (subaddr_index.is_subaddress())
@@ -319,7 +330,13 @@ hybrid_hierarchy_address_device::hybrid_hierarchy_address_device(std::shared_ptr
 :
     m_carrot_addr_dev(std::move(carrot_addr_dev)),
     m_cryptonote_addr_dev(std::move(cryptonote_addr_dev))
-{}
+{
+    assert(this->m_carrot_addr_dev || this->m_cryptonote_addr_dev);
+    if (this->m_carrot_addr_dev)
+        assert(this->m_carrot_addr_dev->supports_address_derive_type(AddressDeriveType::Carrot));
+    if (this->m_cryptonote_addr_dev)
+        assert(this->m_cryptonote_addr_dev->supports_address_derive_type(AddressDeriveType::PreCarrot));
+}
 //-------------------------------------------------------------------------------------------------------------------
 void hybrid_hierarchy_address_device::get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
     crypto::public_key &address_spend_pubkey_out) const
@@ -342,6 +359,13 @@ void hybrid_hierarchy_address_device::get_address_openings(const subaddress_inde
 {
     this->resolve_address_device(subaddr_index.derive_type, "get_address_openings")
         .get_address_openings(subaddr_index, address_extension_g_out, address_scalar_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool hybrid_hierarchy_address_device::supports_address_derive_type(const AddressDeriveType derive_type) const
+{
+    return derive_type == AddressDeriveType::Auto
+        || (derive_type == AddressDeriveType::PreCarrot && this->m_cryptonote_addr_dev)
+        || (derive_type == AddressDeriveType::Carrot && this->m_carrot_addr_dev);
 }
 //-------------------------------------------------------------------------------------------------------------------
 const address_device& hybrid_hierarchy_address_device::resolve_address_device(const AddressDeriveType derive_type,
