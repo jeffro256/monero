@@ -78,6 +78,8 @@ public:
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const override;
 
+    bool supports_address_derive_type(AddressDeriveType derive_type) const override;
+
 //cryptonote_view_incoming_key_device
     bool view_key_scalar_mult_ed25519(const crypto::public_key &P, crypto::public_key &kvP) const override;
 
@@ -129,6 +131,8 @@ public:
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const override;
 
+    bool supports_address_derive_type(AddressDeriveType derive_type) const override;
+
 protected:
 //member fields
     std::shared_ptr<generate_address_secret_device> m_s_generate_address_dev;
@@ -163,6 +167,8 @@ public:
     void get_address_openings(const subaddress_index_extended &subaddr_index,
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const override;
+
+    bool supports_address_derive_type(AddressDeriveType derive_type) const override;
 
 protected:
 //member fields

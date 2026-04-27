@@ -31,6 +31,7 @@
 
 //local headers
 #include "address_device.h"
+#include "carrot_impl/subaddress_index.h"
 #include "crypto/generators.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
@@ -85,20 +86,18 @@ std::size_t get_all_main_address_spend_pubkeys(const address_device &addr_dev,
     memset(main_address_spend_pubkeys_out, 0, 2*sizeof(main_address_spend_pubkeys_out[0]));
 
     std::size_t n_main_addrs = 0;
-    try
+    if (addr_dev.supports_address_derive_type(AddressDeriveType::PreCarrot))
     {
         addr_dev.get_address_spend_pubkey({{}, AddressDeriveType::PreCarrot},
             main_address_spend_pubkeys_out[n_main_addrs]);
         ++n_main_addrs;
     }
-    catch (...) {}
-    try
+    if (addr_dev.supports_address_derive_type(AddressDeriveType::Carrot))
     {
         addr_dev.get_address_spend_pubkey({{}, AddressDeriveType::Carrot},
             main_address_spend_pubkeys_out[n_main_addrs]);
         ++n_main_addrs;
     }
-    catch (...) {}
 
     return n_main_addrs;
 }
