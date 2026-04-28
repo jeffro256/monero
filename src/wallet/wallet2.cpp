@@ -1581,9 +1581,7 @@ std::shared_ptr<carrot::carrot_hierarchy_address_device> wallet2::get_carrot_add
 //----------------------------------------------------------------------------------------------------
 std::shared_ptr<carrot::address_device> wallet2::get_address_device() const
 {
-  return std::shared_ptr<carrot::address_device>(new carrot::hybrid_hierarchy_address_device(
-    this->get_carrot_address_device(),
-    this->get_cryptonote_address_device()));
+  return this->get_cryptonote_address_device();
 }
 //----------------------------------------------------------------------------------------------------
 std::shared_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
@@ -1599,7 +1597,7 @@ std::shared_ptr<carrot::key_image_device> wallet2::get_key_image_device() const
 //----------------------------------------------------------------------------------------------------
 std::shared_ptr<carrot::spend_device> wallet2::get_spend_device() const
 {
-  /// @TODO: Carrot / hybrid / HW
+  /// @TODO: Carrot / HW
   return std::shared_ptr<carrot::spend_device>(
     new carrot::spend_device_ram_borrowed(
       this->get_view_incoming_key_device(),
@@ -3640,7 +3638,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
     }
     wallet::view_incoming_scan_transaction(tx,
       *k_view_incoming_dev,
-      {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
+      {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot
       carrot::subaddress_map_legacy{this->m_subaddresses},
       {&enote_scan_infos[0] + tx_output_idx, tx.vout.size()});
 
@@ -13537,7 +13535,7 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
     td.m_mask,
     td.m_internal_output_index,
     *k_view_incoming_dev,
-    {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot/hybrid
+    {&m_account.get_keys().m_account_address.m_spend_public_key, 1}, //! @TODO: Carrot
     carrot::subaddress_map_legacy{m_subaddresses});
 
   const size_t main_tx_pubkey_index = enote_scan_info ? enote_scan_info->main_tx_pubkey_index : 0;
@@ -13848,7 +13846,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     auto spent_txid = spent_txids.begin();
     auto it = spent_txids.begin();
     const auto k_view_incoming_dev = this->get_view_incoming_key_device();
-    const auto hybrid_addr_dev = this->get_address_device();
+    const auto addr_dev = this->get_address_device();
     for (const COMMAND_RPC_GET_TRANSACTIONS::entry& e : gettxs_res.txs)
     {
       THROW_WALLET_EXCEPTION_IF(e.in_pool, error::wallet_internal_error, "spent tx isn't supposed to be in txpool");
@@ -13863,7 +13861,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       uint64_t tx_money_got_in_outs = 0;
       const auto enote_scan_infos = wallet::view_incoming_scan_transaction(spent_tx,
         *k_view_incoming_dev,
-        *hybrid_addr_dev,
+        *addr_dev,
         carrot::subaddress_map_legacy{m_subaddresses});
       for (const auto &enote_scan_info : enote_scan_infos)
         if (enote_scan_info && enote_scan_info->subaddr_index)
