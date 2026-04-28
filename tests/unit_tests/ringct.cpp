@@ -35,7 +35,6 @@
 #include <sstream>
 
 #include "curve_trees.h"
-#include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"

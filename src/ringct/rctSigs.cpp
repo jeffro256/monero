@@ -38,7 +38,7 @@
 #include "common/threadpool.h"
 #include "common/util.h"
 #include "fcmp_pp/fcmp_pp_crypto.h"
-#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/prove.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
