@@ -3159,7 +3159,7 @@ struct TreeSyncStartParams
   crypto::hash prev_block_hash;
 };
 
-static void prepare_tree_state_change_async(const TreeSyncStartParams &tree_sync_start_params,
+static void prepare_tree_state_change(const TreeSyncStartParams &tree_sync_start_params,
     const std::vector<tools::wallet2::parsed_block> &parsed_blocks,
     const tools::wallet2::TreeCacheV1 &tree_cache,
     uint64_t &outs_by_last_locked_time_ms_inout,
@@ -3602,7 +3602,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
   // the tree extension, saving any path elements we need for received outputs,
   // and throwing away excess tree elems we won't need to continue syncing.
   tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_cache_state_change, tree_sync_start_params]() {
-      prepare_tree_state_change_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_cache_state_change);
+      prepare_tree_state_change(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_cache_state_change);
     });
 
   // Count num_txes and num_tx_outputs we're going to scan
@@ -3884,7 +3884,7 @@ void wallet2::pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start
       MINFO("Initializing tree at block " << init_block_idx << " with block hash " << init_block_hash);
 
       // Make sure m_blockchain is in expected state
-      THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != (init_block_idx+1), error::wallet_internal_error, "expected m_blockchain to be initialized at init_block_idx");
+      THROW_WALLET_EXCEPTION_IF(m_blockchain.size() < (init_block_idx+1), error::wallet_internal_error, "expected m_blockchain.size() >= (init_block_idx+1)");
       THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(init_block_idx), error::wallet_internal_error, "init block out of bounds");
       THROW_WALLET_EXCEPTION_IF(m_blockchain[init_block_idx] != init_block_hash, error::wallet_internal_error, "init hash mismatch in m_blockchain");
 
@@ -3894,6 +3894,39 @@ void wallet2::pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start
         locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
 
       m_tree_cache.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_path, locked_outputs);
+
+      if (m_blockchain.size() > (init_block_idx+1))
+      {
+        // We may be pointing to an untrusted daemon and opening a legacy wallet with no receives for the first time,
+        // in which case the starting refresh height may be granularized back to a height we already synced. We'll
+        // sync the tree up to that height, and then proceed with normal sync.
+        THROW_WALLET_EXCEPTION_IF(parsed_blocks.empty(), error::wallet_internal_error, "expected unempty parsed blocks");
+
+        // Copy a slice of the parsed blocks to sync the tree up to m_blockchain.
+        const std::size_t expected_sync_end_height = m_blockchain.size();
+        THROW_WALLET_EXCEPTION_IF(blocks_start_height >= expected_sync_end_height, error::wallet_internal_error, "expected higher synced height than first returned block");
+        const std::size_t grow_tree_n_blocks = expected_sync_end_height - blocks_start_height;
+        const std::vector<parsed_block> blocks_slice(parsed_blocks.begin(), parsed_blocks.begin() + grow_tree_n_blocks);
+
+        const TreeSyncStartParams tree_sync_start_params{
+            .start_block_idx      = blocks_start_height,
+            .start_parsed_block_i = 0,
+            .prev_block_hash      = blocks_slice.at(0).block.prev_id,
+          };
+        MDEBUG("Starting sliced tree sync, start_block_idx: " << tree_sync_start_params.start_block_idx
+            << ", start_parsed_block_i: "                     << tree_sync_start_params.start_parsed_block_i
+            << ", prev_block_hash: "                          << tree_sync_start_params.prev_block_hash);
+
+        std::vector<crypto::hash> new_block_hashes;
+        fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange tree_cache_state_change;
+        prepare_tree_state_change(tree_sync_start_params, blocks_slice, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_cache_state_change);
+        m_tree_cache.grow_cache(tree_sync_start_params.start_block_idx, new_block_hashes, std::move(tree_cache_state_change));
+
+        // Now m_blockchain <> m_tree_cache should be synced to the same block
+        MDEBUG("Finished init sliced tree sync");
+      }
+
+      assert_top_block_match(m_blockchain, m_tree_cache);
     }
   }
   catch(...)
