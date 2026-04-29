@@ -45,8 +45,8 @@ extern "C" {
 }
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
+#include "cryptonote_config.h"
 #include "fcmp_pp/fcmp_pp_types.h"
-#include "fcmp_pp/proof_len.h"
 #include "hex.h"
 #include "span.h"
 #include "memwipe.h"

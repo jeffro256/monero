@@ -234,7 +234,7 @@
 #define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
 #define FCMP_PLUS_PLUS_MAX_TX_WEIGHT            178063
 
-// Restricting n layers keeps the proof_len table size very small and portable
+// Limiting n layers ensures proof size is capped to a reasonable level when de-serializing a proof
 // 12 layers means the tree can support over 100 quadrillion outputs
 #define FCMP_PLUS_PLUS_MAX_LAYERS               12
 
