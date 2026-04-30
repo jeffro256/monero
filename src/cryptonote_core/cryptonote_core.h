@@ -62,7 +62,7 @@ namespace cryptonote
      const size_t long_term_block_weight_window;
    };
 
-  extern const command_line::arg_descriptor<std::string, false, true, 3> arg_data_dir;
+  extern const command_line::arg_descriptor<std::string> arg_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
   extern const command_line::arg_descriptor<bool, false> arg_stagenet_on;
   extern const command_line::arg_descriptor<bool, false> arg_regtest_on;
@@ -284,6 +284,23 @@ namespace cryptonote
       * @throw boost::bad_any_cast if arg_{testnet,stagenet,regtest}_on weren't added to vm
       */
      static network_type get_network_type_from_args(const boost::program_options::variables_map& vm);
+
+     /**
+      * @brief resolves the node data subdirectory based on the network type
+      * @param base_data_dir base data directory (e.g. ~/.bitmonero)
+      * @param nettype network type
+      * @return full path to subdirectory in base_data_dir which should be the node's home directory
+      * @throw std::logic_error if nettype is not recognized
+      */
+     static std::string get_data_subdirectory(const std::string& base_data_dir, network_type nettype);
+
+     /**
+      * @brief resolves the node data subdirectory based on command line arguments
+      * @param vm variables map
+      * @return full path to subdirectory in arg_data_dir which should be the node's home directory
+      * @throw boost::bad_any_cast if arg_{testnet,stagenet,regtest}_on,arg_data_dir weren't added to vm
+      */
+     static std::string get_data_subdirectory_from_args(const boost::program_options::variables_map& vm);
 
      /**
       * @brief initializes the core as needed

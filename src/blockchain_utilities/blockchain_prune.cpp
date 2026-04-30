@@ -584,7 +584,7 @@ int main(int argc, char* argv[])
 
   const network_type net_type = core::get_network_type_from_args(vm);
   bool opt_copy_pruned_database = command_line::get_arg(vm, arg_copy_pruned_database);
-  std::string data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
+  std::string data_dir = core::get_data_subdirectory_from_args(vm);
   while (boost::ends_with(data_dir, "/") || boost::ends_with(data_dir, "\\"))
     data_dir.pop_back();
 

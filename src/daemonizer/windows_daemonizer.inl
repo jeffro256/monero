@@ -113,7 +113,7 @@ namespace daemonizer
     {
       if (command_line::has_arg(vm, cryptonote::arg_data_dir))
       {
-        return command_line::get_arg(vm, cryptonote::arg_data_dir);
+        return crypotonote::core::get_data_subdirectory_from_args(vm);
       }
       else
       {

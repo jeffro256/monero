@@ -98,20 +98,10 @@ namespace cryptonote
   , "Fixed difficulty used for testing."
   , 0
   };
-  const command_line::arg_descriptor<std::string, false, true, 3> arg_data_dir = {
+  const command_line::arg_descriptor<std::string> arg_data_dir = {
     "data-dir"
   , "Specify data directory"
   , tools::get_default_data_dir()
-  , {{ &arg_testnet_on, &arg_stagenet_on, &arg_regtest_on }}
-  , [](std::array<bool, 3> nets, bool defaulted, std::string val)->std::string {
-      if (nets[0])
-        return (boost::filesystem::path(val) / "testnet").string();
-      else if (nets[1])
-        return (boost::filesystem::path(val) / "stagenet").string();
-      else if (nets[2])
-        return (boost::filesystem::path(val) / "fake").string();
-      return val;
-    }
   };
   const command_line::arg_descriptor<bool> arg_offline = {
     "offline"
@@ -364,6 +354,35 @@ namespace cryptonote
     return testnet ? TESTNET : stagenet ? STAGENET : regtest ? FAKECHAIN : MAINNET;
   }
   //-----------------------------------------------------------------------------------------------
+  std::string core::get_data_subdirectory(const std::string& base_data_dir, network_type nettype)
+  {
+    boost::filesystem::path res(base_data_dir);
+    switch (nettype)
+    {
+    case MAINNET:
+      break;
+    case TESTNET:
+      res /= "testnet";
+      break;
+    case STAGENET:
+      res /= "stagenet";
+      break;
+    case FAKECHAIN:
+      res /= "fake";
+      break;
+    default:
+      throw std::logic_error("Unrecognized network type: " + std::to_string((int)(nettype)));
+    }
+    return res.string();
+  }
+  //-----------------------------------------------------------------------------------------------
+  std::string core::get_data_subdirectory_from_args(const boost::program_options::variables_map& vm)
+  {
+    const std::string base_data_dir = command_line::get_arg(vm, arg_data_dir);
+    const network_type nettype = get_network_type_from_args(vm);
+    return get_data_subdirectory(base_data_dir, nettype);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
     if (m_nettype != FAKECHAIN)
@@ -371,9 +390,10 @@ namespace cryptonote
       m_nettype = get_network_type_from_args(vm);
     }
 
-    m_config_folder = command_line::get_arg(vm, arg_data_dir);
-
-    auto data_dir = boost::filesystem::path(m_config_folder);
+    // This is not necessarily equal to get_data_subdirectory_from_args() if m_nettype was set to
+    // FAKECHAIN before arg parsing. This happens if init() is called with non-null test_options
+    const std::string base_data_dir = command_line::get_arg(vm, arg_data_dir);
+    m_config_folder = get_data_subdirectory(base_data_dir, m_nettype);
 
     if (m_nettype == MAINNET)
     {
@@ -385,7 +405,7 @@ namespace cryptonote
       set_checkpoints(std::move(checkpoints));
 
       boost::filesystem::path json(JSON_HASH_FILE_NAME);
-      boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
+      boost::filesystem::path checkpoint_json_hashfile_fullpath = m_config_folder / json;
 
       set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
     }

@@ -108,9 +108,7 @@ int main(int argc, char* argv[])
 
   bool opt_blocks_dat = command_line::get_arg(vm, arg_blocks_dat);
 
-  std::string m_config_folder;
-
-  m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
+  const std::string m_config_folder = core::get_data_subdirectory_from_args(vm);
 
   if (command_line::has_arg(vm, arg_output_file))
     output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));

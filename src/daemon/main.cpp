@@ -255,7 +255,7 @@ int main(int argc, char const * argv[])
 
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
-        command_line::get_arg(vm, cryptonote::arg_data_dir));
+        cryptonote::core::get_data_subdirectory_from_args(vm));
 
 #ifdef WIN32
     if (isFat32(data_dir.root_path().c_str()))

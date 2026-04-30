@@ -422,11 +422,8 @@ namespace nodetool
       const boost::program_options::variables_map& vm
     )
   {
-    bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-    bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-    bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
     const bool pad_txs = command_line::get_arg(vm, arg_pad_transactions);
-    m_nettype = testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : regtest ? cryptonote::FAKECHAIN : cryptonote::MAINNET;
+    m_nettype = cryptonote::core::get_network_type_from_args(vm);
 
     network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
     public_zone.m_connect = &public_connect;
@@ -927,7 +924,7 @@ namespace nodetool
       memcpy(&m_network_id, &::config::NETWORK_ID, 16);
     }
 
-    m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
+    m_config_folder = cryptonote::core::get_data_subdirectory_from_args(vm);
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
 
     if ((m_nettype == cryptonote::MAINNET && public_zone.m_port != std::to_string(::config::P2P_DEFAULT_PORT))

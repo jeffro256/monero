@@ -294,7 +294,7 @@ namespace cryptonote
       }
     }
     disable_rpc_ban = rpc_config->disable_rpc_ban;
-    const std::string data_dir{command_line::get_arg(vm, cryptonote::arg_data_dir)};
+    const std::string data_dir = core::get_data_subdirectory_from_args(vm);
     std::string address = command_line::get_arg(vm, arg_rpc_payment_address);
     if (!address.empty() && allow_rpc_payment)
     {

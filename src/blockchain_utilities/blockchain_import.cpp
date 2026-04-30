@@ -572,7 +572,6 @@ int main(int argc, char* argv[])
   uint32_t log_level = 0;
   uint64_t num_blocks = 0;
   uint64_t block_stop = 0;
-  std::string m_config_folder;
   std::string db_arg_str;
 
   tools::on_startup();
@@ -667,7 +666,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
+  const std::string m_config_folder = core::get_data_subdirectory_from_args(vm);
 
   mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))

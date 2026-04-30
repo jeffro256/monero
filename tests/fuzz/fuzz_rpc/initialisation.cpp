@@ -82,6 +82,7 @@ std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core& dummy_c
     command_line::add_arg(desc, cryptonote::arg_data_dir);
     command_line::add_arg(desc, cryptonote::arg_testnet_on);
     command_line::add_arg(desc, cryptonote::arg_stagenet_on);
+    command_line::add_arg(desc, cryptonote::arg_regtest_on);
     cryptonote::core_rpc_server::init_options(desc);
 
     // Generate random address and use it if it is a valid address with valid format
