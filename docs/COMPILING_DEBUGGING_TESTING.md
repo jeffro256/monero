@@ -75,12 +75,6 @@ If everything looks fine, then after setting some breakpoints of your choice, th
 ### Multihost parallel compilation
 https://github.com/monero-project/monero/pull/7160
 
-### Faster core_tests with caching
-https://github.com/monero-project/monero/pull/5821
-
-### Precompiled headers
-https://github.com/monero-project/monero/pull/7216
-
 ### Unity builds
 https://github.com/monero-project/monero/pull/7217
 
