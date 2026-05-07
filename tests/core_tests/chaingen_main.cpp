@@ -41,7 +41,6 @@ namespace po = boost::program_options;
 
 namespace
 {
-  const command_line::arg_descriptor<std::string> arg_test_data_path              = {"test_data_path", "", ""};
   const command_line::arg_descriptor<bool>        arg_generate_test_data          = {"generate_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_play_test_data              = {"play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_generate_and_play_test_data = {"generate_and_play_test_data", ""};
@@ -62,7 +61,6 @@ int main(int argc, char* argv[])
   
   po::options_description desc_options("Allowed options");
   command_line::add_arg(desc_options, command_line::arg_help);
-  command_line::add_arg(desc_options, arg_test_data_path);
   command_line::add_arg(desc_options, arg_generate_test_data);
   command_line::add_arg(desc_options, arg_play_test_data);
   command_line::add_arg(desc_options, arg_generate_and_play_test_data);
@@ -91,7 +89,6 @@ int main(int argc, char* argv[])
 
   size_t tests_count = 0;
   std::vector<std::string> failed_tests;
-  std::string tests_folder = command_line::get_arg(vm, arg_test_data_path);
   bool list_tests = false;
   if (command_line::get_arg(vm, arg_generate_test_data))
   {
