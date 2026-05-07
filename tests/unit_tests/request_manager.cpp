@@ -31,6 +31,7 @@
 #include "cryptonote_protocol/request_manager.h"
 
 #include <boost/uuid/uuid.hpp>
+#include <unistd.h>
 
 static boost::uuids::uuid uuid_from_char(char a)
 {
