@@ -30,6 +30,7 @@
 #include "rpc/zmq_restricted_methods.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <stdexcept>
 
@@ -42,6 +43,15 @@
 #include "cryptonote_basic/blobdatatype.h"
 #include "ringct/rctSigs.h"
 #include "version.h"
+
+namespace
+{
+constexpr size_t restricted_max_fake_outs = 5000;
+constexpr auto restricted_histogram_cutoff = std::chrono::hours{3 * 24};
+constexpr size_t restricted_max_txs = 100;
+constexpr size_t restricted_max_key_images = 5000;
+constexpr size_t restricted_max_block_headers = 1000;
+}
 
 namespace cryptonote
 {
@@ -131,7 +141,7 @@ namespace rpc
   {
     std::vector<std::pair<std::pair<blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, blobdata> > > > blocks;
 
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.top_block_hash, res.start_height, req.prune, true, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.top_block_hash, res.start_height, req.prune, true, false, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "core::find_blockchain_supplement() returned false";
@@ -236,6 +246,13 @@ namespace rpc
 
   void DaemonHandler::handle(const GetTransactions::Request& req, GetTransactions::Response& res)
   {
+    if (m_restricted && req.tx_hashes.size() > restricted_max_txs)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many transactions requested in restricted mode";
+      return;
+    }
+
     std::vector<cryptonote::transaction> found_txs_vec;
     std::vector<crypto::hash> missed_vec;
 
@@ -301,6 +318,13 @@ namespace rpc
 
   void DaemonHandler::handle(const KeyImagesSpent::Request& req, KeyImagesSpent::Response& res)
   {
+    if (m_restricted && req.key_images.size() > restricted_max_key_images)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many key images queried in restricted mode";
+      return;
+    }
+
     res.spent_status.resize(req.key_images.size(), KeyImagesSpent::STATUS::UNSPENT);
 
     std::vector<bool> chain_spent_status;
@@ -535,17 +559,17 @@ namespace rpc
 
     res.info.tx_count = chain.get_total_transactions() - res.info.height; //without coinbase
 
-    res.info.tx_pool_size = m_core.get_pool_transactions_count();
+    res.info.tx_pool_size = m_core.get_pool_transactions_count(!m_restricted);
 
-    res.info.alt_blocks_count = chain.get_alternative_blocks_count();
+    res.info.alt_blocks_count = m_restricted ? 0 : chain.get_alternative_blocks_count();
 
-    uint64_t total_conn = m_p2p.get_public_connections_count();
-    res.info.outgoing_connections_count = m_p2p.get_public_outgoing_connections_count();
-    res.info.incoming_connections_count = total_conn - res.info.outgoing_connections_count;
+    uint64_t total_conn = m_restricted ? 0 : m_p2p.get_public_connections_count();
+    res.info.outgoing_connections_count = m_restricted ? 0 : m_p2p.get_public_outgoing_connections_count();
+    res.info.incoming_connections_count = m_restricted ? 0 : total_conn - res.info.outgoing_connections_count;
 
-    res.info.white_peerlist_size = m_p2p.get_public_white_peers_count();
+    res.info.white_peerlist_size = m_restricted ? 0 : m_p2p.get_public_white_peers_count();
 
-    res.info.grey_peerlist_size = m_p2p.get_public_gray_peers_count();
+    res.info.grey_peerlist_size = m_restricted ? 0 : m_p2p.get_public_gray_peers_count();
 
     res.info.mainnet = m_core.get_nettype() == MAINNET;
     res.info.testnet = m_core.get_nettype() == TESTNET;
@@ -555,8 +579,8 @@ namespace rpc
     res.info.block_size_limit = res.info.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
     res.info.block_size_median = res.info.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
     res.info.adjusted_time = m_core.get_blockchain_storage().get_adjusted_time(res.info.height);
-    res.info.start_time = (uint64_t)m_core.get_start_time();
-    res.info.version = MONERO_VERSION;
+    res.info.start_time = m_restricted ? 0 : (uint64_t)m_core.get_start_time();
+    res.info.version = m_restricted ? "" : MONERO_VERSION;
 
     res.status = Message::STATUS_OK;
     res.error_details = "";
@@ -675,6 +699,13 @@ namespace rpc
 
   void DaemonHandler::handle(const GetBlockHeadersByHeight::Request& req, GetBlockHeadersByHeight::Response& res)
   {
+    if (m_restricted && req.heights.size() > restricted_max_block_headers)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many block headers requested in restricted mode";
+      return;
+    }
+
     res.headers.resize(req.heights.size());
 
     for (size_t i=0; i < req.heights.size(); i++)
@@ -792,6 +823,23 @@ namespace rpc
 
   void DaemonHandler::handle(const GetOutputHistogram::Request& req, GetOutputHistogram::Response& res)
   {
+    size_t amounts = req.amounts.size();
+    if (m_restricted && amounts == 0)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Restricted RPC will not serve histograms on the whole blockchain. Use your own node.";
+      return;
+    }
+
+    using clock = std::chrono::system_clock;
+    const clock::time_point cutoff{std::chrono::seconds{req.recent_cutoff}};
+    if (m_restricted && clock::now() - cutoff > restricted_histogram_cutoff)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Recent cutoff is too old";
+      return;
+    }
+
     std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t> > histogram;
     try
     {
@@ -817,6 +865,13 @@ namespace rpc
 
   void DaemonHandler::handle(const GetOutputKeys::Request& req, GetOutputKeys::Response& res)
   {
+    if (m_restricted && req.outputs.size() > restricted_max_fake_outs)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many outs requested";
+      return;
+    }
+
     try
     {
       for (const auto& i : req.outputs)
@@ -862,6 +917,13 @@ namespace rpc
   {
     try
     {
+      if (m_restricted && req.amounts != std::vector<uint64_t>(1, 0))
+      {
+        res.distributions.clear();
+        res.status = Message::STATUS_FAILED;
+        res.error_details = "Restricted RPC can only get output distribution for rct outputs. Use your own node.";
+        return;
+      }
       res.distributions.reserve(req.amounts.size());
 
       const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);

@@ -53,8 +53,7 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
 {
     // maintain list of top `max_num_input_count` amounts
     std::multiset<rct::xmr_amount> top_amounts;
-    std::size_t n_amounts = 0;
-    for (;user_amount_begin != user_amount_end; ++user_amount_begin, ++n_amounts)
+    for (;user_amount_begin != user_amount_end; ++user_amount_begin)
     {
         top_amounts.insert(*user_amount_begin);
         if (top_amounts.size() > max_num_input_count)

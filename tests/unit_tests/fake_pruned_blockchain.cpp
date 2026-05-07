@@ -169,7 +169,7 @@ void fake_pruned_blockchain::add_block(const uint8_t hf_version,
         if (tx.pruned)
         {
             tx_prunable_hashes[i] = crypto::rand<crypto::hash>();
-            tx_hashes[i] = cryptonote::get_pruned_transaction_hash(tx, tx_prunable_hashes.at(i));
+            CHECK_AND_ASSERT_THROW_MES(cryptonote::get_pruned_transaction_hash(tx, tx_prunable_hashes.at(i), tx_hashes[i]), "failed to get pruned tx hash");
         }
         else // !tx.pruned
         {

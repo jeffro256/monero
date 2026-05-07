@@ -425,10 +425,13 @@ namespace net_utils
     boost::asio::post(
       connection_basic::strand_,
       [this, self, bytes_transferred]{
-        bool success = m_handler.handle_recv(
+        bool success = false;
+        TRY_ENTRY();
+        success = m_handler.handle_recv(
           reinterpret_cast<char *>(m_state.data.read.buffer.data()),
           bytes_transferred
         );
+        CATCH_ENTRY_SWALLOW_EX("m_handler.handle_recv");
         std::lock_guard<std::mutex> guard(m_state.lock);
         const bool error_status = m_state.status == status_t::INTERRUPTED
             || m_state.status == status_t::TERMINATING
@@ -1152,17 +1155,21 @@ namespace net_utils
     // execute terminate inside m_strand. So we wait for the connection's shutdown sequence to complete before stopping
     // the io_context.
     MDEBUG("Waiting for connection " << m_conn_context.m_connection_id << " to shutdown, current state: " << m_state.status);
-    m_state.condition.wait(
+    const bool shutdown = m_state.condition.wait_for(
       m_state.lock,
+      std::chrono::seconds(5),
       [this]{
         return (
           m_state.status == status_t::TERMINATED || m_state.status == status_t::WASTED
         );
       }
     );
-    MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+    if (shutdown)
+      MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+    else
+      MERROR("Connection " << m_conn_context.m_connection_id << " did not shut down");
 
-    return true;
+    return shutdown;
   }
 
   template<typename T>
@@ -1188,7 +1195,9 @@ namespace net_utils
     auto self = connection<T>::shared_from_this();
     ++m_state.protocol.wait_callback;
     boost::asio::post(connection_basic::strand_, [this, self]{
+      TRY_ENTRY();
       m_handler.handle_qued_callback();
+      CATCH_ENTRY_SWALLOW_EX("m_handler.handle_qued_callback");
       std::lock_guard<std::mutex> guard(m_state.lock);
       --m_state.protocol.wait_callback;
       if (m_state.status == status_t::INTERRUPTED)
