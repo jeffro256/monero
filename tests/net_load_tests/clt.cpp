@@ -631,7 +631,6 @@ int main(int argc, char** argv)
 {
   TRY_ENTRY();
   tools::on_startup();
-  epee::debug::get_set_enable_assert(true, false);
   //set up logging options
   mlog_configure(mlog_get_default_log_path("net_load_tests_clt.log"), true);
 

@@ -124,16 +124,6 @@
 
 #define MLOG_SET_THREAD_NAME(x) el::Helpers::setThreadName(x)
 
-#ifndef LOCAL_ASSERT
-#include <assert.h>
-#if (defined _MSC_VER)
-#define LOCAL_ASSERT(expr) {if(epee::debug::get_set_enable_assert()){_ASSERTE(expr);}}
-#else
-#define LOCAL_ASSERT(expr)
-#endif
-
-#endif
-
 std::string mlog_get_default_log_path(const char *default_filename);
 void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size = MAX_LOG_FILE_SIZE, const std::size_t max_log_files = MAX_LOG_FILES);
 void mlog_set_categories(const char *categories);
@@ -143,18 +133,6 @@ void mlog_set_log(const char *log);
 
 namespace epee
 {
-namespace debug
-{
-  inline bool get_set_enable_assert(bool set = false, bool v = false)
-  {
-    static bool e = true;
-    if(set)
-      e = v;
-    return e;
-  }
-}
-
-
 
 #define ENDL std::endl
 
@@ -195,7 +173,7 @@ namespace debug
 
 
 #ifndef CHECK_AND_ASSERT
-#define CHECK_AND_ASSERT(expr, fail_ret_val)   do{if(!(expr)){LOCAL_ASSERT(expr); return fail_ret_val;};}while(0)
+#define CHECK_AND_ASSERT(expr, fail_ret_val)   do{if(!(expr)){return fail_ret_val;};}while(0)
 #endif
 
 #ifndef CHECK_AND_ASSERT_MES
@@ -203,7 +181,7 @@ namespace debug
 #endif
 
 #ifndef CHECK_AND_NO_ASSERT_MES_L
-#define CHECK_AND_NO_ASSERT_MES_L(expr, fail_ret_val, l, message)   do{if(!(expr)) {LOG_PRINT_L##l(message); /*LOCAL_ASSERT(expr);*/ return fail_ret_val;};}while(0)
+#define CHECK_AND_NO_ASSERT_MES_L(expr, fail_ret_val, l, message)   do{if(!(expr)) {LOG_PRINT_L##l(message); return fail_ret_val;};}while(0)
 #endif
 
 #ifndef CHECK_AND_NO_ASSERT_MES

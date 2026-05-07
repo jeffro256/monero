@@ -243,7 +243,6 @@ bool transactions_flow_test(std::string& working_folder,
       if(!do_send_money(w1, w2, mix_in_factor, amount_to_tx, tx))
       {
         LOG_PRINT_L0( "failed to transfer money, second chance. tx: " << get_transaction_hash(tx) << ", exit" );
-        LOCAL_ASSERT(false);
         return false;
       }
     }
@@ -297,7 +296,6 @@ bool transactions_flow_test(std::string& working_folder,
 
     MERROR("-----------------------FINISHING TRANSACTIONS FLOW TEST FAILED-----------------------" );
     MERROR("income " << print_money(money_2) << " via " << i << " transactions, expected money = " << print_money(transfered_money) );
-    LOCAL_ASSERT(false);
     return false;
   }
 
