@@ -3439,23 +3439,23 @@ bool wallet2::bump_refresh_start_height(const uint64_t init_start_height, const 
   // Get the corresponding hash from the daemon
   crypto::hash granularized_init_hash;
   {
-    cryptonote::COMMAND_RPC_GETBLOCKHASH::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GETBLOCKHASH::response res = AUTO_VAL_INIT(res);
+    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res = AUTO_VAL_INIT(res);
     epee::json_rpc::error error;
     error.code = 0;
-    req.push_back(granularized_init_block_idx);
+    req.height = granularized_init_block_idx;
 
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "on_get_block_hash", req, res, error, *m_http_client, rpc_timeout);
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheaderbyheight", req, res, error, *m_http_client, rpc_timeout);
     if (error.code == CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT) {
       // We don't need to sync if start height is higher than the daemon height
       MWARNING("Refresh start height is higher than the current chain tip, not syncing");
       return false;
     }
-    THROW_WALLET_EXCEPTION_IF(!r || error.code != 0, error::get_block_hash_error, error.message);
-    THROW_WALLET_EXCEPTION_IF(res.size() != 64, error::get_block_hash_error, "Hash is not 32 bytes as expected");
-    r = epee::string_tools::hex_to_pod(res, granularized_init_hash);
-    THROW_WALLET_EXCEPTION_IF(!r, error::get_block_hash_error, "Failed to parse getblockhash hash");
+    THROW_WALLET_EXCEPTION_IF(!r || error.code != 0, error::block_header_by_height_error, error.message);
+    THROW_WALLET_EXCEPTION_IF(res.block_header.hash.size() != 64, error::block_header_by_height_error, "Hash is not 32 bytes as expected");
+    r = epee::string_tools::hex_to_pod(res.block_header.hash, granularized_init_hash);
+    THROW_WALLET_EXCEPTION_IF(!r, error::block_header_by_height_error, "Failed to parse getblockheaderbyheight hash");
   }
 
   MINFO("Starting scanner on top of block " << granularized_init_block_idx << " , hash " << granularized_init_hash);

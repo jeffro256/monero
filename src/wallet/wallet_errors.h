@@ -72,7 +72,7 @@ namespace tools
     //         get_blocks_error
     //         get_hashes_error
     //         get_out_indexes_error
-    //         get_block_hash_error
+    //         block_header_by_height_error
     //         tx_parse_error
     //         get_tx_pool_error
     //         reorg_depth_error
@@ -146,7 +146,7 @@ namespace tools
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
       get_outs_error_message_index,
-      get_block_hash_error_message_index
+      block_header_by_height_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -418,7 +418,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_out_indices_error_message_index> get_out_indices_error;
     //----------------------------------------------------------------------------------------------------
-    typedef failed_rpc_request<refresh_error, get_block_hash_error_message_index> get_block_hash_error;
+    typedef failed_rpc_request<refresh_error, block_header_by_height_error_message_index> block_header_by_height_error;
     //----------------------------------------------------------------------------------------------------
     struct tx_parse_error : public refresh_error
     {
