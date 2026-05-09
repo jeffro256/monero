@@ -37,17 +37,6 @@
 
 //standard headers
 
-/*
-Expected:
-- onetime address
-- amount commitment
-- encrypted amount
-- encrypted janus anchor
-- view tag
-- ephemeral pubkey
-- tx first key image
-*/
-
 namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
