@@ -3096,7 +3096,7 @@ void wallet2::pull_blocks(bool check_pool, uint64_t &blocks_start_height, const 
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   req.block_ids = short_chain_history;
-  req.block_ids_exclusive = true; // start with the first new block after highest common block
+  req.block_ids_skip_common_block = true; // start with the first new block after highest common block
   req.prune = true;
   req.no_miner_tx = false; // always need the miner tx so we can grow the tree correctly
   req.init_tree_sync = m_tree_cache.n_synced_blocks() == 0;
@@ -3252,7 +3252,7 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
 
   // Note: this section assumes the wallet used its latest short_chain_history in the getblocks.bin request.
   // The daemon response should always include at least 1 block with prev_id included in our local chain
-  // (see block_ids_exclusive param). If there was a reorg, then the daemon resp includes a block w/prev_id in
+  // (see block_ids_skip_common_block param). If there was a reorg, then the daemon resp includes a block w/prev_id in
   // our local chain that is contiguous to the main chain, and also returns contiguous blocks after. It's possible the
   // resp includes multiple blocks we have already synced, since short_chain_history has gaps in it. If
   // parsed_blocks_start_idx-1 is not in our hashchain, however, then the reorg must have occurred earlier than the

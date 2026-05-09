@@ -191,7 +191,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t    start_height;
       bool        prune;
       bool        no_miner_tx;
-      bool        block_ids_exclusive;
+      bool        block_ids_skip_common_block;
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
       bool        init_tree_sync;
@@ -202,7 +202,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(prune)
         KV_SERIALIZE_OPT(no_miner_tx, false)
-        KV_SERIALIZE_OPT(block_ids_exclusive, false)
+        KV_SERIALIZE_OPT(block_ids_skip_common_block, false)
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
         KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
         KV_SERIALIZE_OPT(init_tree_sync, false)
