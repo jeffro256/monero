@@ -30,8 +30,13 @@
 #include "carrot_mock_helpers.h"
 
 //local headers
-#include "carrot_core/hash_functions.h"
+#include "carrot_core/account_secrets.h"
+#include "carrot_core/address_utils.h"
+#include "core_types.h"
+#include "crypto/crypto.h"
+#include "crypto/generators.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -489,6 +494,14 @@ crypto::key_image gen_key_image()
     return rct::rct2ki(rct::pkGen());
 }
 //----------------------------------------------------------------------------------------------------------------------
+amount_commitment_t gen_amount_commitment()
+{
+    crypto::public_key pk = gen_public_key();
+    amount_commitment_t ac;
+    memcpy(&ac, &pk, sizeof(ac));
+    return ac;
+}
+//----------------------------------------------------------------------------------------------------------------------
 crypto::secret_key gen_secret_key()
 {
     return rct::rct2sk(rct::skGen());
@@ -510,7 +523,7 @@ CarrotEnoteV1 gen_carrot_enote_v1()
 {
     return CarrotEnoteV1{
         .onetime_address = gen_public_key(),
-        .amount_commitment = rct::pkGen(),
+        .amount_commitment = gen_amount_commitment(),
         .amount_enc = gen_encrypted_amount(),
         .anchor_enc = gen_janus_anchor(),
         .view_tag = gen_view_tag(),

@@ -32,9 +32,9 @@
 //local headers
 #include "common/container_helpers.h"
 #include "config.h"
+#include "enote_utils.h"
 #include "exceptions.h"
 #include "misc_log_ex.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -100,7 +100,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
 std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_payment_proposal(
     const size_t num_outgoing,
     const size_t num_selfsend,
-    const rct::xmr_amount needed_change_amount,
+    const xmr_amount needed_change_amount,
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey)
 {
@@ -307,7 +307,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     // assert all K_o lie in prime order subgroup
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals_out)
     {
-        CARROT_CHECK_AND_THROW(rct::isInMainSubgroup(rct::pk2rct(output_enote_proposal.enote.onetime_address)),
+        CARROT_CHECK_AND_THROW(verify_point_is_in_main_subgroup(output_enote_proposal.enote.onetime_address),
             invalid_point, "this set contains an invalid onetime address");
     }
 
@@ -390,7 +390,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     // assert all K_o lie in prime order subgroup
     for (const CarrotCoinbaseEnoteV1 &output_enote : output_coinbase_enotes_out)
     {
-        CARROT_CHECK_AND_THROW(rct::isInMainSubgroup(rct::pk2rct(output_enote.onetime_address)),
+        CARROT_CHECK_AND_THROW(verify_point_is_in_main_subgroup(output_enote.onetime_address),
             invalid_point, "this set contains an invalid onetime address");
     }
 }

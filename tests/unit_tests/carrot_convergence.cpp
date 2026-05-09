@@ -33,6 +33,7 @@
 #include "carrot_core/destination.h"
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/enote_utils.h"
+#include "core_types.h"
 #include "ringct/rctOps.h"
 #include "string_tools.h"
 
@@ -127,7 +128,7 @@ static const hex_value_t<crypto::hash> s_sender_receiver_ctx("6e99852ed7b3744177
 static const rct::xmr_amount amount = 67000000000000;
 static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("5a01cc9f8ca9556c429d623d848fe036c76593005c63a62df57afc4b51d3c20b");
 static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("f69587a2e01d039758b5dd61999e4d60f226eb7b8027be2ff2656ecbb584d103");
-static const hex_value_t<rct::key> amount_commitment("f5df40aeba877e8ccadd9dff363d90ec28efbfd1201573897cd70c61c026edb9");
+static const hex_value_t<carrot::amount_commitment_t> amount_commitment("f5df40aeba877e8ccadd9dff363d90ec28efbfd1201573897cd70c61c026edb9");
 static const hex_value_t<crypto::public_key> onetime_address_coinbase("0c4ee83d079ebd77882f894b2e0a43e3d572af9c330871f1dfbcc62f5c64e4ae");
 static const hex_value_t<crypto::public_key> onetime_address("522347147e41f22ebe155abc32b9def985b2e454045c6edd8921ee4253cd4516");
 static const hex_value_t<carrot::view_tag_t> view_tag("5f58e1");
@@ -320,27 +321,30 @@ TEST(carrot_convergence, make_carrot_amount_blinding_factor_change)
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, commit)
 {
-    const rct::key amount_commitment_rc = rct::commit(amount, rct::sk2rct(amount_blinding_factor_payment.value));
+    const amount_commitment_t amount_commitment_rc = commit_carrot_amount(amount,
+        amount_blinding_factor_payment.value);
     EXPECT_TRUE(amount_commitment.matches(amount_commitment_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_onetime_address_coinbase)
+TEST(carrot_convergence, try_make_carrot_onetime_address_coinbase)
 {
     crypto::public_key onetime_address_coinbase_rc;
-    make_carrot_onetime_address_coinbase(subaddress_spend_pubkey.value,
+    ASSERT_TRUE(try_make_carrot_onetime_address_coinbase(
+        subaddress_spend_pubkey.value,
         s_sender_receiver_ctx.value,
         amount,
-        onetime_address_coinbase_rc);
+        onetime_address_coinbase_rc));
     EXPECT_TRUE(onetime_address_coinbase.matches(onetime_address_coinbase_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_onetime_address)
+TEST(carrot_convergence, try_make_carrot_onetime_address)
 {
     crypto::public_key onetime_address_rc;
-    make_carrot_onetime_address(subaddress_spend_pubkey.value,
+    ASSERT_TRUE(try_make_carrot_onetime_address(
+        subaddress_spend_pubkey.value,
         s_sender_receiver_ctx.value,
         amount_commitment.value,
-        onetime_address_rc);
+        onetime_address_rc));
     EXPECT_TRUE(onetime_address.matches(onetime_address_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------

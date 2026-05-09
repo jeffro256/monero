@@ -28,9 +28,13 @@
 
 //paired header
 #include "device.h"
+#include "crypto/crypto.h"
 
 //local headers
-#include "ringct/rctOps.h"
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 
 //third party headers
 
@@ -50,7 +54,24 @@ bool view_incoming_key_device::view_key_scalar_mult8_ed25519(const crypto::publi
     if (!this->view_key_scalar_mult_ed25519(P, kv8P))
         return false;
 
-    kv8P = rct::rct2pk(rct::scalarmult8(rct::pk2rct(kv8P)));
+    // decompress k_v * P
+    ge_p3 tmp1;
+    ge_p2 tmp2;
+    if (0 != ge_frombytes_vartime(&tmp1, to_bytes(kv8P)))
+        return false;
+    ge_p3_to_p2(&tmp2, &tmp1);
+
+    // mul 8
+    ge_p1p1 tmp3;
+    for (int i = 0; i < 3; ++i)
+    {
+        ge_p2_dbl(&tmp3, &tmp2);
+        ge_p1p1_to_p2(&tmp2, &tmp3);
+    }
+
+    // re-compress
+    ge_tobytes(to_bytes(kv8P), &tmp2);
+
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------

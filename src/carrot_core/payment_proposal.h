@@ -35,7 +35,6 @@
 #include "carrot_enote_types.h"
 #include "destination.h"
 #include "device.h"
-#include "ringct/rctTypes.h"
 
 //third party headers
 
@@ -57,7 +56,7 @@ struct CarrotPaymentProposalV1 final
     /// user address
     CarrotDestinationV1 destination;
     /// b
-    rct::xmr_amount amount;
+    xmr_amount amount;
     /// anchor_norm: secret randomness for Janus anchor
     janus_anchor_t randomness;
 };
@@ -71,7 +70,7 @@ struct CarrotPaymentProposalSelfSendV1 final
     /// one of our own address spend pubkeys: K^j_s
     crypto::public_key destination_address_spend_pubkey;
     /// a
-    rct::xmr_amount amount;
+    xmr_amount amount;
 
     /// enote_type
     CarrotEnoteType enote_type;
@@ -86,7 +85,7 @@ struct RCTOutputEnoteProposal final
     CarrotEnoteV1 enote;
 
     // we need this opening information to make amount range proofs
-    rct::xmr_amount amount;
+    xmr_amount amount;
     crypto::secret_key amount_blinding_factor;
 };
 
@@ -166,6 +165,6 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
 */
 CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
     const bool has_payment_id,
-    const rct::xmr_amount amount);
+    const xmr_amount amount);
 
 } //namespace carrot

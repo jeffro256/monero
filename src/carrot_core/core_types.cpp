@@ -62,6 +62,11 @@ static T xor_bytes(const T &a, const T &b)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+bool operator==(const amount_commitment_t &a, const amount_commitment_t &b)
+{
+    return memcmp(&a, &b, sizeof(amount_commitment_t)) == 0;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool operator==(const janus_anchor_t &a, const janus_anchor_t &b)
 {
     return memcmp(&a, &b, sizeof(janus_anchor_t)) == 0;

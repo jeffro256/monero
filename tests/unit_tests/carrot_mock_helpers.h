@@ -29,18 +29,13 @@
 #pragma once
 
 //local headers
-#include "carrot_core/account_secrets.h"
-#include "carrot_core/address_utils.h"
 #include "carrot_core/destination.h"
 #include "carrot_core/device_ram_borrowed.h"
-#include "carrot_core/enote_utils.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/subaddress_index.h"
-#include "crypto/generators.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -171,7 +166,7 @@ struct mock_scan_result_t
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
 
-    rct::xmr_amount amount;
+    xmr_amount amount;
     crypto::secret_key amount_blinding_factor;
 
     CarrotEnoteType enote_type;
@@ -195,15 +190,17 @@ void mock_scan_coinbase_enote_set(
 //----------------------------------------------------------------------------------------------------------------------
 bool compare_scan_result(const mock_scan_result_t &scan_res,
     const CarrotPaymentProposalV1 &normal_payment_proposal,
-    const rct::xmr_amount allowed_fee_margin_opt = 0);
+    const xmr_amount allowed_fee_margin_opt = 0);
 //----------------------------------------------------------------------------------------------------------------------
 bool compare_scan_result(const mock_scan_result_t &scan_res,
     const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal,
-    const rct::xmr_amount allowed_fee_margin_opt = 0);
+    const xmr_amount allowed_fee_margin_opt = 0);
 //----------------------------------------------------------------------------------------------------------------------
 crypto::public_key gen_public_key();
 //----------------------------------------------------------------------------------------------------------------------
 crypto::key_image gen_key_image();
+//----------------------------------------------------------------------------------------------------------------------
+amount_commitment_t gen_amount_commitment();
 //----------------------------------------------------------------------------------------------------------------------
 crypto::secret_key gen_secret_key();
 //----------------------------------------------------------------------------------------------------------------------
@@ -221,7 +218,7 @@ std::uint64_t gen_block_index();
 //----------------------------------------------------------------------------------------------------------------------
 CarrotDestinationV1 convert_destination_v1(const cryptonote::tx_destination_entry &cn_dst);
 //----------------------------------------------------------------------------------------------------------------------
-cryptonote::tx_destination_entry convert_destination_v1(const CarrotDestinationV1 &dst, const rct::xmr_amount amount);
+cryptonote::tx_destination_entry convert_destination_v1(const CarrotDestinationV1 &dst, const xmr_amount amount);
 //----------------------------------------------------------------------------------------------------------------------
 CarrotPaymentProposalV1 convert_normal_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst,
     const janus_anchor_t randomness = gen_janus_anchor());

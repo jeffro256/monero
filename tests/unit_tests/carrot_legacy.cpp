@@ -224,14 +224,16 @@ static void subtest_legacy_2out_transfer_get_output_enote_proposals_completeness
     // check Alice's recovered data
     EXPECT_EQ(alice_payment_proposal.destination_address_spend_pubkey, alice_scan.address_spend_pubkey);
     EXPECT_EQ(alice_payment_proposal.amount, alice_scan.amount);
-    EXPECT_EQ(alice_enote.amount_commitment, rct::commit(alice_scan.amount, rct::sk2rct(alice_scan.amount_blinding_factor)));
+    EXPECT_EQ(alice_enote.amount_commitment, 
+        commit_carrot_amount(alice_scan.amount, alice_scan.amount_blinding_factor));
     EXPECT_EQ(null_payment_id, alice_scan.payment_id);
     EXPECT_EQ(alice_payment_proposal.enote_type, alice_scan.enote_type);
 
     // check Bob's recovered data
     EXPECT_EQ(bob_payment_proposal.destination.address_spend_pubkey, bob_scan.address_spend_pubkey);
     EXPECT_EQ(bob_payment_proposal.amount, bob_scan.amount);
-    EXPECT_EQ(bob_enote.amount_commitment, rct::commit(bob_scan.amount, rct::sk2rct(bob_scan.amount_blinding_factor)));
+    EXPECT_EQ(bob_enote.amount_commitment,
+        commit_carrot_amount(bob_scan.amount, bob_scan.amount_blinding_factor));
     EXPECT_EQ(bob_integrated ? bob_address.payment_id : null_payment_id, bob_scan.payment_id);
     EXPECT_EQ(CarrotEnoteType::PAYMENT, bob_scan.enote_type);
 

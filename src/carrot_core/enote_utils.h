@@ -34,7 +34,6 @@
 #include "crypto/crypto.h"
 #include "core_types.h"
 #include "mx25519.h"
-#include "ringct/rctTypes.h"
 
 //third party headers
 
@@ -160,7 +159,7 @@ void make_carrot_contextualized_sender_receiver_secret(const unsigned char s_sen
 * outparam: sender_extension_out - k^o_g
 */
 void make_carrot_sender_extension_g_coinbase(const crypto::hash &s_sender_receiver_ctx,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_out);
 /**
@@ -172,20 +171,21 @@ void make_carrot_sender_extension_g_coinbase(const crypto::hash &s_sender_receiv
 * outparam: sender_extension_out - k^o_t
 */
 void make_carrot_sender_extension_t_coinbase(const crypto::hash &s_sender_receiver_ctx,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_out);
 /**
-* brief: make_carrot_onetime_address - create a FCMP++ coinbase onetime address
+* brief: try_make_carrot_onetime_address - create a FCMP++ coinbase onetime address
 *    Ko = K^0_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
 * param: main_address_spend_pubkey - K^0_s
 * param: s_sender_receiver_ctx - s^ctx_sr
 * param: amount - a
 * outparam: onetime_address_out - Ko
+* return: true if main_address_spend_pubkey is a valid point, false otherwise
 */
-void make_carrot_onetime_address_coinbase(const crypto::public_key &main_address_spend_pubkey,
+bool try_make_carrot_onetime_address_coinbase(const crypto::public_key &main_address_spend_pubkey,
     const crypto::hash &s_sender_receiver_ctx,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     crypto::public_key &onetime_address_out);
 /**
 * brief: extension over G for transforming a receiver's spendkey into a non-coinbase one-time address
@@ -195,7 +195,7 @@ void make_carrot_onetime_address_coinbase(const crypto::public_key &main_address
 * outparam: sender_extension_out - k^o_g
 */
 void make_carrot_sender_extension_g(const crypto::hash &s_sender_receiver_ctx,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
 * brief: extension over T for transforming a receiver's spendkey into a non-coinbase one-time address
@@ -205,19 +205,20 @@ void make_carrot_sender_extension_g(const crypto::hash &s_sender_receiver_ctx,
 * outparam: sender_extension_out - k^o_t
 */
 void make_carrot_sender_extension_t(const crypto::hash &s_sender_receiver_ctx,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     crypto::secret_key &sender_extension_out);
 /**
-* brief: make_carrot_onetime_address - create a FCMP++ non-coinbase onetime address
+* brief: try_make_carrot_onetime_address - create a FCMP++ non-coinbase onetime address
 *    Ko = K^j_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
 * param: address_spend_pubkey - K^j_s
 * param: s_sender_receiver_ctx - s^ctx_sr
 * param: amount_commitment - C_a
 * outparam: onetime_address_out - Ko
+* return: true if address_spend_pubkey is a valid point, false otherwise
 */
-void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
+bool try_make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
     const crypto::hash &s_sender_receiver_ctx,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     crypto::public_key &onetime_address_out);
 /**
 * brief: make_carrot_amount_blinding_factor - create blinding factor for enote's amount commitment C_a
@@ -229,10 +230,18 @@ void make_carrot_onetime_address(const crypto::public_key &address_spend_pubkey,
 * outparam: amount_blinding_factor_out - k_a
 */
 void make_carrot_amount_blinding_factor(const crypto::hash &s_sender_receiver_ctx,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const crypto::public_key &address_spend_pubkey,
     const CarrotEnoteType enote_type,
     crypto::secret_key &amount_blinding_factor_out);
+/**
+ * brief: commit_carrot_amount - make a FCMP++ amount commitment to given amount and blidning factor
+ *   C_a = k_a G + a H
+ * param: amount - a
+ * param: amount_blinding_factor - k_a
+ * return: C_a
+ */
+amount_commitment_t commit_carrot_amount(const xmr_amount amount, const crypto::secret_key &amount_blinding_factor);
 /**
 * brief: make_carrot_anchor_encryption_mask - create XOR encryption mask for enote's anchor
 *   m_anchor = H_16[s^ctx_sr](Ko)
@@ -283,7 +292,7 @@ void make_carrot_amount_encryption_mask(const crypto::hash &s_sender_receiver_ct
 * param: onetime_address - Ko
 * return: a_enc
 */
-encrypted_amount_t encrypt_carrot_amount(const rct::xmr_amount amount,
+encrypted_amount_t encrypt_carrot_amount(const xmr_amount amount,
     const crypto::hash &s_sender_receiver_ctx,
     const crypto::public_key &onetime_address);
 /**
@@ -294,7 +303,7 @@ encrypted_amount_t encrypt_carrot_amount(const rct::xmr_amount amount,
 * param: onetime_address - Ko
 * return: a
 */
-rct::xmr_amount decrypt_carrot_amount(const encrypted_amount_t encrypted_amount,
+xmr_amount decrypt_carrot_amount(const encrypted_amount_t encrypted_amount,
     const crypto::hash &s_sender_receiver_ctx,
     const crypto::public_key &onetime_address);
 /**
@@ -344,15 +353,16 @@ void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubk
     const crypto::secret_key &k_view,
     janus_anchor_t &anchor_special_out);
 /**
-* brief: recover_address_spend_pubkey - get the receiver's spend key for which this one-time address
+* brief: try_recover_address_spend_pubkey - get the receiver's spend key for which this one-time address
 *                                              can be reconstructed as 'owned' by
 *   K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t T)
 * param: onetime_address - Ko
 * param: sender_extension_g - k^g_o
 * param: sender_extension_t - k^t_o
 * outparam: address_spend_key_out: - K^j_s
+* return: true if one-time address is a valid point, false otherwise
 */
-void recover_address_spend_pubkey(const crypto::public_key &onetime_address,
+bool try_recover_address_spend_pubkey(const crypto::public_key &onetime_address,
     const crypto::secret_key &sender_extension_g,
     const crypto::secret_key &sender_extension_t,
     crypto::public_key &address_spend_key_out);
@@ -379,10 +389,10 @@ bool test_carrot_view_tag(const unsigned char s_sender_receiver[32],
 * return: true if successfully recomputed the amount commitment (C_a ?= k_a' G + a' H)
 */
 bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receiver_ctx,
-    const rct::xmr_amount nominal_amount,
+    const xmr_amount nominal_amount,
     const crypto::public_key &nominal_address_spend_pubkey,
     const CarrotEnoteType nominal_enote_type,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     crypto::secret_key &amount_blinding_factor_out);
 /**
 * brief: try_get_carrot_amount - test decrypting the amount and recomputing the amount commitment
@@ -400,9 +410,9 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver_ctx,
     const encrypted_amount_t &encrypted_amount,
     const crypto::public_key &onetime_address,
     const crypto::public_key &address_spend_pubkey,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     CarrotEnoteType &enote_type_out,
-    rct::xmr_amount &amount_out,
+    xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out);
 /**
  * brief: verify_carrot_normal_janus_protection - check normal external enote is Janus safe (i.e. can recompute D_e)
@@ -420,4 +430,10 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
     const mx25519_pubkey &enote_ephemeral_pubkey);
+/**
+ * brief: verify_point_is_in_main_subgroup - check ed25519 point is valid and is in prime order subgroup
+ * param: P -
+ * return: true if P is valid and is in prime subgroup, false otherwise
+ */
+bool verify_point_is_in_main_subgroup(const crypto::ec_point &P);
 } //namespace carrot

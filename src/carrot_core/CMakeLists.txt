@@ -52,8 +52,7 @@ target_link_libraries(carrot_core
     cncrypto
     epee
     mx25519_static
-    ringct_basic
-    seraphis_crypto
+    wallet-crypto
   PRIVATE
     ${EXTRA_LIBRARIES})
 

@@ -33,7 +33,6 @@
 
 //local headers
 #include "enote_utils.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -53,7 +52,7 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
     payment_id_t &nominal_payment_id_out,
     janus_anchor_t &nominal_janus_anchor_out,
     CarrotEnoteType &enote_type_out,
-    rct::xmr_amount &amount_out,
+    xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out)
 {
     // k^o_g = H_n[s^ctx_sr]("..g..", C_a)
@@ -67,10 +66,11 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
         sender_extension_t_out);
 
     // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t T)
-    recover_address_spend_pubkey(enote.onetime_address,
-        sender_extension_g_out,
-        sender_extension_t_out,
-        address_spend_pubkey_out);
+    if (!try_recover_address_spend_pubkey(enote.onetime_address,
+            sender_extension_g_out,
+            sender_extension_t_out,
+            address_spend_pubkey_out))
+        return false;
 
     // pid = pid_enc XOR m_pid, if applicable
     if (encrypted_payment_id)
@@ -135,10 +135,11 @@ bool try_scan_carrot_coinbase_enote_no_janus(
             sender_extension_t_out);
 
         // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t T)
-        recover_address_spend_pubkey(enote.onetime_address,
-            sender_extension_g_out,
-            sender_extension_t_out,
-            nominal_address_spend_pubkey_out);
+        if (!try_recover_address_spend_pubkey(enote.onetime_address,
+                sender_extension_g_out,
+                sender_extension_t_out,
+                nominal_address_spend_pubkey_out))
+            return false;
 
         if (nominal_address_spend_pubkey_out == main_address_spend_pubkey)
         {
@@ -164,7 +165,7 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
+    xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
     payment_id_t &nominal_payment_id_out,
     CarrotEnoteType &enote_type_out,
@@ -203,7 +204,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
+    xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &internal_message_out)
