@@ -31,9 +31,13 @@
 
 //local headers
 #include "config.h"
+#include "crypto/crypto.h"
 #include "crypto/generators.h"
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 #include "hash_functions.h"
-#include "ringct/rctOps.h"
 #include "transcript_fixed.h"
 
 //third party headers
@@ -58,8 +62,10 @@ void make_carrot_partial_spend_pubkey(const crypto::secret_key &k_prove_spend,
     crypto::public_key &partial_spend_pubkey_out)
 {
     // K_ps = k_ps T
-    partial_spend_pubkey_out = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(crypto::get_T()),
-        rct::sk2rct(k_prove_spend)));
+    ge_p3 T_p3 = crypto::get_T_p3();
+    ge_p2 K_ps;
+    ge_scalarmult(&K_ps, to_bytes(k_prove_spend), &T_p3);
+    ge_tobytes(to_bytes(partial_spend_pubkey_out), &K_ps);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
@@ -108,12 +114,20 @@ void make_carrot_spend_pubkey(const crypto::secret_key &k_generate_image,
     crypto::public_key &spend_pubkey_out)
 {
     // k_ps T
-    rct::key tmp;
-    rct::scalarmultKey(tmp, rct::pk2rct(crypto::get_T()), rct::sk2rct(k_prove_spend));
+    ge_p3 tmp1 = crypto::get_T_p3();
+    ge_cached tmp2;
+    ge_scalarmult_p3(&tmp1, to_bytes(k_prove_spend), &tmp1);
+    ge_p3_to_cached(&tmp2, &tmp1);
+
+    // k_gi G
+    ge_scalarmult_base(&tmp1, to_bytes(k_generate_image));
 
     // K_s = k_gi G + k_ps T
-    rct::addKeys1(tmp, rct::sk2rct(k_generate_image), tmp);
-    spend_pubkey_out = rct::rct2pk(tmp);
+    ge_p1p1 tmp3;
+    ge_p2 tmp4;
+    ge_add(&tmp3, &tmp1, &tmp2);
+    ge_p1p1_to_p2(&tmp4, &tmp3);
+    ge_tobytes(to_bytes(spend_pubkey_out), &tmp4);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

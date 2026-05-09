@@ -31,9 +31,13 @@
 
 //local headers
 #include "address_utils.h"
+#include "crypto/crypto.h"
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 #include "exceptions.h"
 #include "misc_log_ex.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -41,6 +45,18 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "carrot.dest"
+
+namespace {
+crypto::public_key genPk()
+{
+    crypto::public_key s;
+    crypto::random32_unbiased(to_bytes(s));
+    ge_p3 P;
+    ge_scalarmult_base(&P, to_bytes(s));
+    ge_p3_tobytes(to_bytes(s), &P);
+    return s;    
+}
+} //anonymous namespace
 
 namespace carrot
 {
@@ -93,16 +109,24 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     make_carrot_subaddress_scalar(address_index_preimage_2, account_spend_pubkey, subaddress_scalar);
 
     // K^j_s = k^j_subscal * K_s
-    const rct::key address_spend_pubkey =
-        rct::scalarmultKey(rct::pk2rct(account_spend_pubkey), rct::sk2rct(subaddress_scalar));
+    ge_p3 tmp1;
+    CARROT_CHECK_AND_THROW(0 == ge_frombytes_vartime(&tmp1, to_bytes(account_spend_pubkey)),
+        invalid_point, "invalid account spend pubkey");
+    ge_p2 tmp2;
+    ge_scalarmult(&tmp2, to_bytes(subaddress_scalar), &tmp1);
+    crypto::public_key address_spend_pubkey;
+    ge_tobytes(to_bytes(address_spend_pubkey), &tmp2);
 
     // K^j_v = k^j_subscal * K_v
-    const rct::key address_view_pubkey =
-        rct::scalarmultKey(rct::pk2rct(account_view_pubkey), rct::sk2rct(subaddress_scalar));
+    CARROT_CHECK_AND_THROW(0 == ge_frombytes_vartime(&tmp1, to_bytes(account_view_pubkey)),
+        invalid_point, "invalid account view pubkey");
+    ge_scalarmult(&tmp2, to_bytes(subaddress_scalar), &tmp1);
+    crypto::public_key address_view_pubkey;
+    ge_tobytes(to_bytes(address_view_pubkey), &tmp2);
 
     destination_out = CarrotDestinationV1{
-        .address_spend_pubkey = rct::rct2pk(address_spend_pubkey),
-        .address_view_pubkey = rct::rct2pk(address_view_pubkey),
+        .address_spend_pubkey = address_spend_pubkey,
+        .address_view_pubkey = address_view_pubkey,
         .is_subaddress = true,
         .payment_id = null_payment_id
     };
@@ -124,8 +148,8 @@ void make_carrot_integrated_address_v1(const crypto::public_key &account_spend_p
 CarrotDestinationV1 gen_carrot_main_address_v1()
 {
     return CarrotDestinationV1{
-        .address_spend_pubkey = rct::rct2pk(rct::pkGen()),
-        .address_view_pubkey = rct::rct2pk(rct::pkGen()),
+        .address_spend_pubkey = genPk(),
+        .address_view_pubkey = genPk(),
         .is_subaddress = false,
         .payment_id = null_payment_id
     };
@@ -134,8 +158,8 @@ CarrotDestinationV1 gen_carrot_main_address_v1()
 CarrotDestinationV1 gen_carrot_subaddress_v1()
 {
     return CarrotDestinationV1{
-        .address_spend_pubkey = rct::rct2pk(rct::pkGen()),
-        .address_view_pubkey = rct::rct2pk(rct::pkGen()),
+        .address_spend_pubkey = genPk(),
+        .address_view_pubkey = genPk(),
         .is_subaddress = true,
         .payment_id = null_payment_id
     };
@@ -149,8 +173,8 @@ CarrotDestinationV1 gen_carrot_integrated_address_v1()
         payment_id = gen_payment_id();
 
     return CarrotDestinationV1{
-        .address_spend_pubkey = rct::rct2pk(rct::pkGen()),
-        .address_view_pubkey = rct::rct2pk(rct::pkGen()),
+        .address_spend_pubkey = genPk(),
+        .address_view_pubkey = genPk(),
         .is_subaddress = false,
         .payment_id = payment_id
     };
