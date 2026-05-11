@@ -3891,7 +3891,7 @@ void wallet2::pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start
       // Initialize tree cache
       fcmp_pp::OutsByLastLockedBlock locked_outputs;
       for (auto &lo : init_tree_sync_data->locked_outputs)
-        locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
+        locked_outputs[lo.last_locked_block] = lo.outputs.to_unified_outputs_vec();
 
       m_tree_cache.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_path, locked_outputs);
 
