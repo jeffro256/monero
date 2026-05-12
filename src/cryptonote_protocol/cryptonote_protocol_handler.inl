@@ -1014,6 +1014,8 @@ namespace cryptonote
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
 
+    std::lock_guard<std::mutex> m_check_lock(m_check_tx_request_queue_mutex);
+
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
 
