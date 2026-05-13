@@ -251,7 +251,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     struct locked_outputs_t
     {
       uint64_t last_locked_block;
-      std::vector<fcmp_pp::UnifiedOutput> outputs;
+      fcmp_pp::UnifiedOutputs outputs;
 
       bool operator==(const locked_outputs_t& other) const
       {
@@ -260,7 +260,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(last_locked_block)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outputs)
+        KV_SERIALIZE(outputs)
       END_KV_SERIALIZE_MAP()
     };
 

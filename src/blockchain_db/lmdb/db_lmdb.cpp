@@ -1387,6 +1387,8 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_
     for (const fcmp_pp::UnifiedOutput &locked_output : last_locked_block.second)
     {
       const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(locked_output);
+      if (output_blob.size() != SIZEOF_SERIALIZED_UNIFIED_OUTPUT)
+        throw0(DB_ERROR(("Out " + std::to_string(locked_output.unified_id) + " has unexpected blob size" + std::to_string(output_blob.size())).c_str()));
 
       MDB_val_set(k_block_id, last_locked_block_idx);
       MDB_val_sized(v_output, output_blob);
@@ -1872,6 +1874,9 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     // Re-add the output to the locked output table in order. The output should
     // still be in the outputs tables.
     const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
+    if (output_blob.size() != SIZEOF_SERIALIZED_UNIFIED_OUTPUT)
+      throw0(DB_ERROR(("Output " + std::to_string(unified_output.unified_id) + " has unexpected blob size" + std::to_string(output_blob.size())).c_str()));
+
     MDB_val_sized(v_output, output_blob);
     MDEBUG("Re-adding locked unified_id: " << unified_output.unified_id << " , last locked block: " << trim_block_idx);
     int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
@@ -2397,9 +2402,11 @@ std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_outs_at_last_locked_bloc
     const char *range_begin = (const char*)v_output.mv_data;
     const char *range_end = range_begin + v_output.mv_size;
 
-    auto it = range_begin;
-
+    if (v_output.mv_size % SIZEOF_SERIALIZED_UNIFIED_OUTPUT != 0)
+      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " page of outs has unexpected data size" + std::to_string(v_output.mv_size)).c_str()));
     static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
+
+    auto it = range_begin;
 
     // The first MDB_NEXT_MULTIPLE includes the val from MDB_SET, so skip it
     if (outs.size() == 1)

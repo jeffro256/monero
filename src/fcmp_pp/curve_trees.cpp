@@ -1119,8 +1119,9 @@ CurveTrees<Selene, Helios>::Path CurveTrees<Selene, Helios>::path_bytes_to_path(
     typename CurveTrees<Selene, Helios>::Path path;
 
     // Leaves
-    path.leaves.reserve(path_bytes.leaves.size());
-    for (const auto &leaf : path_bytes.leaves)
+    const auto leaves = path_bytes.leaves.to_unified_outputs_vec();
+    path.leaves.reserve(leaves.size());
+    for (const auto &leaf : leaves)
         path.leaves.emplace_back(output_to_tuple(leaf.output_pair));
 
     // Layers
@@ -1157,7 +1158,7 @@ CompressedPath CurveTrees<Selene, Helios>::compress_path(const CurveTrees<Selene
     CompressedPath compressed_path;
 
     // Leaves (leaf tuples don't have enough context, need to know the output's type)
-    compressed_path.leaves = outputs;
+    compressed_path.leaves = fcmp_pp::UnifiedOutputs(outputs);
 
     // Layers
     bool parent_is_c1 = true;
@@ -1497,7 +1498,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::path_to_tree_exte
     typename CurveTrees<C1, C2>::TreeExtension tree_extension;
     tree_extension.leaves = ContiguousLeaves{
             .start_leaf_tuple_idx = path_idxs.leaf_range.first,
-            .tuples               = path_bytes.leaves
+            .tuples               = path_bytes.leaves.to_unified_outputs_vec()
         };
 
     uint8_t layer_idx = 0;
