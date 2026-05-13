@@ -118,6 +118,47 @@ namespace cryptonote
       if (candidate < next_check.load(std::memory_order_relaxed))
         next_check = candidate;
     }
+
+    // Quick check if inputs were rendered invalid. If true, this does not mean the inputs are still valid. It only
+    // means we **expect** them to be valid, but they would still need to go through the full validation flow.
+    // But if false, we're sure the inputs are now invalid. This is helpful to avoid re-relaying invalid txs.
+    bool expect_valid_tx_inputs(const crypto::hash &txid, const txpool_tx_meta_t &meta, const Blockchain& m_blockchain, std::unordered_map<uint64_t, crypto::ec_point> &tree_roots_by_block_inout)
+    {
+      if (meta.max_used_block_height < m_blockchain.get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS + 1))
+        return true;
+
+      // After the FCMP++ fork, the max_used_block_height == tx's used reference_block. That's expected to be the tip of
+      // the chain when constructing a tx. We can use this value to quickly determine if the tx's proof is still
+      // expected to be valid. We couldn't do this quickly with ring signatures, so we start doing it after FCMP++.
+      const uint64_t reference_block = meta.max_used_block_height;
+
+      // If we don't already know this tree root by block index, get it from the db and cache it
+      if (tree_roots_by_block_inout.find(reference_block) == tree_roots_by_block_inout.end())
+      {
+        crypto::ec_point tree_root;
+        try
+        {
+          m_blockchain.get_db().get_tree_root_at_blk_idx(reference_block, tree_root);
+        }
+        catch (...)
+        {
+          MERROR("Failed to get tree root at block " << reference_block);
+          return false;
+        }
+        tree_roots_by_block_inout[reference_block] = tree_root;
+      }
+
+      const crypto::ec_point &tree_root = tree_roots_by_block_inout[reference_block];
+
+      // Warning: this doesn't guarantee the tx inputs are definitely still valid. Need to check the tx's included
+      // n_tree_layers as well, but we don't want to have to parse the full tx blob in here, so we do this spot check.
+      const auto expected_ver_id = make_input_verification_id(txid, tree_root);
+      if (meta.valid_input_verification_id == expected_ver_id)
+        return true;
+
+      MINFO("Tx " << txid << " no longer has a valid input verification id, not re-relaying");
+      return false;
+    }
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
@@ -823,11 +864,13 @@ namespace cryptonote
     uint64_t next_check = clock::to_time_t(clock::from_time_t(time_t(now)) + max_relayable_check);
     std::vector<std::pair<crypto::hash, txpool_tx_meta_t>> change_timestamps;
 
+    std::unordered_map<uint64_t, crypto::ec_point> tree_roots_by_block;
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain.get_db());
     txs.reserve(m_blockchain.get_txpool_tx_count());
-    m_blockchain.for_all_txpool_txes([this, now, &txs, &change_timestamps, &next_check](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
+    m_blockchain.for_all_txpool_txes([this, now, &txs, &change_timestamps, &next_check, &tree_roots_by_block](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
       // 0 fee transactions are never relayed
       if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay)
       {
@@ -860,6 +903,8 @@ namespace cryptonote
         uint64_t max_age = (tx_relay == relay_method::block) ? CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME : CRYPTONOTE_MEMPOOL_TX_LIVETIME;
         if (now - meta.receive_time <= max_age / 2)
         {
+          if (!expect_valid_tx_inputs(txid, meta, m_blockchain, tree_roots_by_block))
+            return true; // continue to next tx
           try
           {
             txs.emplace_back(txid, m_blockchain.get_txpool_tx_blob(txid, relay_category::all), tx_relay);
