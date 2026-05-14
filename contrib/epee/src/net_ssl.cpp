@@ -96,7 +96,7 @@ namespace
    */
   openssl_pkey gen_rsa_pkey_compat()
   {
-#if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     return openssl_pkey{EVP_RSA_gen(rsa_bits)};
 #else
     openssl_pkey pkey{EVP_PKEY_new()};
