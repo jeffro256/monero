@@ -276,7 +276,7 @@ namespace cryptonote
         meta.weight = tx_weight;
         meta.fee = fee;
         meta.max_used_block_id = null_hash;
-        meta.max_used_block_height = 0;
+        meta.max_used_block_height = rct::is_rct_fcmp(tx.rct_signatures.type) ? max_used_block_height : 0;
         meta.last_failed_height = 0;
         meta.last_failed_id = null_hash;
         meta.receive_time = receive_time;
