@@ -1582,10 +1582,11 @@ namespace cryptonote
      *
      * @param start_height the block height of the first block to query
      * @param count the number of blocks to get weights for
+     * @param yin_yang false for yin, true for yang
      *
      * @return the long term median block weight
      */
-    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count) const;
+    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count, bool yin_yang) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)

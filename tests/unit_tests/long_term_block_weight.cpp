@@ -429,7 +429,7 @@ TEST(long_term_block_weight, cache_matches_true_value)
   uint64_t weight_limit = bc->get_current_cumulative_block_weight_limit();
   // refresh the cache
   bc->m_long_term_block_weights_cache_rolling_median.clear();
-  bc->get_long_term_block_weight_median(bc->get_db().height() - TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW);
+  bc->get_long_term_block_weight_median(bc->get_db().height() - TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW, /*yin_yang=*/false);
   bc->update_next_cumulative_weight_limit();
 
   // make sure the weight limit is the same
