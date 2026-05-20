@@ -34,9 +34,10 @@ panic = "abort"
 overflow-checks = true
 
 [profile.release]
-lto = "off"
+lto = "thin"
 panic = "abort"
 overflow-checks = true
+codegen-units = 1
 
 [profile.dev.package]
 subtle = { opt-level = 3 }
