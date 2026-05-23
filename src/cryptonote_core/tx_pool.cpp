@@ -119,13 +119,13 @@ namespace cryptonote
         next_check = candidate;
     }
 
-    // Quick check if inputs were rendered invalid. If true, this does not mean the inputs are still valid. It only
-    // means we **expect** them to be valid, but they would still need to go through the full validation flow.
-    // But if false, we're sure the inputs are now invalid. This is helpful to avoid re-relaying invalid txs.
-    bool expect_valid_tx_inputs(const crypto::hash &txid, const txpool_tx_meta_t &meta, const Blockchain& m_blockchain, std::unordered_map<uint64_t, crypto::ec_point> &tree_roots_by_block_inout)
+    // Quick check if inputs were rendered invalid. If false, this does not mean the inputs are still valid. The
+    // tx would still need to go through the full validation flow. But if true, we're sure the inputs are now
+    // invalid. This is helpful to avoid re-relaying invalid txs.
+    bool expect_invalid_tx_inputs(const crypto::hash &txid, const txpool_tx_meta_t &meta, const Blockchain& m_blockchain, std::unordered_map<uint64_t, crypto::ec_point> &tree_roots_by_block_inout)
     {
       if (meta.max_used_block_height < m_blockchain.get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS + 1))
-        return true;
+        return false;
 
       // After the FCMP++ fork, the max_used_block_height == tx's used reference_block. That's expected to be the tip of
       // the chain when constructing a tx. We can use this value to quickly determine if the tx's proof is still
@@ -143,7 +143,7 @@ namespace cryptonote
         catch (...)
         {
           MERROR("Failed to get tree root at block " << reference_block);
-          return false;
+          return true;
         }
         tree_roots_by_block_inout[reference_block] = tree_root;
       }
@@ -154,10 +154,10 @@ namespace cryptonote
       // n_tree_layers as well, but we don't want to have to parse the full tx blob in here, so we do this spot check.
       const auto expected_ver_id = make_input_verification_id(txid, tree_root);
       if (meta.valid_input_verification_id == expected_ver_id)
-        return true;
+        return false;
 
       MINFO("Tx " << txid << " no longer has a valid input verification id, not re-relaying");
-      return false;
+      return true;
     }
   }
   //---------------------------------------------------------------------------------
@@ -903,7 +903,7 @@ namespace cryptonote
         uint64_t max_age = (tx_relay == relay_method::block) ? CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME : CRYPTONOTE_MEMPOOL_TX_LIVETIME;
         if (now - meta.receive_time <= max_age / 2)
         {
-          if (!expect_valid_tx_inputs(txid, meta, m_blockchain, tree_roots_by_block))
+          if (expect_invalid_tx_inputs(txid, meta, m_blockchain, tree_roots_by_block))
             return true; // continue to next tx
           try
           {
