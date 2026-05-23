@@ -445,11 +445,9 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
       if (num_popped_blocks % 100 == 0)
         MGINFO("Popping blocks... " << top_height);
       ++num_popped_blocks;
-      block popped_block;
-      std::vector<transaction> popped_txs;
       try
       {
-        m_db->pop_block(popped_block, popped_txs);
+        m_db->pop_block_fast();
       }
       // anything that could cause this to throw is likely catastrophic,
       // so we re-throw
