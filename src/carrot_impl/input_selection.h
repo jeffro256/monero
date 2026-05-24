@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -82,8 +82,8 @@ using input_selection_policy_t = std::function<void(
 
 /**
  * brief: get_input_count_for_max_usable_money - get optimal number of inputs to maximum money minus fees
- * param: user_amount_begin - rct::xmr_amount LegacyForwardIterator to beginning of user-defined amounts container
- * param: user_amount_end - rct::xmr_amount LegacyForwardIterator to end of user-defined amounts container
+ * param: user_amount_begin - xmr_amount LegacyForwardIterator to beginning of user-defined amounts container
+ * param: user_amount_end - xmr_amount LegacyForwardIterator to end of user-defined amounts container
  * param: max_num_input_count - maximum number of inputs
  * param: fee_by_input_count - fee indexed by number of inputs
  * return: (N, X) where the X is the sum of the greatest N <= max_num_input_count amounts,
@@ -99,7 +99,7 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
     AmountFwdIt user_amount_begin,
     const AmountFwdIt &user_amount_end,
     const std::size_t max_num_input_count,
-    const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count);
+    const std::map<std::size_t, xmr_amount> &fee_by_input_count);
 /**
  * brief: compare_input_candidate_same_ota - compare two input candidates who share a OTA; we can only choose one!
  * param: lhs -

@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -68,7 +68,7 @@ namespace carrot
 void make_multiple_carrot_transaction_proposals_transfer(
     std::vector<CarrotPaymentProposalV1> &&normal_payment_proposals,
     std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &&selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<InputCandidate> &&input_candidates,
     const epee::span<const input_selection_policy_t> input_selection_policies,
@@ -96,7 +96,7 @@ void make_multiple_carrot_transaction_proposals_transfer(
 void make_multiple_carrot_transaction_proposals_sweep(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const crypto::public_key &change_address_spend_pubkey,

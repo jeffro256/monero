@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -90,7 +90,7 @@ static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_
     const epee::span<const InputCandidate> input_candidates,
     const std::set<std::size_t> &selectable_inputs,
     const std::size_t max_num_input_count,
-    const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count)
+    const std::map<std::size_t, xmr_amount> &fee_by_input_count)
 {
     const auto deref_amount = [input_candidates](const std::size_t idx) {
         CARROT_CHECK_AND_THROW(idx < input_candidates.size(),
@@ -345,7 +345,7 @@ select_inputs_func_t make_single_transfer_input_selector(
 {
     // input selector :D
     return [=](const boost::multiprecision::uint128_t &nominal_output_sum,
-        const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count,
+        const std::map<std::size_t, xmr_amount> &fee_by_input_count,
         const std::size_t num_normal_payment_proposals,
         const std::size_t num_selfsend_payment_proposals,
         std::vector<CarrotSelectedInput> &selected_inputs_out)
@@ -452,7 +452,7 @@ select_inputs_func_t make_single_transfer_input_selector(
                 std::set<std::size_t> candidate_subset_filtered = input_candidate_subset;
                 if (!(flags & ALLOW_DUST))
                 {
-                    const rct::xmr_amount dust_threshold = fee_by_input_count.at(n_inputs)
+                    const xmr_amount dust_threshold = fee_by_input_count.at(n_inputs)
                         - (n_inputs > CARROT_MIN_TX_INPUTS ? fee_by_input_count.at(n_inputs - 1) : 0);
                     for (auto it = candidate_subset_filtered.cbegin(); it != candidate_subset_filtered.cend();)
                     {
@@ -563,12 +563,12 @@ void select_greedy_aging(const epee::span<const InputCandidate> input_candidates
         std::uint64_t min_block_index = bi_it->first;
         std::size_t input_of_min_block_index_input = bi_it->second;
         const boost::multiprecision::uint128_t surplus = input_amount_sum - required_money;
-        const rct::xmr_amount currently_selected_amount = input_candidates[bi_it->second].core.amount;
-        const rct::xmr_amount lowest_replacement_amount = (currently_selected_amount > surplus)
-            ? boost::numeric_cast<rct::xmr_amount>(currently_selected_amount - surplus) : 0;
+        const xmr_amount currently_selected_amount = input_candidates[bi_it->second].core.amount;
+        const xmr_amount lowest_replacement_amount = (currently_selected_amount > surplus)
+            ? boost::numeric_cast<xmr_amount>(currently_selected_amount - surplus) : 0;
         const auto lower_amount_it = std::lower_bound(selectable_inputs_by_amount.cbegin(),
             selectable_inputs_by_amount.cend(), lowest_replacement_amount,
-            [&input_candidates](const std::size_t selectable_idx, const rct::xmr_amount lowest_replacement_amount)
+            [&input_candidates](const std::size_t selectable_idx, const xmr_amount lowest_replacement_amount)
                 {
                     CARROT_CHECK_AND_THROW(selectable_idx < input_candidates.size(),
                         std::out_of_range, "input candidate index out of range");

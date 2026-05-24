@@ -32,10 +32,8 @@
 //local headers
 #include "address_device.h"
 #include "carrot_impl/subaddress_index.h"
-#include "crypto/generators.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -54,7 +52,7 @@ void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
 {
     if (!major_index && !minor_index)
     {
-        sc_0(to_bytes(legacy_subaddress_extension_out));
+        memset(legacy_subaddress_extension_out.data, 0, sizeof(legacy_subaddress_extension_out));
         return;
     }
 

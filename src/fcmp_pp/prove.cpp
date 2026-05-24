@@ -28,6 +28,7 @@
 
 #include "prove.h"
 
+#include "crypto/crypto.h"
 #include "crypto/generators.h"
 #include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
@@ -65,10 +66,10 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &on
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const crypto::ec_point &amount_commitment,
     const bool use_biased_hash_to_point,
-    const crypto::secret_key &r_o,
-    const crypto::secret_key &r_i,
-    const crypto::secret_key &r_r_i,
-    const crypto::secret_key &r_c)
+    const crypto::ec_scalar &r_o,
+    const crypto::ec_scalar &r_i,
+    const crypto::ec_scalar &r_r_i,
+    const crypto::ec_scalar &r_c)
 {
     FcmpInputCompressed res;
 
