@@ -1,21 +1,21 @@
-// Copyright (c) 2025, The Monero Project
-// 
+// Copyright (c) 2025-2026, The Monero Project
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -30,6 +30,7 @@
 #include "tx_builder.h"
 
 //local headers
+#include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
@@ -793,7 +794,8 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
             // recreate amount parts of the enote and pass as non-coinbase carrot enote v1
 
             // C_a = z G + a H
-            const rct::key amount_commitment = rct::commit(td.amount(), td.m_mask);
+            const carrot::amount_commitment_t amount_commitment = carrot::commit_carrot_amount(td.amount(),
+                rct::rct2sk(td.m_mask));
 
             return carrot::CarrotOutputOpeningHintV2{
                 .onetime_address = carrot_out.key,
@@ -824,7 +826,7 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
             .ephemeral_tx_pubkey = ephemeral_tx_pubkey,
             .subaddr_index = subaddr_index,
             .amount = td.amount(),
-            .amount_blinding_factor = td.m_mask,
+            .amount_blinding_factor = rct::rct2sk(td.m_mask),
             .local_output_index = static_cast<std::size_t>(td.m_internal_output_index)
         };
 
@@ -1193,53 +1195,20 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     CHECK_AND_ASSERT_THROW_MES(output_enote_proposals.size() == n_outputs,
         "unexpected number of output enote proposals");
 
-    // collect input (K_o, C_a, k_a)
+    // collect input tuples (K_o, C_a, type)
     std::vector<fcmp_pp::OutputPair> output_pairs;
-    std::vector<crypto::public_key> input_onetime_addresses;
-    std::vector<rct::key> input_amount_commitments;
-    std::vector<rct::key> input_amount_blinding_factors;
     output_pairs.reserve(n_inputs);
-    input_onetime_addresses.reserve(n_inputs);
-    input_amount_commitments.reserve(n_inputs);
-    input_amount_blinding_factors.reserve(n_inputs);
     for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
-    {
-        fcmp_pp::OutputPair output_pair = carrot::to_output_pair(input_proposal);
-
-        input_onetime_addresses.push_back(fcmp_pp::output_pubkey_cref(output_pair));
-        input_amount_commitments.push_back(rct::pt2rct(fcmp_pp::commitment_cref(output_pair)));
-
-        rct::xmr_amount amount;
-        carrot::try_scan_opening_hint_amount(input_proposal,
-            main_address_spend_pubkeys,
-            &k_view_incoming_dev,
-            s_view_balance_dev,
-            amount,
-            input_amount_blinding_factors.emplace_back());
-
-        output_pairs.emplace_back(std::move(output_pair));
-    }
-
-    // collect and sort input enote types in key image order
-    std::vector<bool> input_uses_biased_hash_to_point;
-    input_uses_biased_hash_to_point.reserve(n_inputs);
-    for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
-        input_uses_biased_hash_to_point.emplace_back(carrot::use_biased_hash_to_point(input_proposal));
-
-    // collect output k_a
-    std::vector<rct::key> output_amount_blinding_factors;
-    output_amount_blinding_factors.reserve(n_inputs);
-    for (const carrot::RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
-        output_amount_blinding_factors.push_back(rct::sk2rct(output_enote_proposal.amount_blinding_factor));
+        output_pairs.push_back(carrot::to_output_pair(input_proposal));
 
     // make rerandomized outputs and collect by OTA
-    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    carrot::make_carrot_rerandomized_outputs_nonrefundable(input_onetime_addresses,
-        input_amount_commitments,
-        input_uses_biased_hash_to_point,
-        input_amount_blinding_factors,
-        output_amount_blinding_factors,
-        rerandomized_outputs);
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs = carrot::generate_rerandomized_inputs_nonrefundable(
+        epee::to_span(output_enote_proposals),
+        epee::to_span(tx_proposal.input_proposals),
+        main_address_spend_pubkeys,
+        k_view_incoming_dev,
+        s_view_balance_dev);
+
     std::unordered_map<crypto::public_key, FcmpRerandomizedOutputCompressed> rerandomized_outputs_by_ota;
     for (std::size_t input_idx = 0; input_idx < rerandomized_outputs.size(); ++input_idx)
     {

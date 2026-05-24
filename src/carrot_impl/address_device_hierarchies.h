@@ -30,6 +30,7 @@
 
 //local headers
 #include "address_device.h"
+#include "carrot_core/device.h"
 
 //third party headers
 

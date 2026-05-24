@@ -32,6 +32,8 @@
 //local headers
 #include "carrot_core/account_secrets.h"
 #include "carrot_core/address_utils.h"
+#include "carrot_core/hash_functions.h"
+#include "carrot_impl/key_image_device_composed.h"
 #include "core_types.h"
 #include "crypto/crypto.h"
 #include "crypto/generators.h"

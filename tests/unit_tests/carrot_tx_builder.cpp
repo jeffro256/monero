@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 
+#include "carrot_core/enote_utils.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
@@ -67,10 +68,10 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
     // a
     const rct::xmr_amount amount = crypto::rand<rct::xmr_amount>();
     // z
-    const rct::key amount_blinding_factor = rct::skGen();
+    const crypto::secret_key amount_blinding_factor = mock::gen_secret_key();
 
     // C_a = z G + a H
-    const rct::key amount_commitment = rct::commit(amount, amount_blinding_factor);
+    const amount_commitment_t amount_commitment = commit_carrot_amount(amount, amount_blinding_factor);
 
     const LegacyOutputOpeningHintV1 opening_hint{
         .onetime_address = onetime_address,
@@ -86,17 +87,18 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({opening_hint.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set(
+        {onetime_address},
         {amount_commitment},
-        {use_biased_htp},
+        {true},
         {amount_blinding_factor},
-        {output_amount_blinding_factor},
+        {mock::gen_secret_key()},
+        output_amount_blinding_factor,
         rerandomized_outputs);
-
     ASSERT_EQ(1, rerandomized_outputs.size());
 
     // make SA/L proof for spending aforementioned enote
@@ -137,11 +139,15 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // k_e, K_e = k_e K^j_s
-    crypto::secret_key enote_ephemeral_privkey;
+    const crypto::secret_key enote_ephemeral_privkey = mock::gen_secret_key();
     crypto::public_key enote_ephemeral_pubkey;
-    crypto::generate_keys(enote_ephemeral_pubkey, enote_ephemeral_privkey);
-    enote_ephemeral_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(addr.address_spend_pubkey),
-        rct::sk2rct(enote_ephemeral_privkey)));
+    {
+        ge_p3 Kjs;
+        [[maybe_unused]] const int r = ge_frombytes_vartime(&Kjs, to_bytes(addr.address_spend_pubkey));
+        ge_p2 Ke;
+        ge_scalarmult(&Ke, to_bytes(enote_ephemeral_privkey), &Kjs);
+        ge_tobytes(to_bytes(enote_ephemeral_pubkey), &Ke);
+    }
 
     // 8 k_e K^j_v
     crypto::key_derivation kd;
@@ -155,12 +161,12 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     // a
     const rct::xmr_amount amount = crypto::rand<rct::xmr_amount>();
     // z
-    const rct::key amount_blinding_factor = rct::skGen();
+    const crypto::secret_key amount_blinding_factor = mock::gen_secret_key();
     // k^g_o
     const crypto::secret_key sender_extension_g = mock::gen_secret_key();
 
     // C_a = z G + a H
-    const rct::key amount_commitment = rct::commit(amount, amount_blinding_factor);
+    const amount_commitment_t amount_commitment = commit_carrot_amount(amount, amount_blinding_factor);
 
     const LegacyOutputOpeningHintV1 opening_hint{
         .onetime_address = onetime_address,
@@ -176,14 +182,15 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({opening_hint.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({opening_hint.onetime_address},
         {amount_commitment},
         {use_biased_htp},
         {amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -266,15 +273,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -360,15 +368,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -454,15 +463,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -545,15 +555,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -632,15 +643,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -725,15 +737,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -815,15 +828,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -908,15 +922,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -998,15 +1013,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -1091,15 +1107,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({enote.onetime_address},
         {enote.amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -1152,7 +1169,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
     get_coinbase_enote_v1(normal_payment_proposal,
         block_index,
         coinbase_enote);
-    const rct::key coinbase_enote_amount_commitment = rct::zeroCommitVartime(coinbase_enote.amount);
+    const amount_commitment_t coinbase_enote_amount_commitment = commit_carrot_amount(coinbase_enote.amount, {{1}});
 
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
@@ -1178,15 +1195,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({coinbase_enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({coinbase_enote.onetime_address},
         {coinbase_enote_amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 
@@ -1232,7 +1250,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
     get_coinbase_enote_v1(normal_payment_proposal,
         block_index,
         coinbase_enote);
-    const rct::key coinbase_enote_amount_commitment = rct::zeroCommitVartime(coinbase_enote.amount);
+    const amount_commitment_t coinbase_enote_amount_commitment = commit_carrot_amount(coinbase_enote.amount, {{1}});
 
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
@@ -1258,15 +1276,16 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
         use_biased_htp);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
-    const rct::key output_amount_blinding_factor = rct::skGen();
+    const crypto::secret_key output_amount_blinding_factor = mock::gen_secret_key();
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
     // make rerandomized outputs
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable({coinbase_enote.onetime_address},
+    fcmp_pp::make_balanced_rerandomized_output_set({coinbase_enote.onetime_address},
         {coinbase_enote_amount_commitment},
         {use_biased_htp},
-        {rct::sk2rct(scan_result.amount_blinding_factor)},
+        {scan_result.amount_blinding_factor},
+        {mock::gen_secret_key()},
         {output_amount_blinding_factor},
         rerandomized_outputs);
 

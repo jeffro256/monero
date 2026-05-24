@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,10 +31,8 @@
 
 //local headers
 #include "address_utils.h"
-#include "carrot_core/address_utils.h"
 #include "carrot_core/exceptions.h"
 #include "misc_log_ex.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -146,8 +144,8 @@ crypto::key_image key_image_device_composed::derive_key_image_prescanned(const c
 
     // [legacy] L_partial = k_s Hp(K_o)
     // [carrot] L_partial = k_gi Hp(K_o)
-    rct::key partial_key_image
-        = rct::pt2rct(used_k_generate_image_dev->generate_image_scalar_mult_hash_to_point(onetime_address, use_biased));
+    crypto::ec_point partial_key_image
+        = used_k_generate_image_dev->generate_image_scalar_mult_hash_to_point(onetime_address, use_biased);
 
     // I = Hp(K_o)
     crypto::ec_point key_image_generator;
@@ -159,16 +157,31 @@ crypto::key_image key_image_device_composed::derive_key_image_prescanned(const c
     m_addr_dev->get_address_openings(subaddr_index, subaddr_extension_g, carrot_subaddr_scalar);
 
     // L_partial = k^j_subscal L_partial
-    partial_key_image = rct::scalarmultKey(partial_key_image, rct::sk2rct(carrot_subaddr_scalar));
+    ge_p3 tmp1;
+    int r = ge_frombytes_vartime(&tmp1, to_bytes(partial_key_image));
+    CARROT_CHECK_AND_THROW(0 == r, invalid_point, "generate_image_key_device device returned invalid point");
+    ge_scalarmult_p3(&tmp1, to_bytes(carrot_subaddr_scalar), &tmp1);
+    ge_cached tmp2;
+    ge_p3_to_cached(&tmp2, &tmp1);
 
     // L_partial = k^j_subext I + L_partial
-    rct::key tmp;
-    tmp = rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(subaddr_extension_g));
-    partial_key_image = rct::addKeys(tmp, partial_key_image);
+    r = ge_frombytes_vartime(&tmp1, to_bytes(key_image_generator));
+    CARROT_CHECK_AND_THROW(0 == r, invalid_point, "derive_key_image_generator device returned invalid point");
+    ge_p3 tmp3;
+    ge_scalarmult_p3(&tmp3, to_bytes(subaddr_extension_g), &tmp1);
+    ge_p1p1 tmp4;
+    ge_add(&tmp4, &tmp3, &tmp2);
+    ge_p1p1_to_p3(&tmp3, &tmp4);
+    ge_p3_to_cached(&tmp2, &tmp3);
 
     // L = k^g_o I + L_partial
-    tmp = rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(sender_extension_g));
-    return rct::rct2ki(rct::addKeys(tmp, partial_key_image));
+    ge_scalarmult_p3(&tmp1, to_bytes(sender_extension_g), &tmp1);
+    ge_add(&tmp4, &tmp1, &tmp2);
+    ge_p2 tmp5;
+    ge_p1p1_to_p2(&tmp5, &tmp4);
+    crypto::key_image ki;
+    ge_tobytes(to_bytes(ki), &tmp5);
+    return ki;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

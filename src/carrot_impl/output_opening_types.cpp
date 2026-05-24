@@ -30,9 +30,11 @@
 #include "output_opening_types.h"
 
 //local headers
+#include "carrot_core/core_types.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/scan.h"
-#include "ringct/rctOps.h"
+#include "crypto/crypto.h"
+#include "format_utils.h"
 
 //third party headers
 
@@ -67,11 +69,10 @@ static bool try_opening_hint_scan_on_carrot_enote(const CarrotEnoteV1 &enote,
     const view_balance_secret_device *s_view_balance_dev,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
-    rct::xmr_amount &amount_out,
-    rct::key &amount_blinding_factor_out)
+    xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out)
 {
     crypto::public_key dummy_address_spend_pubkey;
-    crypto::secret_key amount_blinding_factor_sk;
     CarrotEnoteType dummy_enote_type;
     janus_anchor_t dummy_internal_message;
     payment_id_t dummy_payment_id;
@@ -83,11 +84,10 @@ static bool try_opening_hint_scan_on_carrot_enote(const CarrotEnoteV1 &enote,
                 sender_extension_t_out,
                 dummy_address_spend_pubkey,
                 amount_out,
-                amount_blinding_factor_sk,
+                amount_blinding_factor_out,
                 dummy_enote_type,
                 dummy_internal_message))
         {
-            amount_blinding_factor_out = rct::sk2rct(amount_blinding_factor_sk);
             return true;
         }
     }
@@ -107,11 +107,10 @@ static bool try_opening_hint_scan_on_carrot_enote(const CarrotEnoteV1 &enote,
                     sender_extension_t_out,
                     dummy_address_spend_pubkey,
                     amount_out,
-                    amount_blinding_factor_sk,
+                    amount_blinding_factor_out,
                     dummy_payment_id,
                     dummy_enote_type))
             {
-                amount_blinding_factor_out = rct::sk2rct(amount_blinding_factor_sk);
                 return true;
             }
         }
@@ -127,8 +126,8 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
     const view_balance_secret_device *s_view_balance_dev,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
-    rct::xmr_amount &amount_out,
-    rct::key &amount_blinding_factor_out)
+    xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out)
 {
     struct try_scan_opening_hint_visitor
     {
@@ -142,18 +141,15 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
             if (k_view_incoming_dev == nullptr)
                 return false;
 
-            // k_v K_e
+            // 8 k_v K_e
             crypto::public_key kd_tors;
-            if (!k_view_incoming_dev->view_key_scalar_mult_ed25519(hint.ephemeral_tx_pubkey, kd_tors))
+            if (!k_view_incoming_dev->view_key_scalar_mult8_ed25519(hint.ephemeral_tx_pubkey, kd_tors))
                 return false;
 
-            // 8 k_v K_e
-            kd_tors = rct::rct2pk(rct::scalarmult8(rct::pk2rct(kd_tors)));
-            crypto::key_derivation kd;
-            memcpy(&kd, &kd_tors, sizeof(kd));
-
             // d = k_o = Hs1(8 k_v K_e, i)
-            crypto::derivation_to_scalar(kd, hint.local_output_index, unwrap(unwrap(sender_extension_g_out)));
+            crypto::key_derivation derivation;
+            memcpy(&derivation, &kd_tors, sizeof(derivation));
+            crypto::derivation_to_scalar(derivation, hint.local_output_index, sender_extension_g_out);
 
             return true;
         }
@@ -223,7 +219,7 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
         bool operator()(const CarrotCoinbaseOutputOpeningHintV1 &hint) const
         {
             amount_out = hint.source_enote.amount;
-            amount_blinding_factor_out = rct::I;
+            amount_blinding_factor_out = {{1}};
 
             mx25519_pubkey s_sender_receiver;
             if (try_make_carrot_shared_key_receiver(*k_view_incoming_dev,
@@ -247,8 +243,8 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
         const view_balance_secret_device *s_view_balance_dev;
         crypto::secret_key &sender_extension_g_out;
         crypto::secret_key &sender_extension_t_out;
-        rct::xmr_amount &amount_out;
-        rct::key &amount_blinding_factor_out;
+        xmr_amount &amount_out;
+        crypto::secret_key &amount_blinding_factor_out;
     };
 
     return std::visit(try_scan_opening_hint_visitor{
@@ -316,18 +312,18 @@ const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant &op
     return std::visit(onetime_address_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::key amount_commitment_ref(const OutputOpeningHintVariant &opening_hint)
+amount_commitment_t amount_commitment_ref(const OutputOpeningHintVariant &opening_hint)
 {
     struct amount_commitment_ref_visitor
     {
-        rct::key operator()(const LegacyOutputOpeningHintV1 &h) const
-        { return rct::commit(h.amount, h.amount_blinding_factor); }
-        rct::key operator()(const CarrotOutputOpeningHintV1 &h) const
+        amount_commitment_t operator()(const LegacyOutputOpeningHintV1 &h) const
+        { return commit_carrot_amount(h.amount, h.amount_blinding_factor); }
+        amount_commitment_t operator()(const CarrotOutputOpeningHintV1 &h) const
         { return h.source_enote.amount_commitment; }
-        rct::key operator()(const CarrotOutputOpeningHintV2 &h) const
+        amount_commitment_t operator()(const CarrotOutputOpeningHintV2 &h) const
         { return h.amount_commitment; }
-        rct::key operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
-        { return rct::zeroCommitVartime(h.source_enote.amount); }
+        amount_commitment_t operator()(const CarrotCoinbaseOutputOpeningHintV1 &h) const
+        { return commit_carrot_amount(h.source_enote.amount, {{1}}); }
     };
 
     return std::visit(amount_commitment_ref_visitor{}, opening_hint);
@@ -385,8 +381,8 @@ fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
     };
 
     const crypto::public_key &O = onetime_address_ref(opening_hint);
-    const rct::key &C = amount_commitment_ref(opening_hint);
-    return std::visit(hint_visitor{O, rct::rct2pt(C)}, opening_hint);
+    const amount_commitment_t &C = amount_commitment_ref(opening_hint);
+    return std::visit(hint_visitor{O, raw_byte_convert<crypto::ec_point>(C)}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
@@ -396,8 +392,8 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out)
 {
-    rct::xmr_amount amount;
-    rct::key amount_blinding_factor;
+    xmr_amount amount;
+    crypto::secret_key amount_blinding_factor;
     return try_scan_opening_hint(opening_hint,
         main_address_spend_pubkeys,
         k_view_incoming_dev,
@@ -412,8 +408,8 @@ bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device *k_view_incoming_dev,
     const view_balance_secret_device *s_view_balance_dev,
-    rct::xmr_amount &amount_out,
-    rct::key &amount_blinding_factor_out)
+    xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out)
 {
     crypto::secret_key sender_extension_g, sender_extension_t;
     return try_scan_opening_hint(opening_hint,

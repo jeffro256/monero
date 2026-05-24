@@ -345,7 +345,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
 
             const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(
                 onetime_address_ref(opening_hint),
-                rct::rct2pt(amount_commitment_ref(opening_hint)),
+                amount_commitment_ref(opening_hint),
                 carrot::use_biased_hash_to_point(opening_hint));
 
             fcmp_pp::FcmpPpSalProof sal_proof;

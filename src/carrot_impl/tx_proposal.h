@@ -83,7 +83,7 @@ struct CarrotTransactionProposalV1
     /// to integrated addresses.
     encrypted_payment_id_t dummy_encrypted_payment_id;
     /// Fee to miner
-    rct::xmr_amount fee;
+    xmr_amount fee;
 
     /// This field is truly "extra". It should contain only tx.extra fields that aren't present in a
     /// normal Carrot transaction, i.e. NOT ephemeral pubkeys nor encrypted PIDs

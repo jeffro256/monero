@@ -30,10 +30,12 @@
 
 //local headers
 #include "carrot_chain_serialization.h"
+#include "carrot_core/core_types.h"
 #include "carrot_core/payment_proposal.h"
 #include "serialization/binary_archive.h"
 #include "serialization/crypto.h"
 #include "serialization/optional.h"
+#include "serialization/serialization.h"
 #include "serialization/variant.h"
 #include "subaddress_index.h"
 #include "tx_proposal.h"
@@ -44,6 +46,7 @@
 
 //forward declarations
 
+BLOB_SERIALIZER(carrot::amount_commitment_t);
 BLOB_SERIALIZER(carrot::encrypted_amount_t);
 BLOB_SERIALIZER(carrot::payment_id_t);
 

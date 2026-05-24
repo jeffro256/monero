@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -98,7 +98,7 @@ std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
  * default tx.extra fields are of size get_carrot_default_tx_extra_size(n_outputs). The fee is
  * simply calculated as weight * fee_per_weight, overflow checked.
  */
-std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
+std::map<std::size_t, xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
     const std::size_t extra_extra_len,
     const std::uint64_t fee_per_weight);
 /**
@@ -125,7 +125,7 @@ bool try_load_carrot_extra_v1(
  */
 cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotEnoteV1> &enotes,
     const std::vector<crypto::key_image> &key_images,
-    const rct::xmr_amount fee,
+    const xmr_amount fee,
     const encrypted_payment_id_t encrypted_payment_id);
 /**
  * brief: try_load_carrot_enote_from_transaction_v1 - load one non-coinbase Carrot enote from a cryptonote::transaction
@@ -151,7 +151,7 @@ bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx
 bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotEnoteV1> &enotes_out,
     std::vector<crypto::key_image> &key_images_out,
-    rct::xmr_amount &fee_out,
+    xmr_amount &fee_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out);
 /**
  * brief: store_carrot_to_coinbase_transaction_v1 - store coinbase Carrot info to a cryptonote::transaction
@@ -171,7 +171,7 @@ cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
  * return: a full coinbase transaction containing given Carrot information
  */
 cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const CarrotDestinationV1 &destination,
-    const rct::xmr_amount block_reward,
+    const xmr_amount block_reward,
     const std::uint64_t block_index,
     const cryptonote::blobdata &extra_nonce);
 /**
