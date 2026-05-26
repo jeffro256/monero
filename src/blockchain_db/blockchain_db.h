@@ -1220,6 +1220,22 @@ public:
    */
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
+  /**
+   * <!--
+   * TODO: Rewrite (if necessary) such that all calls to remove_* are
+   *       done in concrete members of this base class.
+   * -->
+   *
+   * @brief pops the top block off the blockchain
+   *
+   * The subclass should remove the most recent block from the blockchain,
+   * along with all transactions, outputs, and other metadata created as
+   * a result of its addition to the blockchain.  Most of this is handled
+   * by the concrete members of the base class provided the subclass correctly
+   * implements remove_* functions.
+   *
+   */
+  virtual void pop_block_fast();
 
   /**
    * @brief check if a transaction with a given hash exists

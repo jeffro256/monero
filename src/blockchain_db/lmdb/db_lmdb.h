@@ -360,6 +360,7 @@ public:
   bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
 
   void pop_block(block& blk, std::vector<transaction>& txs) override;
+  void pop_block_fast() override;
 
   bool can_thread_bulk_indices() const override { return true; }
 

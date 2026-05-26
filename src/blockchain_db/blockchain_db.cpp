@@ -636,6 +636,17 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
   remove_transaction(get_transaction_hash(blk.miner_tx));
 }
 
+void BlockchainDB::pop_block_fast()
+{
+  const block blk = get_top_block();
+
+  remove_block();
+
+  for (const auto& h : boost::adaptors::reverse(blk.tx_hashes))
+    remove_transaction(h);
+  remove_transaction(get_transaction_hash(blk.miner_tx));
+}
+
 bool BlockchainDB::is_open() const
 {
   return m_open;

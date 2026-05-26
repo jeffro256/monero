@@ -5437,6 +5437,25 @@ void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
   }
 }
 
+void BlockchainLMDB::pop_block_fast()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  block_wtxn_start();
+
+  try
+  {
+    BlockchainDB::pop_block_fast();
+    block_wtxn_stop();
+  }
+  catch (...)
+  {
+    block_wtxn_abort();
+    throw;
+  }
+}
+
 void BlockchainLMDB::get_output_tx_and_index_from_unified(const std::vector<uint64_t> &unified_ids,
     std::vector<tx_out_index> &tx_out_indices) const
 {
