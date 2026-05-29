@@ -1191,7 +1191,7 @@ namespace cryptonote
 
     CHECK_AND_ASSERT_MES(is_correct_output_type, false,
       "wrong " << (is_coinbase ? "" : "non-") << "coinbase transaction output type '" << o_type.name()
-      << "' for fork v" << hf_version << " in transaction id=" << get_transaction_hash(tx));
+      << "' for fork v" << static_cast<int>(hf_version) << " in transaction id=" << get_transaction_hash(tx));
 
     // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
     if (hf_version == HF_VERSION_CARROT && !is_coinbase)
