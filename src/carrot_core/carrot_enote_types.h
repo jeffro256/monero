@@ -32,8 +32,6 @@
 
 //local headers
 #include "core_types.h"
-#include "mx25519.h"
-#include "ringct/rctTypes.h"
 
 //third party headers
 
@@ -50,7 +48,7 @@ struct CarrotEnoteV1 final
     /// K_o
     crypto::public_key onetime_address;
     /// C_a
-    rct::key amount_commitment;
+    amount_commitment_t amount_commitment;
     /// a_enc
     encrypted_amount_t amount_enc;
     /// anchor_enc
@@ -72,7 +70,7 @@ struct CarrotCoinbaseEnoteV1 final
     /// K_o
     crypto::public_key onetime_address;
     /// a
-    rct::xmr_amount amount;
+    xmr_amount amount;
     /// anchor_enc
     encrypted_janus_anchor_t anchor_enc;
     /// view_tag

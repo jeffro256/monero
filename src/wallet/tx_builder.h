@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -299,7 +299,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
  * param: main_address_spend_pubkeys - all K_s
  * param: addr_dev -
  * param: k_view_incoming_dev -
- * param: s_view_balance_dev -
+ * param: s_view_balance_dev - OPTIONAL
  * param: spend_dev -
  * return: a fully proved FCMP++ transaction corresponding to the transaction proposal
  */
@@ -334,7 +334,10 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
  * param: tx_proposal -
  * param: tree_cache - FCMP tree cache to draw enote paths from
  * param: curve_trees -
- * param: acc_keys -
+ * param: addr_dev -
+ * param: k_view_incoming_dev -
+ * param: s_view_balance_dev - OPTIONAL
+ * param: spend_dev -
  * return: `pending_tx` representing the Carrot transaction proposal, including a fully proved FCMP++ transaction
  */
 pending_tx finalize_all_fcmp_pp_proofs_as_pending_tx(

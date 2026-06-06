@@ -81,7 +81,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
 std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_payment_proposal(
     const size_t num_outgoing,
     const size_t num_selfsend,
-    const rct::xmr_amount needed_change_amount,
+    const xmr_amount needed_change_amount,
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey);
 /**

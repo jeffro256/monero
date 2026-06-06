@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -33,10 +33,8 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
-#include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "format_utils.h"
-#include "ringct/rctSigs.h"
 
 //third party headers
 
@@ -163,7 +161,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     // special case: 2-out, 2-selfsend tx
     if (n_outputs == 2 && selfsend_payment_proposals.size() == 2)
     {
-        s_sender_receiver_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+        s_sender_receiver_out.emplace_back(); //! @TODO
         return;
     }
 
@@ -175,7 +173,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
         {
             if (n_outputs == 2)
                 continue;
-            s_sender_receiver_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+            s_sender_receiver_out.emplace_back(); //! @TODO
         }
         else
         {

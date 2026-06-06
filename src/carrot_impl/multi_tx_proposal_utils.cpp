@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -50,7 +50,7 @@ namespace carrot
 void make_multiple_carrot_transaction_proposals_transfer(
     std::vector<CarrotPaymentProposalV1> &&normal_payment_proposals,
     std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &&selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<InputCandidate> &&input_candidates,
     const epee::span<const input_selection_policy_t> input_selection_policies,
@@ -140,7 +140,7 @@ void make_multiple_carrot_transaction_proposals_transfer(
 void make_multiple_carrot_transaction_proposals_sweep(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const crypto::public_key &change_address_spend_pubkey,
@@ -171,7 +171,7 @@ void make_multiple_carrot_transaction_proposals_sweep(
     const std::size_t n_outputs = std::max<std::size_t>(CARROT_MIN_TX_OUTPUTS, normal_payment_proposals.size()
         + std::max<std::size_t>(1, selfsend_payment_proposals.size()));
 
-    const std::map<std::size_t, rct::xmr_amount> fee_by_input_count = get_fee_by_input_count(n_outputs, extra.size(), fee_per_weight);
+    const std::map<std::size_t, xmr_amount> fee_by_input_count = get_fee_by_input_count(n_outputs, extra.size(), fee_per_weight);
 
     tx_proposals_out.reserve((selected_inputs.size() + FCMP_PLUS_PLUS_MAX_INPUTS - 1) / FCMP_PLUS_PLUS_MAX_INPUTS);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -29,15 +29,15 @@
 #pragma once
 
 //local headers
-#include "ringct/rctTypes.h"
+#include "carrot_core/core_types.h"
 
 //third party headers
 #include <boost/multiprecision/cpp_int.hpp>
 
 //standard headers
-#include <cstdint>
-#include <utility>
 #include <map>
+#include <utility>
+#include <set>
 
 //forward declarations
 
@@ -49,10 +49,10 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
     AmountFwdIt user_amount_begin,
     const AmountFwdIt &user_amount_end,
     const std::size_t max_num_input_count,
-    const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count)
+    const std::map<std::size_t, xmr_amount> &fee_by_input_count)
 {
     // maintain list of top `max_num_input_count` amounts
-    std::multiset<rct::xmr_amount> top_amounts;
+    std::multiset<xmr_amount> top_amounts;
     for (;user_amount_begin != user_amount_end; ++user_amount_begin)
     {
         top_amounts.insert(*user_amount_begin);
@@ -69,7 +69,7 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
     for (auto top_amount_it = top_amounts.crbegin(); top_amount_it != top_amounts.crend(); ++top_amount_it)
     {
         // in order of largest amount to least...
-        const rct::xmr_amount amount = *top_amount_it;
+        const xmr_amount amount = *top_amount_it;
 
         // get fee of next number of inputs if available in F(N), else stop.
         cumulative_input_sum += amount;
@@ -77,7 +77,7 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
         const auto fee_it = fee_by_input_count.find(input_count);
         if (fee_it == fee_by_input_count.cend())
             break;
-        const rct::xmr_amount current_fee = fee_it->second;
+        const xmr_amount current_fee = fee_it->second;
 
         // if the input amount total is greater than fee for that number of inputs...
         if (cumulative_input_sum > current_fee)

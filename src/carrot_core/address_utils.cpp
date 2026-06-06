@@ -32,7 +32,6 @@
 //local headers
 #include "config.h"
 #include "hash_functions.h"
-#include "ringct/rctOps.h"
 #include "transcript_fixed.h"
 
 //third party headers

@@ -35,6 +35,7 @@ extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
+#include "crypto/wallet/crypto.h"
 #include "enote_utils.h"
 
 //third party headers
@@ -53,6 +54,16 @@ bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_ed25519(const c
         return false;
     ge_scalarmult_p3(&P_p3, to_bytes(this->m_k_view_incoming), &P_p3);
     ge_p3_tobytes(to_bytes(kvP), &P_p3);
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult8_ed25519(const crypto::public_key &P,
+    crypto::public_key &kv8P) const
+{
+    tools::scrubbed<crypto::key_derivation> kd;
+    if (!crypto::wallet::generate_key_derivation(P, this->m_k_view_incoming, kd))
+        return false;
+    memcpy(&kv8P, &kd, sizeof(crypto::public_key));
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------

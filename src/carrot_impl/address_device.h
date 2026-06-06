@@ -29,7 +29,7 @@
 #pragma once
 
 //local headers
-#include "carrot_core/device.h"
+#include "crypto/crypto.h"
 #include "subaddress_index.h"
 
 //third party headers

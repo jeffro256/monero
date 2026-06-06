@@ -45,7 +45,7 @@ namespace carrot
 {
 struct CarrotSelectedInput
 {
-    rct::xmr_amount amount;
+    xmr_amount amount;
     InputProposalV1 input;
 };
 static inline bool operator==(const CarrotSelectedInput &a, const CarrotSelectedInput &b)
@@ -58,16 +58,16 @@ static inline bool operator!=(const CarrotSelectedInput &a, const CarrotSelected
 }
 
 using select_inputs_func_t = std::function<void(
-        const boost::multiprecision::uint128_t&,       // nominal output sum, w/o fee
-        const std::map<std::size_t, rct::xmr_amount>&, // absolute fee per input count
-        const std::size_t,                             // number of normal payment proposals
-        const std::size_t,                             // number of self-send payment proposals
-        std::vector<CarrotSelectedInput>&              // selected inputs result
+        const boost::multiprecision::uint128_t&,  // nominal output sum, w/o fee
+        const std::map<std::size_t, xmr_amount>&, // absolute fee per input count
+        const std::size_t,                        // number of normal payment proposals
+        const std::size_t,                        // number of self-send payment proposals
+        std::vector<CarrotSelectedInput>&         // selected inputs result
     )>;
 
 using carve_fees_and_balance_func_t = std::function<void(
         const boost::multiprecision::uint128_t&,                // input sum amount
-        const rct::xmr_amount,                                  // fee
+        const xmr_amount,                                  // fee
         std::vector<CarrotPaymentProposalV1>&,                  // normal payment proposals [inout]
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1>& // selfsend payment proposals [inout]
     )>;
@@ -107,7 +107,7 @@ using carve_fees_and_balance_func_t = std::function<void(
  */
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
@@ -142,7 +142,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
 void make_carrot_transaction_proposal_v1_transfer(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const crypto::public_key &change_address_spend_pubkey,
@@ -168,7 +168,7 @@ void make_carrot_transaction_proposal_v1_transfer(
 void make_carrot_transaction_proposal_v1_sweep(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const crypto::public_key &change_address_spend_pubkey,

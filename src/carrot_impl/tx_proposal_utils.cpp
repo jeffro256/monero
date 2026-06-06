@@ -94,7 +94,7 @@ static void append_additional_payment_proposal_if_necessary(
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_in,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
@@ -149,7 +149,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const size_t tx_extra_size = get_carrot_default_tx_extra_size(num_outs) + extra.size();
 
     // calculate the concrete fee for this transaction for each possible valid input count
-    std::map<size_t, rct::xmr_amount> fee_per_input_count;
+    std::map<size_t, xmr_amount> fee_per_input_count;
     for (size_t num_ins = CARROT_MIN_TX_INPUTS; num_ins <= FCMP_PLUS_PLUS_MAX_INPUTS; ++num_ins)
     {
         const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(num_ins, num_outs, tx_extra_size);
@@ -158,7 +158,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
             << " outs=" << num_outs << " extra_size=" << tx_extra_size);
         CHECK_AND_ASSERT_THROW_MES(std::numeric_limits<uint64_t>::max() / tx_weight > fee_per_weight,
             "make_carrot_transaction_proposal_v1: overflow in fee calculation");
-        const rct::xmr_amount fee = tx_weight * fee_per_weight;
+        const xmr_amount fee = tx_weight * fee_per_weight;
         fee_per_input_count.emplace(num_ins, fee);
     }
 
@@ -213,7 +213,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
 void make_carrot_transaction_proposal_v1_transfer(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const crypto::public_key &change_address_spend_pubkey,
@@ -253,7 +253,7 @@ void make_carrot_transaction_proposal_v1_transfer(
     ]
     (
         const boost::multiprecision::uint128_t &input_sum_amount,
-        const rct::xmr_amount fee,
+        const xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
     )
@@ -293,13 +293,13 @@ void make_carrot_transaction_proposal_v1_transfer(
             implicit_change_amount -= selfsend_payment_proposal.proposal.amount;
 
         selfsend_payment_proposals.back().proposal.amount =
-            boost::numeric_cast<rct::xmr_amount>(implicit_change_amount);
+            boost::numeric_cast<xmr_amount>(implicit_change_amount);
 
         // deduct an even fee amount from all subtractable outputs
         const size_t num_subtractble_normal = subtractable_normal_payment_proposals.size();
         const size_t num_subtractable_selfsend = subtractable_selfsend_payment_proposals.size();
         const size_t num_subtractable = num_subtractble_normal + num_subtractable_selfsend;
-        const rct::xmr_amount minimum_subtraction = fee / num_subtractable; // no div by 0 since we checked subtractable
+        const xmr_amount minimum_subtraction = fee / num_subtractable; // no div by 0 since we checked subtractable
         for (size_t normal_sub_idx : subtractable_normal_payment_proposals)
         {
             CarrotPaymentProposalV1 &normal_payment_proposal = normal_payment_proposals[normal_sub_idx];
@@ -317,7 +317,7 @@ void make_carrot_transaction_proposal_v1_transfer(
         }
 
         // deduct 1 at a time from selfsend proposals
-        rct::xmr_amount fee_remainder = fee % num_subtractable;
+        xmr_amount fee_remainder = fee % num_subtractable;
         for (size_t selfsend_sub_idx : subtractable_selfsend_payment_proposals)
         {
             if (fee_remainder == 0)
@@ -375,7 +375,7 @@ void make_carrot_transaction_proposal_v1_transfer(
 void make_carrot_transaction_proposal_v1_sweep(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
+    const xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const crypto::public_key &change_address_spend_pubkey,
@@ -408,7 +408,7 @@ void make_carrot_transaction_proposal_v1_sweep(
     select_inputs_func_t select_inputs = [&selected_inputs]
     (
         const boost::multiprecision::uint128_t&,
-        const std::map<std::size_t, rct::xmr_amount>&,
+        const std::map<std::size_t, xmr_amount>&,
         const std::size_t,
         const std::size_t,
         std::vector<CarrotSelectedInput> &selected_inputs_out
@@ -421,14 +421,14 @@ void make_carrot_transaction_proposal_v1_sweep(
     carve_fees_and_balance_func_t carve_fees_and_balance = [is_selfsend_sweep]
     (
         const boost::multiprecision::uint128_t &input_sum_amount,
-        const rct::xmr_amount fee,
+        const xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
     )
     {
         // get pointers to proposal amounts and shuffle, excluding implicit selfsend
         const size_t n_outputs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
-        std::vector<rct::xmr_amount*> amount_ptrs;
+        std::vector<xmr_amount*> amount_ptrs;
         amount_ptrs.reserve(n_outputs);
         if (is_selfsend_sweep)
             for (CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
@@ -440,10 +440,10 @@ void make_carrot_transaction_proposal_v1_sweep(
 
         // disburse amount equally amongst modifiable amounts
         const boost::multiprecision::uint128_t output_sum_amount = input_sum_amount - fee;
-        const rct::xmr_amount minimum_sweep_amount =
-            boost::numeric_cast<rct::xmr_amount>(output_sum_amount / amount_ptrs.size());
+        const xmr_amount minimum_sweep_amount =
+            boost::numeric_cast<xmr_amount>(output_sum_amount / amount_ptrs.size());
         const size_t num_remaining =
-            boost::numeric_cast<rct::xmr_amount>(output_sum_amount % amount_ptrs.size());
+            boost::numeric_cast<xmr_amount>(output_sum_amount % amount_ptrs.size());
         CHECK_AND_ASSERT_THROW_MES(num_remaining < amount_ptrs.size(),
             "make carrot transaction proposal v1 sweep: bug: num_remaining >= n_outputs");
         for (size_t i = 0; i < amount_ptrs.size(); ++i)

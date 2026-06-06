@@ -35,7 +35,6 @@
 #include "exceptions.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -55,6 +54,7 @@ static const janus_anchor_t null_anchor{{0}};
 template <typename T>
 static auto auto_wiper(T &obj)
 {
+    // @TODO: replace with scope guard
     static_assert(std::is_trivially_copyable<T>());
     return epee::misc_utils::create_scope_leave_handler([&]{ memwipe(&obj, sizeof(T)); });
 }
@@ -125,20 +125,21 @@ static void get_normal_proposal_ecdh_parts(const CarrotPaymentProposalV1 &propos
 static void get_output_proposal_parts(const crypto::hash &s_sender_receiver_ctx,
     const crypto::public_key &destination_spend_pubkey,
     const payment_id_t payment_id,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const CarrotEnoteType enote_type,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const bool coinbase_amount_commitment,
     crypto::secret_key &amount_blinding_factor_out,
-    rct::key &amount_commitment_out,
+    amount_commitment_t &amount_commitment_out,
     crypto::public_key &onetime_address_out,
     encrypted_amount_t &encrypted_amount_out,
     encrypted_payment_id_t &encrypted_payment_id_out)
 {
     // 1. k_a = H_n[s^ctx_sr](a, K^j_s, enote_type) if !coinbase, else 1
+    memset(amount_blinding_factor_out.data, 0, sizeof(amount_blinding_factor_out));
     if (coinbase_amount_commitment)
-        sc_1(to_bytes(amount_blinding_factor_out));
+        amount_blinding_factor_out.data[0] = 1;
     else
         make_carrot_amount_blinding_factor(s_sender_receiver_ctx,
             amount,
@@ -147,19 +148,21 @@ static void get_output_proposal_parts(const crypto::hash &s_sender_receiver_ctx,
             amount_blinding_factor_out);
 
     // 2. C_a = k_a G + a H
-    amount_commitment_out = rct::commit(amount, rct::sk2rct(amount_blinding_factor_out));
+    amount_commitment_out = commit_carrot_amount(amount, amount_blinding_factor_out);
 
     // 3. Ko = K^j_s + K^o_ext = K^j_s + (k^o_g G + k^o_t T)
+    bool made_ota = false;
     if (coinbase_amount_commitment)
-        make_carrot_onetime_address_coinbase(destination_spend_pubkey,
+        made_ota = try_make_carrot_onetime_address_coinbase(destination_spend_pubkey,
             s_sender_receiver_ctx,
             amount,
             onetime_address_out);
     else
-        make_carrot_onetime_address(destination_spend_pubkey,
+        made_ota = try_make_carrot_onetime_address(destination_spend_pubkey,
             s_sender_receiver_ctx,
             amount_commitment_out,
             onetime_address_out);
+    CARROT_CHECK_AND_THROW(made_ota, invalid_point, "destination spend pubkey is invalid");
 
     // 4. a_enc = a XOR m_a
     encrypted_amount_out = encrypt_carrot_amount(amount,
@@ -174,14 +177,14 @@ static void get_output_proposal_parts(const crypto::hash &s_sender_receiver_ctx,
 static void get_external_output_proposal_parts(const mx25519_pubkey &s_sender_receiver,
     const crypto::public_key &destination_spend_pubkey,
     const payment_id_t payment_id,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const CarrotEnoteType enote_type,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const bool coinbase_amount_commitment,
     crypto::hash &s_sender_receiver_ctx_out,
     crypto::secret_key &amount_blinding_factor_out,
-    rct::key &amount_commitment_out,
+    amount_commitment_t &amount_commitment_out,
     crypto::public_key &onetime_address_out,
     encrypted_amount_t &encrypted_amount_out,
     encrypted_payment_id_t &encrypted_payment_id_out,
@@ -266,7 +269,7 @@ void get_coinbase_enote_v1(const CarrotPaymentProposalV1 &proposal,
     // 4. build the output enote address pieces
     crypto::hash s_sender_receiver_ctx; auto q_wiper = auto_wiper(s_sender_receiver_ctx);
     crypto::secret_key dummy_amount_blinding_factor;
-    rct::key dummy_amount_commitment;
+    amount_commitment_t dummy_amount_commitment;
     encrypted_amount_t dummy_encrypted_amount;
     encrypted_payment_id_t dummy_encrypted_payment_id;
     get_external_output_proposal_parts(s_sender_receiver,
@@ -476,7 +479,7 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
 //-------------------------------------------------------------------------------------------------------------------
 CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
     const bool has_payment_id,
-    const rct::xmr_amount amount,
+    const xmr_amount amount,
     const std::size_t num_random_memo_elements)
 {
     CarrotPaymentProposalV1 temp;
