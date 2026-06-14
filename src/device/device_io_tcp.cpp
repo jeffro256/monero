@@ -84,11 +84,11 @@ int  device_io_tcp::exchange(
 {
     boost::asio::steady_timer deadline(this->m_io_context);
     boost::system::error_code ec = boost::asio::error::would_block;
-    std::size_t bytes_transfered = 0;
-    const auto io_cb = [&](const boost::system::error_code ec_, const std::size_t bytes_transfered_)
+    std::size_t bytes_transferred = 0;
+    const auto io_cb = [&](const boost::system::error_code ec_, const std::size_t bytes_transferred_)
     {
         ec = ec_;
-        bytes_transfered = bytes_transfered_;
+        bytes_transferred = bytes_transferred_;
     };
     const auto block_io = [&ec, this]()
     {
@@ -122,8 +122,8 @@ int  device_io_tcp::exchange(
 
         // check failure
         CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while writing APDU to TCP: " << ec);
-        CHECK_AND_ASSERT_MES(bytes_transfered == cmd_len + sizeof(uint32_t),
-            -1, "Transferred the wrong number of bytes to APDU TCP: " << bytes_transfered
+        CHECK_AND_ASSERT_MES(bytes_transferred == cmd_len + sizeof(uint32_t),
+            -1, "Transferred the wrong number of bytes to APDU TCP: " << bytes_transferred
                 << " vs " << (cmd_len + sizeof(uint32_t)));
     }
 
@@ -131,7 +131,7 @@ int  device_io_tcp::exchange(
     std::uint32_t n_read_bytes = -1;
     {
         ec = boost::asio::error::would_block;
-        bytes_transfered = 0;
+        bytes_transferred = 0;
         if (!user_input)
             set_deadline();
 
@@ -146,10 +146,10 @@ int  device_io_tcp::exchange(
         // check I/O failure
         CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while performing TCP read: " << ec);
 
-        MDEBUG("Read " << bytes_transfered << " bytes from the TCP APDU device from first read");
+        MDEBUG("Read " << bytes_transferred << " bytes from the TCP APDU device from first read");
 
         // get payload length and check against buffer length...
-        CHECK_AND_ASSERT_MES(bytes_transfered >= sizeof(n_read_bytes),
+        CHECK_AND_ASSERT_MES(bytes_transferred >= sizeof(n_read_bytes),
             -1, "Did not read enough bytes to get ADPU payload length");
 
         // recv length is encoded as a 32-bit big-endian int, minus 2 for some reason
@@ -161,21 +161,21 @@ int  device_io_tcp::exchange(
 
         // buffer length is shrunk to payload length
         max_resp_len = n_read_bytes;
-        bytes_transfered -= 4;
+        bytes_transferred -= 4;
     }
 
     do
     {
-        CHECK_AND_ASSERT_MES(bytes_transfered <= max_resp_len, -1, "Buffer overflow occurred on APDU TCP read ;(");
-        response += bytes_transfered;
-        max_resp_len -= bytes_transfered;
+        CHECK_AND_ASSERT_MES(bytes_transferred <= max_resp_len, -1, "Buffer overflow occurred on APDU TCP read ;(");
+        response += bytes_transferred;
+        max_resp_len -= bytes_transferred;
 
         // if ended a read on payload length line, then we are done
         if (!max_resp_len)
             break;
 
         ec = boost::asio::error::would_block;
-        bytes_transfered = 0;
+        bytes_transferred = 0;
         set_deadline();
 
         // read in [rest of payload bytes...]
