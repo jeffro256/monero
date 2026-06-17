@@ -161,6 +161,7 @@ class ColdSigningTest():
         daemon = Daemon()
         hf_version = daemon.get_version()['hard_forks'][-1]['hf_version']
         is_fcmp_pp = hf_version >= 17
+        print("Constructing FCMP++ tx:", is_fcmp_pp)
 
         dst = {'address': destination_addr, 'amount': 1000000000000}
 
@@ -233,10 +234,11 @@ class ColdSigningTest():
         assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 1
 
         txid_for_sender_secrets = signable_txid if is_fcmp_pp else txid
+        print("TXID for fetching sender secrets:", txid_for_sender_secrets)
         res = self.hot_wallet.get_tx_key(txid_for_sender_secrets)
         assert len(res.tx_key) == 0 or res.tx_key == '01' + '0' * 62 # identity is used as placeholder
         res = self.cold_wallet.get_tx_key(txid_for_sender_secrets)
-        assert len(res.tx_key) == 64
+        assert len(res.tx_key) == 64 and res.tx_key != '0' * 64
 
         self.export_import(piecemeal_output_export)
 
