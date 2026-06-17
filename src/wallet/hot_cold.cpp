@@ -554,7 +554,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     const carrot::encrypted_janus_anchor_t &encrypted_janus_anchor = o_carrot->encrypted_janus_anchor;
     const crypto::public_key &onetime_address = o_carrot->key;
 
-    // 8. anchor = m_anchor XOR anchor_enc
+    // 7. anchor = m_anchor XOR anchor_enc
     etd.janus_anchor = carrot::decrypt_carrot_anchor(encrypted_janus_anchor, s_sender_receiver_ctx, onetime_address);
 
     // 8. decrypt anchor and treat as selfsend iff special janus check passes
@@ -571,7 +571,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
     // 9. C_a = k_a G + a H
     const auto amount_commitment = carrot::commit_carrot_amount(td.amount(), rct::rct2sk(td.m_mask));
 
-    // K^j_s, enote_type
+    // 10. K^j_s, enote_type
     crypto::public_key address_spend_pubkey;
     addr_dev.get_address_spend_pubkey({etd.subaddr_index}, address_spend_pubkey);
     crypto::secret_key amount_blinding_factor;
@@ -579,7 +579,7 @@ exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::
         td.amount(), address_spend_pubkey, carrot::CarrotEnoteType::CHANGE,
         amount_commitment, amount_blinding_factor); 
 
-    // 10. pid decrypting and setting flag
+    // 11. pid decrypting and setting flag
     if (encrypted_payment_id && !etd.flags.m_selfsend)
     {
         // pid = m_pid XOR pid_enc
@@ -1203,8 +1203,8 @@ void sign_pre_carrot_tx_set(const UnsignedPreCarrotTransactionSet &unsigned_txs,
         ptx.key_images = key_images;
         ptx.fee = 0;
         for (const auto &i: sd.sources) ptx.fee += i.amount;
-            for (const auto &i: sd.splitted_dsts) ptx.fee -= i.amount;
-                ptx.dust = 0;
+        for (const auto &i: sd.splitted_dsts) ptx.fee -= i.amount;
+        ptx.dust = 0;
         ptx.dust_added_to_fee = false;
         ptx.change_dts = sd.change_dts;
         ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
@@ -1621,13 +1621,14 @@ void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
         CARROT_CHECK_AND_THROW(recomputed_onetime_address == onetime_address,
             carrot::unexpected_scan_failure, "failed to correctly recompute OTA for bi-variate opening hint");
 
+        const bool use_biased_hash_to_point = carrot::use_biased_hash_to_point(opening_hint);
         fcmp_pp::FcmpPpSalProof ki_proof;
         prove_fcmp_sal_key_image_proof(x,
             sender_extension_t,
-            carrot::use_biased_hash_to_point(opening_hint),
+            use_biased_hash_to_point,
             ki_proof,
             key_image_out);
-        ki_proof_out = ki_proof;
+        ki_proof_out = std::pair(ki_proof, use_biased_hash_to_point);
     }
 
     THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(onetime_address, key_image_out, ki_proof_out),
@@ -1661,7 +1662,8 @@ bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_a
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
     const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof)
+    const fcmp_pp::FcmpPpSalProof &ki_proof,
+    const bool use_biased_hash_to_point)
 {
     MDEBUG("Validating key image " << epee::string_tools::pod_to_hex(key_image) << " association to one-time address "
         << epee::string_tools::pod_to_hex(onetime_address) << " using FCMP++ SA/L signature");
@@ -1670,21 +1672,10 @@ bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_addr
     CHECK_AND_ASSERT_MES(ki_in_main_group, false,
         "Key image out of validity domain: " << epee::string_tools::pod_to_hex(key_image));
 
-    /**
-     * WARNING: Trying to validate against both biased and unbiased key images may be insecure.
-     *          It at least reduces security by 1 bit. Double check that this is okay.
-     */
-    for (int use_biased_hash_to_point = 0; use_biased_hash_to_point < 2; ++use_biased_hash_to_point)
-    {
-        const bool ver = fcmp_pp::verify_sal(ki2hash(key_image),
-            ota_to_ki_proof_rerand_out(onetime_address, use_biased_hash_to_point).input,
-            key_image,
-            ki_proof);
-        if (ver)
-            return true;
-    }
-
-    return false;
+    return fcmp_pp::verify_sal(ki2hash(key_image),
+        ota_to_ki_proof_rerand_out(onetime_address, use_biased_hash_to_point).input,
+        key_image,
+        ki_proof);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_key_image_proof(const crypto::public_key &onetime_address,
@@ -1695,8 +1686,8 @@ bool validate_key_image_proof(const crypto::public_key &onetime_address,
     {
         bool operator()(const crypto::signature &p) const
         { return validate_ring_signature_key_image_proof(onetime_address, key_image, p);}
-        bool operator()(const fcmp_pp::FcmpPpSalProof &p) const
-        { return validate_fcmp_pp_sal_key_image_proof(onetime_address, key_image, p);}
+        bool operator()(const std::pair<fcmp_pp::FcmpPpSalProof, bool> &p) const
+        { return validate_fcmp_pp_sal_key_image_proof(onetime_address, key_image, p.first, p.second);}
 
         const crypto::public_key &onetime_address;
         const crypto::key_image &key_image;
@@ -1785,14 +1776,29 @@ void decrypt_exported_outputs(const std::string &payload,
     {
         outputs_message_v5 msg;
         THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, msg),
-            tools::error::wallet_internal_error, "key images payload v3 failed to deserialize");
+            tools::error::wallet_internal_error, "outputs payload v5 failed to deserialize");
         THROW_WALLET_EXCEPTION_IF(msg.main_address_spend_pubkey != account_spend_pubkey,
-            tools::error::wallet_internal_error, "key images payload meant for another wallet");
+            tools::error::wallet_internal_error, "outputs payload meant for another wallet");
         THROW_WALLET_EXCEPTION_IF(msg.main_address_view_pubkey != main_address_view_pubkey,
-            tools::error::wallet_internal_error, "key images payload meant for another wallet");
+            tools::error::wallet_internal_error, "outputs payload meant for another wallet");
         transfers_offset_out = msg.transfers_offset;
         transfers_size_out = msg.transfers_size;
         outputs_out = std::move(msg.outputs);
+    }
+    else if (msg_version == 4)
+    {
+        outputs_message_v4 msg;
+        THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, msg),
+            tools::error::wallet_internal_error, "outputs payload v4 failed to deserialize");
+        THROW_WALLET_EXCEPTION_IF(msg.main_address_spend_pubkey != account_spend_pubkey,
+            tools::error::wallet_internal_error, "outputs payload meant for another wallet");
+        THROW_WALLET_EXCEPTION_IF(msg.main_address_view_pubkey != main_address_view_pubkey,
+            tools::error::wallet_internal_error, "outputs payload meant for another wallet");
+        transfers_offset_out = msg.transfers_offset;
+        transfers_size_out = msg.transfers_size;
+        outputs_out.reserve(msg.outputs.size());
+        for (exported_pre_carrot_transfer_details &etd : msg.outputs)
+            outputs_out.emplace_back(std::move(etd));
     }
     else
     {
@@ -1800,8 +1806,8 @@ void decrypt_exported_outputs(const std::string &payload,
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void encrypt_key_images(const std::uint64_t offset,
-    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_images,
+void encrypt_key_image_proofs(const std::uint64_t offset,
+    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
@@ -1813,7 +1819,7 @@ void encrypt_key_images(const std::uint64_t offset,
 
     // use v3 if possible
     bool is_v3_possible = true;
-    for (const auto &p : key_images)
+    for (const auto &p : key_image_proofs)
         if (!std::holds_alternative<crypto::signature>(p.second))
             is_v3_possible = false;
     const std::uint8_t msg_version = is_v3_possible ? 3 : 4;
@@ -1827,8 +1833,8 @@ void encrypt_key_images(const std::uint64_t offset,
         msg.offset = offset;
         msg.main_address_spend_pubkey = account_spend_pubkey;
         msg.main_address_view_pubkey = main_address_view_pubkey;
-        for (const auto &p : key_images)
-            msg.univariate_key_images.emplace_back(p.first, std::get<crypto::signature>(p.second));
+        for (const auto &p : key_image_proofs)
+            msg.univariate_key_image_proofs.emplace_back(p.first, std::get<crypto::signature>(p.second));
         THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, msg),
             tools::error::wallet_internal_error, "key images payload v3 failed to serialize");
     }
@@ -1838,7 +1844,7 @@ void encrypt_key_images(const std::uint64_t offset,
         msg.offset = offset;
         msg.main_address_spend_pubkey = account_spend_pubkey;
         msg.main_address_view_pubkey = main_address_view_pubkey;
-        msg.key_images = std::move(key_images);
+        msg.key_image_proofs = std::move(key_image_proofs);
         THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, msg),
             tools::error::wallet_internal_error, "key images payload v4 failed to serialize");
     }
@@ -1848,28 +1854,27 @@ void encrypt_key_images(const std::uint64_t offset,
     }
 
     // encrypt
-    std::string plaintext_payload = ss.str();
+    epee::wipeable_string plaintext_payload = ss.str();
     payload_out = encrypt_with_ec_key(plaintext_payload.data(),
         plaintext_payload.size(),
         k_view,
         /*authenticated=*/true,
         kdf_rounds);
-    memwipe(&plaintext_payload[0], plaintext_payload.size());
 
     // add prefix
     payload_out.insert(payload_out.begin(), msg_version);
     payload_out.insert(0, KEY_IMAGE_EXPORT_FILE_MAGIC);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void decrypt_key_images(const std::string &payload,
+void decrypt_key_image_proofs(const std::string &payload,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::uint64_t &offset_out,
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_images_out)
+    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs_out)
 {
     offset_out = 0;
-    key_images_out.clear();
+    key_image_proofs_out.clear();
 
     // magic check
     const std::size_t magic_size = KEY_IMAGE_EXPORT_FILE_MAGIC.size();
@@ -1906,9 +1911,9 @@ void decrypt_key_images(const std::string &payload,
         THROW_WALLET_EXCEPTION_IF(msg.main_address_view_pubkey != main_address_view_pubkey,
             tools::error::wallet_internal_error, "key images payload meant for another wallet");
         offset_out = msg.offset;
-        key_images_out.reserve(msg.univariate_key_images.size());
-        for (const auto &p : msg.univariate_key_images)
-            key_images_out.emplace_back(p.first, p.second);
+        key_image_proofs_out.reserve(msg.univariate_key_image_proofs.size());
+        for (const auto &p : msg.univariate_key_image_proofs)
+            key_image_proofs_out.emplace_back(p.first, p.second);
     }
     else if (msg_version == 4)
     {
@@ -1920,7 +1925,7 @@ void decrypt_key_images(const std::string &payload,
         THROW_WALLET_EXCEPTION_IF(msg.main_address_view_pubkey != main_address_view_pubkey,
             tools::error::wallet_internal_error, "key images payload meant for another wallet");
         offset_out = msg.offset;
-        key_images_out = msg.key_images;
+        key_image_proofs_out = std::move(msg.key_image_proofs);
     }
     else
     {
@@ -2062,15 +2067,17 @@ std::string key_image_proof_to_readable_string(const KeyImageProofVariant &ki_pr
 {
     struct key_image_proof_to_readable_string_visitor
     {
-        std::string operator()(const crypto::signature &s) const {return epee::string_tools::pod_to_hex(s);}
-        std::string operator()(const fcmp_pp::FcmpPpSalProof &s) const {return epee::to_hex::string(epee::to_span(s));}
+        std::string operator()(const crypto::signature &s) const
+        { return epee::string_tools::pod_to_hex(s); }
+        std::string operator()(const std::pair<fcmp_pp::FcmpPpSalProof, bool> &s) const
+        { return epee::to_hex::string(epee::to_span(s.first)) + (s.second ? "01" : "00"); }
     };
     return std::visit(key_image_proof_to_readable_string_visitor{}, ki_proof);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_key_image_proof_from_readable_string(const std::string &str, KeyImageProofVariant &ki_proof_out)
 {
-    static constexpr std::size_t max_byte_size = FCMP_PP_SAL_PROOF_SIZE_V1;
+    constexpr std::size_t max_byte_size = FCMP_PP_SAL_PROOF_SIZE_V1 + 1;
 
     if (str.size() > max_byte_size * 2 || str.size() % 2 == 1)
         return false;
@@ -2081,14 +2088,18 @@ bool try_key_image_proof_from_readable_string(const std::string &str, KeyImagePr
     if (!epee::from_hex::to_buffer(epee::to_mut_span(bytes), str))
         return false;
 
+    bool use_biased_hash_to_point = false;
+
     // depending on size of bytes, set variant
     switch (bytes.size())
     {
     case sizeof(crypto::signature):
         memcpy(&ki_proof_out.emplace<crypto::signature>(), bytes.data(), sizeof(crypto::signature));
         break;
-    case FCMP_PP_SAL_PROOF_SIZE_V1:
-        ki_proof_out = std::move(bytes);
+    case FCMP_PP_SAL_PROOF_SIZE_V1 + 1:
+        use_biased_hash_to_point = bytes.back();
+        bytes.pop_back();
+        ki_proof_out = std::pair(std::move(bytes), use_biased_hash_to_point);
         break;
     default:
         return false;

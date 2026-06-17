@@ -1185,9 +1185,11 @@ private:
     // Import/Export wallet data
     std::tuple<uint64_t, uint64_t, std::vector<wallet::cold::exported_transfer_details_variant>> export_outputs(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
     std::string export_outputs_to_str(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
+  private:
     size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<wallet::cold::exported_pre_carrot_transfer_details>> &outputs);
     size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<wallet::cold::exported_transfer_details_variant>> &outputs);
     size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs);
+  public:
     size_t import_outputs_from_str(const std::string &outputs_st);
     payment_container export_payments() const;
     void import_payments(const payment_container &payments);
@@ -1212,7 +1214,7 @@ private:
     std::string encrypt(const std::string &plaintext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string encrypt(const epee::wipeable_string &plaintext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string encrypt_with_view_secret_key(const std::string &plaintext, bool authenticated = true) const;
-    epee::wipeable_string decrypt(const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated = true) const;
+    epee::wipeable_string decrypt(const std::string_view ciphertext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string decrypt_with_view_secret_key(const std::string &ciphertext, bool authenticated = true) const;
 
     std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const;

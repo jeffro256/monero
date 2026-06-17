@@ -89,6 +89,24 @@ static bool handle_version_passthrough(Archive<W> &ar,
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+struct outputs_message_v4
+{
+    crypto::public_key main_address_spend_pubkey;
+    crypto::public_key main_address_view_pubkey;
+    std::uint64_t transfers_offset; 
+    std::uint64_t transfers_size;
+    std::vector<exported_pre_carrot_transfer_details> outputs;
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(main_address_spend_pubkey)
+        FIELD(main_address_view_pubkey)
+        FIELD(transfers_offset)
+        FIELD(transfers_size)
+        FIELD(outputs)
+    END_SERIALIZE()
+};
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 struct outputs_message_v5
 {
     crypto::public_key main_address_spend_pubkey;
@@ -112,13 +130,13 @@ struct key_image_message_v3
     std::uint64_t offset;
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
-    std::vector<std::pair<crypto::key_image, crypto::signature>> univariate_key_images;
+    std::vector<std::pair<crypto::key_image, crypto::signature>> univariate_key_image_proofs;
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(offset)
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        FIELD(univariate_key_images)
+        FIELD(univariate_key_image_proofs)
     END_SERIALIZE()
 };
 //-------------------------------------------------------------------------------------------------------------------
@@ -128,13 +146,13 @@ struct key_image_message_v4
     std::uint64_t offset;
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> key_images;
+    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> key_image_proofs;
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(offset)
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        FIELD(key_images)
+        FIELD(key_image_proofs)
     END_SERIALIZE()
 };
 //-------------------------------------------------------------------------------------------------------------------
@@ -299,5 +317,7 @@ BEGIN_SERIALIZE_VERSIONED_VARIANT(tools::wallet::cold::SignedTransactionSetVaria
 END_SERIALIZE_VERSIONED_VARIANT()
 //-------------------------------------------------------------------------------------------------------------------
 VARIANT_TAG(binary_archive, crypto::signature, 0x23);
-VARIANT_TAG(binary_archive, fcmp_pp::FcmpPpSalProof, 0x24);
+#define COMMA ,
+VARIANT_TAG(binary_archive, std::pair<fcmp_pp::FcmpPpSalProof COMMA bool>, 0x24);
+#undef COMMA
 //-------------------------------------------------------------------------------------------------------------------

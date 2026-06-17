@@ -13428,7 +13428,7 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
 
   // serialize and encrypt
   std::string ki_payload;
-  wallet::cold::encrypt_key_images(ski.first,
+  wallet::cold::encrypt_key_image_proofs(ski.first,
     ski.second,
     m_account.get_keys().m_account_address.m_spend_public_key,
     m_account.get_keys().m_view_secret_key,
@@ -13477,7 +13477,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 
   std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> ski;
   std::uint64_t offset;
-  wallet::cold::decrypt_key_images(data,
+  wallet::cold::decrypt_key_image_proofs(data,
     m_account.get_keys().m_account_address.m_spend_public_key,
     m_account.get_keys().m_view_secret_key,
     m_kdf_rounds,
@@ -14416,106 +14416,16 @@ process:
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<wallet::cold::exported_pre_carrot_transfer_details>> &outputs)
 {
-  PERF_TIMER(import_outputs);
+  // expand cold outputs
+  wallet2_basic::transfer_container expanded_outputs;
+  expanded_outputs.reserve(std::get<2>(outputs).size());
+  for (const wallet::cold::exported_pre_carrot_transfer_details &cold_output : std::get<2>(outputs))
+    expanded_outputs.push_back(wallet::cold::import_cold_pre_carrot_output(cold_output,
+      *this->get_cryptonote_address_device(),
+      *this->get_key_image_device()));
 
-  THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
-      "Hot wallets cannot import outputs");
-
-  // we can now import piecemeal
-  const size_t offset = std::get<0>(outputs);
-  const size_t num_outputs = std::get<1>(outputs);
-  const std::vector<wallet::cold::exported_pre_carrot_transfer_details> &output_array = std::get<2>(outputs);
-
-  THROW_WALLET_EXCEPTION_IF(offset > m_transfers.size(), error::wallet_internal_error,
-      "Imported outputs omit more outputs that we know of. Try using export_outputs all.");
-
-  THROW_WALLET_EXCEPTION_IF(offset + output_array.size() > num_outputs, error::wallet_internal_error,
-      "Offset is larger than total outputs");
-
-  const size_t original_size = m_transfers.size();
-  if (offset + output_array.size() > m_transfers.size())
-    m_transfers.resize(offset + output_array.size());
-  else if (num_outputs < m_transfers.size())
-    m_transfers.resize(num_outputs);
-
-  for (size_t i = 0; i < output_array.size(); ++i)
-  {
-    wallet::cold::exported_pre_carrot_transfer_details etd = output_array[i];
-    transfer_details &td = m_transfers[i + offset];
-
-    // setup td with "cheap" loaded data
-    td.m_block_height = 0;
-    td.m_txid = crypto::null_hash;
-    td.m_global_output_index = etd.m_global_output_index;
-    td.m_spent = etd.m_flags.m_spent;
-    td.m_frozen = etd.m_flags.m_frozen;
-    td.m_spent_height = 0;
-    td.m_mask = rct::identity();
-    td.m_amount = etd.m_amount;
-    td.m_rct = etd.m_flags.m_rct;
-    td.m_key_image_known = etd.m_flags.m_key_image_known;
-    td.m_key_image_request = etd.m_flags.m_key_image_request;
-    td.m_key_image_partial = false;
-    td.m_subaddr_index.major = etd.m_subaddr_index_major;
-    td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
-
-    // skip those we've already imported, or which have different data
-    if (i + offset < original_size)
-    {
-      bool needs_processing = false;
-      if (!td.m_key_image_known)
-        needs_processing = true;
-      else if (!(etd.m_internal_output_index == td.m_internal_output_index))
-        needs_processing = true;
-      else if (!(etd.m_pubkey == td.get_public_key()))
-        needs_processing = true;
-
-      if (!needs_processing)
-        continue;
-    }
-
-    // construct a synthetix tx prefix that has the info we'll need: the output with its pubkey, the tx pubkey in extra
-    td.m_tx = {};
-
-    THROW_WALLET_EXCEPTION_IF(etd.m_internal_output_index >= 65536, error::wallet_internal_error, "internal output index seems outrageously high, rejecting");
-    td.m_internal_output_index = etd.m_internal_output_index;
-    cryptonote::txout_to_key tk;
-    tk.key = etd.m_pubkey;
-    cryptonote::tx_out out;
-    out.amount = etd.m_amount;
-    out.target = tk;
-    const cryptonote::tx_out fake_out{.target = cryptonote::txout_to_key{}};
-    td.m_tx.vout.resize(etd.m_internal_output_index, fake_out);
-    td.m_tx.vout.push_back(out);
-
-    td.m_pk_index = 0;
-    add_tx_pub_key_to_extra(td.m_tx, etd.m_tx_pubkey);
-    if (!etd.m_additional_tx_keys.empty())
-      add_additional_tx_pub_keys_to_extra(td.m_tx.extra, etd.m_additional_tx_keys);
-
-    // the hot wallet wouldn't have known about key images (except if we already exported them)
-    cryptonote::keypair in_ephemeral;
-
-    const crypto::public_key &tx_pub_key = etd.m_tx_pubkey;
-    const std::vector<crypto::public_key> &additional_tx_pub_keys = etd.m_additional_tx_keys;
-    const crypto::public_key& out_key = etd.m_pubkey;
-    if (should_expand(td.m_subaddr_index))
-      create_one_off_subaddress(td.m_subaddr_index);
-    bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
-    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    if (should_expand(td.m_subaddr_index))
-      expand_subaddresses(td.m_subaddr_index);
-    td.m_key_image_known = true;
-    td.m_key_image_request = true;
-    td.m_key_image_partial = false;
-    THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
-        error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
-
-    m_key_images[td.m_key_image] = i + offset;
-    m_pub_keys[td.get_public_key()] = i + offset;
-  }
-
-  return m_transfers.size();
+  // import in `wallet2_basic::transfer_details` form
+  return import_outputs({std::get<0>(outputs), std::get<1>(outputs), std::move(expanded_outputs)});
 }
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<wallet::cold::exported_transfer_details_variant>> &outputs)
@@ -14990,7 +14900,7 @@ std::string wallet2::encrypt_with_view_secret_key(const std::string &plaintext, 
   return encrypt(plaintext, get_account().get_keys().m_view_secret_key, authenticated);
 }
 //----------------------------------------------------------------------------------------------------
-epee::wipeable_string wallet2::decrypt(const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated) const
+epee::wipeable_string wallet2::decrypt(const std::string_view ciphertext, const crypto::secret_key &skey, bool authenticated) const
 {
   return wallet::decrypt_with_ec_key(ciphertext.data(), ciphertext.size(), skey, authenticated, m_kdf_rounds);
 }

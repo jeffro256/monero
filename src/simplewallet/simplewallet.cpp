@@ -5054,7 +5054,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
       crypto::secret_key key;
       crypto::cn_slow_hash(seed_pass.data(), seed_pass.size(), (crypto::hash&)key);
       sc_reduce32((unsigned char*)key.data);
-      const epee::wipeable_string &msig_keys = m_wallet->decrypt(std::string(multisig_keys.data(), multisig_keys.size()), key, true);
+      const epee::wipeable_string &msig_keys = m_wallet->decrypt({multisig_keys.data(), multisig_keys.size()}, key, true);
       m_wallet->generate(m_wallet_file, std::move(rc.second).password(), msig_keys, create_address_file);
     }
     const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};

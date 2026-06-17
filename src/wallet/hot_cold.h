@@ -231,8 +231,8 @@ using SignedTransactionSetVariant = std::variant<
     >;
 
 using KeyImageProofVariant = std::variant<
-        crypto::signature,       // allows proving L = x Hp(O), s.t. O = x G
-        fcmp_pp::FcmpPpSalProof  // allows proving L = x Hp(O), s.t. O = x G + y T
+        crypto::signature,                        // prove L = x Hp(O), s.t. O = x G
+        std::pair<fcmp_pp::FcmpPpSalProof, bool>  // prove L = x Hp(O), s.t. O = x G + y T, also use biased HtP?
         //! @TODO: variant which allows k_gi proving without knowledge of k_ps
     >;
 
@@ -379,7 +379,8 @@ bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_a
 
 bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
     const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof);
+    const fcmp_pp::FcmpPpSalProof &ki_proof,
+    const bool use_biased_hash_to_point);
 
 bool validate_key_image_proof(const crypto::public_key &onetime_address,
     const crypto::key_image &key_image,
@@ -401,19 +402,19 @@ void decrypt_exported_outputs(const std::string &payload,
     std::uint64_t &transfers_size_out,
     std::vector<exported_transfer_details_variant> &outputs_out);
 
-void encrypt_key_images(const std::uint64_t offset,
-    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_images,
+void encrypt_key_image_proofs(const std::uint64_t offset,
+    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::string &payload_out);
 
-void decrypt_key_images(const std::string &payload,
+void decrypt_key_image_proofs(const std::string &payload,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::uint64_t &offset_out,
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_images_out);
+    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs_out);
 
 void encrypt_unsigned_tx_set(const UnsignedTransactionSetVariant &unsigned_txs,
     const crypto::secret_key &k_view,
