@@ -86,7 +86,7 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
     encrypted_payment_id_t &encrypted_payment_id_out,
     std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
 {
-    // collect self-sends proposal cores
+    // collect self-send proposal cores
     std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
     selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
     for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
@@ -139,7 +139,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
     const std::size_t n_outputs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
     s_sender_receiver_out.reserve(n_outputs);
 
-    // collect self-sends proposal cores
+    // collect self-send proposal cores
     std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
     selfsend_payment_proposal_cores.reserve(selfsend_payment_proposals.size());
     for (const auto &selfsend_payment_proposal : selfsend_payment_proposals)
@@ -178,7 +178,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
         else
         {
             const auto &normal_payment_proposal = normal_payment_proposals.at(payment_proposal_idx.second);
-            // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
+            // d_e = H_n(anchor_norm, input_context, K^j_s, pid)
             const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(normal_payment_proposal,
                 make_carrot_input_context(tx_first_key_image));
             // s_sr = d_e ConvertPointE(K^j_v)
