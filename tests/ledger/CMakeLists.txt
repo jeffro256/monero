@@ -29,6 +29,7 @@
 set(ledger_tests_sources
   basic_signing.cpp
   ledger_tests_utils.cpp
+  steal_change.cpp
   main.cpp)
 
 set(unit_tests_headers
@@ -42,6 +43,7 @@ target_link_libraries(ledger_tests
     cryptonote_core
     device
     epee
+    ringct
     ${GTEST_LIBRARIES})
 set_property(TARGET ledger_tests
   PROPERTY
