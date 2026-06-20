@@ -546,8 +546,8 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         view_wallet->generate(path, password, address, viewkey);
 
         // Export/Import outputs
-        auto outputs = m_wallet->export_outputs(true/*all*/);
-        view_wallet->import_outputs(outputs);
+        const std::string outputs_str = m_wallet->export_outputs_to_str(/*all=*/true);
+        view_wallet->import_outputs_from_str(outputs_str);
 
         // Copy scanned blockchain
         auto bc = m_wallet->export_blockchain();

@@ -231,8 +231,8 @@ using SignedTransactionSetVariant = std::variant<
     >;
 
 using KeyImageProofVariant = std::variant<
-        crypto::signature,                        // prove L = x Hp(O), s.t. O = x G
-        std::pair<fcmp_pp::FcmpPpSalProof, bool>  // prove L = x Hp(O), s.t. O = x G + y T, also use biased HtP?
+        crypto::signature,       // prove L = x Hp(O), s.t. O = x G
+        fcmp_pp::FcmpPpSalProof  // prove L = x Hp(O), s.t. O = x G + y T
         //! @TODO: variant which allows k_gi proving without knowledge of k_ps
     >;
 
@@ -378,11 +378,12 @@ bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_a
     const crypto::signature &ki_proof);
 
 bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
+    const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof,
-    const bool use_biased_hash_to_point);
+    const fcmp_pp::FcmpPpSalProof &ki_proof);
 
 bool validate_key_image_proof(const crypto::public_key &onetime_address,
+    const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
     const KeyImageProofVariant &ki_proof);
 

@@ -39,6 +39,19 @@
 
 //forward declarations
 
+/**
+ * A lot of classes here use "version passthrough" serialization. Similar to
+ * VARIANT_TAG, this enables dispatching of deserialization to subtypes in a
+ * variant based on an integer in the data, with a couple key differences.
+ * Firstly, a class can have multiple versions. Secondly, the class can be
+ * {de}serialized outside of a variant, and the version is handled the same as
+ * if {de}serializing inside of a variant. This works by having the top-level
+ * variant do the version field deserialization, and then passing that value to
+ * it's applicable subtype. If the default version parameter (-1) is passed,
+ * then the version isn't passed through, and the subtype deserializes the
+ * version there.
+ */
+
 #define PASSTHROUGH_VERSION(ver_lo, ver_hi) if (!handle_version_passthrough(ar, ver_lo, ver_hi, version)) return false;
 
 #define BEGIN_SERIALIZE_VERSIONED_VARIANT(vtype)                                                     \
@@ -317,7 +330,5 @@ BEGIN_SERIALIZE_VERSIONED_VARIANT(tools::wallet::cold::SignedTransactionSetVaria
 END_SERIALIZE_VERSIONED_VARIANT()
 //-------------------------------------------------------------------------------------------------------------------
 VARIANT_TAG(binary_archive, crypto::signature, 0x23);
-#define COMMA ,
-VARIANT_TAG(binary_archive, std::pair<fcmp_pp::FcmpPpSalProof COMMA bool>, 0x24);
-#undef COMMA
+VARIANT_TAG(binary_archive, fcmp_pp::FcmpPpSalProof, 0x24);
 //-------------------------------------------------------------------------------------------------------------------

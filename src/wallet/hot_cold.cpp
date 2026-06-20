@@ -644,7 +644,7 @@ wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre
     td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
 
     // construct a synthetic tx prefix that has the info we'll need: the output with its pubkey, the tx pubkey in extra
-    td.m_tx = {};
+    td.m_tx.set_null();
 
     THROW_WALLET_EXCEPTION_IF(etd.m_internal_output_index >= 65536, error::wallet_internal_error, "internal output index seems outrageously high, rejecting");
     td.m_internal_output_index = etd.m_internal_output_index;
@@ -653,8 +653,9 @@ wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre
     cryptonote::tx_out out;
     out.amount = etd.m_amount;
     out.target = tk;
-    td.m_tx.vout.resize(etd.m_internal_output_index);
+    td.m_tx.vout.resize(etd.m_internal_output_index, cryptonote::tx_out{0, cryptonote::txout_to_key{}});
     td.m_tx.vout.push_back(out);
+    assert(!carrot::is_carrot_transaction_v1(td.m_tx));
 
     td.m_pk_index = 0;
     cryptonote::add_tx_pub_key_to_extra(td.m_tx, etd.m_tx_pubkey);
@@ -1599,6 +1600,7 @@ void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
     sc_add(to_bytes(x), to_bytes(sender_extension_g), to_bytes(x));
 
     const crypto::public_key onetime_address = onetime_address_ref(opening_hint);
+    bool use_biased_hash_to_point = false;
     if (is_univariate)
     {
         // x G ?= O
@@ -1607,6 +1609,7 @@ void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
         CARROT_CHECK_AND_THROW(recomputed_onetime_address == onetime_address,
             carrot::unexpected_scan_failure, "failed to correctly recompute OTA for legacy opening hint");
 
+        use_biased_hash_to_point = true;
         crypto::signature ki_proof;
         prove_ring_signature_key_image_proof(x, ki_proof, key_image_out);
         ki_proof_out = ki_proof;
@@ -1621,17 +1624,17 @@ void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
         CARROT_CHECK_AND_THROW(recomputed_onetime_address == onetime_address,
             carrot::unexpected_scan_failure, "failed to correctly recompute OTA for bi-variate opening hint");
 
-        const bool use_biased_hash_to_point = carrot::use_biased_hash_to_point(opening_hint);
+        use_biased_hash_to_point = carrot::use_biased_hash_to_point(opening_hint);
         fcmp_pp::FcmpPpSalProof ki_proof;
         prove_fcmp_sal_key_image_proof(x,
             sender_extension_t,
             use_biased_hash_to_point,
             ki_proof,
             key_image_out);
-        ki_proof_out = std::pair(ki_proof, use_biased_hash_to_point);
+        ki_proof_out = ki_proof;
     }
 
-    THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(onetime_address, key_image_out, ki_proof_out),
+    THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(onetime_address, use_biased_hash_to_point, key_image_out, ki_proof_out),
         error::signature_check_failed, std::string("key image proof immediately failed verification")
             + ": one-time address " + epee::string_tools::pod_to_hex(onetime_address)
             + ", key image " + epee::string_tools::pod_to_hex(key_image_out)
@@ -1661,9 +1664,9 @@ bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_a
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
+    const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof,
-    const bool use_biased_hash_to_point)
+    const fcmp_pp::FcmpPpSalProof &ki_proof)
 {
     MDEBUG("Validating key image " << epee::string_tools::pod_to_hex(key_image) << " association to one-time address "
         << epee::string_tools::pod_to_hex(onetime_address) << " using FCMP++ SA/L signature");
@@ -1679,6 +1682,7 @@ bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_addr
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool validate_key_image_proof(const crypto::public_key &onetime_address,
+    const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
     const KeyImageProofVariant &ki_proof)
 {
@@ -1686,14 +1690,17 @@ bool validate_key_image_proof(const crypto::public_key &onetime_address,
     {
         bool operator()(const crypto::signature &p) const
         { return validate_ring_signature_key_image_proof(onetime_address, key_image, p);}
-        bool operator()(const std::pair<fcmp_pp::FcmpPpSalProof, bool> &p) const
-        { return validate_fcmp_pp_sal_key_image_proof(onetime_address, key_image, p.first, p.second);}
+        bool operator()(const fcmp_pp::FcmpPpSalProof &p) const
+        { return validate_fcmp_pp_sal_key_image_proof(onetime_address, use_biased_hash_to_point, key_image, p);}
 
         const crypto::public_key &onetime_address;
+        const bool use_biased_hash_to_point;
         const crypto::key_image &key_image;
     };
 
-    return std::visit(validate_key_image_proof_visitor{onetime_address, key_image}, ki_proof);
+    return std::visit(
+        validate_key_image_proof_visitor{onetime_address, use_biased_hash_to_point, key_image},
+        ki_proof);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void encrypt_exported_outputs(const std::uint64_t transfers_offset,
@@ -2069,15 +2076,15 @@ std::string key_image_proof_to_readable_string(const KeyImageProofVariant &ki_pr
     {
         std::string operator()(const crypto::signature &s) const
         { return epee::string_tools::pod_to_hex(s); }
-        std::string operator()(const std::pair<fcmp_pp::FcmpPpSalProof, bool> &s) const
-        { return epee::to_hex::string(epee::to_span(s.first)) + (s.second ? "01" : "00"); }
+        std::string operator()(const fcmp_pp::FcmpPpSalProof &s) const
+        { return epee::to_hex::string(epee::to_span(s) ); }
     };
     return std::visit(key_image_proof_to_readable_string_visitor{}, ki_proof);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_key_image_proof_from_readable_string(const std::string &str, KeyImageProofVariant &ki_proof_out)
 {
-    constexpr std::size_t max_byte_size = FCMP_PP_SAL_PROOF_SIZE_V1 + 1;
+    constexpr std::size_t max_byte_size = FCMP_PP_SAL_PROOF_SIZE_V1;
 
     if (str.size() > max_byte_size * 2 || str.size() % 2 == 1)
         return false;
@@ -2088,18 +2095,14 @@ bool try_key_image_proof_from_readable_string(const std::string &str, KeyImagePr
     if (!epee::from_hex::to_buffer(epee::to_mut_span(bytes), str))
         return false;
 
-    bool use_biased_hash_to_point = false;
-
     // depending on size of bytes, set variant
     switch (bytes.size())
     {
     case sizeof(crypto::signature):
         memcpy(&ki_proof_out.emplace<crypto::signature>(), bytes.data(), sizeof(crypto::signature));
         break;
-    case FCMP_PP_SAL_PROOF_SIZE_V1 + 1:
-        use_biased_hash_to_point = bytes.back();
-        bytes.pop_back();
-        ki_proof_out = std::pair(std::move(bytes), use_biased_hash_to_point);
+    case FCMP_PP_SAL_PROOF_SIZE_V1:
+        ki_proof_out = std::move(bytes);
         break;
     default:
         return false;

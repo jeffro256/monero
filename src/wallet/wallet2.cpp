@@ -13526,7 +13526,9 @@ uint64_t wallet2::import_key_images(
 
     if (!td.m_key_image_known || !(key_image == td.m_key_image))
     {
-      THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(pkey, key_image, signature),
+      const bool use_biased_hash_to_point
+        = carrot::use_biased_hash_to_point(wallet::make_sal_opening_hint_from_transfer_details(td));
+      THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(pkey, use_biased_hash_to_point, key_image, signature),
           error::signature_check_failed, boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
           + ", signature " + key_image_proof_to_readable_string(signature)  + ", pubkey " + epee::string_tools::pod_to_hex(pkey));
@@ -14355,7 +14357,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 
   for (size_t i = 0; i < output_array.size(); ++i)
   {
-    transfer_details td = output_array[i];
+    const transfer_details &td = output_array[i];
 
     // skip those we've already imported, or which have different data
     if (i + offset < original_size)
@@ -14373,36 +14375,14 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
         goto process;
 
       // copy anyway, since the comparison does not include ancillary fields which may have changed
-      m_transfers[i + offset] = std::move(td);
+      m_transfers[i + offset] = td;
       continue;
     }
 
 process:
-
-    // the hot wallet wouldn't have known about key images (except if we already exported them)
-    td.m_key_image_request = true;
-    td.m_key_image_partial = false;
-    if (should_expand(td.m_subaddr_index))
-        create_one_off_subaddress(td.m_subaddr_index);
-    if (!td.m_key_image_known)
-    {
-      // generate pre-Carrot key image if not known
-
-      cryptonote::keypair in_ephemeral;
-
-      THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + boost::lexical_cast<std::string>(i + offset));
-      crypto::public_key tx_pub_key = get_tx_pub_key_from_received_outs(td);
-      const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
-
-      THROW_WALLET_EXCEPTION_IF(td.m_internal_output_index >= td.m_tx.vout.size(),
-          error::wallet_internal_error, "Internal index is out of range");
-      crypto::public_key out_key = td.get_public_key();
-      bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
-      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-      td.m_key_image_known = true;
-      THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
-          error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
-    }
+    THROW_WALLET_EXCEPTION_IF(!td.m_key_image_known || td.m_key_image_partial, error::wallet_internal_error,
+      "import_outputs() should now have full key image expanded beforehand. Missing KI at owned output index: "
+      + boost::lexical_cast<std::string>(i + offset));
     if (should_expand(td.m_subaddr_index))
       expand_subaddresses(td.m_subaddr_index);
 
