@@ -310,7 +310,7 @@ namespace cryptonote
       { return false; }
       bool operator()(const cryptonote::txout_to_key&) const
       { return false; }
-      bool operator()(const cryptonote::txout_to_scripthash&) const
+      bool operator()(const cryptonote::txout_to_script&) const
       { return false; }
     };
 

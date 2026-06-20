@@ -60,6 +60,17 @@ namespace cryptonote
 
   /* outputs */
 
+  struct txout_to_script
+  {
+    std::vector<crypto::public_key> keys;
+    std::vector<uint8_t> script;
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(keys)
+      FIELD(script)
+    END_SERIALIZE()
+  };
+
   struct txout_to_carrot_v1
   {
     crypto::public_key key;                                  // K_o
@@ -74,11 +85,6 @@ namespace cryptonote
       FIELD(view_tag)
       FIELD(encrypted_janus_anchor)
     END_SERIALIZE()
-  };
-
-  struct txout_to_scripthash
-  {
-    crypto::hash hash;
   };
 
   // outputs <= HF_VERSION_VIEW_TAGS
@@ -129,7 +135,16 @@ namespace cryptonote
 
   struct txin_to_scripthash
   {
+    crypto::hash prev;
+    size_t prevout;
+    txout_to_script script;
+    std::vector<uint8_t> sigset;
+
     BEGIN_SERIALIZE_OBJECT()
+      FIELD(prev)
+      VARINT_FIELD(prevout)
+      FIELD(script)
+      FIELD(sigset)
     END_SERIALIZE()
   };
 
@@ -149,7 +164,7 @@ namespace cryptonote
 
   typedef boost::variant<txin_gen, txin_to_script, txin_to_scripthash, txin_to_key> txin_v;
 
-  typedef boost::variant<txout_to_carrot_v1, txout_to_scripthash, txout_to_key, txout_to_tagged_key> txout_target_v;
+  typedef boost::variant<txout_to_script, txout_to_carrot_v1, txout_to_key, txout_to_tagged_key> txout_target_v;
 
   //typedef std::pair<uint64_t, txout> out_t;
   struct tx_out
@@ -169,14 +184,14 @@ namespace cryptonote
   {
     struct tx_out_visitor
     {
+      const crypto::public_key &operator()(const cryptonote::txout_to_script&) const
+      { throw std::runtime_error("Unexpected usage of txout to script"); }
       const crypto::public_key &operator()(const cryptonote::txout_to_carrot_v1 &out) const
       { return out.key; }
       const crypto::public_key &operator()(const cryptonote::txout_to_tagged_key &out) const
       { return out.key; }
       const crypto::public_key &operator()(const cryptonote::txout_to_key &out) const
       { return out.key; }
-      const crypto::public_key &operator()(const cryptonote::txout_to_scripthash&) const
-      { throw std::runtime_error("Unexpected usage of txout to scripthash"); }
     };
     return boost::apply_visitor(tx_out_visitor{}, tx_out);
   }
@@ -670,14 +685,13 @@ namespace std {
 }
 
 BLOB_SERIALIZER(cryptonote::txout_to_key);
-BLOB_SERIALIZER(cryptonote::txout_to_scripthash);
 
 VARIANT_TAG(binary_archive, cryptonote::txin_gen, 0xff);
 VARIANT_TAG(binary_archive, cryptonote::txin_to_script, 0x0);
 VARIANT_TAG(binary_archive, cryptonote::txin_to_scripthash, 0x1);
 VARIANT_TAG(binary_archive, cryptonote::txin_to_key, 0x2);
-VARIANT_TAG(binary_archive, cryptonote::txout_to_carrot_v1, 0x0);
-VARIANT_TAG(binary_archive, cryptonote::txout_to_scripthash, 0x1);
+VARIANT_TAG(binary_archive, cryptonote::txout_to_script, 0x0);
+VARIANT_TAG(binary_archive, cryptonote::txout_to_carrot_v1, 0x1);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_key, 0x2);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_tagged_key, 0x3);
 VARIANT_TAG(binary_archive, cryptonote::transaction, 0xcc);
@@ -687,8 +701,8 @@ VARIANT_TAG(json_archive, cryptonote::txin_gen, "gen");
 VARIANT_TAG(json_archive, cryptonote::txin_to_script, "script");
 VARIANT_TAG(json_archive, cryptonote::txin_to_scripthash, "scripthash");
 VARIANT_TAG(json_archive, cryptonote::txin_to_key, "key");
+VARIANT_TAG(json_archive, cryptonote::txout_to_script, "script");
 VARIANT_TAG(json_archive, cryptonote::txout_to_carrot_v1, "carrot_v1");
-VARIANT_TAG(json_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(json_archive, cryptonote::txout_to_key, "key");
 VARIANT_TAG(json_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(json_archive, cryptonote::transaction, "tx");
@@ -698,8 +712,8 @@ VARIANT_TAG(debug_archive, cryptonote::txin_gen, "gen");
 VARIANT_TAG(debug_archive, cryptonote::txin_to_script, "script");
 VARIANT_TAG(debug_archive, cryptonote::txin_to_scripthash, "scripthash");
 VARIANT_TAG(debug_archive, cryptonote::txin_to_key, "key");
+VARIANT_TAG(debug_archive, cryptonote::txout_to_script, "script");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_carrot_v1, "carrot_v1");
-VARIANT_TAG(debug_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_key, "key");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(debug_archive, cryptonote::transaction, "tx");

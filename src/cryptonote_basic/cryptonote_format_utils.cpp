@@ -2021,8 +2021,8 @@ namespace cryptonote
         { return fcmp_pp::LegacyOutputPair{{O, C}}; }
         fcmp_pp::OutputPair operator()(const cryptonote::txout_to_key&) const
         { return fcmp_pp::LegacyOutputPair{{O, C}}; }
-        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_scripthash&) const
-        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_script&) const
+        { throw std::logic_error("cannot convert txout to script into an output pair"); }
     };
 
     const crypto::public_key &O = cryptonote::output_pubkey_cref(tx_out);
