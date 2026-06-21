@@ -32,6 +32,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "serialization/binary_utils.h"
 #include "serialization/string.h"
+#include "string_tools.h"
 
 TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
 {
@@ -102,6 +103,58 @@ TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
             }
         }
     }
+}
+
+TEST(cn_format_utils, block_longhash_202612_arbitrary_blob)
+{
+    const cryptonote::blobdata blob = "not the historical block 202612 hashing blob";
+    const crypto::hash pow_hash = cryptonote::get_block_longhash(blob, 202612, 1, crypto::null_hash);
+
+    ASSERT_NE("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000", epee::string_tools::pod_to_hex(pow_hash));
+}
+
+TEST(cn_format_utils, block_longhash_202612_mainnet_blob)
+{
+    cryptonote::blobdata hashing_blob;
+    ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(
+        "01009ad29fa0055da0a3d004c352a90cc86b00fab676695d76a4d1de16036c41"
+        "ba4dd188c4d76f46090040f353c96de74c53f87389b66fa625ed1f8676beeb"
+        "5d47b4f0193bd16b584933be8204",
+        hashing_blob));
+
+    crypto::hash block_id;
+    ASSERT_TRUE(cryptonote::get_object_hash(hashing_blob, block_id));
+    ASSERT_EQ("426d16cff04c71f8b16340b722dc4010a2dd3831c22041431f772547ba6e331a", epee::string_tools::pod_to_hex(block_id));
+
+    const crypto::hash pow_hash = cryptonote::get_block_longhash(hashing_blob, 202612, 1, crypto::null_hash);
+    ASSERT_EQ("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000", epee::string_tools::pod_to_hex(pow_hash));
+}
+
+TEST(cn_format_utils, block_longhash_202612_stagenet_blob)
+{
+    cryptonote::blobdata block_blob;
+    ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(
+        "0909d4809fdf05d5df6c3eb5891d81c51c6f9fe4c3ae388889dfaf421b689ee8"
+        "fe94b01d53d120cc4a87f602b0af0c01fff4ae0c01ecfe92f3aecd0502f887e4"
+        "421dee42ee9699484f942b180be8d66d1e24a35f8c945950bed59bf436210164"
+        "d9b0ae5889a127970bde60acd99f84fd79f61db7626331f074d062076c3ce40000",
+        block_blob));
+
+    cryptonote::block block;
+    crypto::hash block_id;
+    ASSERT_TRUE(cryptonote::parse_and_validate_block_from_blob(block_blob, block, block_id));
+    ASSERT_EQ("f3449e658b5f880c4b0e69007ed5d092c9c883ac3a518166fa652d5cc505e7b1", epee::string_tools::pod_to_hex(block_id));
+
+    const cryptonote::blobdata hashing_blob = cryptonote::get_block_hashing_blob(block);
+    ASSERT_TRUE(cryptonote::get_object_hash(hashing_blob, block_id));
+    ASSERT_EQ("f3449e658b5f880c4b0e69007ed5d092c9c883ac3a518166fa652d5cc505e7b1", epee::string_tools::pod_to_hex(block_id));
+
+    crypto::hash calculated_block_id;
+    ASSERT_TRUE(cryptonote::calculate_block_hash(block, calculated_block_id));
+    ASSERT_EQ(block_id, calculated_block_id);
+
+    const crypto::hash pow_hash = cryptonote::get_block_longhash(hashing_blob, 202612, 9, crypto::null_hash);
+    ASSERT_EQ("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000", epee::string_tools::pod_to_hex(pow_hash));
 }
 
 TEST(cn_format_utils, add_mm_merkle_root_to_tx_extra)
