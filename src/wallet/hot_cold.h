@@ -1,21 +1,21 @@
-// Copyright (c) 2025, The Monero Project
-// 
+// Copyright (c) 2025-2026, The Monero Project
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -51,6 +51,11 @@ namespace wallet
 {
 namespace cold
 {
+/**
+ * @brief Represents data required to export pre-Carrot UTXOs from hot wallet to cold wallet
+ *
+ * Previously known as `wallet2::exported_transfer_details`
+ */
 struct exported_pre_carrot_transfer_details
 {
     crypto::public_key m_pubkey;
@@ -77,6 +82,9 @@ struct exported_pre_carrot_transfer_details
 };
 bool operator==(const exported_pre_carrot_transfer_details&, const exported_pre_carrot_transfer_details&);
 
+/**
+ * @brief Represents data required to export post-Carrot UTXOs from hot wallet to cold wallet
+ */
 struct exported_carrot_transfer_details
 {
     // K^j_s can be derived on the cold side given j and derive_type. For normal enotes, d_e can
@@ -124,13 +132,19 @@ struct exported_carrot_transfer_details
 };
 bool operator==(const exported_carrot_transfer_details&, const exported_carrot_transfer_details&);
 
+/**
+ * @brief Variation between any exported UTXO from a hot wallet to a cold wallet
+ */
 using exported_transfer_details_variant = std::variant<
         exported_pre_carrot_transfer_details,
         exported_carrot_transfer_details
     >;
 
-// The term "Unsigned tx" is not really a tx since it's not signed yet.
-// It doesn't have tx hash, key and the integrated address is not separated into addr + payment id.
+/**
+ * @brief Set of unsigned pre-Carrot transaction intents, as well as UTXOs to import
+ *
+ * Previously known as `wallet2::unsigned_tx_set`
+ */
 struct UnsignedPreCarrotTransactionSet
 {
     std::vector<PreCarrotTransactionProposal> txes;
@@ -138,8 +152,14 @@ struct UnsignedPreCarrotTransactionSet
     std::tuple<uint64_t, uint64_t, std::vector<exported_pre_carrot_transfer_details>> new_transfers;
 };
 
+/**
+ * @brief Seed of randomness for all random values in a Carrot hot-cold transaction proposal
+ */
 using HotColdSeed = crypto::hash;
 
+/**
+ * @brief Effectively a CarrotPaymentProposalV1, w/o randomness
+ */
 struct HotColdCarrotPaymentProposalV1
 {
     /// user address
@@ -150,6 +170,9 @@ struct HotColdCarrotPaymentProposalV1
     // janus anchor randomness is derived from the hot/cold seed
 };
 
+/**
+ * @brief Effectively a CarrotPaymentProposalVerifiableSelfSendV1, w/o randomness nor derive type
+ */
 struct HotColdCarrotPaymentProposalVerifiableSelfSendV1
 {
     /// j for K^j_s (derive_type is implied)
@@ -164,6 +187,9 @@ struct HotColdCarrotPaymentProposalVerifiableSelfSendV1
     // internal anchor message isn't used for V1
 };
 
+/**
+ * @brief Effectively a CarrotTransactionProposalV1, w/ compressed randomness
+ */
 struct HotColdCarrotTransactionProposalV1
 {
     /// 32-byte randomness for deterministically deriving rerandomizations and other random components
@@ -187,6 +213,9 @@ struct HotColdCarrotTransactionProposalV1
     std::vector<std::uint8_t> extra;
 };
 
+/**
+ * @brief Set of unsigned post-Carrot transaction intents, as well as UTXOs to import
+ */
 struct UnsignedCarrotTransactionSetV1
 {
     std::vector<HotColdCarrotTransactionProposalV1> tx_proposals;
@@ -201,6 +230,9 @@ struct UnsignedCarrotTransactionSetV1
     bool resend_tx_proposals;
 };
 
+/**
+ * @brief Variation between any set of unsigned transaction intents
+ */
 using UnsignedTransactionSetVariant = std::variant<
         UnsignedPreCarrotTransactionSet,
         UnsignedCarrotTransactionSetV1
@@ -208,6 +240,9 @@ using UnsignedTransactionSetVariant = std::variant<
 std::size_t num_unsigned_txs_ref(const UnsignedTransactionSetVariant&);
 std::size_t num_new_outputs_ref(const UnsignedTransactionSetVariant&);
 
+/**
+ * @brief Set of fully-proved (incl. membership) transactions and key images to import
+ */
 struct SignedFullTransactionSet
 {
     std::vector<pending_tx> ptx;
@@ -215,6 +250,9 @@ struct SignedFullTransactionSet
     std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
 };
 
+/**
+ * @brief Set of FCMP++ SA/L signatures for given post-Carrot tx intents, and key images to import
+ */
 struct SignedCarrotTransactionSetV1
 {
     std::vector<HotColdCarrotTransactionProposalV1> tx_proposals;
@@ -225,54 +263,123 @@ struct SignedCarrotTransactionSetV1
     std::unordered_map<crypto::public_key, crypto::key_image> other_key_images;
 };
 
+/**
+ * @brief Variation between any set of signed (fully or not) tx intents, and key images to import
+ */
 using SignedTransactionSetVariant = std::variant<
         SignedFullTransactionSet,
         SignedCarrotTransactionSetV1
     >;
 
+/**
+ * @brief Variation between any key image association proof
+ */
 using KeyImageProofVariant = std::variant<
         crypto::signature,       // prove L = x Hp(O), s.t. O = x G
         fcmp_pp::FcmpPpSalProof  // prove L = x Hp(O), s.t. O = x G + y T
         //! @TODO: variant which allows k_gi proving without knowledge of k_ps
     >;
 
+/**
+ * @brief Convert transfer details for pre-Carrot UTXO into compressed export form
+ * @param td transfer details entry representing pre-Carrot UTXO
+ * @return compressed pre-Carrot exported output
+ */
 exported_pre_carrot_transfer_details export_cold_pre_carrot_output(const wallet2_basic::transfer_details &td);
-
+/**
+ * @brief Convert transfer details for post-Carrot UTXO into compressed export form
+ * @param td transfer details entry representing post-Carrot UTXO
+ * @return compressed post-Carrot exported output
+ */
 exported_carrot_transfer_details export_cold_carrot_output(const wallet2_basic::transfer_details &td,
     const carrot::cryptonote_hierarchy_address_device &addr_dev);
-
+/**
+ * @brief Convert transfer details for any type UTXO into compressed export form
+ * @param td transfer details entry
+ * @return compressed exported output
+ */
 exported_transfer_details_variant export_cold_output(const wallet2_basic::transfer_details &td,
     const carrot::cryptonote_hierarchy_address_device &addr_dev);
-
+/**
+ * @brief Convert compressed pre-Carrot exported output into expanded transfer details, and calculate key image
+ * @param etd compressed pre-Carrot exported output
+ * @param addr_dev address device
+ * @param key_image_dev key image device
+ * @return expanded transfer details, with key image filled in
+ */
 wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     const carrot::key_image_device &key_image_dev);
-
+/**
+ * @brief Convert compressed post-Carrot exported output into expanded transfer details, and calculate key image
+ * @param etd compressed post-Carrot exported output
+ * @param addr_dev address device
+ * @param key_image_dev key image device
+ * @return expanded transfer details, with key image filled in
+ */
 wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     const carrot::key_image_device &key_image_dev);
-
+/**
+ * @brief Convert compressed any type exported output into expanded transfer details, and calculate key image
+ * @param etd compressed exported output
+ * @param addr_dev address device
+ * @param key_image_dev key image device
+ * @return expanded transfer details, with key image filled in
+ */
 wallet2_basic::transfer_details import_cold_output(const exported_transfer_details_variant &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     const carrot::key_image_device &key_image_dev);
-
+/**
+ * @brief Convert Carrot transaction intent into compressed hot-cold form, losing random fields
+ * @param tx_proposal
+ * @param hot_cold_seed Hot-Cold seed to be used for returned Hot-Cold proposal
+ * @return compressed Hot-Cold transaction intent w/ `hot_cold_seed` as randomness
+ */
 HotColdCarrotTransactionProposalV1 compress_carrot_transaction_proposal_lossy(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const HotColdSeed &hot_cold_seed);
-
+/**
+ * @brief Make fetcher which looks up input proposals by one-time address, from existing list of transfer details 
+ */
 std::function<carrot::InputProposalV1(const crypto::public_key&)> make_supplemental_input_proposals_fetcher(
     const wallet2_basic::transfer_container &transfers);
-
+/**
+ * @brief Convert Hot-Cold Carrot transaction intent into expanded Carrot transaction intent
+ * @param tx_proposal compressed Hot-Cold transaction intent
+ * @param supplemental_input_proposals fetcher of one-time address -> input proposal
+ * @param addr_dev address device
+ * @param tx_proposal_out expanded Carrot transaction intent
+ */
 void expand_carrot_transaction_proposal(const HotColdCarrotTransactionProposalV1 &tx_proposal,
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_input_proposals,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     carrot::CarrotTransactionProposalV1 &tx_proposal_out);
-
+/**
+ * @brief Convert all Hot-Cold Carrot transaction intents in unsigned tx set into expanded Carrot transaction intents
+ * @param unsigned_txs set of unsigned Hot-Cold Carrot transaction intents
+ * @param supplemental_input_proposals fetcher of one-time address -> input proposal
+ * @param addr_dev address device
+ * @param tx_proposals_out expanded Carrot transaction intents
+ */
 void expand_carrot_transaction_proposals(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_input_proposals,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     std::vector<carrot::CarrotTransactionProposalV1> &tx_proposals_out);
-
+/**
+ * @brief Expand Hot-Cold Carrot transaction intents, and calculate key images and rerandomized outputs
+ * @param tx_proposal compressed Hot-Cold transaction intent
+ * @param supplemental_input_proposals fetcher of one-time address -> input proposal
+ * @param addr_dev address device
+ * @param key_image_dev key image device for known one-time addresses (see below)
+ *
+ * @see expand_carrot_transaction_proposal()
+ *
+ * The key image device will only be called for opening hints corresponding to one-time addresses
+ * in `tx_proposal`. On the hot side, this means that the hot wallet can pass a
+ * `carrot::key_image_device_precompted` device since it should know the one-time address -> key
+ * image association after receiving the signed tx set.
+ */
 void expand_carrot_transaction_proposal_and_rerandomized_outputs(
     const HotColdCarrotTransactionProposalV1 &tx_proposal,
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_input_proposals,
@@ -281,27 +388,41 @@ void expand_carrot_transaction_proposal_and_rerandomized_outputs(
     carrot::CarrotTransactionProposalV1 &tx_proposal_out,
     std::vector<crypto::key_image> &input_key_images_out,
     std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs_out);
-
+/**
+ * @brief Generate a set of unsigned transaction intents from a lis of `pending_tx` entries
+ * @param ptxs pending tx entries, returned from e.g. `make_pending_carrot_tx()`
+ * @param transfers existing list of transfer detail entries
+ * @param resend_tx_proposals sets `resend_tx_proposals` field of unsigned tx set, if applicable
+ * @param addr_dev address device
+ * @return set of unsigned transaction intents contained in `ptxs`, and outputs to export
+ */
 UnsignedTransactionSetVariant generate_unsigned_tx_set_from_pending_txs(
     const std::vector<pending_tx> &ptxs,
     const wallet2_basic::transfer_container &transfers,
     const bool resend_tx_proposals,
     const carrot::cryptonote_hierarchy_address_device &addr_dev);
-
+/**
+ * @brief Extracts transaction intent varations from variation of set of unsigned txs
+ * @param unsigned_txs variation of set of unsigned txs
+ * @param supplemental_input_proposals fetcher of one-time address -> input proposal
+ * @param addr_dev address device
+ * @return list of variations of transaction intents
+ *
+ * Useful for enumerating human-meaningful details of unsigned tx set before signing.
+ */
 std::vector<tx_reconstruct_variant_t> get_transaction_proposals_from_unsigned_tx_set(
     const UnsignedTransactionSetVariant &unsigned_txs,
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_input_proposals,
     const carrot::cryptonote_hierarchy_address_device &addr_dev);
-
 /**
- * brief: sign_pre_carrot_tx_set - cold sign an unsigned pre-Carrot transaction set
- * param: unsigned_txs - 
- * param: acc_keys -
- * param: subaddress_map -
- * param: nettype - Monero network type, used solely for debug messages
- * outparam: signed_txs_out - signed pre-Carrot transaction set
- * outparam: tx_keys_out - main ephemeral tx privkeys, indexed by TXID
- * outparam: additional_tx_keys_out - additional ephemeral tx privkeys, indexed by TXID
+ * @brief Cold sign an unsigned pre-Carrot transaction set
+ * @param unsigned_txs -
+ * @param acc_keys -
+ * @param subaddress_map -
+ * @param nettype - Monero network type, used solely for debug messages
+ * @param[out] signed_txs_out - signed pre-Carrot transaction set
+ * @param[out] tx_keys_out - main ephemeral tx privkeys, indexed by TXID
+ * @param[out] additional_tx_keys_out - additional ephemeral tx privkeys, indexed by TXID
  *
  * `signed_txs_out` does not contain nether main nor additional ephemeral tx privkeys in its
  * pending transaction list, to prevent the hot wallet from knowing them. It's `key_images`
@@ -316,13 +437,13 @@ void sign_pre_carrot_tx_set(const UnsignedPreCarrotTransactionSet &unsigned_txs,
     std::unordered_map<crypto::hash, crypto::secret_key> &tx_keys_out,
     std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> &additional_tx_keys_out);
 /**
- * brief: sign_carrot_tx_set_v1 - cold sign an unsigned Carrot transaction set
- * param: unsigned_txs -
- * param: supplemental_opening_hints - callback to retrieve opening hints by OTA that aren't present in `unsigned_txs`
- * param: addr_dev -
- * param: spend_dev - device representing k_s
- * outparam: signed_txs_out -
- * outparam: ephemeral_tx_privkeys_out - list of s_sr for tx in enote order, indexed by signable tx hash
+ * @brief Cold sign an unsigned Carrot transaction set
+ * @param unsigned_txs -
+ * @param supplemental_opening_hints - callback to retrieve opening hints by OTA that aren't present in `unsigned_txs`
+ * @param addr_dev -
+ * @param spend_dev - device representing k_s
+ * @param[out] signed_txs_out -
+ * @param[out] ephemeral_tx_privkeys_out - list of s_sr for tx in enote order, indexed by signable tx hash
  */
 void sign_carrot_tx_set_v1(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_opening_hints,
@@ -331,15 +452,15 @@ void sign_carrot_tx_set_v1(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
     SignedCarrotTransactionSetV1 &signed_txs_out,
     std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> &ephemeral_tx_privkeys_out);
 /**
- * brief: finalize_proofs_for_signed_carrot_tx_set_v1 - construct FCMPs and range proofs for signed Carrot/FCMP++ txs
- * param: signed_txs -
- * param: supplemental_tx_proposals -
- * param: supplemental_input_proposals -
- * param: addr_dev -
- * param: tree_cache -
- * param: curve_trees -
- * outparam: expanded_tx_proposals_out -
- * outparam: txs_out -
+ * @brief Construct FCMPs and range proofs for signed Carrot/FCMP++ txs
+ * @param signed_txs -
+ * @param supplemental_tx_proposals -
+ * @param supplemental_input_proposals -
+ * @param addr_dev -
+ * @param tree_cache -
+ * @param curve_trees -
+ * @param[out] expanded_tx_proposals_out -
+ * @param[out] txs_out -
  */
 void finalize_proofs_for_signed_carrot_tx_set_v1(const SignedCarrotTransactionSetV1 &signed_txs,
     const std::function<HotColdCarrotTransactionProposalV1(const crypto::public_key&)> &supplemental_tx_proposals,
@@ -350,14 +471,14 @@ void finalize_proofs_for_signed_carrot_tx_set_v1(const SignedCarrotTransactionSe
     std::vector<carrot::CarrotTransactionProposalV1> &expanded_tx_proposals_out,
     std::vector<cryptonote::transaction> &txs_out);
 /**
- * brief: finalize_signed_carrot_tx_set_v1_into_full_set - construct FCMPs and range proofs for signed Carrot/FCMP++ txs
- * param: signed_txs -
- * param: supplemental_tx_proposals -
- * param: supplemental_input_proposals -
- * param: addr_dev -
- * param: tree_cache -
- * param: curve_trees -
- * return: Signed full transaction set with proven Carrot/FCMP++ txs and given SA/Ls
+ * @brief Construct FCMPs and range proofs for signed Carrot/FCMP++ txs
+ * @param signed_txs -
+ * @param supplemental_tx_proposals -
+ * @param supplemental_input_proposals -
+ * @param addr_dev -
+ * @param tree_cache -
+ * @param curve_trees -
+ * @return Signed full transaction set with proven Carrot/FCMP++ txs and given SA/Ls
  */
 SignedFullTransactionSet finalize_signed_carrot_tx_set_v1_into_full_set(
     const SignedCarrotTransactionSetV1 &signed_txs,
@@ -366,27 +487,63 @@ SignedFullTransactionSet finalize_signed_carrot_tx_set_v1_into_full_set(
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees);
-
+/**
+ * @brief Prove one-time address <-> key image association on generic output for legacy account
+ * @param opening_hint
+ * @param addr_dev address device
+ * @param k_spend private spend key
+ * @param[out] ki_proof_out key image association proof
+ * @param[out] key_image_out key image
+ */
 void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
     const crypto::secret_key &k_spend,
     KeyImageProofVariant &ki_proof_out,
     crypto::key_image &key_image_out);
-
+/**
+ * @brief Validate a one-time address <-> key image association proof for a pre-Carrot output
+ * @param onetime_address
+ * @param key_image
+ * @param ki_proof key image association proof
+ * @return true iff association proof passes validation
+ */
 bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_address,
     const crypto::key_image &key_image,
     const crypto::signature &ki_proof);
-
+/**
+ * @brief Validate a one-time address <-> key image association proof (SA/L variant) for a Carrot output
+ * @param onetime_address
+ * @param use_biased_hash_to_point
+ * @param key_image
+ * @param ki_proof key image association proof
+ * @return true iff association proof passes validation
+ */
 bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
     const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
     const fcmp_pp::FcmpPpSalProof &ki_proof);
-
+/**
+ * @brief Validate a one-time address <-> key image association proof for a generic output
+ * @param onetime_address
+ * @param use_biased_hash_to_point
+ * @param key_image
+ * @param ki_proof key image association proof
+ * @return true iff association proof passes validation
+ */
 bool validate_key_image_proof(const crypto::public_key &onetime_address,
     const bool use_biased_hash_to_point,
     const crypto::key_image &key_image,
     const KeyImageProofVariant &ki_proof);
-
+/**
+ * @brief Encode and encrypt (to k_v) exported output information
+ * @param transfers_offset index into transfers list that export starts at
+ * @param transfers_size size of local transfers list
+ * @param outputs exported outputs
+ * @param account_spend_pubkey K_s
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] payload_out encrypted message containing `transfers_offset`, `transfers_size`, `outputs`, and K_s
+ */
 void encrypt_exported_outputs(const std::uint64_t transfers_offset,
     const std::uint64_t transfers_size,
     const std::vector<exported_transfer_details_variant> &outputs,
@@ -394,7 +551,18 @@ void encrypt_exported_outputs(const std::uint64_t transfers_offset,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::string &payload_out);
-
+/**
+ * @brief Decrypt (to k_v) and decode exported output information
+ * @param payload encrypted message containing `transfers_offset`, `transfers_size`, `outputs`, and K_s
+ * @param account_spend_pubkey K_s (for verification)
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] transfers_offset_out index into transfers list that export starts at
+ * @param[out] transfers_size_out size of local transfers list
+ * @param[out] outputs_out exported outputs
+ *
+ * Backwards compatible with v4 outputs format
+ */
 void decrypt_exported_outputs(const std::string &payload,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
@@ -402,45 +570,98 @@ void decrypt_exported_outputs(const std::string &payload,
     std::uint64_t &transfers_offset_out,
     std::uint64_t &transfers_size_out,
     std::vector<exported_transfer_details_variant> &outputs_out);
-
+/**
+ * @brief Encode and encrypt (to k_v) key image association proofs
+ * @param offset index into some transfer details list that the key image list starts at [OPTIONAL]
+ * @param key_image_proofs list of key images and their one-time address association proofs
+ * @param account_spend_pubkey K_s
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] payload_out encrypted message containing `key_image_proofs`, and K_s
+ */
 void encrypt_key_image_proofs(const std::uint64_t offset,
     const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::string &payload_out);
-
+/**
+ * @brief Decrypt (to k_v) and decode key image association proofs
+ * @param payload encrypted message containing `key_image_proofs`, and K_s
+ * @param account_spend_pubkey K_s (for verification)
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] offset_out index into some transfer details list that the key image list starts at
+ * @param[out] key_image_proofs_out list of key images and their one-time address association proofs
+ *
+ * Backwards compatible with v3 key image format
+ */
 void decrypt_key_image_proofs(const std::string &payload,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::uint64_t &offset_out,
     std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs_out);
-
+/**
+ * @brief Encode and encrypt (to k_v) unsigned transaction set
+ * @param unsigned_txs
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] payload_out encrypted message containing `unsigned_txs`
+ */
 void encrypt_unsigned_tx_set(const UnsignedTransactionSetVariant &unsigned_txs,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::string &payload_out);
-
+/**
+ * @brief Decrypt (to k_v) and decode unsigned transaction set
+ * @param payload encrypted message containing `unsigned_txs`
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] unsigned_txs_out
+ *
+ * Backwards compatible with v2 unsigned transaction set format
+ */
 void decrypt_unsigned_tx_set(const std::string payload,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     UnsignedTransactionSetVariant &unsigned_txs_out);
-
+/**
+ * @brief Encode and encrypt (to k_v) signed transaction set
+ * @param signed_txs
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] payload_out encrypted message containing `signed_txs`
+ */
 void encrypt_signed_tx_set(const SignedTransactionSetVariant &signed_txs,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::string &payload_out);
-
+/**
+ * @brief Decrypt (to k_v) and decode signed transaction set
+ * @param payload encrypted message containing `signed_txs`
+ * @param k_view k_v
+ * @param kdf_rounds KDF rounds for encryption key (standard is 1)
+ * @param[out] signed_txs_out
+ *
+ * Backwards compatible with v0 signed transaction set format
+ */
 void decrypt_signed_tx_set(const std::string payload,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     SignedTransactionSetVariant &signed_txs_out);
-
 /**
- * brief: perform lexical casts to/from key image proofs
+ * @brief Encode key image association proof into a hex string
+ * @param ki_proof key key image association proof
+ * @return hex string representing `ki_proof`
  */
 std::string key_image_proof_to_readable_string(const KeyImageProofVariant &ki_proof);
+/**
+ * @brief Decode key image association proof from a hex string
+ * @param str hex string
+ * @param[out] ki_proof_out key key image association proof
+ * @return true iff hex string successfully decodes as a key image association proof
+ */
 bool try_key_image_proof_from_readable_string(const std::string &str, KeyImageProofVariant &ki_proof_out);
 
 } //namespace cold
