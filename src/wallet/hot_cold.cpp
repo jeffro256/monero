@@ -144,8 +144,8 @@ static HotColdCarrotPaymentProposalVerifiableSelfSendV1 compress_carrot_selfsend
 {
     return HotColdCarrotPaymentProposalVerifiableSelfSendV1{
         .subaddr_index = payment_proposal.subaddr_index.index,
-        .amount = payment_proposal.proposal.amount,
-        .enote_type = payment_proposal.proposal.enote_type
+        .amount = payment_proposal.amount,
+        .enote_type = payment_proposal.enote_type
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -185,25 +185,19 @@ static carrot::CarrotPaymentProposalVerifiableSelfSendV1 expand_carrot_selfsend_
         &hot_cold_seed,
         &ephemeral_privkey);
 
-    // D_e = d_e B
-    mx25519_pubkey enote_ephemeral_pubkey;
-    carrot::make_carrot_enote_ephemeral_pubkey_cryptonote(ephemeral_privkey, enote_ephemeral_pubkey);
-
     // K^j_s = K_s + k^j_subext G
     crypto::public_key address_spend_pubkey;
     addr_dev.get_address_spend_pubkey({payment_proposal.subaddr_index}, address_spend_pubkey);
 
     return carrot::CarrotPaymentProposalVerifiableSelfSendV1{
-        .proposal = carrot::CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = address_spend_pubkey,
-            .amount = payment_proposal.amount,
-            .enote_type = payment_proposal.enote_type,
-            .enote_ephemeral_pubkey = enote_ephemeral_pubkey
-        },
+        .destination_address_spend_pubkey = address_spend_pubkey,
         .subaddr_index = carrot::subaddress_index_extended{
             .index = payment_proposal.subaddr_index,
             .derive_type = addr_derive_type
-        }
+        },
+        .amount = payment_proposal.amount,
+        .enote_type = payment_proposal.enote_type,
+        .enote_ephemeral_privkey = ephemeral_privkey
     };
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -266,7 +260,7 @@ static carrot::CarrotTransactionProposalV1 expand_carrot_transaction_proposal(
     CARROT_CHECK_AND_THROW(!selfsend_payment_proposals.empty(),
         carrot::too_few_outputs, "hot/cold transaction proposal doesn't contain any selfsend proposals");
     if (n_outputs == 2)
-        selfsend_payment_proposals.back().proposal.enote_ephemeral_pubkey.reset();
+        selfsend_payment_proposals.back().enote_ephemeral_privkey.reset();
 
     const carrot::encrypted_payment_id_t dummy_encrypted_payment_id = expand_dummy_encrypted_payment_id(hot_cold_seed);
 
@@ -772,21 +766,62 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
             const carrot::CarrotEnoteType enote_type = etd.flags.m_enote_type_change
                 ? carrot::CarrotEnoteType::CHANGE : carrot::CarrotEnoteType::PAYMENT;
 
-            const carrot::CarrotPaymentProposalSelfSendV1 payment_proposal{
-                .destination_address_spend_pubkey = destination.address_spend_pubkey,
-                .amount = td.amount(),
-                .enote_type = enote_type,
-                .enote_ephemeral_pubkey = etd.selfsend_enote_ephemeral_pubkey,
-                .internal_message = etd.flags.m_internal
-                    ? std::optional<carrot::janus_anchor_t>(etd.janus_anchor) : std::optional<carrot::janus_anchor_t>()
-            };
+            // s_sr
+            tools::scrubbed<mx25519_pubkey> s_sender_receiver;
+            CHECK_AND_ASSERT_THROW_MES(carrot::try_make_carrot_shared_key_receiver(addr_dev,
+                    etd.selfsend_enote_ephemeral_pubkey, s_sender_receiver),
+                "cannot import transfer details: cannot make ECDH");
 
-            // construct enote
-            carrot::get_output_proposal_special_v1(payment_proposal,
-                addr_dev,
-                etd.tx_first_key_image,
+            // input_contet
+            const carrot::input_context_t input_context = carrot::make_carrot_input_context(etd.tx_first_key_image);
+
+            // s^ctx_sr
+            tools::scrubbed<crypto::hash> s_sender_receiver_ctx;
+            carrot::make_carrot_contextualized_sender_receiver_secret(s_sender_receiver.data,
                 etd.selfsend_enote_ephemeral_pubkey,
-                output_enote_proposal);
+                input_context,
+                s_sender_receiver_ctx);
+
+            // k_a
+            carrot::make_carrot_amount_blinding_factor(s_sender_receiver_ctx,
+                etd.amount,
+                destination.address_spend_pubkey,
+                enote_type,
+                output_enote_proposal.amount_blinding_factor);
+
+            // C_a
+            const carrot::amount_commitment_t amount_commitment = carrot::commit_carrot_amount(etd.amount,
+                output_enote_proposal.amount_blinding_factor);
+
+            // K_o
+            crypto::public_key onetime_address;
+            CHECK_AND_ASSERT_THROW_MES(carrot::try_make_carrot_onetime_address(destination.address_spend_pubkey,
+                    s_sender_receiver_ctx, amount_commitment, onetime_address),
+                "cannot import transfer details: cannot make one-time address");
+
+            // v_t
+            carrot::view_tag_t view_tag;
+            carrot::make_carrot_view_tag(s_sender_receiver.data, input_context, onetime_address, view_tag);
+
+            // encrypt components
+            if (etd.payment_id != carrot::null_payment_id)
+                encrypted_payment_id = carrot::encrypt_legacy_payment_id(etd.payment_id,
+                    s_sender_receiver_ctx, onetime_address);
+            const carrot::encrypted_amount_t a_enc = carrot::encrypt_carrot_amount(etd.amount,
+                s_sender_receiver_ctx, onetime_address);
+            const carrot::janus_anchor_t anchor_enc = carrot::encrypt_carrot_anchor(etd.janus_anchor,
+                s_sender_receiver_ctx, onetime_address);
+
+            output_enote_proposal.amount = etd.amount;
+            output_enote_proposal.enote = carrot::CarrotEnoteV1{
+                .onetime_address = onetime_address,
+                .amount_commitment = amount_commitment,
+                .amount_enc = a_enc,
+                .anchor_enc = anchor_enc,
+                .view_tag = view_tag,
+                .enote_ephemeral_pubkey = etd.selfsend_enote_ephemeral_pubkey,
+                .tx_first_key_image = etd.tx_first_key_image
+            };
         }
         else // normal non-coinbase
         {
@@ -1365,8 +1400,7 @@ void sign_carrot_tx_set_v1(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
 
         // get ephemeral tx privkeys
         std::vector<std::pair<bool, std::size_t>> enote_order;
-        carrot::get_sender_receiver_secrets_from_proposal_v1(expanded_tx_proposal.normal_payment_proposals,
-            expanded_tx_proposal.selfsend_payment_proposals,
+        carrot::get_enote_ephemeral_privkeys_from_proposal_v1(expanded_tx_proposal,
             /*s_view_balance_dev=*/{},
             &addr_dev,
             input_key_images.at(0),

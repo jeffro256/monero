@@ -130,12 +130,10 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
     if (subaddr_it)
     {
         selfsend_payment_proposals_inout.push_back(carrot::CarrotPaymentProposalVerifiableSelfSendV1{
-            .proposal = carrot::CarrotPaymentProposalSelfSendV1{
-                .destination_address_spend_pubkey = tx_dest_entry.addr.m_spend_public_key,
-                .amount = tx_dest_entry.amount,
-                .enote_type = carrot::CarrotEnoteType::PAYMENT
-            },
-            .subaddr_index = *subaddr_it
+            .destination_address_spend_pubkey = tx_dest_entry.addr.m_spend_public_key,
+            .subaddr_index = *subaddr_it,
+            .amount = tx_dest_entry.amount,
+            .enote_type = carrot::CarrotEnoteType::PAYMENT,
         });
     }
     else // not *known* self-send address
@@ -179,7 +177,7 @@ static void build_payment_proposals_sweep(std::vector<carrot::CarrotPaymentPropo
     }
 
     if (selfsend_payment_proposals_inout.size() == 2 && normal_payment_proposals_inout.empty())
-        selfsend_payment_proposals_inout.back().proposal.enote_type = carrot::CarrotEnoteType::CHANGE;
+        selfsend_payment_proposals_inout.back().enote_type = carrot::CarrotEnoteType::CHANGE;
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -199,7 +197,7 @@ static cryptonote::tx_destination_entry make_tx_destination_entry(
     const carrot::view_incoming_key_device &k_view_dev)
 {
     const crypto::public_key base_address_pubkey = payment_proposal.subaddr_index.index.is_subaddress()
-        ? payment_proposal.proposal.destination_address_spend_pubkey : rct::rct2pk(rct::G);
+        ? payment_proposal.destination_address_spend_pubkey : rct::rct2pk(rct::G);
 
     crypto::public_key address_view_pubkey;
     CHECK_AND_ASSERT_THROW_MES(k_view_dev.view_key_scalar_mult_ed25519(
@@ -207,8 +205,8 @@ static cryptonote::tx_destination_entry make_tx_destination_entry(
             address_view_pubkey),
         "make_tx_destination_entry: view-key multiplication failed");
 
-   return cryptonote::tx_destination_entry(payment_proposal.proposal.amount,
-        {payment_proposal.proposal.destination_address_spend_pubkey, address_view_pubkey},
+   return cryptonote::tx_destination_entry(payment_proposal.amount,
+        {payment_proposal.destination_address_spend_pubkey, address_view_pubkey},
         payment_proposal.subaddr_index.index.is_subaddress());
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -471,7 +469,7 @@ boost::multiprecision::uint128_t input_amount_total(const tx_reconstruct_variant
             for (const auto &normal_payment_proposal : p.normal_payment_proposals)
                 res += normal_payment_proposal.amount;
             for (const auto &selfsend_payment_proposals : p.selfsend_payment_proposals)
-                res += selfsend_payment_proposals.proposal.amount;
+                res += selfsend_payment_proposals.amount;
             return res;
         }
     };
@@ -1222,19 +1220,11 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
         sorted_input_key_images,
         &key_image_order);
 
-    // collect core selfsend proposals
-    std::vector<carrot::CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
-    selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
-    for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
-        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
-
     // finalize enotes
     LOG_PRINT_L3("Getting output enote proposals");
     std::vector<carrot::RCTOutputEnoteProposal> output_enote_proposals;
     carrot::encrypted_payment_id_t encrypted_payment_id;
-    carrot::get_output_enote_proposals(tx_proposal.normal_payment_proposals,
-        selfsend_payment_proposal_cores,
-        tx_proposal.dummy_encrypted_payment_id,
+    carrot::get_output_enote_proposals_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         &k_view_incoming_dev,
         sorted_input_key_images.at(0),
@@ -1378,8 +1368,7 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
     {
         const crypto::key_image &tx_first_key_image = sorted_input_key_images.at(0);
         std::vector<std::pair<bool, std::size_t>> enote_order;
-        carrot::get_sender_receiver_secrets_from_proposal_v1(tx_proposal.normal_payment_proposals,
-            tx_proposal.selfsend_payment_proposals,
+        carrot::get_enote_ephemeral_privkeys_from_proposal_v1(tx_proposal,
             /*s_view_balance_dev=*/nullptr,
             &k_view_incoming_dev,
             tx_first_key_image,

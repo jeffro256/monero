@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -202,20 +202,13 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         parsed_encrypted_payment_id));
     ASSERT_TRUE(parsed_encrypted_payment_id);
 
-    // collect modified selfsend payment proposal cores
-    std::vector<CarrotPaymentProposalSelfSendV1> modified_selfsend_payment_proposals;
-    for (const auto &p : tx_proposal.selfsend_payment_proposals)
-        modified_selfsend_payment_proposals.push_back(p.proposal);
-
     // sanity check that the enotes and pid_enc loaded from the transaction are equal to the enotes
     // and pic_enc returned from get_output_enote_proposals() when called with the modified payment
     // proposals. we do this so that the modified payment proposals from make_unsigned_transaction()
     // can be passed to a hardware device for deterministic verification of the signable tx hash
     std::vector<RCTOutputEnoteProposal> rederived_output_enote_proposals;
     encrypted_payment_id_t rederived_encrypted_payment_id;
-    get_output_enote_proposals(tx_proposal.normal_payment_proposals,
-        modified_selfsend_payment_proposals,
-        *parsed_encrypted_payment_id,
+    get_output_enote_proposals_from_proposal_v1(tx_proposal,
         &ss_keys.s_view_balance_dev,
         &ss_keys.k_view_incoming_dev,
         parsed_key_images.at(0),
@@ -305,7 +298,8 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         for (size_t ss_prop_idx = 0; ss_prop_idx < selfsend_payment_proposals.size(); ++ss_prop_idx)
         {
             // calculate acceptable loss from fee subtraction
-            const CarrotPaymentProposalSelfSendV1 &account_payment_proposal = selfsend_payment_proposals.at(ss_prop_idx).proposal;
+            const CarrotPaymentProposalSelfSendV1 &account_payment_proposal = verifiable_selfsend_to_core_v1(
+                selfsend_payment_proposals.at(ss_prop_idx));
             const bool is_subtractable = subtractable_selfsend_payment_proposals.count(ss_prop_idx);
             const rct::xmr_amount acceptable_fee_margin_for_proposal = is_subtractable ? acceptable_fee_margin : 0;
 
@@ -524,7 +518,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_4)
     };
 
     // 1 main address selfsend
-    tx_proposal.explicit_selfsend_proposals.emplace_back().first.proposal = CarrotPaymentProposalSelfSendV1{
+    tx_proposal.explicit_selfsend_proposals.emplace_back().first = CarrotPaymentProposalVerifiableSelfSendV1{
         .destination_address_spend_pubkey = acc2.first.carrot_account_spend_pubkey,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
         .enote_type = CarrotEnoteType::PAYMENT,
@@ -533,12 +527,10 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_4)
 
     // 1 subaddress selfsend
     tx_proposal.explicit_selfsend_proposals.emplace_back().first = CarrotPaymentProposalVerifiableSelfSendV1{
-        .proposal = CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
-            .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-            .enote_type = CarrotEnoteType::CHANGE
-        },
-        .subaddr_index = {{4, 19}}
+        .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
+        .subaddr_index = {{4, 19}},
+        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
+        .enote_type = CarrotEnoteType::CHANGE
     };
 
     // specify fee per weight
@@ -729,7 +721,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_8)
     };
 
     // 1 main address selfsend
-    tx_proposal.explicit_selfsend_proposals.emplace_back().first.proposal = CarrotPaymentProposalSelfSendV1{
+    tx_proposal.explicit_selfsend_proposals.emplace_back().first = CarrotPaymentProposalVerifiableSelfSendV1{
         .destination_address_spend_pubkey = acc2.first.carrot_account_spend_pubkey,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
         .enote_type = CarrotEnoteType::PAYMENT,
@@ -738,12 +730,10 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_8)
 
     // 1 subaddress selfsend
     tx_proposal.explicit_selfsend_proposals.emplace_back().first = CarrotPaymentProposalVerifiableSelfSendV1{
-        .proposal = CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
-            .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-            .enote_type = CarrotEnoteType::CHANGE
-        },
-        .subaddr_index = {{4, 19}}
+        .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
+        .subaddr_index = {{4, 19}},
+        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
+        .enote_type = CarrotEnoteType::CHANGE
     };
 
     // specify fee per weight
@@ -942,7 +932,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_12)
     }, true};
 
     // 1 main address selfsend
-    tx_proposal.explicit_selfsend_proposals.emplace_back().first.proposal = CarrotPaymentProposalSelfSendV1{
+    tx_proposal.explicit_selfsend_proposals.emplace_back().first = CarrotPaymentProposalVerifiableSelfSendV1{
         .destination_address_spend_pubkey = acc2.first.carrot_account_spend_pubkey,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
         .enote_type = CarrotEnoteType::PAYMENT,
@@ -951,12 +941,10 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_12)
 
     // 1 subaddress selfsend (subtractable)
     tx_proposal.explicit_selfsend_proposals.emplace_back() = {CarrotPaymentProposalVerifiableSelfSendV1{
-        .proposal = CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
-            .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-            .enote_type = CarrotEnoteType::CHANGE
-        },
-        .subaddr_index = {{4, 19}}
+        .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
+        .subaddr_index = {{4, 19}},
+        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
+        .enote_type = CarrotEnoteType::CHANGE
     }, true};
 
     // specify fee per weight
@@ -1152,7 +1140,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
     }, true};
 
     // 1 main address selfsend (subtractable)
-    tx_proposal.explicit_selfsend_proposals.emplace_back() = {{CarrotPaymentProposalSelfSendV1{
+    tx_proposal.explicit_selfsend_proposals.emplace_back() = {{CarrotPaymentProposalVerifiableSelfSendV1{
         .destination_address_spend_pubkey = acc2.first.carrot_account_spend_pubkey,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
         .enote_type = CarrotEnoteType::PAYMENT,
@@ -1161,12 +1149,10 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
 
     // 1 subaddress selfsend (subtractable)
     tx_proposal.explicit_selfsend_proposals.emplace_back() = {CarrotPaymentProposalVerifiableSelfSendV1{
-        .proposal = CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
-            .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-            .enote_type = CarrotEnoteType::CHANGE
-        },
-        .subaddr_index = {{4, 19}}
+        .destination_address_spend_pubkey = acc2.first.subaddress({{4, 19}}).address_spend_pubkey,
+        .subaddr_index = {{4, 19}},
+        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
+        .enote_type = CarrotEnoteType::CHANGE
     }, true};
 
     // specify fee per weight
@@ -1820,7 +1806,7 @@ TEST(carrot_impl, make_multiple_carrot_transaction_proposals_sweep_1)
 
             const carrot::CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal
                 = tx_proposal.selfsend_payment_proposals.at(0);
-            ASSERT_EQ(0, selfsend_payment_proposal.proposal.amount);
+            ASSERT_EQ(0, selfsend_payment_proposal.amount);
             ASSERT_EQ(0, selfsend_payment_proposal.subaddr_index.index.major);
             ASSERT_EQ(0, selfsend_payment_proposal.subaddr_index.index.minor);
             ASSERT_EQ(carrot::AddressDeriveType::Auto, selfsend_payment_proposal.subaddr_index.derive_type);

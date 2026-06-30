@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -572,7 +572,7 @@ TEST(wallet_hot_cold, export_import_simple)
             cryptonote::tx_destination_entry(amount, bob_addr, false)};
         const cryptonote::transaction tx = mock::construct_carrot_pruned_transaction_fake_inputs(
             /*normal_payment_proposals=*/{},
-            {{carrot::mock::convert_selfsend_payment_proposal_v1(dests.front()), {/*main*/}}},
+            {selfsend_core_to_verifiable_v1(carrot::mock::convert_selfsend_payment_proposal_v1(dests.front()), {})},
             bob_hot.legacy_acb.get_keys());
         ASSERT_EQ(2, tx.version);
         ASSERT_EQ(0, tx.unlock_time);
@@ -667,12 +667,10 @@ TEST(wallet_hot_cold, export_import_simple)
             .derive_type = carrot::AddressDeriveType::PreCarrot};
         const carrot::CarrotDestinationV1 bob_subaddr = bob_hot.subaddress(bob_subaddr_index);
         const carrot::CarrotPaymentProposalVerifiableSelfSendV1 selfsend_proposal{
-            .proposal = {
-                .destination_address_spend_pubkey = bob_subaddr.address_spend_pubkey,
-                .amount = amount,
-                .enote_type = carrot::CarrotEnoteType::PAYMENT
-            },
-            .subaddr_index = bob_subaddr_index
+            .destination_address_spend_pubkey = bob_subaddr.address_spend_pubkey,
+            .subaddr_index = bob_subaddr_index,
+            .amount = amount,
+            .enote_type = carrot::CarrotEnoteType::PAYMENT
         };
         const cryptonote::transaction tx = mock::construct_carrot_pruned_transaction_fake_inputs(
             /*normal_payment_proposals=*/{},
@@ -1032,7 +1030,7 @@ TEST(wallet_hot_cold, export_serialization_completeness)
             cryptonote::tx_destination_entry(amount, bob_addr, false)};
         const cryptonote::transaction tx = mock::construct_carrot_pruned_transaction_fake_inputs(
             /*normal_payment_proposals=*/{},
-            {{carrot::mock::convert_selfsend_payment_proposal_v1(dests.front()), {/*main*/}}},
+            {selfsend_core_to_verifiable_v1(carrot::mock::convert_selfsend_payment_proposal_v1(dests.front()), {})},
             bob_hot.legacy_acb.get_keys());
         ASSERT_EQ(2, tx.version);
         ASSERT_EQ(0, tx.unlock_time);
@@ -1124,12 +1122,10 @@ TEST(wallet_hot_cold, export_serialization_completeness)
             .derive_type = carrot::AddressDeriveType::PreCarrot};
         const carrot::CarrotDestinationV1 bob_subaddr = bob_hot.subaddress(bob_subaddr_index);
         const carrot::CarrotPaymentProposalVerifiableSelfSendV1 selfsend_proposal{
-            .proposal = {
-                .destination_address_spend_pubkey = bob_subaddr.address_spend_pubkey,
-                .amount = amount,
-                .enote_type = carrot::CarrotEnoteType::PAYMENT
-            },
-            .subaddr_index = bob_subaddr_index
+            .destination_address_spend_pubkey = bob_subaddr.address_spend_pubkey,
+            .subaddr_index = bob_subaddr_index,
+            .amount = amount,
+            .enote_type = carrot::CarrotEnoteType::PAYMENT
         };
         const cryptonote::transaction tx = mock::construct_carrot_pruned_transaction_fake_inputs(
             /*normal_payment_proposals=*/{},
