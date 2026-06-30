@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -19,10 +19,10 @@
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
@@ -302,7 +302,7 @@ wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre
         crypto::key_derivation kd;
         CHECK_AND_ASSERT_THROW_MES(hwdev.generate_key_derivation(tx_pub_key, acc_keys.m_view_secret_key, kd),
             "could not import transfer details: ECDH key derivation failed");
-        
+
         crypto::secret_key amount_key;
         CHECK_AND_ASSERT_THROW_MES(hwdev.derivation_to_scalar(kd, td.m_internal_output_index, amount_key),
             "could not import transfer details: derivation to scalar failed");
@@ -394,16 +394,14 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
 
             const carrot::CarrotPaymentProposalSelfSendV1 payment_proposal{
                 .destination_address_spend_pubkey = destination.address_spend_pubkey,
-                .amount = td.amount(),
-                .enote_type = enote_type,
-                .enote_ephemeral_pubkey = etd.selfsend_enote_ephemeral_pubkey,
-                .internal_message = etd.janus_anchor
+                .is_subaddress = destination.is_subaddress,
+                .amount = etd.amount,
+                .enote_type = enote_type
             };
 
             //! @TODO: HW device k_view
             const carrot::view_incoming_key_ram_borrowed_device k_view_dev(acc_keys.m_view_secret_key);
 
-            // construct enote
             carrot::get_output_proposal_special_v1(payment_proposal,
                 k_view_dev,
                 etd.tx_first_key_image,
@@ -460,12 +458,12 @@ wallet2_basic::transfer_details import_cold_output(const exported_transfer_detai
     {
         wallet2_basic::transfer_details operator()(const exported_pre_carrot_transfer_details &etd) const
         {
-           return import_cold_pre_carrot_output(etd, acc_keys); 
+           return import_cold_pre_carrot_output(etd, acc_keys);
         }
 
         wallet2_basic::transfer_details operator()(const exported_carrot_transfer_details &etd) const
         {
-           return import_cold_carrot_output(etd, acc_keys); 
+           return import_cold_carrot_output(etd, acc_keys);
         }
 
         const cryptonote::account_keys &acc_keys;

@@ -74,6 +74,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
  * @param needed_change_amount the amount of leftover change needed to be included
  * @param have_payment_type_selfsend true if the enote set has a selfsend enote with enote_type="payment"
  * @param change_address_spend_pubkey K^j_s of our change address
+ * @param change_address_is_subaddress whether change address is a subaddress
  * @return an output proposal if need an additional enote, else none
  * @throw std::runtime_error if the output set is in a state where it cannot be finalized
  */
@@ -82,7 +83,8 @@ std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::null
     const size_t num_selfsend,
     const xmr_amount needed_change_amount,
     const bool have_payment_type_selfsend,
-    const crypto::public_key &change_address_spend_pubkey);
+    const crypto::public_key &change_address_spend_pubkey,
+    const bool change_address_is_subaddress);
 /**
  * @brief Convert a *finalized* set of payment proposals into output enote proposals
  * @param normal_payment_proposals -

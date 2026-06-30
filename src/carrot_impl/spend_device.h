@@ -49,7 +49,7 @@ struct spend_device: public key_image_device
 {
     /**
      * @brief Maps KI -> (OTA, SA/L) in consensus ordering
-     */ 
+     */
     using signed_input_set_t = std::map<crypto::key_image,
         std::pair<crypto::public_key, fcmp_pp::FcmpPpSalProof>,
         std::greater<crypto::key_image>>;

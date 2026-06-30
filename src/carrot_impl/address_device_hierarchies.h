@@ -45,7 +45,7 @@ namespace carrot
 struct cryptonote_view_incoming_key_device: virtual public view_incoming_key_device
 {
     /**
-     * brief: make_legacy_subaddress_extension - k^j_subext
+     * @brief Derive legacy subaddress extension
      *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
      * @param major_index - j_major
      * @param minor_index - j_minor
