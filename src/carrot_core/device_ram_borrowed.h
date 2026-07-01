@@ -52,6 +52,9 @@ public:
     bool view_key_scalar_mult_ed25519(const crypto::public_key &P,
         crypto::public_key &kvP) const override;
 
+    bool view_key_scalar_mult8_ed25519(const crypto::public_key &P,
+        crypto::public_key &kv8P) const override;
+
     bool view_key_scalar_mult_x25519(const mx25519_pubkey &D,
         mx25519_pubkey &kvD) const override;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -36,8 +36,6 @@
 #include "carrot_core/payment_proposal.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
-#include "ringct/rctOps.h"
-#include "serialization/binary_utils.h"
 
 //third party headers
 
@@ -178,7 +176,7 @@ std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
     return enc_pid_extra_field_size + ephemeral_pubkeys_field_size;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
+std::map<std::size_t, xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
     const std::size_t extra_extra_len,
     const std::uint64_t fee_per_weight)
 {
@@ -188,11 +186,11 @@ std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t 
     CARROT_CHECK_AND_THROW(extra_len <= MAX_TX_EXTRA_SIZE,
         integer_overflow, "total tx extra len after default fields is too high");
 
-    std::map<std::size_t, rct::xmr_amount> fee_by_input_count;
+    std::map<std::size_t, xmr_amount> fee_by_input_count;
     for (std::size_t n_inputs = CARROT_MIN_TX_INPUTS; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
     {
         const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(n_inputs, n_outputs, extra_len);
-        CARROT_CHECK_AND_THROW(std::numeric_limits<rct::xmr_amount>::max() / tx_weight > fee_per_weight,
+        CARROT_CHECK_AND_THROW(std::numeric_limits<xmr_amount>::max() / tx_weight > fee_per_weight,
             integer_overflow, "fee_per_weight is too high and caused fee integer overflow");
         fee_by_input_count[n_inputs] = tx_weight * fee_per_weight;
     }
@@ -238,7 +236,7 @@ bool try_load_carrot_extra_v1(
 //-------------------------------------------------------------------------------------------------------------------
 cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotEnoteV1> &enotes,
     const std::vector<crypto::key_image> &key_images,
-    const rct::xmr_amount fee,
+    const xmr_amount fee,
     const encrypted_payment_id_t encrypted_payment_id)
 {
     const size_t nins = key_images.size();
@@ -282,7 +280,7 @@ cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotE
         memcpy(ecdh_tuple.amount.bytes, enote.amount_enc.bytes, sizeof(ecdh_tuple.amount));
 
         //C_a
-        tx.rct_signatures.outPk.push_back(rct::ctkey{rct::key{}, enote.amount_commitment});
+        tx.rct_signatures.outPk.push_back({{}, {raw_byte_convert<rct::key>(enote.amount_commitment)}});
     }
 
     //ephemeral pubkeys: D_e
@@ -351,7 +349,7 @@ bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx
     memcpy(enote_out.amount_enc.bytes, rv.ecdhInfo.at(local_output_index).amount.bytes, sizeof(encrypted_amount_t));
 
     //C_a
-    enote_out.amount_commitment = rv.outPk.at(local_output_index).mask;
+    memcpy(enote_out.amount_commitment.data, rv.outPk.at(local_output_index).mask.bytes, sizeof(rct::key));
 
     //D_e
     enote_out.enote_ephemeral_pubkey = enote_ephemeral_pubkeys[ephemeral_pubkey_index];
@@ -362,7 +360,7 @@ bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx
 bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotEnoteV1> &enotes_out,
     std::vector<crypto::key_image> &key_images_out,
-    rct::xmr_amount &fee_out,
+    xmr_amount &fee_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out)
 {
     const rct::rctSigBase &rv = tx.rct_signatures;
@@ -448,7 +446,7 @@ cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
 }
 //-------------------------------------------------------------------------------------------------------------------
 cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const CarrotDestinationV1 &destination,
-    const rct::xmr_amount block_reward,
+    const xmr_amount block_reward,
     const std::uint64_t block_index,
     const cryptonote::blobdata &extra_nonce)
 {
@@ -582,12 +580,12 @@ crypto::hash calculate_signable_fcmp_pp_transaction_hash(const cryptonote::trans
         "could not calculate signable tx hash: failed to serialize rctSigBase");
     const std::string sig_base_blob = ss.str();
 
-    const std::vector<rct::key> subhashes = {
+    const rct::key subhashes[2] = {
         rct::hash2rct(cryptonote::get_transaction_prefix_hash(tx)),
         rct::hash2rct(crypto::cn_fast_hash(sig_base_blob.data(), sig_base_blob.size()))
     };
 
-    return rct::rct2hash(rct::cn_fast_hash(subhashes));
+    return crypto::cn_fast_hash(subhashes, sizeof(subhashes));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

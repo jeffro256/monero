@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -30,6 +30,7 @@
 
 //local headers
 #include "address_device.h"
+#include "carrot_core/device.h"
 #include "key_image_device.h"
 
 //third party headers

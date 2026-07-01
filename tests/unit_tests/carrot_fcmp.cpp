@@ -164,11 +164,11 @@ static const CarrotUnifiedOutputsAndKeys generate_random_carrot_outputs(
         }
 
         crypto::public_key O;
-        rct::key C;
+        carrot::amount_commitment_t C;
         if (push_coinbase)
         {
             O = coinbase_enote.onetime_address;
-            C = rct::zeroCommitVartime(coinbase_enote.amount);
+            static_cast<crypto::ec_point&>(C) = rct::rct2pt(rct::zeroCommitVartime(coinbase_enote.amount));
             outs.enotes.push_back(coinbase_enote);
             outs.encrypted_payment_ids.emplace_back();
         }
@@ -179,7 +179,7 @@ static const CarrotUnifiedOutputsAndKeys generate_random_carrot_outputs(
             outs.enotes.push_back(rct_output_enote_proposal.enote);
         }
 
-        output_pair.output_pair = fcmp_pp::CarrotOutputPairV1{{O, rct::rct2pt(C)}};
+        output_pair.output_pair = fcmp_pp::CarrotOutputPairV1{{O, C}};
 
         outs.encrypted_payment_ids.push_back(encrypted_payment_id);
         outs.output_pairs.push_back(output_pair);
@@ -349,13 +349,13 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             const std::map<std::size_t, rct::xmr_amount>&,
             const std::size_t,
             const std::size_t,
-            std::vector<CarrotSelectedInput>& key_images_out)
+            std::vector<CarrotSelectedInput>& selected_inputs_out)
         {
-            key_images_out.clear();
-            key_images_out.reserve(input_info_by_ki.size());
+            selected_inputs_out.clear();
+            selected_inputs_out.reserve(input_info_by_ki.size());
             for (const auto &info : input_info_by_ki)
             {
-                key_images_out.push_back(CarrotSelectedInput{
+                selected_inputs_out.push_back(CarrotSelectedInput{
                     .amount = std::get<0>(info.second),
                     .input = std::get<2>(info.second)
                 });
@@ -394,22 +394,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         encrypted_payment_id);
 
     // Collect balance info and enotes
-    std::vector<crypto::public_key> input_onetime_addresses;
-    std::vector<rct::key> input_amount_commitments;
-    std::vector<bool> input_uses_biased_hash_to_point;
-    std::vector<rct::key> input_amount_blinding_factors;
     std::vector<rct::xmr_amount> output_amounts;
     std::vector<rct::key> output_amount_blinding_factors;
     std::vector<CarrotEnoteV1> output_enotes;
-    for (size_t i = 0; i < n_inputs; ++i)
-    {
-        const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
-        const OutputOpeningHintVariant &opening_hint = std::get<2>(input_info);
-        input_onetime_addresses.push_back(onetime_address_ref(opening_hint));
-        input_amount_commitments.push_back(amount_commitment_ref(opening_hint));
-        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(opening_hint));
-        input_amount_blinding_factors.push_back(std::get<1>(input_info));
-    }
     for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
     {
         output_amounts.push_back(output_enote_proposal.amount);
@@ -444,15 +431,19 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     tx.rct_signatures.p.pseudoOuts.resize(n_inputs); // @TODO: make this not necessary to call get_mlsag_hash
     const crypto::hash signable_tx_hash = rct::rct2hash(rct::get_pre_mlsag_hash(tx.rct_signatures, hwdev));
 
-    // rerandomize inputs
+    // collect opening hits and rerandomize inputs
     LOG_PRINT_L1("Making rerandomized inputs");
-    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-    make_carrot_rerandomized_outputs_nonrefundable(input_onetime_addresses,
-        input_amount_commitments,
-        input_uses_biased_hash_to_point,
-        input_amount_blinding_factors,
-        output_amount_blinding_factors,
-        rerandomized_outputs);
+    std::vector<OutputOpeningHintVariant> sorted_opening_hints;
+    sorted_opening_hints.reserve(n_inputs);
+    for (const crypto::key_image &ki : sorted_input_key_images)
+        sorted_opening_hints.push_back(std::get<2>(input_info_by_ki.at(ki)));
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs = generate_rerandomized_inputs_nonrefundable(
+        epee::to_span(output_enote_proposals),
+        epee::to_span(sorted_opening_hints),
+        {&alice.carrot_account_spend_pubkey, 1},
+        alice.k_view_incoming_dev,
+        &alice.s_view_balance_dev);
+    ASSERT_EQ(n_inputs, rerandomized_outputs.size());
 
     // Make SA/L proofs
     LOG_PRINT_L1("Generating FCMP++ SA/L proofs");

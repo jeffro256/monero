@@ -32,19 +32,17 @@
 //local headers
 #include "carrot_core/account_secrets.h"
 #include "carrot_core/address_utils.h"
-#include "carrot_core/config.h"
-#include "carrot_core/enote_utils.h"
-#include "carrot_core/scan.h"
+#include "carrot_core/core_types.h"
+#include "carrot_core/exceptions.h"
+#include "carrot_core/payment_proposal.h"
 #include "carrot_impl/address_utils.h"
-#include "crypto/generators.h"
+#include "crypto/crypto.h"
 #include "fcmp_pp/prove.h"
 #include "misc_log_ex.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
 //standard headers
-#include <algorithm>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl"
@@ -53,29 +51,11 @@ namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static rct::key load_key(const std::uint8_t bytes[32])
+static crypto::secret_key load_sk(const unsigned char s[32])
 {
-    rct::key k;
-    memcpy(k.bytes, bytes, sizeof(k));
-    return k;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment,
-    const bool use_biased_hash_to_point,
-    const rct::key &r_o,
-    const rct::key &r_i,
-    const rct::key &r_r_i,
-    const rct::key &r_c)
-{
-    return fcmp_pp::calculate_fcmp_input_for_rerandomizations(onetime_address,
-        rct::rct2pt(amount_commitment),
-        use_biased_hash_to_point,
-        rct::rct2sk(r_o),
-        rct::rct2sk(r_i),
-        rct::rct2sk(r_r_i),
-        rct::rct2sk(r_c));
+    crypto::secret_key sk;
+    memcpy(sk.data, s, sizeof(sk.data));
+    return sk;
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -126,60 +106,78 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
         rerandomized_output);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
-    const std::vector<rct::key> &input_amount_commitments,
-    const std::vector<bool> &input_uses_biased_hash_to_point,
-    const std::vector<rct::key> &input_amount_blinding_factors,
-    const std::vector<rct::key> &output_amount_blinding_factors,
-    std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs_out)
+std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonrefundable(
+    epee::span<const carrot::RCTOutputEnoteProposal> output_enote_proposals,
+    epee::span<const carrot::OutputOpeningHintVariant> input_proposals,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev)
 {
-    // collect input_amount_commitments as crypto::ec_point
-    std::vector<crypto::ec_point> input_amount_commitments_pt;
-    input_amount_commitments_pt.reserve(input_amount_commitments.size());
-    for (const rct::key &input_amount_commitment : input_amount_commitments)
-        input_amount_commitments_pt.push_back(rct::rct2pt(input_amount_commitment));
+    const std::size_t n_inputs = input_proposals.size();
 
-    // collect input_amount_blinding_factors as crypto::secret_key
-    std::vector<crypto::secret_key> input_amount_blinding_factors_sk;
-    input_amount_blinding_factors_sk.reserve(input_amount_blinding_factors_sk.size());
-    for (const rct::key &input_amount_blinding_factor : input_amount_blinding_factors)
-        input_amount_blinding_factors_sk.push_back(rct::rct2sk(input_amount_blinding_factor));
-
-    // generate random r_o
-    std::vector<crypto::secret_key> r_o(input_onetime_addresses.size());
-    for (size_t i = 0; i < input_onetime_addresses.size(); ++i)
-        crypto::random32_unbiased(to_bytes(r_o[i]));
-
-    // calculate output_amount_blinding_factor_sum = sum(output_amount_blinding_factors)
-    crypto::secret_key output_amount_blinding_factor_sum;
-    sc_0(to_bytes(output_amount_blinding_factor_sum));
-    for (const rct::key &output_amount_blinding_factor : output_amount_blinding_factors)
+    // sum blinding factors on outputs
+    crypto::secret_key output_amount_blinding_factor_sum{};
+    for (const auto &output_enote_proposal : output_enote_proposals)
         sc_add(to_bytes(output_amount_blinding_factor_sum),
             to_bytes(output_amount_blinding_factor_sum),
-            output_amount_blinding_factor.bytes);
+            to_bytes(output_enote_proposal.amount_blinding_factor));
 
+    // collect, collect, collect input info
+    std::vector<crypto::public_key> input_onetime_addresses;
+    std::vector<crypto::ec_point> input_amount_commitments;
+    std::vector<bool> input_uses_biased_hash_to_point;
+    std::vector<crypto::secret_key> input_amount_blinding_factors;
+    input_onetime_addresses.reserve(n_inputs);
+    input_amount_commitments.reserve(n_inputs);
+    input_uses_biased_hash_to_point.reserve(n_inputs);
+    input_amount_blinding_factors.reserve(n_inputs);
+    for (const auto &input_proposal : input_proposals)
+    {
+        input_onetime_addresses.push_back(onetime_address_ref(input_proposal));
+        input_amount_commitments.push_back(amount_commitment_ref(input_proposal));
+        input_uses_biased_hash_to_point.push_back(use_biased_hash_to_point(input_proposal));
+
+        carrot::xmr_amount amount;
+        const bool scan_success = carrot::try_scan_opening_hint_amount(input_proposal,
+            main_address_spend_pubkeys,
+            &k_view_incoming_dev,
+            s_view_balance_dev,
+            amount,
+            input_amount_blinding_factors.emplace_back());
+        CARROT_CHECK_AND_THROW(scan_success,
+            carrot::unexpected_scan_failure, "Could not generate rerandomized inputs: opening hint is not scannable");
+    }
+
+    // generate random r_o for inputs
+    std::vector<crypto::secret_key> r_o(n_inputs);
+    for (auto &s : r_o)
+        crypto::random32_unbiased(to_bytes(s));
+
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_inputs;
+    rerandomized_inputs.reserve(n_inputs);
     fcmp_pp::make_balanced_rerandomized_output_set(input_onetime_addresses,
-        input_amount_commitments_pt,
+        input_amount_commitments,
         input_uses_biased_hash_to_point,
-        input_amount_blinding_factors_sk,
+        input_amount_blinding_factors,
         r_o,
         output_amount_blinding_factor_sum,
-        rerandomized_outputs_out);
+        rerandomized_inputs);
+    return rerandomized_inputs;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_rerandomized_output_basic(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     const bool use_biased_hash_to_point)
 {
-    const FcmpInputCompressed recomputed_input = calculate_fcmp_input_for_rerandomizations(
+    const FcmpInputCompressed recomputed_input = fcmp_pp::calculate_fcmp_input_for_rerandomizations(
         onetime_address,
         amount_commitment,
         use_biased_hash_to_point,
-        load_key(rerandomized_output.r_o),
-        load_key(rerandomized_output.r_i),
-        load_key(rerandomized_output.r_r_i),
-        load_key(rerandomized_output.r_c));
+        load_sk(rerandomized_output.r_o),
+        load_sk(rerandomized_output.r_i),
+        load_sk(rerandomized_output.r_r_i),
+        load_sk(rerandomized_output.r_c));
 
     return 0 == memcmp(&recomputed_input, &rerandomized_output.input, sizeof(FcmpInputCompressed));
 }

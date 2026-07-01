@@ -31,6 +31,7 @@
 #pragma once
 
 //local headers
+#include "crypto/crypto.h"
 #include "mx25519.h"
 
 //third party headers
@@ -43,6 +44,9 @@
 
 namespace carrot
 {
+using xmr_amount = std::uint64_t;
+
+struct amount_commitment_t : public crypto::ec_point {};
 
 constexpr std::size_t JANUS_ANCHOR_BYTES{16};
 
@@ -99,6 +103,10 @@ struct input_context_t final
 {
     unsigned char bytes[INPUT_CONTEXT_BYTES];
 };
+
+/// overloaded operators: amount commitment
+bool operator==(const amount_commitment_t &a, const amount_commitment_t &b);
+static inline bool operator!=(const amount_commitment_t &a, const amount_commitment_t &b) { return !(a == b); }
 
 /// overloaded operators: janus anchor
 bool operator==(const janus_anchor_t &a, const janus_anchor_t &b);

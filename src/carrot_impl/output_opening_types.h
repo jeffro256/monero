@@ -32,6 +32,7 @@
 
 //third party headers
 #include "carrot_core/carrot_enote_types.h"
+#include "crypto/crypto.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "span.h"
 #include "subaddress_index.h"
@@ -72,10 +73,10 @@ struct LegacyOutputOpeningHintV1
     subaddress_index subaddr_index;
 
     // a
-    rct::xmr_amount amount;
+    xmr_amount amount;
 
     // z
-    rct::key amount_blinding_factor;
+    crypto::secret_key amount_blinding_factor;
 
     // i
     std::size_t local_output_index;
@@ -100,7 +101,7 @@ struct CarrotOutputOpeningHintV2
     /// K_o
     crypto::public_key onetime_address;
     /// C_a
-    rct::key amount_commitment;
+    amount_commitment_t amount_commitment;
     /// anchor_enc
     encrypted_janus_anchor_t anchor_enc;
     /// view_tag
@@ -111,7 +112,7 @@ struct CarrotOutputOpeningHintV2
     crypto::key_image tx_first_key_image;
 
     /// a
-    rct::xmr_amount amount;
+    xmr_amount amount;
 
     // pid_enc
     std::optional<encrypted_payment_id_t> encrypted_payment_id;
@@ -140,7 +141,7 @@ using OutputOpeningHintVariant = std::variant<
         CarrotCoinbaseOutputOpeningHintV1
     >;
 const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant&);
-rct::key amount_commitment_ref(const OutputOpeningHintVariant&);
+amount_commitment_t amount_commitment_ref(const OutputOpeningHintVariant&);
 subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
 
 bool use_biased_hash_to_point(const OutputOpeningHintVariant&);
@@ -175,6 +176,6 @@ bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device *k_view_incoming_dev,
     const view_balance_secret_device *s_view_balance_dev,
-    rct::xmr_amount &amount_out,
-    rct::key &amount_blinding_factor_out);
+    xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out);
 } //namespace carrot

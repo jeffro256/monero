@@ -30,31 +30,41 @@
 
 //local headers
 #include "address_device_hierarchies.h"
-#include "carrot_core/carrot_enote_types.h"
-#include "fcmp_pp/curve_trees.h"
+#include "carrot_core/core_types.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "output_opening_types.h"
-#include "span.h"
-#include "tx_proposal.h"
 
 //third party headers
 
 //standard headers
-#include <variant>
 
 //forward declarations
+namespace carrot
+{
+struct RCTOutputEnoteProposal;
+}
 
 namespace carrot
 {
-void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
-    const std::vector<rct::key> &input_amount_commitments,
-    const std::vector<bool> &input_uses_biased_hash_to_point,
-    const std::vector<rct::key> &input_amount_blinding_factors,
-    const std::vector<rct::key> &output_amount_blinding_factors,
-    std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs_out);
+/**
+ * brief: generate rerandomized outputs (with non-refunable r_o) for given inputs in input proposals
+ * param: output_enote_proposals - output enotes for spending tx, used to calculate r_c imbalance
+ * param: input_proposals - inputs for spending tx, used to extract (O, I, C) tuples and calculate r_c imbalance
+ * param: main_address_spend_pubkeys - all K_s
+ * param: k_view_incoming_dev -
+ * param: s_view_balance_dev - OPTIONAL
+ * return: rerandomized inputs in order of `input_proposals`
+ */
+std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonrefundable(
+    epee::span<const carrot::RCTOutputEnoteProposal> output_enote_proposals,
+    epee::span<const carrot::OutputOpeningHintVariant> input_proposals,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::view_incoming_key_device &k_view_incoming_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev);
 
 bool verify_rerandomized_output_basic(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment,
+    const amount_commitment_t &amount_commitment,
     const bool use_biased_hash_to_point);
 
 // spend any enote addressed to a legacy address
