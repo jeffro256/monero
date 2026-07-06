@@ -35,18 +35,13 @@
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/multi_tx_proposal_utils.h"
+#include "carrot_impl/spend_device_ram_borrowed.h"
+#include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
-#include "carrot_impl/input_selection.h"
 #include "carrot_mock_helpers.h"
-#include "crypto/generators.h"
-#include "cryptonote_basic/account.h"
-#include "cryptonote_basic/subaddress_index.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
-#include "cryptonote_core/blockchain.h"
-#include "ringct/bulletproofs_plus.h"
+#include "fcmp_pp/prove.h"
 #include "ringct/rctOps.h"
-#include "ringct/rctSigs.h"
 
 using namespace carrot;
 
@@ -1843,5 +1838,132 @@ TEST(carrot_impl, make_multiple_carrot_transaction_proposals_sweep_1)
         }
         EXPECT_EQ(n_input_enote_amounts, seen_ota.size());
     }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, new_hierarchy_spend_device_ram_1in_2out)
+{
+    // howdy alice (uses a s_vb)
+    mock::mock_carrot_and_legacy_keys alice;
+    alice.generate();
+    ASSERT_TRUE(alice.default_derive_type == AddressDeriveType::Carrot);
+
+    // howdy bob
+    mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    // fund alice
+    CarrotCoinbaseEnoteV1 alice_enote;
+    get_coinbase_enote_v1(
+        CarrotPaymentProposalV1{
+            .destination = alice.cryptonote_address(null_payment_id, AddressDeriveType::Carrot),
+            .amount = rct::randXmrAmount(25000 + 2 * COIN),
+            .randomness = gen_janus_anchor()
+        },
+        mock::gen_block_index(),
+        alice_enote);
+
+    // make a tx proposal from Alice -> Bob
+    const xmr_amount fee = 25000;
+    const xmr_amount bob_amount = rct::randXmrAmount(alice_enote.amount - fee);
+    const CarrotTransactionProposalV1 tx_proposal{
+        .input_proposals = {CarrotCoinbaseOutputOpeningHintV1{
+            .source_enote = alice_enote,
+            .derive_type = AddressDeriveType::Carrot
+        }},
+        .normal_payment_proposals = {CarrotPaymentProposalV1{
+            .destination = bob.cryptonote_address(),
+            .amount = bob_amount,
+            .randomness = gen_janus_anchor()
+        }},
+        .selfsend_payment_proposals = {CarrotPaymentProposalVerifiableSelfSendV1{
+            .proposal = CarrotPaymentProposalSelfSendV1{
+                .destination_address_spend_pubkey = alice.carrot_account_spend_pubkey,
+                .amount = alice_enote.amount - fee - bob_amount,
+                .enote_type = CarrotEnoteType::CHANGE
+            },
+            .subaddr_index = {{0, 0}, AddressDeriveType::Carrot}
+        }},
+        .dummy_encrypted_payment_id = gen_encrypted_payment_id(),
+        .fee = fee,
+        .extra = {}
+    };
+
+    // derive key images and output enotes
+    std::vector<crypto::key_image> sorted_tx_key_images;
+    get_sorted_input_key_images_from_proposal_v1(tx_proposal, *alice.key_image_dev, sorted_tx_key_images);
+
+    std::vector<RCTOutputEnoteProposal> output_enote_proposals;
+    encrypted_payment_id_t encrypted_payment_id;
+    std::vector<std::pair<bool, std::size_t>> payment_proposal_order;
+    get_output_enote_proposals_from_proposal_v1(tx_proposal,
+        &alice.s_view_balance_dev,
+        &alice.k_view_incoming_dev,
+        sorted_tx_key_images.at(0),
+        output_enote_proposals,
+        encrypted_payment_id,
+        &payment_proposal_order);
+
+    // test that change is internal-scannable
+    const CarrotEnoteV1 &change_enote = payment_proposal_order.at(0).first
+        ? output_enote_proposals.at(0).enote : output_enote_proposals.at(1).enote;
+    crypto::secret_key k_g_o, k_t_o, k_a;
+    crypto::public_key K_j_s;
+    xmr_amount a;
+    CarrotEnoteType enote_type;
+    janus_anchor_t internal_message;
+    const bool change_scanned = try_scan_carrot_enote_internal_receiver(change_enote,
+        alice.s_view_balance_dev, k_g_o, k_t_o, K_j_s, a, k_a, enote_type, internal_message);
+    ASSERT_TRUE(change_scanned);
+    const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_proposal = tx_proposal.selfsend_payment_proposals.at(0);
+    ASSERT_EQ(selfsend_proposal.proposal.amount, a);
+    ASSERT_EQ(alice.carrot_account_spend_pubkey, K_j_s);
+    ASSERT_EQ(selfsend_proposal.proposal.enote_type, enote_type);
+    ASSERT_EQ(selfsend_proposal.proposal.internal_message.value_or(janus_anchor_t{}), internal_message);
+
+    // make signable tx hash
+    crypto::hash signable_tx_hash;
+    make_signable_tx_hash_from_proposal_v1(tx_proposal,
+        &alice.s_view_balance_dev,
+        &alice.k_view_incoming_dev,
+        sorted_tx_key_images,
+        signable_tx_hash);
+
+    // rerandomize input
+    const std::vector<FcmpRerandomizedOutputCompressed> rerandomized = generate_rerandomized_inputs_nonrefundable(
+        epee::to_span(output_enote_proposals),
+        epee::to_span(tx_proposal.input_proposals),
+        {&alice.carrot_account_spend_pubkey, 1},
+        alice.k_view_incoming_dev,
+        &alice.s_view_balance_dev);
+
+    // compose compound signing device
+    const spend_device_ram_borrowed spend_dev(
+        std::make_shared<view_incoming_key_ram_borrowed_device>(alice.legacy_acb.get_keys().m_view_secret_key),
+        std::make_shared<view_balance_secret_ram_borrowed_device>(alice.s_view_balance),
+        alice.addr_dev,
+        alice.k_generate_image,
+        alice.k_prove_spend);
+
+    // sign thru device
+    spend_device::signed_input_set_t signed_inputs;
+    crypto::hash signable_tx_hash_device;
+    const bool did_sign = spend_dev.try_sign_carrot_transaction_proposal_v1(tx_proposal,
+        {{alice_enote.onetime_address, rerandomized.at(0)}},
+        signable_tx_hash_device,
+        signed_inputs);
+    ASSERT_TRUE(did_sign);
+
+    // check nominal returned values (signable tx hash, OTA, KI)
+    ASSERT_EQ(signable_tx_hash, signable_tx_hash_device);
+    ASSERT_EQ(1, signed_inputs.size());
+    ASSERT_EQ(alice_enote.onetime_address, signed_inputs.begin()->second.first);
+    ASSERT_EQ(sorted_tx_key_images.at(0), signed_inputs.begin()->first);
+
+    // verify SA/L
+    const bool sal_verified = fcmp_pp::verify_sal(signable_tx_hash,
+        rerandomized.at(0).input,
+        sorted_tx_key_images.at(0),
+        signed_inputs.begin()->second.second);
+    EXPECT_TRUE(sal_verified);
 }
 //----------------------------------------------------------------------------------------------------------------------
