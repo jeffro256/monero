@@ -128,7 +128,7 @@ bool spend_device_ram_borrowed::try_sign_carrot_transaction_proposal_v1(
 
     // calculate signable tx hash
     make_signable_tx_hash_from_proposal_v1(tx_proposal,
-        /*s_view_balance_dev=*/nullptr,
+        this->m_s_view_balance_dev.get(),
         this->m_k_view_incoming_dev.get(),
         sorted_input_key_images,
         signable_tx_hash_out);
