@@ -1,28 +1,28 @@
-// Copyright (c) 2025, The Monero Project
-// 
+// Copyright (c) 2025-2026, The Monero Project
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
@@ -31,8 +31,6 @@
 
 //local headers
 #include "carrot_core/destination.h"
-#include "carrot_core/device_ram_borrowed.h"
-#include "carrot_core/enote_utils.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_utils.h"
 #include "carrot_impl/format_utils.h"
@@ -400,7 +398,7 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void perform_ecdh_derivations(const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
+static bool perform_ecdh_derivations(const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
     const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const bool is_carrot,
@@ -412,20 +410,22 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
     main_derivations_out.reserve(main_tx_ephemeral_pubkeys.size());
     additional_derivations_out.reserve(additional_tx_ephemeral_pubkeys.size());
 
+    bool r = true;
+
     if (is_carrot)
     {
         mx25519_pubkey deriv;
 
         for (const crypto::public_key &main_tx_ephemeral_pubkey : main_tx_ephemeral_pubkeys)
         {
-            k_view_incoming_dev.view_key_scalar_mult_x25519(
+            r = r && k_view_incoming_dev.view_key_scalar_mult_x25519(
                 carrot::raw_byte_convert<mx25519_pubkey>(main_tx_ephemeral_pubkey), deriv);
             main_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
         }
 
         for (const crypto::public_key &additional_tx_ephemeral_pubkey : additional_tx_ephemeral_pubkeys)
         {
-            k_view_incoming_dev.view_key_scalar_mult_x25519(
+            r = r && k_view_incoming_dev.view_key_scalar_mult_x25519(
                 carrot::raw_byte_convert<mx25519_pubkey>(additional_tx_ephemeral_pubkey), deriv);
             additional_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
         }
@@ -436,16 +436,24 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
 
         for (const crypto::public_key &main_tx_ephemeral_pubkey : main_tx_ephemeral_pubkeys)
         {
-            k_view_incoming_dev.view_key_scalar_mult8_ed25519(main_tx_ephemeral_pubkey, deriv);
-            main_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
+            if (k_view_incoming_dev.view_key_scalar_mult8_ed25519(main_tx_ephemeral_pubkey, deriv))
+                main_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
+            else
+                main_derivations_out.push_back({1});
         }
 
         for (const crypto::public_key &additional_tx_ephemeral_pubkey : additional_tx_ephemeral_pubkeys)
         {
-            k_view_incoming_dev.view_key_scalar_mult8_ed25519(additional_tx_ephemeral_pubkey, deriv);
-            additional_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
+            if (k_view_incoming_dev.view_key_scalar_mult8_ed25519(additional_tx_ephemeral_pubkey, deriv))
+                additional_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(deriv));
+            else
+                additional_derivations_out.push_back({1});
         }
     }
+
+    // if any Carrot derivation fails, this function fails.
+    // if any legacy derivations fails, this function doesn't fail, but the derivation is set to {1, ...}
+    return r;
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -696,12 +704,14 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote_from_pre
     // 3. perform ECDH
     std::vector<crypto::key_derivation> main_derivations;
     std::vector<crypto::key_derivation> additional_derivations;
-    perform_ecdh_derivations(epee::to_span(main_tx_ephemeral_pubkeys),
-        epee::to_span(additional_tx_ephemeral_pubkeys),
-        k_view_incoming_dev,
-        is_carrot,
-        main_derivations,
-        additional_derivations);
+    if (!perform_ecdh_derivations(
+            epee::to_span(main_tx_ephemeral_pubkeys),
+            epee::to_span(additional_tx_ephemeral_pubkeys),
+            k_view_incoming_dev,
+            is_carrot,
+            main_derivations,
+            additional_derivations))
+        return std::nullopt;
 
     // 4. view scan enote
     return view_incoming_scan_enote(enote,
@@ -756,7 +766,11 @@ void view_incoming_scan_transaction(
     const carrot::subaddress_map &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out)
 {
-    // 1. parse tx extra
+    // 1. clear outparam
+    for (auto &e : enote_scan_infos_out)
+        e.reset();
+
+    // 2. parse tx extra
     std::vector<crypto::public_key> main_tx_ephemeral_pubkeys;
     std::vector<crypto::public_key> additional_tx_ephemeral_pubkeys;
     cryptonote::blobdata tx_extra_nonce;
@@ -770,15 +784,17 @@ void view_incoming_scan_transaction(
     CHECK_AND_ASSERT_MES(!main_tx_ephemeral_pubkeys.empty() || !additional_tx_ephemeral_pubkeys.empty(),,
         "Transaction missing ephemeral pubkeys");
 
-    // 2. perform ECDH derivations
+    // 3. perform ECDH derivations
     std::vector<crypto::key_derivation> main_derivations;
     std::vector<crypto::key_derivation> additional_derivations;
-    perform_ecdh_derivations(epee::to_span(main_tx_ephemeral_pubkeys),
+    const bool derived = perform_ecdh_derivations(
+        epee::to_span(main_tx_ephemeral_pubkeys),
         epee::to_span(additional_tx_ephemeral_pubkeys),
         k_view_incoming_dev,
         carrot::is_carrot_transaction_v1(tx),
         main_derivations,
         additional_derivations);
+    CHECK_AND_ASSERT_MES(derived,, "ECDH derivations failed, probably bad ephemeral enote pubkeys");
 
     // 3. view-incoming scan output enotes
     view_incoming_scan_transaction(tx,
