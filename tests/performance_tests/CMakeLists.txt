@@ -75,7 +75,6 @@ target_link_libraries(performance_tests
     epee
     fcmp_pp
     ringct
-    seraphis_crypto
     unit_tests_utils
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
