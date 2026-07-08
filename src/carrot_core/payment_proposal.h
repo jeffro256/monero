@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,8 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// A 'payment proposal' is a proposal to make an enote sending funds to a Carrot address.
-// Carrot: Cryptonote Address For Rerandomizable-RingCT-Output Transactions
+/// @file Utilities for converting payment proposals into Carrot enotes
+/// A 'payment proposal' is a proposal to make an enote sending funds to a Carrot address.
 
 #pragma once
 
@@ -47,10 +47,10 @@
 namespace carrot
 {
 
-////
-// CarrotPaymentProposalV1
-// - for creating an output proposal to send an amount to someone
-///
+
+/**
+ * @brief Proposal for a normal payment enote to an destination for a specific amount
+ */
 struct CarrotPaymentProposalV1 final
 {
     /// user address
@@ -61,10 +61,9 @@ struct CarrotPaymentProposalV1 final
     janus_anchor_t randomness;
 };
 
-////
-// CarrotPaymentProposalSelfSendV1
-// - for creating an output proposal to send change to yourself
-///
+/**
+ * @brief Proposal for a self-send enote to own address spend pubkey for a specific amount
+ */
 struct CarrotPaymentProposalSelfSendV1 final
 {
     /// one of our own address spend pubkeys: K^j_s
@@ -80,6 +79,9 @@ struct CarrotPaymentProposalSelfSendV1 final
     std::optional<janus_anchor_t> internal_message;
 };
 
+/**
+ * @brief Finalized rerandomizable RingCT enote, and data required to prove range proofs on it
+ */
 struct RCTOutputEnoteProposal final
 {
     CarrotEnoteV1 enote;
@@ -95,74 +97,74 @@ bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 
 bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentProposalSelfSendV1 &b);
 
 /**
-* brief: get_enote_ephemeral_privkey - get the proposal's enote ephemeral privkey d_e
-* param: proposal -
-* param: input_context -
-* return: d_e
-*/
+ * @brief Get the proposal's enote ephemeral privkey d_e
+ * @param proposal -
+ * @param input_context -
+ * @return d_e
+ */
 crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context);
 /**
-* brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
-* param: proposal -
-* param: input_context -
-* return: D_e
-*/
+ * @brief Get the proposal's enote ephemeral pubkey D_e
+ * @param proposal -
+ * @param input_context -
+ * @return D_e
+ */
 mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context);
 /**
-* brief: get_coinbase_enote_v1 - convert the carrot proposal to a coinbase output enote
-* param: proposal -
-* param: block_index - index of the coinbase tx's block
-* outparam: output_enote_out -
-*/
+ * @brief Convert the carrot proposal to a coinbase output enote
+ * @param proposal -
+ * @param block_index index of the coinbase tx's block
+ * @param[out] output_enote_out -
+ */
 void get_coinbase_enote_v1(const CarrotPaymentProposalV1 &proposal,
     const std::uint64_t block_index,
     CarrotCoinbaseEnoteV1 &output_enote_out);
 /**
-* brief: get_output_proposal_normal_v1 - convert the carrot proposal to an output proposal
-* param: proposal -
-* param: tx_first_key_image -
-* outparam: output_enote_out -
-* outparam: encrypted_payment_id_out - pid_enc
-*/
+ * @brief Convert the carrot proposal to an output proposal
+ * @param proposal -
+ * @param tx_first_key_image -
+ * @param[out] output_enote_out -
+ * @param[out] encrypted_payment_id_out pid_enc
+ */
 void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
     const crypto::key_image &tx_first_key_image,
     RCTOutputEnoteProposal &output_enote_out,
     encrypted_payment_id_t &encrypted_payment_id_out);
 /**
-* brief: get_output_proposal_special_v1 - convert the carrot proposal to an output proposal (external selfsend)
-* param: proposal -
-* param: k_view_dev -
-* param: tx_first_key_image -
-* param: other_enote_ephemeral_pubkey -
-* outparam: output_enote_out -
-*/
+ * @brief Convert the carrot proposal to an output proposal (external selfsend)
+ * @param proposal -
+ * @param k_view_dev -
+ * @param tx_first_key_image -
+ * @param other_enote_ephemeral_pubkey -
+ * @param[out] output_enote_out -
+ */
 void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const view_incoming_key_device &k_view_dev,
     const crypto::key_image &tx_first_key_image,
     const std::optional<mx25519_pubkey> &other_enote_ephemeral_pubkey,
     RCTOutputEnoteProposal &output_enote_out);
 /**
-* brief: get_output_proposal_internal_v1 - convert the carrot proposal to an output proposal (internal)
-* param: proposal -
-* param: s_view_balance_dev -
-* param: tx_first_key_image -
-* param: other_enote_ephemeral_pubkey -
-* outparam: output_enote_out -
-*/
+ * @brief Convert the carrot proposal to an output proposal (internal)
+ * @param proposal -
+ * @param s_view_balance_dev -
+ * @param tx_first_key_image -
+ * @param other_enote_ephemeral_pubkey -
+ * @param[out] output_enote_out -
+ */
 void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const view_balance_secret_device &s_view_balance_dev,
     const crypto::key_image &tx_first_key_image,
     const std::optional<mx25519_pubkey> &other_enote_ephemeral_pubkey,
     RCTOutputEnoteProposal &output_enote_out);
 /**
-* brief: gen_carrot_payment_proposal_v1 - generate a random proposal
-* param: is_subaddress - whether to generate a proposal to subaddress
-* param: has_payment_id - true to generate non-zero payment ID, false for null payment ID
-* param: amount -
-* return: a random proposal
-*/
+ * @brief Generate a random payment proposal
+ * @param is_subaddress whether to generate a proposal to subaddress
+ * @param has_payment_id true to generate non-zero payment ID, false for null payment ID
+ * @param amount -
+ * @return a random proposal
+ */
 CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
     const bool has_payment_id,
     const xmr_amount amount);

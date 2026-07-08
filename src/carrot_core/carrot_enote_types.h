@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -43,6 +43,9 @@
 namespace carrot
 {
 
+/**
+ * @brief Non-coinbase Carrot Enote V1
+ */
 struct CarrotEnoteV1 final
 {
     /// K_o
@@ -65,6 +68,9 @@ struct CarrotEnoteV1 final
 bool operator==(const CarrotEnoteV1 &a, const CarrotEnoteV1 &b);
 static inline bool operator!=(const CarrotEnoteV1 &a, const CarrotEnoteV1 &b) { return !(a == b); }
 
+/**
+ * @brief Coinbase Carrot Enote V1
+ */
 struct CarrotCoinbaseEnoteV1 final
 {
     /// K_o

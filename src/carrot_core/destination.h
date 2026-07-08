@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,8 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// A 'payment proposal' is a proposal to make an enote sending funds to a Carrot address.
-// Carrot: Cryptonote Address For Rerandomizable-RingCT-Output Transactions
+/// @file Utilties for deriving new key hierarchy addresses of all types
 
 #pragma once
 
@@ -46,10 +45,9 @@
 namespace carrot
 {
 
-////
-// CarrotDestinationV1
-// - for creating an output proposal to send an amount to someone
-///
+/**
+ * @brief Represents any public Carrot-compatible address
+ */
 struct CarrotDestinationV1 final
 {
     /// K^j_s
@@ -67,23 +65,23 @@ bool operator==(const CarrotDestinationV1 &a, const CarrotDestinationV1 &b);
 static inline bool operator!=(const CarrotDestinationV1 &a, const CarrotDestinationV1 &b) { return !(a == b); }
 
 /**
-* brief: make_carrot_main_address_v1 - make a destination address
-* param: account_spend_pubkey - K_s
-* param: primary_address_view_pubkey - K^0_v = k_v G
-* outparam: destination_out - the full main address
-*/
+ * @brief Make the main address
+ * @param account_spend_pubkey K_s
+ * @param primary_address_view_pubkey K^0_v = k_v G
+ * @param[out] destination_out main address
+ */
 void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &primary_address_view_pubkey,
     CarrotDestinationV1 &destination_out);
 /**
-* brief: make_carrot_subaddress_v1 - make a destination address
-* param: account_spend_pubkey - K_s
-* param: account_view_pubkey - K_v = k_v K_s
-* param: s_generate_address_dev - device for s_ga
-* param: j_major -
-* param: j_minor -
-* outparam: destination_out - the full subaddress
-*/
+ * @brief Derive a subaddress, given generate-address device and the index
+ * @param account_spend_pubkey - K_s
+ * @param account_view_pubkey - K_v = k_v K_s
+ * @param s_generate_address_dev - device for s_ga
+ * @param j_major major subaddress index
+ * @param j_minor minor subaddress index
+ * @param[out] destination_out subaddress
+ */
 void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &account_view_pubkey,
     const generate_address_secret_device &s_generate_address_dev,
@@ -91,27 +89,27 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const std::uint32_t j_minor,
     CarrotDestinationV1 &destination_out);
 /**
-* brief: make_carrot_integrated_address_v1 - make a destination address
-* param: account_spend_pubkey - K_s
-* param: primary_address_view_pubkey - K^0_v = k_v G
-* param: payment_id - pid
-* outparam: destination_out - the full main address
-*/
+ * @brief Make an integrated address, given the payment ID
+ * @param account_spend_pubkey K_s
+ * @param primary_address_view_pubkey K^0_v = k_v G
+ * @param payment_id pid
+ * @param[out] destination_out integrated address
+ */
 void make_carrot_integrated_address_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &primary_address_view_pubkey,
     const payment_id_t payment_id,
     CarrotDestinationV1 &destination_out);
 /**
-* brief: gen_carrot_main_address_v1 - generate a random main address
-*/
+ * @brief Generate a random main address
+ */
 CarrotDestinationV1 gen_carrot_main_address_v1();
 /**
-* brief: gen_carrot_subaddress_v1 - generate a random subaddress
-*/
+ * @brief Generate a random subaddress
+ */
 CarrotDestinationV1 gen_carrot_subaddress_v1();
 /**
-* brief: gen_carrot_integrated_address_v1 - generate a random integrated address
-*/
+ * @brief Generate a random integrated address
+ */
 CarrotDestinationV1 gen_carrot_integrated_address_v1();
 
 } //namespace carrot

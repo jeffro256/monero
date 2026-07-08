@@ -60,17 +60,17 @@
 namespace carrot
 {
 /**
- * brief: base exception type for reporting carrot device errors.
- * note: devices should only throw this exception or derived classes
+ * @brief base exception type for reporting carrot device errors.
+ * @note devices should only throw this exception or derived classes
  */
 struct device_error: public std::runtime_error
 {
     /**
-     * param: dev_make - e.g. "Trezor", "Ledger"
-     * param: dev_model - e.g. "Model T", "Nano X"
-     * param: func_called - verbatim device interface method name, e.g. "view_key_scalar_mult_x25519"
-     * param: msg - arbitrary error message
-     * param: code - arbitrary error code
+     * @param dev_make e.g. "Trezor", "Ledger"
+     * @param dev_model e.g. "Model T", "Nano X"
+     * @param func_called verbatim device interface method name, e.g. "view_key_scalar_mult_x25519"
+     * @param msg arbitrary error message
+     * @param code arbitrary error code
      */
     device_error(std::string &&dev_make,
             std::string &&dev_model,
@@ -101,44 +101,47 @@ struct device_error: public std::runtime_error
     const int code;
 };
 
+/**
+ * @brief Device interface to hide the view-incoming key, k_v
+ */
 struct view_incoming_key_device
 {
     /**
-     * brief: view_key_scalar_mult_ed25519 - do an Ed25519 scalar mult against the incoming view key
+     * @brief Do an Ed25519 scalar mult against the incoming view key
      *   kvP = k_v * P
-     * param: P - Ed25519 base point
-     * outparam: kvP
-     * return: true on success, false on failure (e.g. unable to decompress point)
+     * @param P Ed25519 base point
+     * @param[out] kvP
+     * @return true on success, false on failure (e.g. unable to decompress point)
      */
     virtual bool view_key_scalar_mult_ed25519(const crypto::public_key &P, crypto::public_key &kvP) const = 0;
 
     /**
-     * brief: view_key_scalar_mult8_ed25519 - do an Ed25519 scalar mult against the incoming view key, w/ cofactor clear
+     * @brief Do an Ed25519 scalar mult against the incoming view key, w/ cofactor clear
      *   kv8P = 8 * k_v * P
-     * param: P - Ed25519 base point
-     * outparam: kv8P
-     * return: true on success, false on failure (e.g. unable to decompress point)
+     * @param P Ed25519 base point
+     * @param[out] kv8P
+     * @return true on success, false on failure (e.g. unable to decompress point)
      *
      * Used in pre-Carrot sender-receiver ECDH exchange.
      */
     virtual bool view_key_scalar_mult8_ed25519(const crypto::public_key &P, crypto::public_key &kv8P) const;
 
     /**
-     * brief: view_key_scalar_mult_x25519 - do an X25519 scalar mult against the incoming view key
+     * @brief Do an X25519 scalar mult against the incoming view key
      *   kvD = k_v * D
-     * param: D - X25519 base point
-     * outparam: kvD
-     * return: true on success, false on failure (e.g. unable to decompress point)
+     * @param D X25519 base point
+     * @param[out] kvD
+     * @return true on success, false on failure (e.g. unable to decompress point)
      */
     virtual bool view_key_scalar_mult_x25519(const mx25519_pubkey &D, mx25519_pubkey &kvD) const = 0;
 
     /**
-     * brief: make_janus_anchor_special - make a janus anchor for "special" enotes
+     * @brief Derive a janus anchor for "special" enotes
      *   anchor_sp = H_16(D_e, input_context, Ko, k_v)
-     * param: enote_ephemeral_pubkey - D_e
-     * param: input_context - input_context
-     * param: account_spend_pubkey - K_s
-     * outparam: anchor_special_out - anchor_sp
+     * @param enote_ephemeral_pubkey D_e
+     * @param input_context input_context
+     * @param account_spend_pubkey K_s
+     * @param[out] anchor_special_out anchor_sp
      */
     virtual void make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
@@ -148,25 +151,28 @@ struct view_incoming_key_device
     virtual ~view_incoming_key_device() = default;
 };
 
+/**
+ * @brief Device interface to hide the view-balance secret, s_vb
+ */
 struct view_balance_secret_device
 {
     /**
-     * brief: make_internal_view_tag - make an internal view tag, given non-secret data
+     * @brief Derive an internal view tag, given non-secret data
      *   vt = H_3(s_vb || input_context || Ko)
-     * param: input_context - input_context
-     * param: onetime_address - Ko
-     * outparam: view_tag_out - vt
+     * @param input_context input_context
+     * @param onetime_address Ko
+     * @param[out] view_tag_out vt
      */
     virtual void make_internal_view_tag(const input_context_t &input_context,
         const crypto::public_key &onetime_address,
         view_tag_t &view_tag_out) const = 0;
 
     /**
-     * brief: make_internal_sender_receiver_secret - make internal sender-receiver secret, given non-secret data
+     * @brief Derive internal sender-receiver secret, given non-secret data
      *   s^ctx_sr = H_32(s_sr, D_e, input_context)
-     * param: enote_ephemeral_pubkey - D_e
-     * param: input_context - input_context
-     * outparam: s_sender_receiver_ctx_out - s^ctx_sr
+     * @param enote_ephemeral_pubkey D_e
+     * @param input_context input_context
+     * @param[out] s_sender_receiver_ctx_out s^ctx_sr
      */
     virtual void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
@@ -175,15 +181,18 @@ struct view_balance_secret_device
     virtual ~view_balance_secret_device() = default;
 };
 
+/**
+ * @brief Device interface to hide the generate-address secret, s_ga
+ */
 struct generate_address_secret_device
 {
     /**
-    * brief: make carrot address index preimage 1 s^j_ap1
-    *   s^j_ap1 = H_32[s_ga](j_major, j_minor)
-    * param: major_index - j_major
-    * param: minor_index - j_minor
-    * outparam: address_index_preimage_1 - s^j_ap1
-    */
+     * @brief Derive new hierarchy first address index preimage
+     *   s^j_ap1 = H_32[s_ga](j_major, j_minor)
+     * @param major_index j_major
+     * @param minor_index j_minor
+     * @param[out] address_index_preimage_1 s^j_ap1
+     */
     virtual void make_address_index_preimage_1(const std::uint32_t major_index,
         const std::uint32_t minor_index,
         crypto::secret_key &address_index_preimage_1) const = 0;
@@ -191,15 +200,18 @@ struct generate_address_secret_device
     virtual ~generate_address_secret_device() = default;
 };
 
+/**
+ * @brief Device interface to hide the generate-image key, k_gi
+ */
 struct generate_image_key_device
 {
     /**
-     * brief: generate_image_scalar_mult_hash_to_point -
+     * @brief Derive the key image generator and multiply by the G-side opening of the account spend pubkey
      *   [carrot] L_partial = k_gi Hp(K_o)
      *   [legacy] L_partial = k_s Hp(K_o)
-     * param: onetime_address - K_o
-     * param: use_biased - true if should use biased hash-to-point function
-     * return: L_partial
+     * @param onetime_address K_o
+     * @param use_biased true if should use biased hash-to-point function
+     * @return L_partial
      */
     virtual crypto::ec_point generate_image_scalar_mult_hash_to_point(
         const crypto::public_key &onetime_address,

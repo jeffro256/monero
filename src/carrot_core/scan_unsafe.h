@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! @file Low-level helper utilities for scanning carrot enotes
+/// @file Low-level helper utilities for scanning Carrot enotes
 
 /**
  * These functions should not be used directly unless you know what you're doing. Using these
@@ -52,15 +52,15 @@
 namespace carrot
 {
 /**
- * brief: try_scan_carrot_coinbase_enote_no_janus - attempt scan process on coinbase enote w/o Janus protection
- * param: enote -
- * param: s_sender_receiver - s_sr
- * param: main_address_spend_pubkeys - {K^0_s, ...}
- * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_t_out - k^t_o
- * outparam: nominal_address_spend_pubkey - K^j_s'
- * outparam: nominal_janus_anchor_out - anchor'
- * return: true iff the scan process (w/o Janus checks) succeeded
+ * @brief Attempt scan process on coinbase enote w/o Janus protection
+ * @param enote -
+ * @param s_sender_receiver s_sr
+ * @param main_address_spend_pubkeys {K^0_s, ...}
+ * @param[out] sender_extension_g_out k^g_o
+ * @param[out] sender_extension_t_out k^t_o
+ * @param[out] nominal_address_spend_pubkey K^j_s'
+ * @param[out] nominal_janus_anchor_out anchor'
+ * @return true iff the scan process (w/o Janus checks) succeeded
  */
 bool try_scan_carrot_coinbase_enote_no_janus(
     const CarrotCoinbaseEnoteV1 &enote,
@@ -71,20 +71,19 @@ bool try_scan_carrot_coinbase_enote_no_janus(
     crypto::public_key &nominal_address_spend_pubkey_out,
     janus_anchor_t &nominal_janus_anchor_out);
 /**
- * brief: try_scan_carrot_enote_external_no_janus - attempt scan process on external enote,
- *                                                  w/o Janus protection nor correct PID
- * param: enote -
- * param: encrypted_payment_id - pid_enc
- * param: s_sender_receiver - s_sr
- * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_t_out - k^t_o
- * outparam: address_spend_pubkey_out - K^j_s
- * outparam: amount_out - a
- * outparam: amount_blinding_factor_out - k_a
- * outparam: nominal_payment_id_out - pid
- * outparam: enote_type_out - enote_type
- * outparam: nominal_janus_anchor_out - anchor'
- * return: true iff the scan process (w/o Janus or PID checks) succeeded
+ * @brief Attempt scan process on external enote, w/o Janus protection nor correct PID
+ * @param enote -
+ * @param encrypted_payment_id pid_enc
+ * @param s_sender_receiver s_sr
+ * @param[out] sender_extension_g_out k^g_o
+ * @param[out] sender_extension_t_out k^t_o
+ * @param[out] address_spend_pubkey_out K^j_s
+ * @param[out] amount_out a
+ * @param[out] amount_blinding_factor_out k_a
+ * @param[out] nominal_payment_id_out pid
+ * @param[out] enote_type_out enote_type
+ * @param[out] nominal_janus_anchor_out anchor'
+ * @return true iff the scan process (w/o Janus or PID checks) succeeded
  */
 bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
@@ -98,18 +97,17 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &nominal_janus_anchor_out);
 /**
- * brief: try_scan_carrot_enote_internal_burnt - attempt scan process on internal enote w/o
- *                                               input_context burning bug check or view tag check
- * param: enote -
- * param: s_sender_receiver_ctx - s^ctx_sr, SHOULD BE function of its respective input_context
- * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_t_out - k^t_o
- * outparam: address_spend_pubkey_out - K^j_s
- * outparam: amount_out - a
- * outparam: amount_blinding_factor_out - k_a
- * outparam: enote_type_out - enote_type
- * outparam: internal_message_out - anchor'
- * return: true iff the scan process (w/o view tag check) succeeded
+ * @brief Attempt scan process on internal enote w/o input_context burning bug check or view tag check
+ * @param enote -
+ * @param s_sender_receiver_ctx s^ctx_sr, SHOULD BE function of its respective input_context
+ * @param[out] sender_extension_g_out k^g_o
+ * @param[out] sender_extension_t_out k^t_o
+ * @param[out] address_spend_pubkey_out K^j_s
+ * @param[out] amount_out a
+ * @param[out] amount_blinding_factor_out k_a
+ * @param[out] enote_type_out enote_type
+ * @param[out] internal_message_out anchor'
+ * @return true iff the scan process (w/o view tag check) succeeded
  *
  * The amount commitment recompute burning bug *is* checked, but `s^ctx_sr`
  * cannot be validated as being a function of the `input_context`, so that
@@ -125,15 +123,14 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &internal_message_out);
 /**
- * brief: verify_carrot_normal_janus_protection - verify that scanned normal enote is not attempting a
- *                                                Janus attack, and check pid
- * param: input_context - input_context
- * param: nominal_address_spend_pubkey - K^j_s'
- * param: is_subaddress - true iff K^j_s' corresponds to a subaddress
- * param: enote_ephemeral_pubkey - D_e
- * param: nominal_janus_anchor - anchor'
- * outparam: nominal_payment_id_inout - takes pid', sets to nullpid if not associated to this enote
- * return: true iff it is computationally intractable for a sender to succeed at a Janus attack
+ * @brief Verify that scanned normal enote is not attempting a Janus attack, and check pid
+ * @param input_context input_context
+ * @param nominal_address_spend_pubkey K^j_s'
+ * @param is_subaddress true iff K^j_s' corresponds to a subaddress
+ * @param enote_ephemeral_pubkey D_e
+ * @param nominal_janus_anchor anchor'
+ * @param[out] nominal_payment_id_inout takes pid', sets to nullpid if not associated to this enote
+ * @return true iff it is computationally intractable for a sender to succeed at a Janus attack
  */
 bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
@@ -142,13 +139,13 @@ bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     const janus_anchor_t &nominal_janus_anchor,
     payment_id_t &nominal_payment_id_inout);
 /**
- * brief: verify_carrot_special_janus_protection - verify that scanned special enote is not attempting a Janus attack
- * param: tx_first_key_image - KI_1
- * param: enote_ephemeral_pubkey - D_e
- * param: onetime_address - K_o
- * param: k_view_dev -
- * param: nominal_janus_anchor - anchor'
- * return: true iff it is computationally intractable for a sender to succeed at a Janus attack
+ * @brief Verify that scanned special enote is not attempting a Janus attack
+ * @param tx_first_key_image KI_1
+ * @param enote_ephemeral_pubkey D_e
+ * @param onetime_address K_o
+ * @param k_view_dev -
+ * @param nominal_janus_anchor anchor'
+ * @return true iff it is computationally intractable for a sender to succeed at a Janus attack
  */
 bool verify_carrot_special_janus_protection(const crypto::key_image &tx_first_key_image,
     const mx25519_pubkey &enote_ephemeral_pubkey,

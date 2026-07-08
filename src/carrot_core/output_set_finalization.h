@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,14 +26,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! @file Utilities for constructing output proposal sets that adhere to Carrot rules
+/// @file Utilities for constructing output proposal sets that adhere to Carrot rules
 
 #pragma once
 
 //local headers
 #include "carrot_enote_types.h"
 #include "payment_proposal.h"
-#include "ringct/rctTypes.h"
 
 //third party headers
 
@@ -56,27 +55,27 @@ enum class AdditionalOutputType
 };
 
 /**
- * brief: get_additional_output_type - get the type of the additional enote needed to finalize an output set
- * param: num_outgoing - number of outgoing transfers
- * param: num_selfsend - number of selfsend transfers
- * param: need_change_output - whether an additional change output needs to be included for balance
- * param: have_payment_type_selfsend - true if the enote set has a selfsend enote with enote_type="payment"
- * return: AdditionalOutputType if need an additional enote, else std::nullopt
- * throw: std::runtime_error if the output set is in a state where it cannot be finalized
+ * @brief Get the type of the additional enote needed to finalize an output set
+ * @param num_outgoing number of outgoing transfers
+ * @param num_selfsend number of selfsend transfers
+ * @param need_change_output whether an additional change output needs to be included for balance
+ * @param have_payment_type_selfsend true if the enote set has a selfsend enote with enote_type="payment"
+ * @return AdditionalOutputType if need an additional enote, else std::nullopt
+ * @throw std::runtime_error if the output set is in a state where it cannot be finalized
  */
 std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_outgoing,
     const size_t num_selfsend,
     const bool need_change_output,
     const bool have_payment_type_selfsend);
 /**
- * brief: get_additional_payment_proposal - get an additional payment proposal to complete an output set
- * param: num_outgoing - number of outgoing transfers
- * param: num_selfsend - number of selfsend transfers
- * param: needed_change_amount - the amount of leftover change needed to be included
- * param: have_payment_type_selfsend - true if the enote set has a selfsend enote with enote_type="payment"
- * param: change_address_spend_pubkey - K^j_s of our change address
- * return: an output proposal if need an additional enote, else none
- * throw: std::runtime_error if the output set is in a state where it cannot be finalized
+ * @brief Get an additional payment proposal to complete an output set
+ * @param num_outgoing number of outgoing transfers
+ * @param num_selfsend number of selfsend transfers
+ * @param needed_change_amount the amount of leftover change needed to be included
+ * @param have_payment_type_selfsend true if the enote set has a selfsend enote with enote_type="payment"
+ * @param change_address_spend_pubkey K^j_s of our change address
+ * @return an output proposal if need an additional enote, else none
+ * @throw std::runtime_error if the output set is in a state where it cannot be finalized
  */
 std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_payment_proposal(
     const size_t num_outgoing,
@@ -85,16 +84,16 @@ std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::null
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey);
 /**
- * brief: get_output_enote_proposals - convert a *finalized* set of payment proposals into output enote proposals
- * param: normal_payment_proposals -
- * param: selfsend_payment_proposals -
- * param: dummy_encrypted_payment_id - random pid_enc, required if no integrated addresses in normal payment proposals
- * param: s_view_balance_dev - pointer to view-balance device (OPTIONAL)
- * param: k_view_dev - pointer to view-incoming device (OPTIONAL)
- * param: tx_first_key_image - KI_1
- * outparam: output_enote_proposals_out -
- * outparam: encrypted_payment_id_out - pid_enc
- * outparam: payment_proposal_order_out - (is self-send, payment idx) pairs which specify order of proposals
+ * @brief Convert a *finalized* set of payment proposals into output enote proposals
+ * @param normal_payment_proposals -
+ * @param selfsend_payment_proposals -
+ * @param dummy_encrypted_payment_id random pid_enc, required if no integrated addresses in normal payment proposals
+ * @param s_view_balance_dev pointer to view-balance device (OPTIONAL)
+ * @param k_view_dev pointer to view-incoming device (OPTIONAL)
+ * @param tx_first_key_image KI_1
+ * @param[out] output_enote_proposals_out -
+ * @param[out] encrypted_payment_id_out pid_enc
+ * @param[out] payment_proposal_order_out (is self-send, payment idx) pairs which specify order of proposals,
  *                                        converted to output enotes (OPTIONAL)
  * throw: std::runtime_error if the payment proposals do not represent a valid tx output set, or if no devices
  *
@@ -111,11 +110,11 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     encrypted_payment_id_t &encrypted_payment_id_out,
     std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out = nullptr);
 /**
- * brief: get_coinbase_output_enotes - convert a *finalized* set of payment proposals into coinbase output enotes
- * param: normal_payment_proposals -
- * param: block_index -
- * outparam: output_coinbase_enotes_out -
- * throw: std::runtime_error if the payment proposals do not represent a valid tx output set, or if no devices
+ * @brief Convert a *finalized* set of payment proposals into coinbase output enotes
+ * @param normal_payment_proposals -
+ * @param block_index -
+ * @param[out] output_coinbase_enotes_out -
+ * @throw std::runtime_error if the payment proposals do not represent a valid tx output set, or if no devices
  */
 void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const uint64_t block_index,
