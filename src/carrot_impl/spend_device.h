@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -35,19 +35,33 @@
 //third party headers
 
 //standard headers
+#include <functional>
 #include <map>
 
 //forward declarations
 
 namespace carrot
 {
+/**
+ * @brief Interface to request spending signatures, while hiding the private spends keys
+ */
 struct spend_device: public key_image_device
 {
-    // maps KI -> (OTA, SA/L) in consensus ordering
+    /**
+     * @brief Maps KI -> (OTA, SA/L) in consensus ordering
+     */ 
     using signed_input_set_t = std::map<crypto::key_image,
         std::pair<crypto::public_key, fcmp_pp::FcmpPpSalProof>,
         std::greater<crypto::key_image>>;
 
+    /**
+     * @brief Attempt to request FCMP++ SA/L signatures for each input in the given Carrot v1 transaction proposal
+     * @param tx_proposal Carrot v1 transaction proposal
+     * @param rerandomized_outputs map of (one-time address -> rerandomized output)
+     * @param[out] signable_tx_hash_out signable transaction hash (mainly useful for checking parity with device)
+     * @param[out] signed_inputs_out signed input set containing key images and FCMP++ SA/L signatures
+     * @return false if spend-side user confirmation is denied or signing otherwise fails, true if signed
+     */
     virtual bool try_sign_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
         const std::unordered_map<crypto::public_key, FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
         crypto::hash &signable_tx_hash_out,

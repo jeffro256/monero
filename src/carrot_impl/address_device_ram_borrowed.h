@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -40,6 +40,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Device abstracting the cryptonote view-incoming key, implemented by borrowing a reference to an in-memory key
+ */
 class cryptonote_view_incoming_key_ram_borrowed_device:
     virtual public cryptonote_view_incoming_key_device,
     virtual public view_incoming_key_ram_borrowed_device

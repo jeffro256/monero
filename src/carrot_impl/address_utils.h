@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/// @file Crypto operations for deriving legacy key hierarchy account components
+
 #pragma once
 
 //local headers
@@ -46,22 +48,22 @@ struct address_device;
 namespace carrot
 {
 /**
- * brief: make_legacy_subaddress_extension - k^j_subext
+ * @brief Derive the legacy key hierarchy subaddress extension
  *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
- * param: k_view - k_v
- * param: major_index - j_major
- * param: minor_index - j_minor
- * outparam: legacy_subaddress_extension_out - k^j_subext
+ * @param k_view k_v
+ * @param major_index j_major
+ * @param minor_index j_minor
+ * @param[out] legacy_subaddress_extension_out - k^j_subext
  */
 void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
     const std::uint32_t major_index,
     const std::uint32_t minor_index,
     crypto::secret_key &legacy_subaddress_extension_out);
 /**
- * brief: get all supported main address spend pubkeys K_s from a hybrid address device
- * param: addr_dev -
- * outparam: main_address_spend_pubkeys_out -
- * return: number of supported pubkeys or span to supported main_address_spend_pubkeys_out
+ * @brief Collect all supported main address spend pubkeys K_s from a hybrid address device
+ * @param addr_dev -
+ * @param[out] main_address_spend_pubkeys_out -
+ * @return Number of supported pubkeys or span to supported main_address_spend_pubkeys_out
  */
 std::size_t get_all_main_address_spend_pubkeys(
     const address_device &addr_dev,

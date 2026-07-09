@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,6 +41,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Spend device, implemented by borrowing references to in-memory keys
+ */
 class spend_device_ram_borrowed: public spend_device
 {
 public:

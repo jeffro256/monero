@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//! @file Utilities for creating Carrot transaction proposals
+//! @file Utilities for creating single Carrot transaction proposals
 
 #pragma once
 
@@ -43,6 +43,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Selected input propisal during an input selection process, including nominal amount
+ */
 struct CarrotSelectedInput
 {
     xmr_amount amount;
@@ -57,6 +60,9 @@ static inline bool operator!=(const CarrotSelectedInput &a, const CarrotSelected
     return !(a == b);
 }
 
+/**
+ * @brief Functor type to abstract the input selection process, given output and fee information
+ */
 using select_inputs_func_t = std::function<void(
         const boost::multiprecision::uint128_t&,  // nominal output sum, w/o fee
         const std::map<std::size_t, xmr_amount>&, // absolute fee per input count
@@ -65,24 +71,27 @@ using select_inputs_func_t = std::function<void(
         std::vector<CarrotSelectedInput>&         // selected inputs result
     )>;
 
+/**
+ * @brief Functor type to abstract the fee carving process, given output, fee, and selected input information
+ */
 using carve_fees_and_balance_func_t = std::function<void(
         const boost::multiprecision::uint128_t&,                // input sum amount
-        const xmr_amount,                                  // fee
+        const xmr_amount,                                       // fee
         std::vector<CarrotPaymentProposalV1>&,                  // normal payment proposals [inout]
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1>& // selfsend payment proposals [inout]
     )>;
 
 /**
- * brief: make_carrot_transaction_proposal_v1 - generic core function for forming single Carrot transaction proposals
- * param: normal_payment_proposals - normal payment proposals to be included in the tx
- * param: selfsend_payment_proposals - selfsend payment proposals to be included in the tx
- * param: fee_per_weight - concrete fee is calculated as transaction weight times this value
- * param: extra - truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
- * param: select_inputs - input selection callback (see more below)
- * param: carve_fees_and_balance - fee carving callback (see more below)
- * param: change_address_spend_pubkey - address spend pubkey to send to for change selfsend enotes
- * param: change_address_index - subaddress index of change_address_spend_pubkey in your account
- * outparam: tx_proposal_out - a fully formed Carrot transaction proposal
+ * @brief Generic core function for forming single Carrot transaction proposals
+ * @param normal_payment_proposals normal payment proposals to be included in the tx
+ * @param selfsend_payment_proposals selfsend payment proposals to be included in the tx
+ * @param fee_per_weight concrete fee is calculated as transaction weight times this value
+ * @param extra truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
+ * @param select_inputs input selection callback (see more below)
+ * @param carve_fees_and_balance fee carving callback (see more below)
+ * @param change_address_spend_pubkey address spend pubkey to send to for change selfsend enotes
+ * @param change_address_index subaddress index of change_address_spend_pubkey in your account
+ * @param[out] tx_proposal_out A fully formed Carrot transaction proposal
  *
  * This function will add a selfsend payment proposal if no other selfsend payment proposal is
  * passed in, so that all Carrot transactions contain at least 1 selfsend enote, conforming to the
@@ -115,17 +124,17 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const subaddress_index_extended &change_address_index,
     CarrotTransactionProposalV1 &tx_proposal_out);
 /**
- * brief: make_carrot_transaction_proposal_v1_transfer - make a "transfer-style" Carrot transaction proposal
- * param: normal_payment_proposals - normal payment proposals to be included in the tx
- * param: selfsend_payment_proposals - selfsend payment proposals to be included in the tx
- * param: fee_per_weight - concrete fee is calculated as transaction weight times this value
- * param: extra - truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
- * param: select_inputs - input selection callback (see make_carrot_transaction_proposal_v1 for info)
- * param: change_address_spend_pubkey - address spend pubkey to send to for change selfsend enotes
- * param: change_address_index - subaddress index of change_address_spend_pubkey in your account
- * param: subtractable_normal_payment_proposals - indices of normal payment proposals which are "fee subtractable"
- * param: subtractable_selfsend_payment_proposals - indices of selfsend payment proposals which are "fee subtractable"
- * outparam: tx_proposal_out - a fully formed Carrot transaction proposal
+ * @brief Make a "transfer-style" Carrot transaction proposal
+ * @param normal_payment_proposals normal payment proposals to be included in the tx
+ * @param selfsend_payment_proposals selfsend payment proposals to be included in the tx
+ * @param fee_per_weight concrete fee is calculated as transaction weight times this value
+ * @param extra truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
+ * @param select_inputs input selection callback (see make_carrot_transaction_proposal_v1 for info)
+ * @param change_address_spend_pubkey address spend pubkey to send to for change selfsend enotes
+ * @param change_address_index subaddress index of change_address_spend_pubkey in your account
+ * @param subtractable_normal_payment_proposals indices of normal payment proposals which are "fee subtractable"
+ * @param subtractable_selfsend_payment_proposals indices of selfsend payment proposals which are "fee subtractable"
+ * @param[out] tx_proposal_out a fully formed Carrot transaction proposal
  *
  * This function *always* adds an additional selfsend enote not in `selfsend_payment_proposals`,
  * even if not strictly needed. Any leftover "change" XMR after fulfilling the passed payment
@@ -151,15 +160,15 @@ void make_carrot_transaction_proposal_v1_transfer(
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
     CarrotTransactionProposalV1 &tx_proposal_out);
 /**
- * brief: make_carrot_transaction_proposal_v1_sweep - make a "sweep-style" Carrot transaction proposal
- * param: normal_payment_proposals - normal payment proposals to be included in the tx (with amount=0)
- * param: selfsend_payment_proposals - selfsend payment proposals to be included in the tx (with amount=0)
- * param: fee_per_weight - concrete fee is calculated as transaction weight times this value
- * param: extra - truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
- * param: selected_inputs - explicitly provided inputs
- * param: change_address_spend_pubkey - address spend pubkey to send to for change selfsend enotes
- * param: change_address_index - subaddress index of change_address_spend_pubkey in your account
- * outparam: tx_proposal_out - a fully formed Carrot transaction proposal
+ * @brief Make a "sweep-style" Carrot transaction proposal
+ * @param normal_payment_proposals normal payment proposals to be included in the tx (with amount=0)
+ * @param selfsend_payment_proposals selfsend payment proposals to be included in the tx (with amount=0)
+ * @param fee_per_weight concrete fee is calculated as transaction weight times this value
+ * @param extra truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
+ * @param selected_inputs explicitly provided inputs
+ * @param change_address_spend_pubkey address spend pubkey to send to for change selfsend enotes
+ * @param change_address_index subaddress index of change_address_spend_pubkey in your account
+ * @param[out] tx_proposal_out a fully formed Carrot transaction proposal
  *
  * Unlike with "transfer-style" transactions, this function does *not* add an additional selfsend
  * proposal if one is already passed in `selfsend_payment_proposals`. The fee and input amount sum

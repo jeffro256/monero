@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,20 +41,23 @@
 
 namespace carrot
 {
+/**
+ * @brief Interface abstracting maps between subaddress spend pubkeys and their corresponding subaddress indices
+ */
 struct subaddress_map
 {
     /**
-     * brief: Get the index and derivation type of an address given its spend pubkey
-     * param: address_spend_pubkey - K^j_s
-     * return: j for K^j_s, std::nullopt if unable
+     * @brief Get the index and derivation type of an address, given its spend pubkey
+     * @param address_spend_pubkey K^j_s
+     * @return j for K^j_s, std::nullopt if unable
      */
     virtual std::optional<subaddress_index_extended> get_index_for_address_spend_pubkey(
         const crypto::public_key &address_spend_pubkey) const = 0;
 
     /**
-     * brief: Get the spend pubkey of an address given index and derivation type
-     * param: subaddr_index - j
-     * return: K^j_s for j, std::nullopt if unable
+     * @brief Get the spend pubkey of an address, given index and derivation type
+     * @param subaddr_index j
+     * @return K^j_s for j, std::nullopt if unable
      */
     virtual std::optional<crypto::public_key> get_address_spend_pubkey_for_index(
         const subaddress_index_extended &subaddr_index) const = 0;

@@ -41,7 +41,7 @@
 namespace carrot
 {
 /**
- * brief: subaddress_index -
+ * @brief Subaddress index for non-hybrid account scheme: does not contain an address derivation type
  */
 struct subaddress_index
 {
@@ -65,7 +65,7 @@ static inline bool operator!=(const subaddress_index a, const subaddress_index b
 }
 
 /**
- * brief: AddressDeriveType - used in hybrid key hierarchies to specify how to derive subaddresses for the same index
+ * @brief Used in hybrid key hierarchies to specify how to derive subaddresses for the same index
  */
 enum class AddressDeriveType
 {
@@ -74,6 +74,9 @@ enum class AddressDeriveType
     Carrot
 };
 
+/**
+ * @brief Subaddress index usable for hybrid account scheme: contains an address derivation type
+ */
 struct subaddress_index_extended
 {
     subaddress_index index;

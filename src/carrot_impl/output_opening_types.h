@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/// @file Types used to specify to key image devices and spend devices how to open enotes
+
 #pragma once
 
 //local headers
@@ -50,6 +52,9 @@ struct view_balance_secret_device;
 
 namespace carrot
 {
+/**
+ * @brief Hint to open pre-Carrot enotes, given public data and explicit amount commitment opening
+ */
 struct LegacyOutputOpeningHintV1
 {
     // WARNING: Using this opening hint is unsafe and enables for HW devices to
@@ -63,39 +68,45 @@ struct LegacyOutputOpeningHintV1
     // O = K^j_s + Hs1(8 k_v K_e, i) G
     // C = z G + a H
 
-    // O
+    /// O
     crypto::public_key onetime_address;
 
-    // K_e
+    /// K_e
     crypto::public_key ephemeral_tx_pubkey;
 
-    // j (legacy only)
+    /// j (legacy only)
     subaddress_index subaddr_index;
 
-    // a
+    /// a
     xmr_amount amount;
 
-    // z
+    /// z
     crypto::secret_key amount_blinding_factor;
 
-    // i
+    /// i
     std::size_t local_output_index;
 };
 bool operator==(const LegacyOutputOpeningHintV1&, const LegacyOutputOpeningHintV1&);
 
+/**
+ * @brief Hint to open non-coinbase Carrot v1 enotes, given just public data and a subaddress index
+ */
 struct CarrotOutputOpeningHintV1
 {
-    // source enote
+    /// source enote
     CarrotEnoteV1 source_enote;
 
-    // pid_enc
+    /// pid_enc
     std::optional<encrypted_payment_id_t> encrypted_payment_id;
 
-    // j, derive type
+    /// j, derive type
     subaddress_index_extended subaddr_index;
 };
 bool operator==(const CarrotOutputOpeningHintV1&, const CarrotOutputOpeningHintV1&);
 
+/**
+ * @brief Hint to open non-coinbase Carrot v1 enotes, given just public data, decrypted amount, and subaddress index
+ */
 struct CarrotOutputOpeningHintV2
 {
     /// K_o
@@ -114,14 +125,17 @@ struct CarrotOutputOpeningHintV2
     /// a
     xmr_amount amount;
 
-    // pid_enc
+    /// pid_enc
     std::optional<encrypted_payment_id_t> encrypted_payment_id;
 
-    // j, derive type
+    /// j, derive type
     subaddress_index_extended subaddr_index;
 };
 bool operator==(const CarrotOutputOpeningHintV2&, const CarrotOutputOpeningHintV2&);
 
+/**
+ * @brief Hint to open coinbase Carrot v1 enotes, given just public data and address derivation type
+ */
 struct CarrotCoinbaseOutputOpeningHintV1
 {
     // source enote
@@ -134,6 +148,9 @@ struct CarrotCoinbaseOutputOpeningHintV1
 };
 bool operator==(const CarrotCoinbaseOutputOpeningHintV1&, const CarrotCoinbaseOutputOpeningHintV1&);
 
+/**
+ * @brief Hint to open any standard enote
+ */
 using OutputOpeningHintVariant = std::variant<
         LegacyOutputOpeningHintV1,
         CarrotOutputOpeningHintV1,
@@ -149,13 +166,13 @@ bool use_biased_hash_to_point(const OutputOpeningHintVariant&);
 fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint);
 
 /**
- * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint
- * param: opening_hint
- * param: k_view_incoming_dev - k_v [OPTIONAL]
- * param: s_view_balance_dev - s_vb [OPTIONAL]
- * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_t_out - k^t_o
- * return: true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
+ * @brief Scan sender extensions for given opening hint
+ * @param opening_hint -
+ * @param k_view_incoming_dev device for k_v (optional)
+ * @param s_view_balance_dev device for s_vb (optional)
+ * @param[out] sender_extension_g_out k^g_o
+ * @param[out] sender_extension_t_out k^t_o
+ * @return true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
  */
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
@@ -164,13 +181,13 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
 /**
- * brief: try_scan_opening_hint_amount - scan amount and blinding factor for given opening hint
- * param: opening_hint
- * param: k_view_incoming_dev - k_v [OPTIONAL]
- * param: s_view_balance_dev - s_vb [OPTIONAL]
- * outparam: amount_out - a
- * outparam: amount_blinding_factor_out - k_a
- * return: true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
+ * @brief Scan amount and blinding factor for given opening hint
+ * @param opening_hint -
+ * @param k_view_incoming_dev device for k_v (optional)
+ * @param s_view_balance_dev device for s_vb (optional)
+ * @param[out] amount_out a
+ * @param[out] amount_blinding_factor_out k_a
+ * @return true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
  */
 bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,

@@ -49,6 +49,9 @@ namespace carrot
 {
 static constexpr std::uint8_t carrot_v1_rct_type = rct::RCTTypeFcmpPlusPlus;
 
+/**
+ * @brief Convert one POD-like type into another of same byte size
+ */
 template <typename T, typename U>
 static inline T raw_byte_convert(const U &u)
 {
@@ -65,34 +68,33 @@ static inline T raw_byte_convert(const U &u)
 }
 
 /**
- * is_carrot_transaction_v1 - determine whether a transaction uses the Carrot addressing protocol
- * param: tx_prefix -
- * return: true iff this tx_prefix represents a v1 Carrot tx
- * throw: too_few_outputs - iff tx_prefix.vout.empty()
+ * @brief Determine whether a transaction prefix uses the Carrot addressing protocol
+ * @param tx_prefix -
+ * @return true iff this tx_prefix represents a v1 Carrot tx
  */
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix);
 /**
- * brief: parse_carrot_input_context - try parsing carrot input context from cryptonote transaction components
+ * @brief Try parsing carrot input context from cryptonote transaction components
  */
 input_context_t parse_carrot_input_context(const cryptonote::txin_gen &txin);
 input_context_t parse_carrot_input_context(const cryptonote::txin_to_key &txin);
 bool parse_carrot_input_context(const cryptonote::txin_v &txin, input_context_t &input_context_out);
 bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix, input_context_t &input_context_out);
 /**
- * brief: get_carrot_default_tx_extra_size - get default size of tx_extra for a Carrot v1 tx with no custom fields
- * param: n_outputs -
- * return: default size of tx_extra for a Carrot v1 tx with no custom fields
+ * @brief Calculate default size of tx_extra for a Carrot v1 tx with no custom fields
+ * @param n_outputs -
+ * @return Default size of tx_extra for a Carrot v1 tx with no custom fields
  */
 std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
 /**
- * brief: get_fee_by_input_count - get the fees for a carrot tx given # of outputs, extra size, and fee/weight rate
- * param: n_outputs -
- * param: extra_extra_len - byte size of extra fields, not including standard ones
- * param: fee_per_weight -
- * return: map of (# inputs, fee) pairs
- * throw: carrot::integer_overflow if extra_extra_len or fee_per_weight are too high
- * throw: too_few_outputs if n_outputs < CARROT_MIN_TX_OUTPUTS
- * throw: too_many_outputs if n_outputs > FCMP_PLUS_PLUS_MAX_OUTPUTS
+ * @brief Calculate the fees for a Carrot v1 tx given # of outputs, extra size, and fee/weight rate
+ * @param n_outputs -
+ * @param extra_extra_len byte size of extra fields, not including standard ones
+ * @param fee_per_weight -
+ * @return Map of (# inputs, fee) pairs
+ * @throw carrot::integer_overflow if extra_extra_len or fee_per_weight are too high
+ * @throw too_few_outputs if n_outputs < CARROT_MIN_TX_OUTPUTS
+ * @throw too_many_outputs if n_outputs > FCMP_PLUS_PLUS_MAX_OUTPUTS
  *
  * This uses the weight function cryptonote::get_fcmp_pp_transaction_weight_v1() assuming that the
  * default tx.extra fields are of size get_carrot_default_tx_extra_size(n_outputs). The fee is
@@ -102,10 +104,11 @@ std::map<std::size_t, xmr_amount> get_fee_by_input_count(const std::size_t n_out
     const std::size_t extra_extra_len,
     const std::uint64_t fee_per_weight);
 /**
- * brief: try_load_carrot_extra_v1 - load Carrot info which is stored in tx_extra
- * param: tx_extra_fields -
- * outparam: enote_ephemeral_pubkeys_out - D_e
- * outparam: encrypted_payment_id_out - pid_enc
+ * @brief Load Carrot info which is stored in tx_extra
+ * @param tx_extra tx.extra
+ * @param tx_extra_fields Parsed fields of tx.extra
+ * @param[out] enote_ephemeral_pubkeys_out D_e
+ * @param[out] encrypted_payment_id_out pid_enc
  */
 bool try_load_carrot_extra_v1(
     const std::vector<std::uint8_t> &tx_extra,
@@ -116,37 +119,37 @@ bool try_load_carrot_extra_v1(
     std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out);
 /**
- * brief: store_carrot_to_transaction_v1 - store non-coinbase Carrot info to a cryptonote::transaction
- * param: enotes -
- * param: key_images -
- * param: fee -
- * param: encrypted_payment_id - pid_enc
- * return: a fully populated, pruned, non-coinbase transaction containing given Carrot information
+ * @brief Store non-coinbase Carrot info to a cryptonote::transaction
+ * @param enotes -
+ * @param key_images -
+ * @param fee -
+ * @param encrypted_payment_id pid_enc
+ * @return A fully populated, pruned, non-coinbase transaction containing given Carrot v1 information
  */
 cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotEnoteV1> &enotes,
     const std::vector<crypto::key_image> &key_images,
     const xmr_amount fee,
     const encrypted_payment_id_t encrypted_payment_id);
 /**
- * brief: try_load_carrot_enote_from_transaction_v1 - load one non-coinbase Carrot enote from a cryptonote::transaction
- * param: tx -
- * param: enote_ephemeral_pubkeys - D_e
- * param: local_output_index -
- * outparam: enote_out -
- * return: true iff enote was successfully parsed
+ * @brief Load one non-coinbase Carrot enote from a cryptonote::transaction, at given local output index
+ * @param tx -
+ * @param enote_ephemeral_pubkeys {D_e}
+ * @param local_output_index -
+ * @param[out] enote_out -
+ * @return true iff enote was successfully parsed
  */
 bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx,
     const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
     const std::size_t local_output_index,
     CarrotEnoteV1 &enote_out);
 /**
- * brief: load_carrot_from_transaction_v1 - load non-coinbase Carrot info from a cryptonote::transaction
- * param: tx -
- * outparam: enotes_out -
- * outparam: key_images_out -
- * outparam: fee_out -
- * outparam: encrypted_payment_id_out -
- * return: Carrot enotes, key images, fee, and encrypted pid contained within a non-coinbase transaction
+ * @brief Load non-coinbase Carrot info from a cryptonote::transaction
+ * @param: tx -
+ * @param[out] enotes_out -
+ * @param[out] key_images_out -
+ * @param[out] fee_out -
+ * @param[out] encrypted_payment_id_out -
+ * @return Carrot enotes, key images, fee, and encrypted pid contained within a non-coinbase transaction
  */
 bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotEnoteV1> &enotes_out,
@@ -154,55 +157,55 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     xmr_amount &fee_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out);
 /**
- * brief: store_carrot_to_coinbase_transaction_v1 - store coinbase Carrot info to a cryptonote::transaction
- * param: enotes -
- * param: extra_nonce -
- * return: a full coinbase transaction containing given Carrot information
+ * @brief Store coinbase Carrot info to a cryptonote::transaction
+ * @param enotes -
+ * @param extra_nonce -
+ * @return A full coinbase transaction containing given Carrot information
  */
 cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
     const std::vector<CarrotCoinbaseEnoteV1> &enotes,
     const cryptonote::blobdata &extra_nonce);
 /**
- * brief: make_single_enote_carrot_coinbase_transaction_v1 - store one coinbase Carrot enote to a cryptonote::transaction
- * param: destination -
- * param: block_reward -
- * param: block_index -
- * param: extra_nonce -
- * return: a full coinbase transaction containing given Carrot information
+ * @brief Store one coinbase Carrot enote to a cryptonote::transaction
+ * @param destination -
+ * @param block_reward -
+ * @param block_index -
+ * @param extra_nonce -
+ * @return A full coinbase transaction containing given Carrot information
  */
 cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const CarrotDestinationV1 &destination,
     const xmr_amount block_reward,
     const std::uint64_t block_index,
     const cryptonote::blobdata &extra_nonce);
 /**
- * brief: try_load_carrot_coinbase_enote_from_transaction_v1 - load one coinbase Carrot enote from a cryptonote::transaction
- * param: tx -
- * param: enote_ephemeral_pubkeys -
- * param: local_output_index -
- * outparam: enote_out -
- * return:  true iff enote was successfully parsed
+ * @brief Load one coinbase Carrot enote from a cryptonote::transaction
+ * @param tx -
+ * @param enote_ephemeral_pubkeys -
+ * @param local_output_index -
+ * @param[out] enote_out -
+ * @return true iff enote was successfully parsed
  */
 bool try_load_carrot_coinbase_enote_from_transaction_v1(const cryptonote::transaction &tx,
     const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
     const std::size_t local_output_index,
     CarrotCoinbaseEnoteV1 &enote_out);
 /**
- * brief: try_load_carrot_from_coinbase_transaction_v1 - load coinbase Carrot info from a cryptonote::transaction
- * param: tx -
- * outparam: enotes_out -
- * return: Carrot coinbase enotes and block index contained within a coinbase transaction
+ * @brief Load coinbase Carrot info from a cryptonote::transaction
+ * @param tx -
+ * @param[out] enotes_out -
+ * @return Carrot coinbase enotes and block index contained within a coinbase transaction
  */
 bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotCoinbaseEnoteV1> &enotes_out);
 /**
- * brief: store_fcmp_proofs_to_rct_prunable_v1 -
- * param: bulletproof_plus -
- * param: rerandomized_outputs -
- * param: sal_proofs -
- * param: membership_proof -
- * param: fcmp_reference_block -
- * param: n_tree_layers -
- * return: prunable RCT signature data that can be attached to corresponding pruned tx
+ * @brief Store all relevant FCMP++/CARROT v1 tx proofs and aux info to a rct::rctSigPrunable
+ * @param bulletproof_plus -
+ * @param rerandomized_outputs -
+ * @param sal_proofs -
+ * @param membership_proof -
+ * @param fcmp_reference_block -
+ * @param n_tree_layers -
+ * @return Prunable RCT signature data that can be attached to corresponding pruned tx
  */
 rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     rct::BulletproofPlus &&bulletproof_plus,
@@ -212,9 +215,9 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     const std::uint64_t fcmp_reference_block,
     const std::uint8_t n_tree_layers);
 /**
- * brief: calculate_signable_transaction_hash -
- * param: tx - pruned or full FCMP++ transaction
- * throw: std::runtime_error if `tx` is not FCMP++ or fails to serialize
+ * @brief Calculate the signable tx hash of a FCMP++/CARROT v1 tx
+ * @param tx pruned or full FCMP++ transaction
+ * @throw std::runtime_error if `tx` is not FCMP++ or fails to serialize
  */
 crypto::hash calculate_signable_fcmp_pp_transaction_hash(const cryptonote::transaction &tx);
 
