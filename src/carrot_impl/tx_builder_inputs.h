@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/// @file Utilities for proving input information for Carrot transactions
+
 #pragma once
 
 //local headers
@@ -47,13 +49,13 @@ struct RCTOutputEnoteProposal;
 namespace carrot
 {
 /**
- * brief: generate rerandomized outputs (with non-refunable r_o) for given inputs in input proposals
- * param: output_enote_proposals - output enotes for spending tx, used to calculate r_c imbalance
- * param: input_proposals - inputs for spending tx, used to extract (O, I, C) tuples and calculate r_c imbalance
- * param: main_address_spend_pubkeys - all K_s
- * param: k_view_incoming_dev -
- * param: s_view_balance_dev - OPTIONAL
- * return: rerandomized inputs in order of `input_proposals`
+ * @brief Generate rerandomized outputs (with non-refunable r_o) for given inputs in input proposals
+ * @param output_enote_proposals output enotes for spending tx, used to calculate r_c imbalance
+ * @param input_proposals inputs for spending tx, used to extract (O, I, C) tuples and calculate r_c imbalance
+ * @param main_address_spend_pubkeys all K_s
+ * @param k_view_incoming_dev -
+ * @param s_view_balance_dev -
+ * @return Rerandomized inputs in order of `input_proposals`
  */
 std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonrefundable(
     epee::span<const carrot::RCTOutputEnoteProposal> output_enote_proposals,
@@ -61,13 +63,28 @@ std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonre
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev);
-
+/**
+ * @brief Verify that rerandomized output and openings are correctly calculated for given (O, C)
+ * @param rerandomized_output -
+ * @param onetime_address O
+ * @param amount_commitment C
+ * @param use_biased_hash_to_point -
+ * @return true iff O~ = O + r_o T, I~ = Hp(O) + r_i U, R = r_i V + r_r_i T, and C~ = C + r_c G
+ */
 bool verify_rerandomized_output_basic(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const crypto::public_key &onetime_address,
     const amount_commitment_t &amount_commitment,
     const bool use_biased_hash_to_point);
-
-// spend any enote addressed to a legacy address
+/**
+ * @brief Prove FCMP++ SA/L signature for an enote addressed to legacy key hierarchy
+ * @param signable_tx_hash FCMP++/Carrot v1 signable tx hash
+ * @param rerandomized_output rerandomization of output represented by `opening_hint`
+ * @param opening_hint -
+ * @param k_spend k_s
+ * @param addr_dev address device
+ * @param[out] sal_proof_out FCMP++ SA/L sig authorizing spending said output in tx represented by `signable_tx_hash`
+ * @param[out] key_image_out key image corresponding to the one-time address of `opening_hint`
+ */
 void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const OutputOpeningHintVariant &opening_hint,
@@ -75,8 +92,19 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
     const cryptonote_hierarchy_address_device &addr_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out);
-
-// spend any enote addressed to a carrot address
+/**
+ * @brief Prove FCMP++ SA/L signature for an enote addressed to new key hierarchy
+ * @param signable_tx_hash FCMP++/Carrot v1 signable tx hash
+ * @param rerandomized_output rerandomization of output represented by `opening_hint`
+ * @param opening_hint -
+ * @param k_prove_spend k_ps
+ * @param k_generate_image k_gi
+ * @param s_view_balance_dev device for s_vb
+ * @param k_view_incoming_dev device for k_v
+ * @param s_generate_address_dev device for s_ga
+ * @param[out] sal_proof_out FCMP++ SA/L sig authorizing spending said output in tx represented by `signable_tx_hash`
+ * @param[out] key_image_out key image corresponding to the one-time address of `opening_hint`
+ */
 void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const OutputOpeningHintVariant &opening_hint,
@@ -87,8 +115,19 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const generate_address_secret_device &s_generate_address_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out);
-
-// spend any enote addressed to a carrot or legacy address
+/**
+ * @brief Prove FCMP++ SA/L signature for an enote addressed to hybrid key hierarchy
+ * @param signable_tx_hash FCMP++/Carrot v1 signable tx hash
+ * @param rerandomized_output rerandomization of output represented by `opening_hint`
+ * @param opening_hint -
+ * @param k_privkey_g [legacy] k_s [new] k_gi
+ * @param k_privkey_t [legacy] 0 [new] k_ps
+ * @param s_view_balance_dev device for s_vb (optional)
+ * @param k_view_incoming_dev device for k_v (optional)
+ * @param addr_dev address device
+ * @param[out] sal_proof_out FCMP++ SA/L sig authorizing spending said output in tx represented by `signable_tx_hash`
+ * @param[out] key_image_out key image corresponding to the one-time address of `opening_hint`
+ */
 void make_sal_proof_any_to_hybrid_v1(const crypto::hash &signable_tx_hash,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const OutputOpeningHintVariant &opening_hint,

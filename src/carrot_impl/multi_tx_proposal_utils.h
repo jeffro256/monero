@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+//! @file Utilities for creating multiple Carrot transaction proposals
+
 #pragma once
 
 //local headers
@@ -42,19 +44,19 @@
 namespace carrot
 {
 /**
- * brief: make_multiple_carrot_transaction_proposals_transfer - make multiple "transfer-style" Carrot tx proposals
- * param: normal_payment_proposals - normal payment proposals to be included *once* in the tx set
- * param: selfsend_payment_proposals - selfsend payment proposals to be included *once* in the tx set
- * param: fee_per_weight - concrete fee is calculated as transaction weight times this value
- * param: extra - truly "extra" fields to be included in *every* tx_extra, doesn't include ephemeral tx pubkeys or PIDs
- * param: input_candidates - list of potential input candidates to choose from
- * param: input_selection_policies - span of ISPs (see `make_single_transfer_input_selector` for more info)
- * param: input_selection_flags - flags passed to `make_single_transfer_input_selector`
- * param: change_address_spend_pubkey - address spend pubkey to send to for change selfsend enotes
- * param: change_address_index - subaddress index of change_address_spend_pubkey in your account
- * param: subtractable_normal_payment_proposals - indices of normal payment proposals which are "fee subtractable"
- * param: subtractable_selfsend_payment_proposals - indices of selfsend payment proposals which are "fee subtractable"
- * outparam: tx_proposals_out - set of fully formed Carrot transaction proposal which satisfies all payments
+ * @brief Make multiple "transfer-style" Carrot tx proposals
+ * @param normal_payment_proposals normal payment proposals to be included *once* in the tx set
+ * @param selfsend_payment_proposals selfsend payment proposals to be included *once* in the tx set
+ * @param fee_per_weight concrete fee is calculated as transaction weight times this value
+ * @param extra truly "extra" fields to be included in *every* tx_extra, doesn't include ephemeral tx pubkeys or PIDs
+ * @param input_candidates list of potential input candidates to choose from
+ * @param input_selection_policies span of ISPs (see `make_single_transfer_input_selector` for more info)
+ * @param input_selection_flags flags passed to `make_single_transfer_input_selector`
+ * @param change_address_spend_pubkey address spend pubkey to send to for change selfsend enotes
+ * @param change_address_index subaddress index of change_address_spend_pubkey in your account
+ * @param subtractable_normal_payment_proposals indices of normal payment proposals which are "fee subtractable"
+ * @param subtractable_selfsend_payment_proposals indices of selfsend payment proposals which are "fee subtractable"
+ * @param[out] tx_proposals_out set of fully formed Carrot transaction proposal which satisfies all payments
  *
  * Creates as many transactions as is necessary to fulfill all of the passed payment proposals.
  * Internally, this function uses a greedy loop, selecting inputs with
@@ -80,15 +82,15 @@ void make_multiple_carrot_transaction_proposals_transfer(
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
     std::vector<CarrotTransactionProposalV1> &tx_proposals_out);
 /**
- * brief: make_multiple_carrot_transaction_proposals_sweep - make multiple "sweep-style" Carrot transaction proposals
- * param: normal_payment_proposals - normal payment proposals to be included in *every* tx in the set
- * param: selfsend_payment_proposals - selfsend payment proposals to be included in *every* tx in the set
- * param: fee_per_weight - concrete fee is calculated as transaction weight times this value
- * param: extra - truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
- * param: selected_inputs - explicitly provided inputs
- * param: change_address_spend_pubkey - address spend pubkey to send to for change selfsend enotes
- * param: change_address_index - subaddress index of change_address_spend_pubkey in your account
- * outparam: tx_proposal_out - set of fully formed Carrot transaction proposal which spend all inputs
+ * @brief Make multiple "sweep-style" Carrot transaction proposals
+ * @param normal_payment_proposals normal payment proposals to be included in *every* tx in the set
+ * @param selfsend_payment_proposals selfsend payment proposals to be included in *every* tx in the set
+ * @param fee_per_weight concrete fee is calculated as transaction weight times this value
+ * @param extra truly "extra" fields to be included in tx_extra, doesn't include ephemeral tx pubkeys or PIDs
+ * @param selected_inputs explicitly provided inputs
+ * @param change_address_spend_pubkey address spend pubkey to send to for change selfsend enotes
+ * @param change_address_index subaddress index of change_address_spend_pubkey in your account
+ * @param[out] tx_proposal_out set of fully formed Carrot transaction proposal which spend all inputs
  *
  * Creates as many sweep transaction as is necessary to spend all of `selected_inputs`, including
  * the provided payment proposals in every transaction.

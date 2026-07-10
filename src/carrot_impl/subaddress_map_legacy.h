@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,6 +41,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Wraps classic subaddress map used by wallet2 to implement subaddress map interface
+ */
 class subaddress_map_legacy: public subaddress_map
 {
 public:

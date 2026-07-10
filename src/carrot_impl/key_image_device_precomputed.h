@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -40,6 +40,9 @@
 
 namespace carrot
 {
+/**
+ * @brief A key image device for already-known one-time addreess <-> key image associations
+ */
 class key_image_device_precompted: public key_image_device
 {
 public:

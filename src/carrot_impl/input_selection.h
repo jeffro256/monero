@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/// @file Utilities for performing input selection on a set of input candidates
+
 #pragma once
 
 //local headers
@@ -40,6 +42,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Candidate for input selection
+ */
 struct InputCandidate
 {
     CarrotSelectedInput core;
@@ -63,12 +68,12 @@ namespace InputSelectionFlags
 }
 
 /**
- * brief: input_selection_policy_t - a functor which implements N-input selection on a subset of candidates
- * param: input_candidates -
- * param: selectable_input_indices - subset of indices in `input_candidates` allowed to select from
- * param: n_inputs - exact number of selected inputs should return
- * param: required_money - sum of amounts of selected inputs should be greater than or equal to this value
- * outparam: selected_inputs_indices_out - `n_inputs` subset of `selectable_input_indices`, of selected input indices
+ * @brief A functor type which implements N-input selection on a subset of candidates
+ * @param input_candidates -
+ * @param selectable_input_indices subset of indices in `input_candidates` allowed to select from
+ * @param n_inputs exact number of selected inputs should return
+ * @param required_money sum of amounts of selected inputs should be greater than or equal to this value
+ * @param[out] selected_inputs_indices_out `n_inputs` subset of `selectable_input_indices`, of selected input indices
  *
  * To signify selection failure, `selected_inputs_indices_out` should be empty after end of call.
  */
@@ -81,12 +86,12 @@ using input_selection_policy_t = std::function<void(
 )>;
 
 /**
- * brief: get_input_count_for_max_usable_money - get optimal number of inputs to maximum money minus fees
- * param: user_amount_begin - xmr_amount LegacyForwardIterator to beginning of user-defined amounts container
- * param: user_amount_end - xmr_amount LegacyForwardIterator to end of user-defined amounts container
- * param: max_num_input_count - maximum number of inputs
- * param: fee_by_input_count - fee indexed by number of inputs
- * return: (N, X) where the X is the sum of the greatest N <= max_num_input_count amounts,
+ * @brief Get optimal number of inputs to maximum money minus fees
+ * @param user_amount_begin xmr_amount LegacyForwardIterator to beginning of user-defined amounts container
+ * @param user_amount_end xmr_amount LegacyForwardIterator to end of user-defined amounts container
+ * @param max_num_input_count maximum number of inputs
+ * @param fee_by_input_count fee indexed by number of inputs
+ * @return (N, X) where the X is the sum of the greatest N <= max_num_input_count amounts,
  *         maximizing X - F(N). F(N) is the fee for this transaction, given input count N
  *
  * This should correctly handle "almost-dust": inputs which are less than the fee, but greater than
@@ -101,11 +106,11 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
     const std::size_t max_num_input_count,
     const std::map<std::size_t, xmr_amount> &fee_by_input_count);
 /**
- * brief: compare_input_candidate_same_ota - compare two input candidates who share a OTA; we can only choose one!
- * param: lhs -
- * param: rhs -
- * return: 1 if lhs is better, -1 if rhs is better, 0 if neutral
- * throw: component_out_of_order - iff rhs.core.key_image != lhs.core.key_image
+ * @brief Compare two input candidates who share a OTA; we can only choose one!
+ * @param lhs -
+ * @param rhs -
+ * @return 1 if lhs is better, -1 if rhs is better, 0 if neutral
+ * @throw component_out_of_order - iff rhs.core.key_image != lhs.core.key_image
  *
  * The better candidate is determined by criteria in descending order of importance as follows:
  *     1. Amount (higher is better, duh)
@@ -115,11 +120,11 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
  */
 int compare_input_candidate_same_ota(const InputCandidate &lhs, const InputCandidate &rhs);
 /**
- * brief: form_preferred_input_candidate_subsets - make subsets of input candidates to try selection in preferred order
- * param: input_candidates - slice to user-provided input candidates
- * param: flags - see InputSelectionFlags namespace
- * param: is_normal_transfer - true iff num normal non-dummy payments in tx to perform selection for is >= 1
- * return: ordered list of subsets (represented by 0-based indices) of input_candidates to try selection on
+ * @brief Form subsets of input candidates to try selection in preferred order
+ * @param input_candidates - slice to user-provided input candidates
+ * @param flags - see InputSelectionFlags namespace
+ * @param is_normal_transfer - true iff num normal non-dummy payments in tx to perform selection for is >= 1
+ * @return ordered list of subsets (represented by 0-based indices) of input_candidates to try selection on
  *
  * This function also performs a burning bug check; no indices returned in any subset will reference
  * an input candidate when another input candidate shares the same key image but is "better" as
@@ -168,22 +173,23 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
     const std::uint32_t flags,
     const bool is_normal_transfer);
 /**
- * brief: get_input_counts_in_preferred_order - return list of tx input counts in order that we should prefer to select
+ * @brief Return list of tx input counts in order that we should prefer to select
+ * @param max_n_inputs maximum number of inputs to use in selection, set 0 to to use consensus limit
+ * @return list of tx input counts, in order of preference for this tx
  *
  * Transaction input counts are trivially observable on-chain, so picking a wrong input count when
  * given the chance between multiple choices can have privacy consequences. The purpose of this
  * function is to determine the order in which we should try to select a certain number of inputs.
- *
- * param: max_n_inputs - maximum number of inputs to use in selection, set 0 to to use consensus limit
+ * Calls to this function are not necessarily idempotent: the order may be random.
  */
 std::vector<std::size_t> get_input_counts_in_preferred_order(std::size_t max_n_inputs);
 /**
- * brief: make_single_transfer_input_selector - a customizable input selector for single (i.e. not batched) transfers
- * param: input_candidates -
- * param: policies - slice of ISPs to attempt selection on, in order of user's preference
- * param: flags - see InputSelectionFlags namespace
- * outparam: selected_input_indices_out - selected indices into `input_candidates` (optional)
- * return: input selector functor
+ * @brief A customizable input selector for single (i.e. not batched) transfers
+ * @param input_candidates -
+ * @param policies slice of ISPs to attempt selection on, in order of user's preference
+ * @param flags see InputSelectionFlags namespace
+ * @param[out] selected_input_indices_out selected indices into `input_candidates` (optional)
+ * @return input selector functor
  *
  * The returned input selector considers provided input candidates, and creates subsets of the
  * candidates as according to `form_preferred_input_candidate_subsets`. Then, in the order of input
@@ -206,7 +212,7 @@ select_inputs_func_t make_single_transfer_input_selector(
 namespace ispolicy
 {
 /**
- * brief: select_greedy_aging - an ISP which generally attempts to select old outputs, but isn't necessarily optimal
+ * @brief An ISP which generally attempts to select old outputs, but isn't necessarily optimal
  */
 void select_greedy_aging(const epee::span<const InputCandidate>,
     const std::set<std::size_t>&,

@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -42,35 +42,43 @@ namespace carrot
 {
 static constexpr const int E_UNSUPPORTED_ADDRESS_TYPE = 1;
 
+/**
+ * @brief Device interface to abstract away Carrot address derivation, regardless of key hierarchy
+ */
 struct address_device
 {
     /**
-     * brief: get K^j_s given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
+     * @brief Get K^j_s, given j
+     * @param subaddr_index j
+     * @param[out] address_spend_pubkey_out K^j_s
      */
     virtual void get_address_spend_pubkey(const subaddress_index_extended &subaddr_index,
         crypto::public_key &address_spend_pubkey_out) const = 0;
 
     /**
-     * brief: get (K^j_s, K^j_v) given j
-     * param: subaddr_index - j
-     * outparam: address_spend_pubkey_out - K^j_s
-     * outparam: address_view_pubkey_out - K^j_v
+     * @brief Get (K^j_s, K^j_v), given j
+     * @param subaddr_index j
+     * @param[out] address_spend_pubkey_out K^j_s
+     * @param[out] address_view_pubkey_out K^j_v
      */
     virtual void get_address_pubkeys(const subaddress_index_extended &subaddr_index,
         crypto::public_key &address_spend_pubkey_out,
         crypto::public_key &address_view_pubkey_out) const = 0;
 
     /**
-     * brief: get (k^j_subext, k^j_subscalar) given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
+     * @brief Get (k^j_subext, k^j_subscalar), given j s.t. K^j_s = k^j_subscalar K_s + k^j_subext G
+     * @param subaddr_index j
+     * @param[out] address_extension_g_out k^j_subext
+     * @param[out] address_scalar_out k^j_subscalar
      */
     virtual void get_address_openings(const subaddress_index_extended &subaddr_index,
         crypto::secret_key &address_extension_g_out,
         crypto::secret_key &address_scalar_out) const = 0;
 
     /**
-     * brief: query whether address derivation type is supported by this device
+     * @brief Query whether address derivation type is supported by this device
+     * @param derive_type -
+     * @return true iff derive_type is an address derivation type supported by this device
      */
     virtual bool supports_address_derive_type(AddressDeriveType derive_type) const = 0;
 

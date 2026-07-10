@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,15 +41,15 @@
 
 namespace carrot
 {
-/// @brief extends the k_v device to allow Cryptonote-style address derivation
+/// @brief Extends the k_v device to allow Cryptonote-style address derivation
 struct cryptonote_view_incoming_key_device: virtual public view_incoming_key_device
 {
     /**
      * brief: make_legacy_subaddress_extension - k^j_subext
      *   k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
-     * param: major_index - j_major
-     * param: minor_index - j_minor
-     * outparam: legacy_subaddress_extension_out - k^j_subext
+     * @param major_index - j_major
+     * @param minor_index - j_minor
+     * @param[out] legacy_subaddress_extension_out - k^j_subext
      */
     virtual void make_legacy_subaddress_extension(
         const std::uint32_t major_index,
@@ -109,8 +109,8 @@ private:
         const char * const func_called) const;
 };
 
-/// @brief takes a s_ga device and (K_s, K_v) to derive addresses in Carrot style
-/// @note will fail if passed derive type is not ::Carrot or ::Auto
+/// @brief Takes a s_ga device and (K_s, K_v) to derive addresses in Carrot style
+/// @note Will fail if passed derive type is not ::Carrot or ::Auto
 class carrot_hierarchy_address_device: public address_device
 {
 public:
@@ -148,8 +148,8 @@ private:
         const char * const func_called) const;
 };
 
-/// @brief takes a CN and/or a Carrot address device and dispatches derivation according to the passed derive type
-/// @note resolves to Carrot on ::Auto derive type if available
+/// @brief Takes a CN and/or a Carrot address device and dispatches derivation according to the passed derive type
+/// @note Resolves to Carrot on ::Auto derive type if available
 class hybrid_hierarchy_address_device: public address_device
 {
 public:

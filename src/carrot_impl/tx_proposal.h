@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/// @file Types representing Carrot transaction proposals
+
 #pragma once
 
 //local headers
@@ -45,7 +47,7 @@ namespace carrot
 using InputProposalV1 = OutputOpeningHintVariant;
 
 /**
- * brief: CarrotPaymentProposalVerifiableSelfSendV1 - A selfsend payment proposal, verified to an owned address
+ * @brief A selfsend payment proposal, verified to an owned address
  *
  * The `subaddr_index` field is intended to be be used to derive
  * `proposal.destination_address_spend_pubkey`, without the need for a subaddress lookahead table.
@@ -57,7 +59,7 @@ struct CarrotPaymentProposalVerifiableSelfSendV1
 };
 
 /**
- * brief: CarrotTransactionProposalV1 - A specification on how to construct a Carrot transaction, minus key material
+ * @brief A specification on how to construct a Carrot v1 transaction, minus key material
  *
  * The fields in `CarrotTransactionProposalV1` are chosen as what is the absolute minimum amount of
  * information required to verifiably, in a human-meaningful way, reconstruct the "signable
@@ -74,8 +76,9 @@ struct CarrotTransactionProposalV1
     /// Spent enote and corresponding opening info per input
     std::vector<InputProposalV1> input_proposals;
 
-    /// Payment proposals to be converted into output enotes
+    /// Normal payment proposals to be converted into output enotes
     std::vector<CarrotPaymentProposalV1> normal_payment_proposals;
+    /// Self-send payment proposals to be converted into output enotes
     std::vector<CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
 
     /// This field should be uniformly randomly generated. It is used to populate the encrypted

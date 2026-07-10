@@ -42,6 +42,9 @@
 
 namespace carrot
 {
+/**
+ * @brief Key image device, implemented by composing pointers to subdevices
+ */
 class key_image_device_composed: public key_image_device
 {
 public:
