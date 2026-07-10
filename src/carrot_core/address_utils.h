@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Utilities for building carrot addresses.
+/// @file Crypto operations for building new key hierarchy addresses
 
 #pragma once
 
@@ -44,35 +44,27 @@ namespace carrot
 {
 
 /**
-* brief: is_main_address_index - determine whether j=(j_major, j_minor) represents the main address
-*/
-static constexpr bool is_main_address_index(const std::uint32_t j_major, const std::uint32_t j_minor)
-{
-    return !(j_major || j_minor);
-}
-
-/**
-* brief: make_carrot_address_index_preimage_1 - s^j_ap1
-*   s^j_ap1 = H_32[s_ga](j_major, j_minor)
-* param: s_generate_address - s_ga
-* param: j_major -
-* param: j_minor -
-* outparam: address_index_preimage_1_out - s^j_ap1
-*/
+ * @brief Derive the first address index preimage
+ *   s^j_ap1 = H_32[s_ga](j_major, j_minor)
+ * @param s_generate_address s_ga
+ * @param j_major major subaddress index
+ * @param j_minor minor subaddress index
+ * @param[out] address_index_preimage_1_out s^j_ap1
+ */
 void make_carrot_address_index_preimage_1(const crypto::secret_key &s_generate_address,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
     crypto::secret_key &address_index_preimage_1_out);
 /**
-* brief: make_carrot_address_index_preimage_2 - s^j_ap2
-*   s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
-* param: address_index_preimage_1 - s^j_ap1
-* param: j_major -
-* param: j_minor -
-* param: account_spend_pubkey - K_s
-* param: account_view_pubkey - K_v
-* outparam: address_index_preimage_2 - s^j_ap2
-*/
+ * @brief Derive the second address index primage
+ *   s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
+ * @param address_index_preimage_1 s^j_ap1
+ * @param j_major major subaddress index
+ * @param j_minor minor subaddress index
+ * @param account_spend_pubkey K_s
+ * @param account_view_pubkey K_v
+ * @param[out] address_index_preimage_2 s^j_ap2
+ */
 void make_carrot_address_index_preimage_2(const crypto::secret_key &address_index_preimage_1,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
@@ -80,12 +72,12 @@ void make_carrot_address_index_preimage_2(const crypto::secret_key &address_inde
     const crypto::public_key &account_view_pubkey,
     crypto::secret_key &address_index_preimage_2_out);
 /**
-* brief: make_carrot_address_privkey - k^j_subscal
-*   k^j_subscal = H_n[s^j_ap2](K_s)
-* param: address_index_preimage_2 - s^j_ap2
-* param: account_spend_pubkey - K_s = k_gi G + k_ps T
-* outparam: subaddress_scalar_out - k^j_subscal
-*/
+ * @brief Derive the subaddress scalar
+ *   k^j_subscal = H_n[s^j_ap2](K_s)
+ * @param address_index_preimage_2 s^j_ap2
+ * @param account_spend_pubkey K_s = k_gi G + k_ps T
+ * @param[out] subaddress_scalar_out k^j_subscal
+ */
 void make_carrot_subaddress_scalar(const crypto::secret_key &address_index_preimage_2,
     const crypto::public_key &account_spend_pubkey,
     crypto::secret_key &subaddress_scalar_out);

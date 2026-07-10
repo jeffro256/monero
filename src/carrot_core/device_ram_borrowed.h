@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -43,6 +43,9 @@
 namespace carrot
 {
 
+/**
+ * @brief Device abstracting the view-incoming key, implemented by borrowing a reference to an in-memory key
+ */
 class view_incoming_key_ram_borrowed_device : virtual public view_incoming_key_device
 {
 public:
@@ -67,6 +70,9 @@ protected:
     const crypto::secret_key &m_k_view_incoming;
 };
 
+/**
+ * @brief Device abstracting the view-balance secret, implemented by borrowing a reference to an in-memory secret
+ */
 class view_balance_secret_ram_borrowed_device final : public view_balance_secret_device
 {
 public:
@@ -85,6 +91,9 @@ protected:
     const crypto::secret_key &m_s_view_balance;
 };
 
+/**
+ * @brief Device abstracting the generate-address secret, implemented by borrowing a reference to an in-memory secret
+ */
 class generate_address_secret_ram_borrowed_device final : public generate_address_secret_device
 {
 public:
@@ -99,6 +108,9 @@ protected:
     const crypto::secret_key &m_s_generate_address;
 };
 
+/**
+ * @brief Device abstracting the generate-image key, implemented by borrowing a reference to an in-memory key
+ */
 class generate_image_key_ram_borrowed_device final : public generate_image_key_device
 {
 public:
