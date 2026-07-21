@@ -8211,7 +8211,7 @@ std::string wallet2::sign_tx_dump_to_str(const wallet::cold::UnsignedTransaction
   return signed_txs_str;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
+bool wallet2::prepare_tx_from_signed(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -8234,6 +8234,8 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
 {
   ptx.clear();
+
+  boost::lock_guard refresh_lock(m_refresh_mutex);
 
   // decrypt and deserialize signed tx set of any type
   wallet::cold::SignedTransactionSetVariant signed_txs_v;

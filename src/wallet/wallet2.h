@@ -697,7 +697,7 @@ private:
     bool load_unsigned_tx(const std::string &unsigned_filename, wallet::cold::UnsignedTransactionSetVariant &exported_txs) const;
     bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, wallet::cold::UnsignedTransactionSetVariant &exported_txs) const;
     bool get_transaction_proposals_from_unsigned_tx(const wallet::cold::UnsignedTransactionSetVariant &exported_txs, std::vector<wallet::tx_reconstruct_variant_t> &tx_proposals_out) const;
-    bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const wallet::cold::SignedFullTransactionSet&)> accept_func = NULL);
+    bool prepare_tx_from_signed(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const wallet::cold::SignedFullTransactionSet&)> accept_func = NULL);
     bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func);
     /**
      * brief: create_transactions_2: create "transfer" style txs (or tx proposals in hot/cold & multisig wallets)
