@@ -63,9 +63,9 @@ public:
     void init_wallet_for_starting_block(tools::wallet2 &w) const;
 
     /**
-     * brief: refresh_wallet - pulls block data from chain and calls process_parsed_blocks()
-     * param: w -
-     * return: number of blocks added by process_parsed_blocks()
+     * @brief Pulls block data from chain and calls process_parsed_blocks()
+     * @param w -
+     * @return number of blocks added by process_parsed_blocks()
      */
     uint64_t refresh_wallet(tools::wallet2 &w) const;
 
