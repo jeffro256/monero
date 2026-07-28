@@ -3916,6 +3916,23 @@ bool Blockchain::check_tx_inputs(transaction& tx,
     // enforce min output age on rings
     CHECK_AND_ASSERT_MES(*pmax_used_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height(),
         false, "Transaction spends at least one output which is too young");
+    if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      // CLSAGs and earlier ring signatures assume a biased hash-to-point is
+      // used for referenced ring members and don't respect the new unbiased
+      // hash-to-point scheme used for Carrot and later outputs. As such, if a
+      // ring signature is allowed to spend a Carrot output, then its key image
+      // will be different than its key image in an FCMP++ tx, allowing it to
+      // be spent twice. So we add this rule: if the next block may contain an
+      // FCMP++ tx, disallow any new ring signature txs which reference an
+      // output on the chain after the first FCMP++ block. This should allow
+      // 1 "hop" of ring signature transactions to clear the mempool during the
+      // grace period, but not more, which should be fine since pre-FCMP++
+      // doesn't support tx chaining. Thanks to xmrack for catching this.
+      const uint64_t first_fcmp_height = m_hardfork->get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS);
+      CHECK_AND_ASSERT_MES(*pmax_used_block_height < first_fcmp_height,
+        false, "Pre-FCMP++ inputs may not spend FCMP++ outputs");
+    }
   }
 
   const crypto::hash txid = get_transaction_hash(tx);
