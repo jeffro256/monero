@@ -28,8 +28,14 @@
 
 #include "gtest/gtest.h"
 
+#define IN_UNIT_TESTS
+#include "cryptonote_core/blockchain.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "cryptonote_core/tx_verification_utils.h"
+#include "misc_log_ex.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.tx_verification_utils"
 
 TEST(tx_verification_utils, make_input_verification_id_ring)
 {
@@ -266,4 +272,61 @@ TEST(tx_verification_utils, ver_input_proofs_rings)
         mixring0.erase(mixring0.begin() + 1);
         EXPECT_FALSE(cryptonote::ver_input_proofs_rings(deserialized_tx, modified_mixrings));
     }
+}
+
+TEST(tx_verification_utils, max_v17_coinbase_size)
+{
+    static_assert(HF_VERSION_FCMP_PLUS_PLUS == 17);
+    constexpr std::size_t height = CRYPTONOTE_MAX_BLOCK_NUMBER;
+
+    cryptonote::transaction tx;
+    tx.version = 2;
+    tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
+    tx.vin.push_back(cryptonote::txin_gen{height});
+    for (uint64_t i = 1; i <= FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS; ++i)
+    {
+        // sorted output pubkeys
+        static_assert(FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS < (1 << 15));
+        crypto::public_key pk = crypto::null_pkey;
+        pk.data[31] = static_cast<char>(i & 255);
+        pk.data[30] = static_cast<char>(i >> 8);
+        const cryptonote::txout_to_carrot_v1 target{.key = pk};
+        tx.vout.push_back({5, target});
+    }
+    tx.extra.resize(MAX_TX_EXTRA_SIZE + tx.vout.size() * 32 - 1);
+    tx.invalidate_hashes();
+
+    const auto prevalidate_miner_transaction = [](const cryptonote::transaction &tx) -> bool
+    {
+        cryptonote::block b;
+        b.miner_tx = tx;
+        return cryptonote::is_coinbase(tx)
+            && cryptonote::Blockchain::prevalidate_miner_transaction(b, height, HF_VERSION_FCMP_PLUS_PLUS);
+    };
+
+    ASSERT_TRUE(prevalidate_miner_transaction(tx));
+
+    const cryptonote::blobdata tx_blob = cryptonote::tx_to_blob(tx);
+    LOG_PRINT_L1("Max v17 coinbase tx size is " << tx_blob.size() << " bytes");
+
+    // We want the maximum implied v17 coinbase tx size to be <= 1MB, the explicit max allowed size of non-coinbase txs
+    EXPECT_LE(tx_blob.size(), cryptonote::get_max_tx_size());
+
+    // now do negative checks to verify we are maxed out as can be
+    cryptonote::transaction tx2;
+
+    tx2 = tx;
+    ASSERT_TRUE(prevalidate_miner_transaction(tx2));
+    tx2.vin.push_back(tx2.vin.at(0));
+    ASSERT_FALSE(prevalidate_miner_transaction(tx2));
+
+    tx2 = tx;
+    ASSERT_TRUE(prevalidate_miner_transaction(tx2));
+    tx2.vout.push_back({5, cryptonote::txout_to_carrot_v1{.key = rct::rct2pk(rct::H)}});
+    ASSERT_FALSE(prevalidate_miner_transaction(tx2));
+
+    tx2 = tx;
+    ASSERT_TRUE(prevalidate_miner_transaction(tx2));
+    tx2.extra.push_back(0);
+    ASSERT_FALSE(prevalidate_miner_transaction(tx2));
 }
