@@ -116,7 +116,7 @@ struct mock_carrot_and_legacy_keys
         const AddressDeriveType derive_type = AddressDeriveType::Auto) const;
     CarrotDestinationV1 subaddress(const subaddress_index_extended &subaddress_index) const;
 
-    // brief: opening_for_subaddress - return (k^g_a, k^t_a) for j s.t. K^j_s = (k^g_a * G + k^t_a * T)
+    //! @brief Return (k^g_a, k^t_a) for j s.t. K^j_s = (k^g_a * G + k^t_a * T)
     void opening_for_subaddress(const subaddress_index_extended &subaddress_index,
         crypto::secret_key &address_privkey_g_out,
         crypto::secret_key &address_privkey_t_out,

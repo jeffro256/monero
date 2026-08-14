@@ -282,13 +282,13 @@ int fcmp_pp_prove_input_new(const struct PathUnsafe *path,
 void destroy_fcmp_pp_prove_input(struct FcmpPpProveMembershipInputUnsafe *fcmp_pp_prove_input);
 
 /**
- * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof
- * param: signable_tx_hash - message to sign
- * param: x - ed25519 scalar s.t. O~ = x G + y T
- * param: y - ed25519 scalar s.t. O~ = x G + y T
- * param: rerandomized_output - used for input tuple, r_i, and r_r_i
- * outparam: sal_proof_out - a buffer of size FCMP_PP_SAL_PROOF_SIZE_V1 where resultant SAL proof is stored
- * return: 0 on success, a negative value on failure
+ * @brief Make a FCMP++ spend auth & linkability proof
+ * @param signable_tx_hash message to sign
+ * @param x ed25519 scalar s.t. O~ = x G + y T
+ * @param y ed25519 scalar s.t. O~ = x G + y T
+ * @param rerandomized_output used for input tuple, r_i, and r_r_i
+ * @param[out] sal_proof_out a buffer of size FCMP_PP_SAL_PROOF_SIZE_V1 where resultant SAL proof is stored
+ * @return 0 on success, a negative value on failure
  * 
  * note: This call can technically be stripped down even more because `rerandomized_output` contains
  *       more information than we need: we can discard r_o and r_c. However, in practice, these
@@ -303,12 +303,12 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
                                              uint8_t key_image_out[32]);
 
 /**
- * brief: fcmp_pp_prove_membership - Make a FCMP++ membership proof for N inputs
- * param: inputs - a slice of FCMP provable inputs returned from fcmp_pp_prove_input_new()
- * param: n_tree_layers -
- * param: proof_len -
- * outparam: fcmp_proof_out - a buffer where the FCMP proof will be written to
- * return: an error on failure, nothing otherwise
+ * @brief Make a FCMP++ membership proof for N inputs
+ * @param inputs a slice of FCMP provable inputs returned from fcmp_pp_prove_input_new()
+ * @param n_tree_layers -
+ * @param proof_len -
+ * @param[out] fcmp_proof_out a buffer where the FCMP proof will be written to
+ * @return an error on failure, nothing otherwise
  */
 int fcmp_pp_prove_membership(const struct FcmpPpProveMembershipInputSliceUnsafe fcmp_pp_prove_inputs,
                                              uintptr_t n_tree_layers,
@@ -331,25 +331,25 @@ int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
 void destroy_fcmp_pp_verify_input(struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
 
 /**
- * brief: fcmp_pp_verify_sal - Verify a FCMP++ spend auth & linkability proof
- * param: signable_tx_hash - message to verify
- * param: input - (O~, I~, C~, R) tuple
- * param: L - L = x Hp(O), AKA key image
- * param: sal_proof - SAL proof to verify
- * return: true on verification success, false otherwise
+ * @brief Verify a FCMP++ spend auth & linkability proof
+ * @param signable_tx_hash message to verify
+ * @param input (O~, I~, C~, R) tuple
+ * @param L L = x Hp(O), AKA key image
+ * @param sal_proof SAL proof to verify
+ * @return true on verification success, false otherwise
  */
 bool fcmp_pp_verify_sal(const uint8_t signable_tx_hash[32],
                                              const struct FcmpInputCompressed *input,
                                              const uint8_t L[32],
                                              const uint8_t sal_proof[FCMP_PP_SAL_PROOF_SIZE_V1]);
 /**
- * brief: fcmp_pp_verify_membership - Verify a FCMP++ membership proof
- * param: inputs - a slice of fcmp_input_ref pointers
- * param: tree_root -
- * param: n_tree_layers -
- * param: fcmp_proof - FCMP proof bytes to verify
- * param: fcmp_proof_len - length of fcmp_proof buffer
- * return: true on verification success, false otherwise
+ * @brief Verify a FCMP++ membership proof
+ * @param inputs a slice of fcmp_input_ref pointers
+ * @param tree_root -
+ * @param n_tree_layers -
+ * @param fcmp_proof FCMP proof bytes to verify
+ * @param fcmp_proof_len length of fcmp_proof buffer
+ * @return true on verification success, false otherwise
  */
 bool fcmp_pp_verify_membership(struct InputSlice inputs,
   const struct TreeRootUnsafe *tree_root,
