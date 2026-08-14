@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,10 +31,8 @@
 
 //local headers
 #include "address_device_ram_borrowed.h"
-#include "carrot_core/account_secrets.h"
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/exceptions.h"
-#include "crypto/generators.h"
 #include "key_image_device_composed.h"
 #include "misc_log_ex.h"
 #include "tx_builder_inputs.h"

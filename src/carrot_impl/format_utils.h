@@ -144,7 +144,7 @@ bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx
     CarrotEnoteV1 &enote_out);
 /**
  * @brief Load non-coinbase Carrot info from a cryptonote::transaction
- * @param: tx -
+ * @param tx -
  * @param[out] enotes_out -
  * @param[out] key_images_out -
  * @param[out] fee_out -

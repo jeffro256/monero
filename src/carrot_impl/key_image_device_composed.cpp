@@ -88,19 +88,11 @@ key_image_device_composed::key_image_device_composed(
 //-------------------------------------------------------------------------------------------------------------------
 crypto::key_image key_image_device_composed::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
 {
-    const crypto::public_key onetime_address = onetime_address_ref(opening_hint);
-    const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
-
-    crypto::public_key main_address_spend_pubkeys[2];
-    const std::size_t n_main_addrs = get_all_main_address_spend_pubkeys(*m_addr_dev, main_address_spend_pubkeys);
-    CARROT_CHECK_AND_THROW(n_main_addrs > 0, make_local_device_error(-4, "derive_key_image"),
-        "Address device supports no known address derivation scheme");
-
     // get k^g_o, k^t_o
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
     if (!try_scan_opening_hint_sender_extensions(opening_hint,
-        {main_address_spend_pubkeys, n_main_addrs},
+        *m_addr_dev,
         m_s_view_balance_dev.get(),
         m_k_view_incoming_dev.get(),
         sender_extension_g,
@@ -110,8 +102,8 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
     }
 
     return this->derive_key_image_prescanned(sender_extension_g,
-        onetime_address,
-        subaddr_index,
+        onetime_address_ref(opening_hint),
+        subaddress_index_ref(opening_hint),
         use_biased_hash_to_point(opening_hint));
 }
 //-------------------------------------------------------------------------------------------------------------------

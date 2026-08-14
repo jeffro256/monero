@@ -32,6 +32,7 @@
 #include "carrot_impl/subaddress_map_legacy.h"
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
+#include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "fake_pruned_blockchain.h"
 #include "fcmp_pp/prove.h"
@@ -40,7 +41,50 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.wallet_scanning"
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+namespace
+{
+/**
+ * @brief Verify that K_o ?= K^j_s + k^g_o G + k^t_o T, where K^j_s, k^g_o, and k^t_o are given by `enote_scan_info`
+ */
+bool verify_enote_scan_info_sender_extensions(const tools::wallet::enote_view_incoming_scan_info_t &enote_scan_info,
+    const cryptonote::tx_out &tx_out)
+{
+    // k^g_o G
+    ge_p3 tmp1;
+    ge_scalarmult_base(&tmp1, to_bytes(enote_scan_info.sender_extension_g));
+    ge_cached tmp2;
+    ge_p3_to_cached(&tmp2, &tmp1);
 
+    // k^t_o T
+    tmp1 = crypto::get_T_p3();
+    ge_scalarmult_p3(&tmp1, to_bytes(enote_scan_info.sender_extension_t), &tmp1);
+
+    // k^g_o G + k^t_o T
+    ge_p1p1 tmp3;
+    ge_add(&tmp3, &tmp1, &tmp2);
+    ge_p1p1_to_p3(&tmp1, &tmp3);
+    ge_p3_to_cached(&tmp2, &tmp1);
+
+    // K^j_s
+    if (0 != ge_frombytes_vartime(&tmp1, to_bytes(enote_scan_info.address_spend_pubkey)))
+        return false;
+
+    // K^j_s + k^g_o G + k^t_o T
+    crypto::public_key recomputed_onetime_address;
+    ge_add(&tmp3, &tmp1, &tmp2);
+    ge_p1p1_to_p3(&tmp1, &tmp3);
+    ge_p3_tobytes(to_bytes(recomputed_onetime_address), &tmp1);
+
+    // K_o ?= K^j_s + k^g_o G + k^t_o T
+    crypto::public_key onetime_address;
+    if (!cryptonote::get_output_public_key(tx_out, onetime_address))
+        return false;
+    return recomputed_onetime_address == onetime_address;
+}
+} //anonymous namespace
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_scanning, view_scan_as_sender_mainaddr)
 {
@@ -826,6 +870,211 @@ TEST(wallet_scanning, scanning_tools_hybrid_view_incoming_scanning)
                 alice_enote_scan_info,
                 *alice.key_image_dev);
             ASSERT_TRUE(alice_key_image);
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_scanning, pre_carrot_switched_enote_pubkeys)
+{
+    // Test that non-standard, but previously scannable positions for ephemeral tx pubkeys is still
+    // supported in new scanning code, and that attempting to make opening hints to those enotes
+    // works.
+
+    // Gen Bob
+    cryptonote::account_base bob;
+    bob.generate();
+    const auto bob_k_view_dev = std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(
+        bob.get_keys().m_view_secret_key);
+    const carrot::cryptonote_hierarchy_address_device bob_addr_dev(bob_k_view_dev,
+        bob.get_keys().m_account_address.m_spend_public_key);
+
+    // Bob addresses
+    const cryptonote::account_public_address &bob_main_addr = bob.get_keys().m_account_address;
+    const cryptonote::subaddress_index subaddr_index{0, 1};
+    const cryptonote::account_public_address bob_subaddr = bob.get_device().get_subaddress(bob.get_keys(),
+        subaddr_index);
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> bob_subaddress_map{
+        {bob_main_addr.m_spend_public_key, {}},
+        {bob_subaddr.m_spend_public_key, subaddr_index}
+    };
+
+    // Construct to Bob
+    constexpr carrot::xmr_amount main_amount = COIN;
+    constexpr carrot::xmr_amount subaddr_amount = 2 * COIN;
+    std::vector<cryptonote::tx_destination_entry> dests{
+        cryptonote::tx_destination_entry(main_amount, bob_main_addr, false),
+        cryptonote::tx_destination_entry(subaddr_amount, bob_subaddr, true),
+        carrot::mock::convert_destination_v1(carrot::gen_carrot_main_address_v1(), COIN / 7)
+    };
+    constexpr uint8_t hf_version = HF_VERSION_CLSAG + 1;
+    cryptonote::transaction tx = mock::construct_pre_carrot_tx_with_fake_inputs(dests,
+        COIN / 100, hf_version);
+    ASSERT_EQ(3, tx.vout.size());
+    const crypto::hash og_txid = cryptonote::get_transaction_hash(tx);
+
+    size_t bob_main_local_output_index = tx.vout.size();
+    size_t bob_subaddr_local_output_index = tx.vout.size();
+    for (int swap_K_e = 0; swap_K_e < 2; ++swap_K_e)
+    {
+        LOG_PRINT_L1("pre_carrot_switched_enote_pubkeys: " << (swap_K_e ? "" : "un") << "modified pass");
+
+        if (swap_K_e)
+        {
+            // Replace the main tx pubkey with Bob's subaddress additional publey, and Bob's main
+            // additional pubkey with the original main tx pubkey
+
+            std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+            ASSERT_TRUE(cryptonote::parse_tx_extra(tx.extra, tx_extra_fields));
+            ASSERT_EQ(2, tx_extra_fields.size()); // main & additional pubkeys, no dummy payment ID in >2-out tx
+            cryptonote::tx_extra_pub_key main_tx_pubkey_field;
+            ASSERT_TRUE(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, main_tx_pubkey_field));
+            ASSERT_NE(crypto::null_pkey, main_tx_pubkey_field.pub_key);
+            cryptonote::tx_extra_additional_pub_keys additional_tx_pubkeys_field;
+            ASSERT_TRUE(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, additional_tx_pubkeys_field));
+            ASSERT_EQ(tx.vout.size(), additional_tx_pubkeys_field.data.size());
+
+            std::swap(main_tx_pubkey_field.pub_key, additional_tx_pubkeys_field.data.at(bob_main_local_output_index));
+            std::swap(main_tx_pubkey_field.pub_key, additional_tx_pubkeys_field.data.at(bob_subaddr_local_output_index));
+            tx.extra.clear();
+            ASSERT_TRUE(cryptonote::add_tx_pub_key_to_extra(tx, main_tx_pubkey_field.pub_key));
+            ASSERT_TRUE(cryptonote::add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_pubkeys_field.data));
+            ASSERT_TRUE(cryptonote::sort_tx_extra(tx.extra, tx.extra));
+            tx.invalidate_hashes();
+            ASSERT_NE(og_txid, cryptonote::get_transaction_hash(tx));
+        }
+
+        // Bob scans
+        const auto enote_scan_infos = tools::wallet::view_incoming_scan_transaction(tx,
+            *bob_k_view_dev,
+            bob_addr_dev,
+            carrot::subaddress_map_legacy(bob_subaddress_map));
+        ASSERT_EQ(tx.vout.size(), enote_scan_infos.size());
+
+        // Bob has 2 scannble outputs, find tx-local output indices for each
+        size_t local_output_index = 0;
+        for (const auto &enote_scan_info : enote_scan_infos)
+        {
+            if (enote_scan_info)
+            {
+                if (enote_scan_info->address_spend_pubkey == bob_main_addr.m_spend_public_key)
+                {
+                    ASSERT_TRUE(bob_main_local_output_index >= tx.vout.size()
+                        || bob_main_local_output_index == local_output_index);
+                    bob_main_local_output_index = local_output_index;
+                }
+                else
+                {
+                    ASSERT_TRUE(bob_subaddr_local_output_index >= tx.vout.size()
+                        || bob_subaddr_local_output_index == local_output_index);
+                    bob_subaddr_local_output_index = local_output_index;
+                }
+            }
+            ++local_output_index;
+        }
+        ASSERT_LT(bob_main_local_output_index, tx.vout.size());
+        ASSERT_LT(bob_subaddr_local_output_index, tx.vout.size());
+        ASSERT_NE(bob_main_local_output_index, bob_subaddr_local_output_index);
+
+        // Check main addr scan results
+        const auto &enote_scan_info_main = enote_scan_infos.at(bob_main_local_output_index);
+        ASSERT_TRUE(enote_scan_info_main->use_biased_hash_to_point);
+        ASSERT_EQ(bob_main_addr.m_spend_public_key, enote_scan_info_main->address_spend_pubkey);
+        ASSERT_EQ(crypto::null_hash, enote_scan_info_main->payment_id);
+        ASSERT_TRUE(enote_scan_info_main->subaddr_index);
+        ASSERT_EQ(carrot::subaddress_index{}, enote_scan_info_main->subaddr_index.value().index);
+        ASSERT_EQ(main_amount, enote_scan_info_main->amount);
+        ASSERT_EQ(0, enote_scan_info_main->main_tx_pubkey_index);
+        ASSERT_TRUE(verify_enote_scan_info_sender_extensions(*enote_scan_info_main,
+            tx.vout.at(bob_main_local_output_index)));
+
+        // Check subaddr scan results
+        const auto &enote_scan_info_sub = enote_scan_infos.at(bob_subaddr_local_output_index);
+        ASSERT_TRUE(enote_scan_info_sub->use_biased_hash_to_point);
+        ASSERT_EQ(bob_subaddr.m_spend_public_key, enote_scan_info_sub->address_spend_pubkey);
+        ASSERT_EQ(crypto::null_hash, enote_scan_info_sub->payment_id);
+        ASSERT_TRUE(enote_scan_info_sub->subaddr_index);
+        ASSERT_EQ(carrot::subaddress_index({subaddr_index.major, subaddr_index.minor}),
+            enote_scan_info_sub->subaddr_index.value().index);
+        ASSERT_EQ(subaddr_amount, enote_scan_info_sub->amount);
+        ASSERT_EQ(0, enote_scan_info_sub->main_tx_pubkey_index);
+        ASSERT_TRUE(verify_enote_scan_info_sender_extensions(*enote_scan_info_sub,
+            tx.vout.at(bob_subaddr_local_output_index)));
+
+        // Create Bob wallet and blockchain instance
+        tools::wallet2 w(cryptonote::MAINNET, /*kdf_rounds=*/1, /*unattended=*/true);
+        w.set_offline(true);
+        w.generate("", "", bob.get_keys().m_spend_secret_key, /*recover=*/true);
+        mock::fake_pruned_blockchain bc;
+        bc.init_wallet_for_starting_block(w);
+
+        // Add block containing tx and refresh wallet
+        const cryptonote::account_public_address random_addr{rct::rct2pk(rct::pkGen()), rct::rct2pk(rct::pkGen())};
+        bc.add_block(hf_version, {tx}, random_addr);
+        bc.refresh_wallet(w);
+    
+        // Check transfer container info
+        wallet2_basic::transfer_container transfers;
+        w.get_transfers(transfers);
+        ASSERT_EQ(2, transfers.size());
+        const auto &main_td = transfers.at(bob_main_local_output_index > bob_subaddr_local_output_index);
+        ASSERT_TRUE(main_td.m_subaddr_index.is_zero());
+        ASSERT_EQ(main_amount, main_td.amount());
+        const auto &subaddr_td = transfers.at(bob_main_local_output_index < bob_subaddr_local_output_index);
+        ASSERT_FALSE(subaddr_td.m_subaddr_index.is_zero());
+        ASSERT_EQ(subaddr_index, subaddr_td.m_subaddr_index);
+        ASSERT_EQ(subaddr_amount, subaddr_td.amount());
+
+        // Make opening hints from transfer details and check info
+        const carrot::OutputOpeningHintVariant main_opening_hint
+            = tools::wallet::make_sal_opening_hint_from_transfer_details(main_td);
+        {
+            crypto::secret_key ohint_k_g_o, ohint_k_t_o;
+            ASSERT_TRUE(carrot::try_scan_opening_hint_sender_extensions(main_opening_hint,
+                bob_addr_dev,
+                nullptr,
+                bob_k_view_dev.get(),
+                ohint_k_g_o,
+                ohint_k_t_o));
+            ASSERT_EQ(enote_scan_info_main->sender_extension_g, ohint_k_g_o);
+            ASSERT_EQ(enote_scan_info_main->sender_extension_t, ohint_k_t_o);
+            ASSERT_EQ(main_td.get_public_key(), onetime_address_ref(main_opening_hint));
+            ASSERT_FALSE(subaddress_index_ref(main_opening_hint).index.is_subaddress());
+            carrot::xmr_amount ohint_amount;
+            crypto::secret_key ohint_k_a;
+            ASSERT_TRUE(carrot::try_scan_opening_hint_amount(main_opening_hint,
+                bob_addr_dev,
+                nullptr,
+                bob_k_view_dev.get(),
+                ohint_amount,
+                ohint_k_a));
+            ASSERT_EQ(main_td.amount(), ohint_amount);
+            ASSERT_EQ(main_td.m_mask, rct::sk2rct(ohint_k_a));
+        }
+        const carrot::OutputOpeningHintVariant subaddr_opening_hint
+            = tools::wallet::make_sal_opening_hint_from_transfer_details(subaddr_td);
+        {
+            crypto::secret_key ohint_k_g_o, ohint_k_t_o;
+            ASSERT_TRUE(carrot::try_scan_opening_hint_sender_extensions(subaddr_opening_hint,
+                bob_addr_dev,
+                nullptr,
+                bob_k_view_dev.get(),
+                ohint_k_g_o,
+                ohint_k_t_o));
+            ASSERT_EQ(enote_scan_info_sub->sender_extension_g, ohint_k_g_o);
+            ASSERT_EQ(enote_scan_info_sub->sender_extension_t, ohint_k_t_o);
+            ASSERT_EQ(subaddr_td.get_public_key(), onetime_address_ref(subaddr_opening_hint));
+            ASSERT_TRUE(subaddress_index_ref(subaddr_opening_hint).index.is_subaddress());
+            ASSERT_EQ(enote_scan_info_sub->subaddr_index->index, subaddress_index_ref(subaddr_opening_hint).index);
+            carrot::xmr_amount ohint_amount;
+            crypto::secret_key ohint_k_a;
+            ASSERT_TRUE(carrot::try_scan_opening_hint_amount(subaddr_opening_hint,
+                bob_addr_dev,
+                nullptr,
+                bob_k_view_dev.get(),
+                ohint_amount,
+                ohint_k_a));
+            ASSERT_EQ(subaddr_td.amount(), ohint_amount);
+            ASSERT_EQ(subaddr_td.m_mask, rct::sk2rct(ohint_k_a));
         }
     }
 }

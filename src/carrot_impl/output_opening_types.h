@@ -33,6 +33,7 @@
 //local headers
 
 //third party headers
+#include "address_device.h"
 #include "carrot_core/carrot_enote_types.h"
 #include "crypto/crypto.h"
 #include "fcmp_pp/fcmp_pp_types.h"
@@ -73,6 +74,9 @@ struct LegacyOutputOpeningHintV1
 
     /// K_e
     crypto::public_key ephemeral_tx_pubkey;
+
+    /// K_e' (needed in edge cases due to weird legacy scanning artifacts)
+    std::optional<crypto::public_key> backup_ephemeral_tx_pubkey;
 
     /// j (legacy only)
     subaddress_index subaddr_index;
@@ -170,6 +174,7 @@ fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
 /**
  * @brief Scan sender extensions for given opening hint
  * @param opening_hint -
+ * @param addr_dev -
  * @param s_view_balance_dev device for s_vb (optional)
  * @param k_view_incoming_dev device for k_v (optional)
  * @param[out] sender_extension_g_out k^g_o
@@ -177,7 +182,7 @@ fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
  * @return true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
  */
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     crypto::secret_key &sender_extension_g_out,
@@ -185,6 +190,7 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
 /**
  * @brief Scan amount and blinding factor for given opening hint
  * @param opening_hint -
+ * @param addr_dev -
  * @param s_view_balance_dev device for s_vb (optional)
  * @param k_view_incoming_dev device for k_v (optional)
  * @param[out] amount_out a
@@ -192,7 +198,7 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
  * @return true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
  */
 bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     xmr_amount &amount_out,

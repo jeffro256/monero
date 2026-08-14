@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,7 +32,6 @@
 
 //local headers
 #include "address_device_hierarchies.h"
-#include "carrot_core/core_types.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "output_opening_types.h"
 
@@ -52,7 +51,7 @@ namespace carrot
  * @brief Generate rerandomized outputs (with non-refundable r_o) for given inputs in input proposals
  * @param output_enote_proposals output enotes for spending tx, used to calculate r_c imbalance
  * @param input_proposals inputs for spending tx, used to extract (O, I, C) tuples and calculate r_c imbalance
- * @param main_address_spend_pubkeys all K_s, potentially includes a legacy and a Carrot pubkey
+ * @param addr_dev =
  * @param s_view_balance_dev -
  * @param k_view_incoming_dev -
  * @return Rerandomized inputs in order of `input_proposals`
@@ -60,7 +59,7 @@ namespace carrot
 std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonrefundable(
     epee::span<const carrot::RCTOutputEnoteProposal> output_enote_proposals,
     epee::span<const carrot::OutputOpeningHintVariant> input_proposals,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev,
     const carrot::view_incoming_key_device &k_view_incoming_dev);
 /**
@@ -99,6 +98,7 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
  * @param opening_hint -
  * @param k_prove_spend k_ps
  * @param k_generate_image k_gi
+ * @param addr_dev address device
  * @param s_view_balance_dev device for s_vb
  * @param k_view_incoming_dev device for k_v
  * @param s_generate_address_dev device for s_ga
@@ -110,9 +110,9 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const OutputOpeningHintVariant &opening_hint,
     const crypto::secret_key &k_prove_spend,
     const crypto::secret_key &k_generate_image,
+    const address_device &addr_dev,
     const view_balance_secret_device &s_view_balance_dev,
     const view_incoming_key_device &k_view_incoming_dev,
-    const generate_address_secret_device &s_generate_address_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out);
 /**

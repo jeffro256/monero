@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -61,10 +61,10 @@ static crypto::secret_key load_sk(const unsigned char s[32])
 //-------------------------------------------------------------------------------------------------------------------
 static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const crypto::secret_key &address_privkey_g,
-    const crypto::secret_key &address_privkey_t,
+    const crypto::secret_key &account_privkey_g,
+    const crypto::secret_key &account_privkey_t,
     const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
@@ -81,24 +81,30 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
     CHECK_AND_ASSERT_THROW_MES(try_scan_opening_hint_sender_extensions(opening_hint,
-            main_address_spend_pubkeys,
+            addr_dev,
             s_view_balance_dev,
             k_view_incoming_dev,
             sender_extension_g,
             sender_extension_t),
         "Could not make SA/L proof: failed to scan opening hint");
 
-    // x = k^{j,g}_addr + k^g_o
-    crypto::secret_key x;
-    sc_add(to_bytes(x),
-        to_bytes(address_privkey_g),
-        to_bytes(sender_extension_g));
+    // get address openings
+    crypto::secret_key address_extension_g;
+    crypto::secret_key address_scalar;
+    addr_dev.get_address_openings(subaddress_index_ref(opening_hint),
+        address_extension_g,
+        address_scalar);
 
-    // y = k^{j,t}_addr + k^t_o
+    // x = `account_privkey_g` * k^j_subscal + k^j_{g,addr} + k^g_o
+    crypto::secret_key x;
+    sc_muladd(to_bytes(x), to_bytes(account_privkey_g),
+        to_bytes(address_scalar), to_bytes(sender_extension_g));
+    sc_add(to_bytes(x), to_bytes(x), to_bytes(address_extension_g));
+
+    // y = `account_privkey_t` * k^j_subscal + k^t_o
     crypto::secret_key y;
-    sc_add(to_bytes(y),
-        to_bytes(address_privkey_t),
-        to_bytes(sender_extension_t));
+    sc_muladd(to_bytes(y), to_bytes(account_privkey_t),
+        to_bytes(address_scalar), to_bytes(sender_extension_t));
 
     std::tie(sal_proof_out, key_image_out) = fcmp_pp::prove_sal(signable_tx_hash,
         x,
@@ -109,7 +115,7 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
 std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonrefundable(
     epee::span<const carrot::RCTOutputEnoteProposal> output_enote_proposals,
     epee::span<const carrot::OutputOpeningHintVariant> input_proposals,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev,
     const carrot::view_incoming_key_device &k_view_incoming_dev)
 {
@@ -139,7 +145,7 @@ std::vector<FcmpRerandomizedOutputCompressed> generate_rerandomized_inputs_nonre
 
         carrot::xmr_amount amount;
         const bool scan_success = carrot::try_scan_opening_hint_amount(input_proposal,
-            main_address_spend_pubkeys,
+            addr_dev,
             s_view_balance_dev,
             &k_view_incoming_dev,
             amount,
@@ -190,25 +196,12 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out)
 {
-    // get K_s
-    crypto::public_key main_address_spend_pubkey;
-    addr_dev.get_address_spend_pubkey({}, main_address_spend_pubkey);
-
-    // k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
-    const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
-    crypto::secret_key address_privkey_g;
-    crypto::secret_key dummy_subaddress_scalar;
-    addr_dev.get_address_openings(subaddr_index, address_privkey_g, dummy_subaddress_scalar);
-
-    // k^j_g = k^j_subext + k_s
-    sc_add(to_bytes(address_privkey_g), to_bytes(address_privkey_g), to_bytes(k_spend));
-
     make_sal_proof_nominal_address(signable_tx_hash,
         rerandomized_output,
-        address_privkey_g,
+        k_spend,
         crypto::null_skey,
         opening_hint,
-        {&main_address_spend_pubkey, 1},
+        addr_dev,
         /*s_view_balance_dev=*/nullptr,
         &addr_dev,
         sal_proof_out,
@@ -220,63 +213,18 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     const OutputOpeningHintVariant &opening_hint,
     const crypto::secret_key &k_prove_spend,
     const crypto::secret_key &k_generate_image,
+    const address_device &addr_dev,
     const view_balance_secret_device &s_view_balance_dev,
     const view_incoming_key_device &k_view_incoming_dev,
-    const generate_address_secret_device &s_generate_address_dev,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out)
 {
-    // K_s = k_gi G + k_ps T
-    crypto::public_key main_address_spend_pubkey;
-    carrot::make_carrot_spend_pubkey(k_generate_image, k_prove_spend, main_address_spend_pubkey);
-
-    // K_v = k_v K_s
-    crypto::public_key account_view_pubkey;
-    k_view_incoming_dev.view_key_scalar_mult_ed25519(main_address_spend_pubkey, account_view_pubkey);
-
-    // s^j_ap1 = H_32[s_ga](j_major, j_minor)
-    const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
-    crypto::secret_key address_index_preimage_1;
-    s_generate_address_dev.make_address_index_preimage_1(subaddr_index.index.major,
-        subaddr_index.index.minor,
-        address_index_preimage_1);
-
-    // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
-    crypto::secret_key address_index_preimage_2;
-    make_carrot_address_index_preimage_2(address_index_preimage_1,
-        subaddr_index.index.major,
-        subaddr_index.index.minor,
-        main_address_spend_pubkey,
-        account_view_pubkey,
-        address_index_preimage_2);
-
-    // k^j_subscal = H_n[s^j_ap2](K_s)
-    crypto::secret_key subaddress_scalar;
-    if (subaddr_index.index.is_subaddress())
-    {
-        make_carrot_subaddress_scalar(address_index_preimage_2,
-            main_address_spend_pubkey,
-            subaddress_scalar);
-    }
-    else // main address
-    {
-        sc_1(to_bytes(subaddress_scalar));
-    }
-
-    // k^j_g = k_gi * k^j_subscal
-    crypto::secret_key address_privkey_g;
-    sc_mul(to_bytes(address_privkey_g), to_bytes(k_generate_image), to_bytes(subaddress_scalar));
-
-    // k^j_t = k_ps * k^j_subscal
-    crypto::secret_key address_privkey_t;
-    sc_mul(to_bytes(address_privkey_t), to_bytes(k_prove_spend), to_bytes(subaddress_scalar));
-
     make_sal_proof_nominal_address(signable_tx_hash,
         rerandomized_output,
-        address_privkey_g,
-        address_privkey_t,
+        k_generate_image,
+        k_prove_spend,
         opening_hint,
-        {&main_address_spend_pubkey, 1},
+        addr_dev,
         &s_view_balance_dev,
         &k_view_incoming_dev,
         sal_proof_out,
@@ -294,26 +242,12 @@ void make_sal_proof_any_to_hybrid_v1(const crypto::hash &signable_tx_hash,
     fcmp_pp::FcmpPpSalProof &sal_proof_out,
     crypto::key_image &key_image_out)
 {
-    crypto::secret_key subaddress_extention_g;
-    crypto::secret_key subaddress_scalar;
-    addr_dev.get_address_openings(subaddress_index_ref(opening_hint), subaddress_extention_g, subaddress_scalar);
-
-    // k^j_g = k_g * k^j_subscal + k^j_subext
-    crypto::secret_key address_privkey_g;
-    sc_muladd(to_bytes(address_privkey_g), to_bytes(k_privkey_g),
-        to_bytes(subaddress_scalar), to_bytes(subaddress_extention_g));
-
-    // k^j_t = k_t * k^j_subscal
-    crypto::secret_key address_privkey_t;
-    sc_mul(to_bytes(address_privkey_t), to_bytes(k_privkey_t), to_bytes(subaddress_scalar));
-
-    crypto::public_key main_address_spend_pubkeys[2];
     make_sal_proof_nominal_address(signable_tx_hash,
         rerandomized_output,
-        address_privkey_g,
-        address_privkey_t,
+        k_privkey_g,
+        k_privkey_t,
         opening_hint,
-        get_all_main_address_spend_pubkeys_span(addr_dev, main_address_spend_pubkeys),
+        addr_dev,
         s_view_balance_dev,
         &k_view_incoming_dev,
         sal_proof_out,
