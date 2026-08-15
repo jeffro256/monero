@@ -29,7 +29,6 @@
 #include "gtest/gtest.h"
 
 #include "carrot_core/config.h"
-#include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/tx_builder_inputs.h"
@@ -435,7 +434,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs = generate_rerandomized_inputs_nonrefundable(
         epee::to_span(output_enote_proposals),
         epee::to_span(sorted_opening_hints),
-        {&alice.carrot_account_spend_pubkey, 1},
+        *alice.addr_dev,
         &alice.s_view_balance_dev,
         alice.k_view_incoming_dev);
     ASSERT_EQ(n_inputs, rerandomized_outputs.size());
@@ -451,9 +450,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             std::get<2>(input_info_by_ki.at(sorted_input_key_images.at(i))),
             alice.k_prove_spend,
             alice.k_generate_image,
+            *alice.addr_dev,
             alice.s_view_balance_dev,
             alice.k_view_incoming_dev,
-            alice.s_generate_address_dev,
             sal_proofs.emplace_back(),
             actual_key_images.emplace_back());
     }

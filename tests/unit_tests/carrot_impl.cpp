@@ -31,7 +31,6 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include "carrot_core/exceptions.h"
-#include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/multi_tx_proposal_utils.h"
@@ -1911,7 +1910,7 @@ TEST(carrot_impl, new_hierarchy_spend_device_ram_1in_2out)
     const std::vector<FcmpRerandomizedOutputCompressed> rerandomized = generate_rerandomized_inputs_nonrefundable(
         epee::to_span(output_enote_proposals),
         epee::to_span(tx_proposal.input_proposals),
-        {&alice.carrot_account_spend_pubkey, 1},
+        *alice.addr_dev,
         &alice.s_view_balance_dev,
         alice.k_view_incoming_dev);
 

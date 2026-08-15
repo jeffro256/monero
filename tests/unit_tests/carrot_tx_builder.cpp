@@ -82,8 +82,6 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         .local_output_index = local_output_index
     };
 
-    const bool use_biased_htp = use_biased_hash_to_point(opening_hint);
-
     const crypto::key_image expected_key_image = keys.key_image_dev->derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
@@ -670,9 +668,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -764,9 +762,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -857,9 +855,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -953,9 +951,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -1046,9 +1044,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -1142,9 +1140,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
@@ -1311,9 +1309,9 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        *keys.addr_dev,
         keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
-        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 

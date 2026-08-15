@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -30,6 +30,7 @@
 #include "output_opening_types.h"
 
 //local headers
+#include "address_utils.h"
 #include "carrot_core/core_types.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/scan.h"
@@ -121,7 +122,7 @@ static bool try_opening_hint_scan_on_carrot_enote(const CarrotEnoteV1 &enote,
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     crypto::secret_key &sender_extension_g_out,
@@ -141,17 +142,41 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
             if (k_view_incoming_dev == nullptr)
                 return false;
 
-            // 8 k_v K_e
-            crypto::public_key kd_tors;
-            if (!k_view_incoming_dev->view_key_scalar_mult8_ed25519(hint.ephemeral_tx_pubkey, kd_tors))
-                return false;
+            for (int backup_ephem = 0; backup_ephem < 2; ++backup_ephem)
+            {
+                if (backup_ephem && !hint.backup_ephemeral_tx_pubkey)
+                    continue;
 
-            // d = k_o = Hs1(8 k_v K_e, i)
-            crypto::key_derivation derivation;
-            memcpy(&derivation, &kd_tors, sizeof(derivation));
-            crypto::derivation_to_scalar(derivation, hint.local_output_index, sender_extension_g_out);
+                const crypto::public_key &ephemeral_tx_pubkey = backup_ephem
+                    ? hint.backup_ephemeral_tx_pubkey.value()
+                    : hint.ephemeral_tx_pubkey;
 
-            return true;
+                // 8 k_v K_e
+                crypto::public_key kd_tors;
+                if (!k_view_incoming_dev->view_key_scalar_mult8_ed25519(ephemeral_tx_pubkey, kd_tors))
+                    continue;
+
+                // d = k_o = Hs1(8 k_v K_e, i)
+                crypto::key_derivation derivation;
+                memcpy(&derivation, &kd_tors, sizeof(derivation));
+                crypto::derivation_to_scalar(derivation, hint.local_output_index, sender_extension_g_out);
+
+                // K_o ?= K^j_s + k_o G
+                crypto::public_key recovered_address_spend_pubkey;
+                if (!carrot::try_recover_address_spend_pubkey(hint.onetime_address,
+                        sender_extension_g_out, crypto::null_skey, recovered_address_spend_pubkey))
+                    continue;
+                crypto::public_key device_address_spend_pubkey;
+                const subaddress_index_extended legacy_subaddr_index{
+                    .index = hint.subaddr_index,
+                    .derive_type = AddressDeriveType::PreCarrot
+                };
+                addr_dev.get_address_spend_pubkey(legacy_subaddr_index, device_address_spend_pubkey);
+                if (recovered_address_spend_pubkey == device_address_spend_pubkey)
+                    return true;
+            }
+
+            return false;
         }
 
         bool operator()(const CarrotOutputOpeningHintV1 &hint) const
@@ -239,6 +264,7 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
             return false;
         }
 
+        const address_device &addr_dev;
         epee::span<const crypto::public_key> main_address_spend_pubkeys;
         const view_balance_secret_device *s_view_balance_dev;
         const view_incoming_key_device *k_view_incoming_dev;
@@ -248,8 +274,11 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
         crypto::secret_key &amount_blinding_factor_out;
     };
 
+    crypto::public_key main_address_spend_pubkeys[2];
+
     return std::visit(try_scan_opening_hint_visitor{
-            main_address_spend_pubkeys,
+            addr_dev,
+            get_all_main_address_spend_pubkeys_span(addr_dev, main_address_spend_pubkeys),
             s_view_balance_dev,
             k_view_incoming_dev,
             sender_extension_g_out,
@@ -262,12 +291,13 @@ static bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const LegacyOutputOpeningHintV1 &a, const LegacyOutputOpeningHintV1 &b)
 {
-    return a.onetime_address == b.onetime_address
-        && a.ephemeral_tx_pubkey == b.ephemeral_tx_pubkey
-        && a.subaddr_index == b.subaddr_index
-        && a.amount == b.amount
-        && a.amount_blinding_factor == b.amount_blinding_factor
-        && a.local_output_index == b.local_output_index;
+    return a.onetime_address            == b.onetime_address
+        && a.ephemeral_tx_pubkey        == b.ephemeral_tx_pubkey
+        && a.backup_ephemeral_tx_pubkey == b.backup_ephemeral_tx_pubkey
+        && a.subaddr_index              == b.subaddr_index
+        && a.amount                     == b.amount
+        && a.amount_blinding_factor     == b.amount_blinding_factor
+        && a.local_output_index         == b.local_output_index;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const CarrotOutputOpeningHintV1 &a, const CarrotOutputOpeningHintV1 &b)
@@ -387,7 +417,7 @@ fcmp_pp::OutputPair to_output_pair(const OutputOpeningHintVariant &opening_hint)
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     crypto::secret_key &sender_extension_g_out,
@@ -396,7 +426,7 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
     xmr_amount amount;
     crypto::secret_key amount_blinding_factor;
     return try_scan_opening_hint(opening_hint,
-        main_address_spend_pubkeys,
+        addr_dev,
         s_view_balance_dev,
         k_view_incoming_dev,
         sender_extension_g_out,
@@ -406,7 +436,7 @@ bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &ope
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const address_device &addr_dev,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_incoming_dev,
     xmr_amount &amount_out,
@@ -414,7 +444,7 @@ bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
 {
     crypto::secret_key sender_extension_g, sender_extension_t;
     return try_scan_opening_hint(opening_hint,
-        main_address_spend_pubkeys,
+        addr_dev,
         s_view_balance_dev,
         k_view_incoming_dev,
         sender_extension_g,

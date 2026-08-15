@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -130,6 +130,7 @@ END_SERIALIZE()
 BEGIN_SERIALIZE_OBJECT_FN(carrot::LegacyOutputOpeningHintV1)
     FIELD_F(onetime_address)
     FIELD_F(ephemeral_tx_pubkey)
+    FIELD_F(backup_ephemeral_tx_pubkey)
     FIELD_F(subaddr_index)
     VARINT_FIELD_F(amount)
     FIELD_F(amount_blinding_factor)

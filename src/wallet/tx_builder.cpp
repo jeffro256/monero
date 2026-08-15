@@ -32,7 +32,6 @@
 //local headers
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
-#include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_utils.h"
 #include "carrot_impl/format_utils.h"
@@ -811,25 +810,25 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
     else // !is_carrot
     {
         // choose R
-        const crypto::public_key main_tx_pubkey = cryptonote::get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
+        crypto::public_key ephemeral_tx_pubkey = cryptonote::get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
         const std::vector<crypto::public_key> additional_tx_pubkeys =
             cryptonote::get_additional_tx_pub_keys_from_extra(td.m_tx);
-        const crypto::public_key &ephemeral_tx_pubkey =
-            (additional_tx_pubkeys.size() > td.m_internal_output_index && !td.m_subaddr_index.is_zero())
-                ? additional_tx_pubkeys.at(td.m_internal_output_index)
-                : main_tx_pubkey;
+        std::optional<crypto::public_key> backup_ephemeral_tx_pubkey =
+            (additional_tx_pubkeys.size() > td.m_internal_output_index)
+            ? additional_tx_pubkeys.at(td.m_internal_output_index)
+            : std::optional<crypto::public_key>{};
+        if (backup_ephemeral_tx_pubkey && !td.m_subaddr_index.is_zero())
+            std::swap(*backup_ephemeral_tx_pubkey, ephemeral_tx_pubkey);
 
         return carrot::LegacyOutputOpeningHintV1{
             .onetime_address = td.get_public_key(),
             .ephemeral_tx_pubkey = ephemeral_tx_pubkey,
+            .backup_ephemeral_tx_pubkey = backup_ephemeral_tx_pubkey,
             .subaddr_index = subaddr_index,
             .amount = td.amount(),
             .amount_blinding_factor = rct::rct2sk(td.m_mask),
             .local_output_index = static_cast<std::size_t>(td.m_internal_output_index)
         };
-
-        ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
-            "for given transfer info");
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -1148,7 +1147,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const carrot::address_device &addr_dev,
     const carrot::view_incoming_key_device &k_view_incoming_dev,
     const carrot::view_balance_secret_device *s_view_balance_dev,
     const carrot::spend_device &spend_dev)
@@ -1195,7 +1194,7 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
     std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs = carrot::generate_rerandomized_inputs_nonrefundable(
         epee::to_span(output_enote_proposals),
         epee::to_span(tx_proposal.input_proposals),
-        main_address_spend_pubkeys,
+        addr_dev,
         s_view_balance_dev,
         k_view_incoming_dev);
 
@@ -1232,25 +1231,6 @@ cryptonote::transaction finalize_all_fcmp_pp_proofs(
         tx_proposal.fee,
         tree_cache,
         curve_trees);
-}
-//-------------------------------------------------------------------------------------------------------------------
-cryptonote::transaction finalize_all_fcmp_pp_proofs(
-    const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
-    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
-    const carrot::address_device &addr_dev,
-    const carrot::view_incoming_key_device &k_view_incoming_dev,
-    const carrot::view_balance_secret_device *s_view_balance_dev,
-    const carrot::spend_device &spend_dev)
-{
-    crypto::public_key main_address_spend_pubkeys[2];
-    return finalize_all_fcmp_pp_proofs(tx_proposal,
-        tree_cache,
-        curve_trees,
-        carrot::get_all_main_address_spend_pubkeys_span(addr_dev, main_address_spend_pubkeys),
-        k_view_incoming_dev,
-        s_view_balance_dev,
-        spend_dev);
 }
 //-------------------------------------------------------------------------------------------------------------------
 pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_proposal,
