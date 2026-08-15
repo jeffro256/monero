@@ -1565,7 +1565,7 @@ namespace tools
 
         const std::vector<crypto::public_key> spent_otas = spent_onetime_addresses(cd);
         const std::vector<rct::xmr_amount> inp_amounts = wallet::input_amounts(cd,
-          {&main_address_spend_pubkey, 1}, addr_dev.get(), nullptr);
+          *addr_dev, nullptr, addr_dev.get());
         const std::vector<std::uint64_t> input_ring_sizes = ring_sizes(cd);
         for (std::size_t input_idx = 0; input_idx < spent_otas.size(); ++input_idx)
         {

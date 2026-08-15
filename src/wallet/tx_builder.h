@@ -111,9 +111,9 @@ std::optional<crypto::hash> long_payment_id(const tx_reconstruct_variant_t&);
 std::vector<crypto::public_key> spent_onetime_addresses(const tx_reconstruct_variant_t&);
 /// input amounts (in proposal order, not final tx order)
 std::vector<rct::xmr_amount> input_amounts(const tx_reconstruct_variant_t&,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    const carrot::view_incoming_key_device *k_view_incoming_dev,
-    const carrot::view_balance_secret_device *s_view_balance_dev);
+    const carrot::address_device &addr_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::view_incoming_key_device *k_view_incoming_dev);
 /// ring sizes (in proposal order, not final tx order)
 std::vector<std::uint64_t> ring_sizes(const tx_reconstruct_variant_t&);
 /// sum total of input amounts

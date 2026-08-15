@@ -383,9 +383,9 @@ std::vector<crypto::public_key> spent_onetime_addresses(const tx_reconstruct_var
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<rct::xmr_amount> input_amounts(const tx_reconstruct_variant_t &v,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    const carrot::view_incoming_key_device *k_view_incoming_dev,
-    const carrot::view_balance_secret_device *s_view_balance_dev)
+    const carrot::address_device &addr_dev,
+    const carrot::view_balance_secret_device *s_view_balance_dev,
+    const carrot::view_incoming_key_device *k_view_incoming_dev)
 {
     struct input_amounts_visitor
     {
@@ -407,9 +407,9 @@ std::vector<rct::xmr_amount> input_amounts(const tx_reconstruct_variant_t &v,
                 crypto::secret_key amount_blinding_factor;
                 const bool scan_success = carrot::try_scan_opening_hint_amount(
                     input_proposal,
-                    main_address_spend_pubkeys,
-                    k_view_incoming_dev,
+                    addr_dev,
                     s_view_balance_dev,
+                    k_view_incoming_dev,
                     res.emplace_back(),
                     amount_blinding_factor);
                 CARROT_CHECK_AND_THROW(scan_success,
@@ -418,14 +418,14 @@ std::vector<rct::xmr_amount> input_amounts(const tx_reconstruct_variant_t &v,
             return res;
         }
 
-        const epee::span<const crypto::public_key> main_address_spend_pubkeys;
-        const carrot::view_incoming_key_device *k_view_incoming_dev;
+        const carrot::address_device &addr_dev;
         const carrot::view_balance_secret_device *s_view_balance_dev;
+        const carrot::view_incoming_key_device *k_view_incoming_dev;
     };
     return std::visit(input_amounts_visitor{
-            main_address_spend_pubkeys, 
-            k_view_incoming_dev,
-            s_view_balance_dev},
+            addr_dev,
+            s_view_balance_dev,
+            k_view_incoming_dev,},
         v);
 }
 //-------------------------------------------------------------------------------------------------------------------

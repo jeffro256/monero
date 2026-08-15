@@ -968,7 +968,7 @@ void expand_carrot_transaction_proposal_and_rerandomized_outputs(
         rct::xmr_amount amount;
         crypto::secret_key amount_blinding_factor;
         CARROT_CHECK_AND_THROW(carrot::try_scan_opening_hint_amount(input_proposal,
-                {&main_address_spend_pubkey, 1}, &addr_dev, nullptr, amount, amount_blinding_factor),
+                addr_dev, nullptr, &addr_dev, amount, amount_blinding_factor),
             carrot::unexpected_scan_failure, "could not scan tx input proposal for amount");
         sc_sub(r_c.bytes, r_c.bytes, to_bytes(amount_blinding_factor));
     }
@@ -1569,9 +1569,9 @@ void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
     const bool ki_scan_res = try_scan_opening_hint_sender_extensions(opening_hint,
-        {&main_address_spend_pubkey, 1},
-        &addr_dev,
+        addr_dev,
         /*s_view_balance_dev=*/nullptr,
+        &addr_dev,
         sender_extension_g,
         sender_extension_t);
     CARROT_CHECK_AND_THROW(ki_scan_res,
