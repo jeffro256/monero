@@ -78,7 +78,7 @@ TEST(carrot_core, ECDH_subaddress_completeness)
     ASSERT_NE(k_view, k_ephem);
 
     mx25519_pubkey enote_ephemeral_pubkey;
-    make_carrot_enote_ephemeral_pubkey_subaddress(k_ephem, spend_pubkey, enote_ephemeral_pubkey);
+    ASSERT_TRUE(try_make_carrot_enote_ephemeral_pubkey_subaddress(k_ephem, spend_pubkey, enote_ephemeral_pubkey));
 
     mx25519_pubkey s_sr_sender;
     ASSERT_TRUE(try_make_carrot_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
@@ -946,10 +946,11 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
         enote_ephemeral_privkey);
 
     // 5. make D_e
-    make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
-        destination.address_spend_pubkey,
-        destination.is_subaddress,
-        output_enote_out.enote.enote_ephemeral_pubkey);
+    CHECK_AND_ASSERT_THROW_MES(try_make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
+            destination.address_spend_pubkey,
+            destination.is_subaddress,
+            output_enote_out.enote.enote_ephemeral_pubkey),
+        "Bad given address points");
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver;
@@ -1582,10 +1583,11 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
         enote_ephemeral_privkey);
 
     // 5. make D_e
-    make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
-        destination.address_spend_pubkey,
-        destination.is_subaddress,
-        output_enote_out.enote_ephemeral_pubkey);
+    CHECK_AND_ASSERT_THROW_MES(try_make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
+            destination.address_spend_pubkey,
+            destination.is_subaddress,
+            output_enote_out.enote_ephemeral_pubkey),
+        "Bad given address points");
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver;

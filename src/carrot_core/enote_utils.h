@@ -72,8 +72,10 @@ void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &eno
  * @param enote_ephemeral_privkey d_e
  * @param address_spend_pubkey K^j_s
  * @param[out] enote_ephemeral_pubkey_out D_e
+ * @return true on success, false on failure (K^j_s was invalid)
  */
-void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
+bool try_make_carrot_enote_ephemeral_pubkey_subaddress(
+    const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     mx25519_pubkey &enote_ephemeral_pubkey_out);
 /**
@@ -84,8 +86,9 @@ void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &eno
  * @param address_spend_pubkey K^j_s
  * @param is_subaddress -
  * @param[out] enote_ephemeral_pubkey_out D_e
+ * @return true on success, false on failure (K^j_s was needed, but invalid)
  */
-void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     const bool is_subaddress,
     mx25519_pubkey &enote_ephemeral_pubkey_out);

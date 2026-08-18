@@ -263,9 +263,9 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_cryptonote)
 TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_subaddress)
 {
     mx25519_pubkey enote_ephemeral_pubkey_rc;
-    make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey.value,
+    ASSERT_TRUE(try_make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey.value,
         subaddress_spend_pubkey.value,
-        enote_ephemeral_pubkey_rc);
+        enote_ephemeral_pubkey_rc));
     EXPECT_TRUE(enote_ephemeral_pubkey_subaddress.matches(enote_ephemeral_pubkey_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------

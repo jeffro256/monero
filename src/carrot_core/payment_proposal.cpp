@@ -32,7 +32,6 @@
 //local headers
 #include "enote_utils.h"
 #include "exceptions.h"
-#include "misc_language.h"
 #include "misc_log_ex.h"
 
 //third party headers
@@ -48,15 +47,6 @@ namespace carrot
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static const janus_anchor_t null_anchor{{0}};
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-template <typename T>
-static auto auto_wiper(T &obj)
-{
-    // @TODO: replace with scope guard
-    static_assert(std::is_trivially_copyable<T>());
-    return epee::misc_utils::create_scope_leave_handler([&]{ memwipe(&obj, sizeof(T)); });
-}
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static void get_normal_proposal_ecdh_parts(const CarrotPaymentProposalV1 &proposal,
@@ -245,10 +235,11 @@ mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposa
 
     // D_e = d_e * ...
     mx25519_pubkey enote_ephemeral_pubkey;
-    make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
+    const bool r = try_make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
         proposal.destination.address_spend_pubkey,
         proposal.destination.is_subaddress,
         enote_ephemeral_pubkey);
+    CARROT_CHECK_AND_THROW(r, invalid_point, "could not get D_e: address spend pubkey is invalid");
 
     return enote_ephemeral_pubkey;
 }
@@ -309,10 +300,11 @@ mx25519_pubkey get_enote_ephemeral_pubkey(
 
     // D_e = d_e * ...
     mx25519_pubkey enote_ephemeral_pubkey;
-    make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
+    const bool r = try_make_carrot_enote_ephemeral_pubkey(enote_ephemeral_privkey,
         base_address_spend_pubkey,
         base_is_subaddress,
         enote_ephemeral_pubkey);
+    CARROT_CHECK_AND_THROW(r, invalid_point, "could not get self-send D_e: address spend pubkey is invalid");
 
     return enote_ephemeral_pubkey;
 }
@@ -333,14 +325,14 @@ void get_coinbase_enote_v1(const CarrotPaymentProposalV1 &proposal,
     const input_context_t input_context = make_carrot_input_context_coinbase(block_index);
 
     // 3. make D_e and do external ECDH
-    mx25519_pubkey s_sender_receiver; auto dhe_wiper = auto_wiper(s_sender_receiver);
+    tools::scrubbed<mx25519_pubkey> s_sender_receiver;
     get_normal_proposal_ecdh_parts(proposal,
         input_context,
         output_enote_out.enote_ephemeral_pubkey,
         s_sender_receiver);
 
     // 4. build the output enote address pieces
-    crypto::hash s_sender_receiver_ctx; auto q_wiper = auto_wiper(s_sender_receiver_ctx);
+    tools::scrubbed<crypto::hash> s_sender_receiver_ctx;
     crypto::secret_key dummy_amount_blinding_factor;
     amount_commitment_t dummy_amount_commitment;
     encrypted_amount_t dummy_encrypted_amount;
@@ -384,14 +376,14 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // 3. make D_e and do external ECDH
-    mx25519_pubkey s_sender_receiver; auto dhe_wiper = auto_wiper(s_sender_receiver);
+    tools::scrubbed<mx25519_pubkey> s_sender_receiver;
     get_normal_proposal_ecdh_parts(proposal,
         input_context,
         output_enote_out.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
     // 4. build the output enote address pieces
-    crypto::hash s_sender_receiver_ctx; auto q_wiper = auto_wiper(s_sender_receiver_ctx);
+    tools::scrubbed<crypto::hash> s_sender_receiver_ctx;
     get_external_output_proposal_parts(s_sender_receiver,
         proposal.destination.address_spend_pubkey,
         proposal.destination.payment_id,
@@ -453,12 +445,12 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // 3. s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver; auto ecdh_wiper = auto_wiper(s_sender_receiver);
+    tools::scrubbed<mx25519_pubkey> s_sender_receiver;
     CARROT_CHECK_AND_THROW(k_view_dev.view_key_scalar_mult_x25519(explicit_enote_ephemeral_pubkey, s_sender_receiver),
         crypto_function_failed, "HW device failed to perform ECDH with ephemeral pubkey");
 
     // 4. build the output enote address pieces
-    crypto::hash s_sender_receiver_ctx; auto q_wiper = auto_wiper(s_sender_receiver_ctx);
+    tools::scrubbed<crypto::hash> s_sender_receiver_ctx;
     encrypted_payment_id_t dummy_encrypted_payment_id;
     get_external_output_proposal_parts(s_sender_receiver,
         proposal.destination_address_spend_pubkey,
@@ -514,7 +506,7 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
         tx_first_key_image);
 
     // 4. s^ctx_sr = H_32[s_vb](D_e, input_context)
-    crypto::hash s_sender_receiver_ctx; auto q_wiper = auto_wiper(s_sender_receiver_ctx);
+    tools::scrubbed<crypto::hash> s_sender_receiver_ctx;
     s_view_balance_dev.make_internal_sender_receiver_secret(enote_ephemeral_pubkey,
         input_context,
         s_sender_receiver_ctx);

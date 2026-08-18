@@ -146,6 +146,7 @@ void derive_scalar(const void *data, const std::size_t data_length, const void *
     hash_base(key, data, data_length, temp, 64);
     sc_reduce(temp);  //mod l
     memcpy(hash_out, temp, 32);
+    memwipe(temp, sizeof(temp));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
