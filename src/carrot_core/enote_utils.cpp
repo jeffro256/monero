@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -56,11 +56,6 @@ namespace
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static const ge_p3 H_p3 = crypto::get_H_p3();
-static const ge_p3 T_p3 = crypto::get_T_p3();
-static const mx25519_impl* auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO);
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
 /**
  * @brief encrypt and encode 64-bit amount with given encryption XOR mask
  */
@@ -91,14 +86,35 @@ static xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, const e
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 /**
+ * @brief R = x G + y A
+ */
+static void ge_double_scalarmult_base(ge_p1p1 *R, const unsigned char *x, const ge_p3 *A, const unsigned char *y)
+{
+    ge_p3 tmp1;
+    ge_cached tmp2;
+
+    ge_scalarmult_base(&tmp1, x);
+    ge_p3_to_cached(&tmp2, &tmp1);
+    ge_scalarmult_p3(&tmp1, y, A);
+    ge_add(R, &tmp1, &tmp2);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+/**
  * @brief calculate x G + y T
  */
 static crypto::public_key scalar_mult_gt(const crypto::ec_scalar &x, const crypto::ec_scalar &y)
 {
-    ge_p2 tmp1;
-    ge_double_scalarmult_base_vartime(&tmp1, to_bytes(y), &T_p3, to_bytes(x));
+    static ge_p3 T_p3 = crypto::get_T_p3(); //! @TODO: remove after #10963
+
+    ge_p1p1 tmp1;
+    ge_p2 tmp2;
     crypto::public_key P;
-    ge_tobytes(to_bytes(P), &tmp1);
+
+    ge_double_scalarmult_base(&tmp1, to_bytes(x), &T_p3, to_bytes(y));
+    ge_p1p1_to_p2(&tmp2, &tmp1);
+    ge_tobytes(to_bytes(P), &tmp2);
+
     return P;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -118,11 +134,13 @@ static void make_carrot_sender_extension_pubkey_coinbase(const crypto::hash &s_s
 {
     // k^o_g = H_n[s^ctx_sr]("..g..", a, K^0_s)
     crypto::secret_key sender_extension_g;
-    make_carrot_sender_extension_g_coinbase(s_sender_receiver_ctx, amount, main_address_spend_pubkey, sender_extension_g);
+    make_carrot_sender_extension_g_coinbase(s_sender_receiver_ctx, amount, main_address_spend_pubkey,
+        sender_extension_g);
 
     // k^o_t = H_n[s^ctx_sr]("..t..", a, K^0_s)
     crypto::secret_key sender_extension_t;
-    make_carrot_sender_extension_t_coinbase(s_sender_receiver_ctx, amount, main_address_spend_pubkey, sender_extension_t);
+    make_carrot_sender_extension_t_coinbase(s_sender_receiver_ctx, amount, main_address_spend_pubkey,
+        sender_extension_t);
 
     // K^o_ext = k^o_g G + k^o_t T
     sender_extension_pubkey_out = scalar_mult_gt(sender_extension_g, sender_extension_t);
@@ -171,19 +189,22 @@ void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
 void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &enote_ephemeral_privkey,
     mx25519_pubkey &enote_ephemeral_pubkey_out)
 {
+    static const mx25519_impl *auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO); //! @TODO: remove after #10965
+
     // D_e = d_e B
     mx25519_scmul_base(auto_mx25519_impl,
         &enote_ephemeral_pubkey_out,
         reinterpret_cast<const mx25519_privkey*>(&enote_ephemeral_privkey));
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
+bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     mx25519_pubkey &enote_ephemeral_pubkey_out)
 {
     // deserialize K^j_s
     ge_p3 address_spend_pubkey_p3;
-    ge_frombytes_vartime(&address_spend_pubkey_p3, to_bytes(address_spend_pubkey));
+    if (0 != ge_frombytes_vartime(&address_spend_pubkey_p3, to_bytes(address_spend_pubkey)))
+        return false;
 
     // K_e = d_e K^j_s
     ge_p3 D_e_in_ed25519;
@@ -191,9 +212,11 @@ void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &eno
 
     // D_e = ConvertPointE(K_e)
     ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519);
+
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     const bool is_subaddress,
     mx25519_pubkey &enote_ephemeral_pubkey_out)
@@ -201,7 +224,7 @@ void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemera
     if (is_subaddress)
     {
         // D_e = d_e ConvertPointE(K^j_s)
-        make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey,
+        return try_make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey,
             address_spend_pubkey,
             enote_ephemeral_pubkey_out);
     }
@@ -209,6 +232,7 @@ void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemera
     {
         // D_e = d_e B
         make_carrot_enote_ephemeral_pubkey_cryptonote(enote_ephemeral_privkey, enote_ephemeral_pubkey_out);
+        return true;
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -216,6 +240,8 @@ bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_out)
 {
+    static const mx25519_impl *auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO); //! @TODO: remove after #10965
+
     // s_sr = k_v D_e
     mx25519_scmul_key(auto_mx25519_impl,
         &s_sender_receiver_out,
@@ -229,6 +255,8 @@ bool try_make_carrot_shared_key_sender(const crypto::secret_key &enote_ephemeral
     const crypto::public_key &address_view_pubkey,
     mx25519_pubkey &s_sender_receiver_out)
 {
+    static const mx25519_impl *auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO); //! @TODO: remove after #10965
+
     // if K^j_v not in prime order subgroup, then FAIL
     if (!verify_point_is_in_main_subgroup(address_view_pubkey))
         return false;
@@ -394,12 +422,17 @@ void make_carrot_amount_blinding_factor(const crypto::hash &s_sender_receiver_ct
 //-------------------------------------------------------------------------------------------------------------------
 amount_commitment_t commit_carrot_amount(const xmr_amount amount, const crypto::secret_key &amount_blinding_factor)
 {
+    static ge_p3 H_p3 = crypto::get_H_p3(); //! @TODO: remove after #10963
+
     unsigned char amount32[32] = {0};
     memcpy_swap64le(amount32, &amount, 1);
-    ge_p2 tmp1;
-    ge_double_scalarmult_base_vartime(&tmp1, amount32, &H_p3, to_bytes(amount_blinding_factor));
+    ge_p1p1 tmp1;
+    ge_double_scalarmult_base(&tmp1, to_bytes(amount_blinding_factor), &H_p3, amount32);
+    ge_p2 tmp2;
+    ge_p1p1_to_p2(&tmp2, &tmp1);
+
     amount_commitment_t commitment;
-    ge_tobytes(to_bytes(commitment), &tmp1);
+    ge_tobytes(to_bytes(commitment), &tmp2);
     return commitment;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -524,22 +557,26 @@ bool try_recover_address_spend_pubkey(const crypto::public_key &onetime_address,
     const crypto::secret_key &sender_extension_t,
     crypto::public_key &address_spend_key_out)
 {
+    static ge_p3 T_p3 = crypto::get_T_p3(); //! @TODO: remove after #10963
+
+    ge_p1p1 tmp1;
+    ge_p3 tmp2;
+    ge_cached tmp3;
+
     // K^o_ext = k^o_g G + k^o_t T
-    ge_p3 tmp1;
-    ge_double_scalarmult_base_vartime_p3(&tmp1,
-        to_bytes(sender_extension_t), &T_p3, to_bytes(sender_extension_g));
-    ge_cached tmp2;
-    ge_p3_to_cached(&tmp2, &tmp1);
+    ge_double_scalarmult_base(&tmp1, to_bytes(sender_extension_g),
+        &T_p3, to_bytes(sender_extension_t));
+    ge_p1p1_to_p3(&tmp2, &tmp1);
+    ge_p3_to_cached(&tmp3, &tmp2);
 
     // Ko
-    if (0 != ge_frombytes_vartime(&tmp1, to_bytes(onetime_address)))
+    if (0 != ge_frombytes_vartime(&tmp2, to_bytes(onetime_address)))
         return false;
 
     // K^j_s = Ko - K^o_ext
-    ge_p1p1 tmp3;
-    ge_sub(&tmp3, &tmp1, &tmp2);
     ge_p2 tmp4;
-    ge_p1p1_to_p2(&tmp4, &tmp3);
+    ge_sub(&tmp1, &tmp2, &tmp3);
+    ge_p1p1_to_p2(&tmp4, &tmp1);
 
     // compress
     ge_tobytes(to_bytes(address_spend_key_out), &tmp4);
@@ -639,10 +676,11 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
 
     // recompute D_e' for d_e' and address type
     mx25519_pubkey nominal_enote_ephemeral_pubkey;
-    make_carrot_enote_ephemeral_pubkey(nominal_enote_ephemeral_privkey,
-        nominal_address_spend_pubkey,
-        is_subaddress,
-        nominal_enote_ephemeral_pubkey);
+    if (!try_make_carrot_enote_ephemeral_pubkey(nominal_enote_ephemeral_privkey,
+            nominal_address_spend_pubkey,
+            is_subaddress,
+            nominal_enote_ephemeral_pubkey))
+        return false;
 
     // D_e' ?= D_e
     return 0 == memcmp(&nominal_enote_ephemeral_pubkey, &enote_ephemeral_pubkey, sizeof(mx25519_pubkey));

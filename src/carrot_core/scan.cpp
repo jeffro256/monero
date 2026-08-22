@@ -34,7 +34,6 @@
 //local headers
 #include "destination.h"
 #include "enote_utils.h"
-#include "ringct/rctOps.h"
 #include "scan_unsafe.h"
 
 //third party headers

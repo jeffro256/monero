@@ -69,7 +69,7 @@ void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     crypto::secret_key &s_view_balance_out);
 /**
  * @brief Derive generate-image key preimage, for deriving the generate-image key
- *   s_gp = H_n[s_vb]()
+ *   s_gp = H_32[s_vb]()
  * @param s_view_balance s_vb
  * @param[out] s_generate_image_preimage_out s_gp
  */

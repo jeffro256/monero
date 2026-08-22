@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -79,7 +79,7 @@ void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
 void make_carrot_generateimage_preimage(const crypto::secret_key &s_view_balance,
     crypto::secret_key &s_generate_image_preimage_out)
 {
-    // s_gp = H_n[s_vb]()
+    // s_gp = H_32[s_vb]()
     const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_PREIMAGE>();
     derive_bytes_32(transcript.data(), transcript.size(), &s_view_balance, to_bytes(s_generate_image_preimage_out));
 }
