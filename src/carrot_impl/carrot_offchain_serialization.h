@@ -67,8 +67,11 @@ BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotDestinationV1)
     static constexpr uint8_t flag_is_subaddr = 1 << 0;
     static constexpr uint8_t flag_has_pid    = 1 << 1;
     uint8_t flags = 0;
-    if (v.is_subaddress) flags |= flag_is_subaddr;
-    if (v.payment_id != carrot::null_payment_id) flags |= flag_has_pid;
+    if (typename Archive<W>::is_saving())
+    {
+        if (v.is_subaddress) flags |= flag_is_subaddr;
+        if (v.payment_id != carrot::null_payment_id) flags |= flag_has_pid;
+    }
     FIELD(flags)
     v.is_subaddress = flags & flag_is_subaddr;
 
