@@ -6730,10 +6730,17 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         }
 
         std::stringstream prompt;
+        std::uint32_t subaddr_account{};
         for (size_t n = 0; n < ptx_vector.size(); ++n)
         {
           prompt << tr("\nTransaction ") << (n + 1) << "/" << ptx_vector.size() << ":\n";
-          subaddr_indices = ptx_vector.at(n).subaddr_indices;
+          tools::wallet::collect_selected_transfer_subaddress_info(ptx_vector.at(n).construction_data, transfers,
+            subaddr_account, subaddr_indices);
+          if (subaddr_account != m_current_subaddress_account)
+          {
+            fail_msg_writer() << tr("Transaction proposal is for a different account than currently selected.");
+            return false;
+          }
           for (uint32_t i : subaddr_indices)
             prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)

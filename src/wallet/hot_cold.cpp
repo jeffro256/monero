@@ -321,12 +321,14 @@ static std::function<carrot::InputProposalV1(const crypto::public_key&)> extend_
     };
 
     // collect new in-set transfers by one-time address (w/o correct key images)
-    std::unordered_map<crypto::public_key, carrot::InputProposalV1> inset_input_proposals;
+    wallet2_basic::transfer_container inset_tds;
+    inset_tds.reserve(unsigned_txs.new_transfers.size());
     for (const exported_transfer_details_variant &etd : unsigned_txs.new_transfers)
-    {
         const wallet2_basic::transfer_details td = import_cold_output(etd, addr_dev, dummy_key_image_device());
-        inset_input_proposals.emplace(td.get_public_key(), make_sal_opening_hint_from_transfer_details(td));
-    }
+    const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(inset_tds);
+    std::unordered_map<crypto::public_key, carrot::InputProposalV1> inset_input_proposals;
+    for (const auto &p : best_transfer_by_ota)
+        inset_input_proposals.emplace(p.first, make_sal_opening_hint_from_transfer_details(inset_tds.at(p.second)));
 
     // try to find in-set first, then use backup supplemental callback
     return [&, inset_input_proposals](const crypto::public_key &ota) -> carrot::InputProposalV1
@@ -1747,7 +1749,7 @@ void decrypt_exported_outputs(const std::string &payload,
 
     // version check
     const std::uint8_t msg_version = payload.at(magic_size);
-    THROW_WALLET_EXCEPTION_IF(msg_version < 5, error::wallet_internal_error, "outputs payload version too low");
+    THROW_WALLET_EXCEPTION_IF(msg_version < 4, error::wallet_internal_error, "outputs payload version too low");
 
     // decrypt
     const epee::wipeable_string decrypted_payload = decrypt_with_ec_key(payload.data() + prefix_size,

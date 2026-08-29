@@ -899,6 +899,61 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
     return selected_transfer_indices;
 }
 //-------------------------------------------------------------------------------------------------------------------
+void collect_selected_transfer_subaddress_info(const tx_reconstruct_variant_t &tx_construction_data,
+    const wallet2_basic::transfer_container &transfers,
+    std::uint32_t &subaddr_account,
+    std::set<std::uint32_t> &subaddr_indices)
+{
+    using namespace carrot;
+
+    subaddr_account = 0;
+    subaddr_indices.clear();
+
+    std::vector<subaddress_index> subaddr_indices_list;
+    struct collect_selected_transfer_subaddress_info_visitor
+    {
+        void operator()(const PreCarrotTransactionProposal &p) const
+        {
+            const std::vector<std::size_t> selected_transfer_indices = collect_selected_transfer_indices(p, transfers);
+            subaddr_indices_list.reserve(selected_transfer_indices.size());
+            for (const std::size_t i : selected_transfer_indices)
+            {
+                const cryptonote::subaddress_index &subaddr_index = transfers.at(i).m_subaddr_index;
+                subaddr_indices_list.push_back({subaddr_index.major, subaddr_index.minor});
+            }
+        }
+
+        void operator()(const CarrotTransactionProposalV1 &p) const
+        {
+            AddressDeriveType derive_type = AddressDeriveType::Auto;
+            subaddr_indices_list.reserve(p.input_proposals.size());
+            for (const InputProposalV1 &input_proposal : p.input_proposals)
+            {
+                const subaddress_index_extended subaddr_index = subaddress_index_ref(input_proposal);
+                const bool mixed = subaddr_index.derive_type != derive_type && derive_type != AddressDeriveType::Auto;
+                derive_type = subaddr_index.derive_type;
+                CARROT_CHECK_AND_THROW(!mixed, carrot_runtime_error, "Mixed address derivation types in tx proposal");
+                subaddr_indices_list.push_back(subaddr_index.index);
+            }
+        }
+
+        std::vector<subaddress_index> &subaddr_indices_list;
+        const wallet2_basic::transfer_container &transfers;
+    };
+    std::visit(collect_selected_transfer_subaddress_info_visitor{subaddr_indices_list, transfers},
+        tx_construction_data);
+
+    CARROT_CHECK_AND_THROW(!subaddr_indices_list.empty(), too_few_inputs, "Tx proposal contains no inputs");
+    for (size_t input_idx = 0; input_idx < subaddr_indices_list.size(); ++input_idx)
+    {
+        const subaddress_index &subaddr_index = subaddr_indices_list.at(input_idx);
+        CARROT_CHECK_AND_THROW(input_idx == 0 || subaddr_account == subaddr_index.major,
+            carrot_runtime_error, "Mixed account index in tx proposal");
+        subaddr_account = subaddr_index.major;
+        subaddr_indices.insert(subaddr_index.minor);
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
 cryptonote::transaction finalize_fcmps_and_range_proofs(
     const std::vector<crypto::key_image> &sorted_input_key_images,
     const std::vector<FcmpRerandomizedOutputCompressed> &sorted_rerandomized_outputs,
@@ -1383,8 +1438,6 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
     ptx.dests = std::move(dests);
     ptx.multisig_sigs = {};
     ptx.multisig_tx_key_entropy = {};
-    ptx.subaddr_account = subaddr_account;
-    ptx.subaddr_indices = std::move(subaddr_indices);
     ptx.construction_data = tx_proposal;
     return ptx;
 }

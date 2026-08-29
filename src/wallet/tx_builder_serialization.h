@@ -97,14 +97,14 @@ BEGIN_SERIALIZE_OBJECT_FN(PreCarrotTransactionProposal)
 END_SERIALIZE()
 //-------------------------------------------------------------------------------------------------------------------
 BEGIN_SERIALIZE_OBJECT_FN(pending_tx)
-    VERSION_FIELD(2)
+    VERSION_FIELD(1)
     FIELD_F(tx)
     FIELD_F(dust)
     FIELD_F(fee)
     FIELD_F(dust_added_to_fee)
     FIELD_F(change_dts)
-    if (version < 2)
     {
+        // ignore `selected_transfers` field entirely
         std::vector<std::size_t> selected_transfers;
         FIELD(selected_transfers)
     }
@@ -112,20 +112,7 @@ BEGIN_SERIALIZE_OBJECT_FN(pending_tx)
     FIELD_F(tx_key)
     FIELD_F(additional_tx_keys)
     FIELD_F(dests)
-    if (version < 2)
-    {
-        PreCarrotTransactionProposal pre_carrot_construction_data;
-        FIELD_N("construction_data", pre_carrot_construction_data)
-        v.construction_data = pre_carrot_construction_data;
-        v.subaddr_account = pre_carrot_construction_data.subaddr_account;
-        v.subaddr_indices = pre_carrot_construction_data.subaddr_indices;
-    }
-    else // version >= 2
-    {
-        FIELD_F(construction_data)
-        FIELD_F(subaddr_account)
-        FIELD_F(subaddr_indices)
-    }
+    FIELD_F(construction_data)
     FIELD_F(multisig_sigs)
     if (version < 1)
     {

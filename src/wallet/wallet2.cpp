@@ -7880,8 +7880,10 @@ void wallet2::commit_tx(pending_tx& ptx)
     return;
   }
 
-  const std::uint32_t subaddr_account = ptx.subaddr_account;
-  const std::set<std::uint32_t> &subaddr_indices = ptx.subaddr_indices;
+  std::uint32_t subaddr_account{};
+  std::set<std::uint32_t> subaddr_indices;
+  wallet::collect_selected_transfer_subaddress_info(ptx.construction_data, m_transfers,
+    subaddr_account, subaddr_indices);
   const std::vector<std::size_t> selected_transfers = wallet::collect_selected_transfer_indices(ptx.construction_data, m_transfers);
 
   crypto::hash payment_id = crypto::null_hash;
@@ -8067,7 +8069,7 @@ bool wallet2::sign_tx(const wallet::cold::UnsignedPreCarrotTransactionSet &expor
   if (!std::get<2>(exported_txs.new_transfers).empty())
     import_outputs(exported_txs.new_transfers);
   else if (!std::get<2>(exported_txs.transfers).empty())
-    import_outputs(exported_txs.transfers);
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Old, unverified exported transfer format not supported");
 
   // sign the transactions
   std::unordered_map<crypto::hash, crypto::secret_key> tx_keys;

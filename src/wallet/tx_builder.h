@@ -138,8 +138,6 @@ struct pending_tx
     std::vector<cryptonote::tx_destination_entry> dests;
     std::vector<multisig_sig> multisig_sigs;
     crypto::secret_key multisig_tx_key_entropy;
-    uint32_t subaddr_account;            // subaddress account of your wallet to be used in this transfer
-    std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
 
     tx_reconstruct_variant_t construction_data;
 };
@@ -273,6 +271,18 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
  */
 std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_variant_t &tx_construction_data,
     const wallet2_basic::transfer_container &transfers);
+/**
+ * @brief Collect subaddress index info about selected transfers for a tx proposal
+ * @param tx_construction_data tx proposal to pull input info from
+ * @param transfers existing transfer list used for `tx_construction_data` (optional for Carrot)
+ * @param[out] subaddr_account major subaddress index shared b/t inputs
+ * @param[out] subaddr_indices set of minor subaddress indices used in inputs
+ * @throw if 0 inputs, mixed major subaddress indices, or cannot find pre-Carrot info in `transfers`
+ */
+void collect_selected_transfer_subaddress_info(const tx_reconstruct_variant_t &tx_construction_data,
+    const wallet2_basic::transfer_container &transfers,
+    std::uint32_t &subaddr_account,
+    std::set<std::uint32_t> &subaddr_indices);
 /**
  * @brief Finalize FCMPs and BP+ range proofs for output amounts for Carrot/FCMP++ txs
  * @param sorted_input_key_images - key images in input order

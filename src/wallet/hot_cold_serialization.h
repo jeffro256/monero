@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 // 
@@ -140,7 +140,7 @@ struct outputs_message_v5
 //-------------------------------------------------------------------------------------------------------------------
 struct key_image_message_v3
 {
-    std::uint64_t offset;
+    std::uint32_t offset;
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
     std::vector<std::pair<crypto::key_image, crypto::signature>> univariate_key_image_proofs;
@@ -156,7 +156,7 @@ struct key_image_message_v3
 //-------------------------------------------------------------------------------------------------------------------
 struct key_image_message_v4
 {
-    std::uint64_t offset;
+    std::uint32_t offset;
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
     std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> key_image_proofs;
