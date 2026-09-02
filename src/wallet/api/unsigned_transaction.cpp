@@ -97,13 +97,16 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
 }
 
 //----------------------------------------------------------------------------------------------------
-bool UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
+void UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
 {
+    try
+    {
+
     if (m_tx_proposals.size() != num_unsigned_txs_ref(m_unsigned_tx_set))
     {
         m_status = Status_Error;
         m_errorString = tr("length of expanded unsigned tx set differs");
-        return false;
+        return;
     }
     //! @TODO: more consistency checks b/t `m_tx_proposals` and `m_unsigned_tx_set`
 
@@ -167,13 +170,13 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
             {
                 m_status = Status_Error;
                 m_errorString = tr("Claimed change does not go to a paid address");
-                return false;
+                return;
             }
             if (it->second.second < change_dst.amount)
             {
                 m_status = Status_Error;
                 m_errorString = tr("Claimed change is larger than payment to the change address");
-                return  false;
+                return;
             }
             if (!first_known_non_zero_change_dst)
                 first_known_non_zero_change_dst = change_dst;
@@ -181,7 +184,7 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
             {
                 m_status = Status_Error;
                 m_errorString = tr("Change goes to more than one address");
-                return false;
+                return;
             }
 
             change += change_dst.amount;
@@ -221,7 +224,13 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
         % change_string
         % (unsigned long)min_ring_size
         % extra_message).str();
-    return true;
+
+    }
+    catch (const std::exception &e)
+    {
+        this->m_status = Status_Error;
+        this->m_errorString = std::string(tr("Unexpected error while checking loaded transaction")) + ": " + e.what();
+    }
 }
 
 std::vector<uint64_t> UnsignedTransactionImpl::amount() const

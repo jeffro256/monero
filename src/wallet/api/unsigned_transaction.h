@@ -29,7 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "wallet/api/wallet2_api.h"
-#include "wallet/wallet2.h"
+#include "wallet/hot_cold.h"
 
 #include <string>
 #include <vector>
@@ -58,7 +58,7 @@ public:
 
 private:
     // Callback function to check all loaded tx's and generate confirmationMessage
-    bool checkLoadedTx(const std::string &extra_message);
+    void checkLoadedTx(const std::string &extra_message);
 
     friend class WalletImpl;
     WalletImpl &m_wallet;
