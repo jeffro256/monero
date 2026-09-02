@@ -76,6 +76,9 @@ static constexpr const unsigned char CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR[] = "Ca
 static constexpr const unsigned int CARROT_MIN_TX_OUTPUTS = 2;
 static constexpr const unsigned int CARROT_MIN_TX_INPUTS = 1;
 
+// Downstream knowledge proof domain separators
+static constexpr const unsigned char KNOWLEDGE_DOMAIN_SEP_KEY_IMAGE_PROOF[] = "Carrot key image knowledge proof";
+
 // Downstream hot/cold protocol domain separators
 static constexpr const unsigned char HOT_COLD_DOMAIN_SEP_NORMAL_JANUS_ANCHOR[] = "Carrot Hot-cold normal janus anchor";
 static constexpr const unsigned char HOT_COLD_DOMAIN_SEP_SPECIAL_EPHEM[] = "Carrot Hot-cold special ephemeral privkey";

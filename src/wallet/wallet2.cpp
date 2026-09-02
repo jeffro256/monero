@@ -100,6 +100,7 @@ using namespace epee;
 #include "carrot_impl/address_utils.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/key_image_device_composed.h"
+#include "carrot_impl/knowledge_proof_utils.h"
 #include "carrot_impl/spend_device_ram_borrowed.h"
 #include "carrot_impl/subaddress_map_legacy.h"
 #include "fcmp_pp/fcmp_pp_types.h"
@@ -8094,7 +8095,7 @@ bool wallet2::sign_tx(const wallet::cold::UnsignedPreCarrotTransactionSet &expor
     ptx.additional_tx_keys = m_additional_tx_keys.at(txid);
   }
 
-  // add key images
+  // add *all* key images
   signed_txes.key_images.resize(m_transfers.size());
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
@@ -8115,28 +8116,16 @@ bool wallet2::sign_tx(const wallet::cold::UnsignedCarrotTransactionSetV1 &export
   const auto addr_dev = this->get_cryptonote_address_device();
   const auto key_image_dev = this->get_key_image_device();
 
-  // expand and import exported outputs, send key images back
+  // import outputs
   const std::size_t n_new_transfers = exported_txs.new_transfers.size();
   if (n_new_transfers)
   {
-    wallet2_basic::transfer_container exported_transfers;
-    exported_transfers.reserve(n_new_transfers);
-    for (const wallet::cold::exported_transfer_details_variant &etd : exported_txs.new_transfers)
-    {
-      // expand
-      wallet2_basic::transfer_details &td = exported_transfers.emplace_back();
-      td = wallet::cold::import_cold_output(etd, *addr_dev, *key_image_dev);
-      // key image
-      signed_txs.other_key_images.emplace(td.get_public_key(), td.m_key_image);
-    }
-
-    // import
     import_outputs({exported_txs.starting_transfer_index,
       exported_txs.starting_transfer_index + n_new_transfers,
-      std::move(exported_transfers)});
+      exported_txs.new_transfers});
   }
-
-  // sign the transactions
+  
+  // sign the transactions and expand other key images + proofs
   std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> additional_tx_keys;
   wallet::cold::sign_carrot_tx_set_v1(exported_txs,
     wallet::cold::make_supplemental_input_proposals_fetcher(m_transfers),
@@ -11788,7 +11777,7 @@ uint64_t wallet2::cold_key_image_sync(uint64_t &spent, uint64_t &unspent) {
 
   dev_cold->ki_sync(&wallet_shim, m_transfers, ski_old);
 
-  std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> ski;
+  std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> ski;
   ski.reserve(ski_old.size());
   for (auto &p : ski_old)
     ski.emplace_back(p.first, std::move(p.second));
@@ -13443,10 +13432,10 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
 }
 
 //----------------------------------------------------------------------------------------------------
-std::pair<uint64_t, std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>>> wallet2::export_key_images(bool all) const
+std::pair<uint64_t, std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>>> wallet2::export_key_images(bool all) const
 {
   PERF_TIMER(export_key_images_raw);
-  std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> ski;
+  std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> ski;
 
   size_t offset = 0;
   if (!all)
@@ -13455,7 +13444,7 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, wallet::cold::KeyIm
       ++offset;
   }
 
-  const auto addr_dev = get_cryptonote_address_device();
+  const auto spend_dev = this->get_spend_device();
 
   ski.reserve(m_transfers.size() - offset);
   for (size_t n = offset; n < m_transfers.size(); ++n)
@@ -13463,12 +13452,10 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, wallet::cold::KeyIm
     const transfer_details &td = m_transfers[n];
     const carrot::OutputOpeningHintVariant opening_hint = wallet::make_sal_opening_hint_from_transfer_details(td);
 
-    std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant> &eki = ski.emplace_back();
-    wallet::cold::prove_key_image_proof(opening_hint,
-      *addr_dev,
-      m_account.get_keys().m_spend_secret_key,
-      eki.second,
-      eki.first);
+    std::pair<crypto::key_image, carrot::KeyImageProofVariant> &eki = ski.emplace_back();
+    const bool got_ki = spend_dev->try_make_key_image_association_proof(opening_hint, eki.first, eki.second);
+    THROW_WALLET_EXCEPTION_IF(!got_ki,
+      error::wallet_internal_error, "Spend device refused to make a key-image association proof");
   }
   return std::make_pair(offset, ski);
 }
@@ -13479,7 +13466,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   std::string data;
   bool r = load_from_file(filename, data);
 
-  std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> ski;
+  std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> ski;
   std::uint64_t offset;
   wallet::cold::decrypt_key_image_proofs(data,
     m_account.get_keys().m_account_address.m_spend_public_key,
@@ -13493,7 +13480,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::import_key_images(
-  const std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> &signed_key_images,
+  const std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &signed_key_images,
   const size_t offset,
   uint64_t &spent,
   uint64_t &unspent,
@@ -13523,7 +13510,7 @@ uint64_t wallet2::import_key_images(
   {
     const transfer_details &td = m_transfers[n + offset];
     const crypto::key_image &key_image = signed_key_images[n].first;
-    const KeyImageProofVariant &signature = signed_key_images[n].second;
+    const carrot::KeyImageProofVariant &signature = signed_key_images[n].second;
 
     // get ephemeral public key
     const crypto::public_key pkey = td.get_public_key();
@@ -13532,10 +13519,10 @@ uint64_t wallet2::import_key_images(
     {
       const bool use_biased_hash_to_point
         = carrot::use_biased_hash_to_point(wallet::make_sal_opening_hint_from_transfer_details(td));
-      THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(pkey, use_biased_hash_to_point, key_image, signature),
+      THROW_WALLET_EXCEPTION_IF(!carrot::validate_key_image_proof(pkey, use_biased_hash_to_point, key_image, signature),
           error::signature_check_failed, boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
-          + ", signature " + key_image_proof_to_readable_string(signature)  + ", pubkey " + epee::string_tools::pod_to_hex(pkey));
+          + ", signature " + carrot::key_image_proof_to_readable_string(signature)  + ", pubkey " + epee::string_tools::pod_to_hex(pkey));
     }
     req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
   }
@@ -14406,7 +14393,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   for (const wallet::cold::exported_pre_carrot_transfer_details &cold_output : std::get<2>(outputs))
     expanded_outputs.push_back(wallet::cold::import_cold_pre_carrot_output(cold_output,
       *this->get_cryptonote_address_device(),
-      *this->get_key_image_device()));
+      this->get_key_image_device().get()));
 
   // import in `wallet2_basic::transfer_details` form
   return import_outputs({std::get<0>(outputs), std::get<1>(outputs), std::move(expanded_outputs)});
@@ -14420,7 +14407,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   for (const wallet::cold::exported_transfer_details_variant &cold_output : std::get<2>(outputs))
     expanded_outputs.push_back(wallet::cold::import_cold_output(cold_output,
       *this->get_cryptonote_address_device(),
-      *this->get_key_image_device()));
+      this->get_key_image_device().get()));
 
   // import in `wallet2_basic::transfer_details` form
   return import_outputs({std::get<0>(outputs), std::get<1>(outputs), std::move(expanded_outputs)});

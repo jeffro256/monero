@@ -303,28 +303,23 @@ static std::vector<RerandomizationScalars> expand_rerandomization_scalars(const 
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static wallet2_basic::transfer_container import_cold_outputs(const std::vector<exported_transfer_details_variant> &etds,
+    const carrot::cryptonote_hierarchy_address_device &addr_dev,
+    const carrot::key_image_device *key_image_dev)
+{
+    wallet2_basic::transfer_container res;
+    res.reserve(etds.size());
+    for (const exported_transfer_details_variant &etd : etds)
+        res.push_back(import_cold_output(etd, addr_dev, key_image_dev));
+    return res;
+}
+//-------------------------------------------------------------------------------------------------------------------
 static std::function<carrot::InputProposalV1(const crypto::public_key&)> extend_supplemental_input_proposals_fetcher(
     const std::function<carrot::InputProposalV1(const crypto::public_key&)> &supplemental_input_proposals,
-    const UnsignedCarrotTransactionSetV1 &unsigned_txs,
-    const carrot::cryptonote_hierarchy_address_device &addr_dev)
+    const wallet2_basic::transfer_container &inset_tds)
 {
-    // fake key image device
-    struct dummy_key_image_device final: public carrot::key_image_device
-    {
-        crypto::key_image derive_key_image(const carrot::OutputOpeningHintVariant&) const final
-        { return {}; }
-        crypto::key_image derive_key_image_prescanned(const crypto::secret_key &,
-            const crypto::public_key &,
-            const carrot::subaddress_index_extended &,
-            const bool) const final
-        { return {}; }
-    };
-
     // collect new in-set transfers by one-time address (w/o correct key images)
-    wallet2_basic::transfer_container inset_tds;
-    inset_tds.reserve(unsigned_txs.new_transfers.size());
-    for (const exported_transfer_details_variant &etd : unsigned_txs.new_transfers)
-        const wallet2_basic::transfer_details td = import_cold_output(etd, addr_dev, dummy_key_image_device());
     const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(inset_tds);
     std::unordered_map<crypto::public_key, carrot::InputProposalV1> inset_input_proposals;
     for (const auto &p : best_transfer_by_ota)
@@ -338,69 +333,6 @@ static std::function<carrot::InputProposalV1(const crypto::public_key&)> extend_
             return inset_it->second;
         return supplemental_input_proposals(ota);
     };
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static crypto::hash ki2hash(const crypto::key_image &ki)
-{
-    return carrot::raw_byte_convert<crypto::hash>(ki);
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static FcmpRerandomizedOutputCompressed ota_to_ki_proof_rerand_out(const crypto::public_key &onetime_address,
-    const bool use_biased_hash_to_point)
-{
-    // I = Hp(O)
-    crypto::ec_point I;
-    crypto::derive_key_image_generator(onetime_address, use_biased_hash_to_point, I);
-
-    // r_o = r_i = r_r_i = r_c = 0
-    FcmpRerandomizedOutputCompressed o{};
-    // O~ = O
-    memcpy(o.input.O_tilde, onetime_address.data, sizeof(o.input.O_tilde));
-    // I~ = I
-    memcpy(o.input.I_tilde, I.data, sizeof(o.input.I_tilde));
-    // R = 0
-    memcpy(o.input.R, rct::I.bytes, sizeof(o.input.R));
-    // C~ = 0
-    memcpy(o.input.C_tilde, rct::I.bytes, sizeof(o.input.C_tilde));
-    return o;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static void prove_ring_signature_key_image_proof(const crypto::secret_key &x,
-    crypto::signature &ki_proof_out,
-    crypto::key_image &key_image_out)
-{
-    // O = x G
-    crypto::public_key onetime_address;
-    crypto::secret_key_to_public_key(x, onetime_address);
-
-    // L = x Hp(O)
-    crypto::generate_key_image(onetime_address, x, key_image_out);
-
-    crypto::generate_ring_signature(ki2hash(key_image_out), key_image_out, {&onetime_address}, x, 0, &ki_proof_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static void prove_fcmp_sal_key_image_proof(const crypto::secret_key &x,
-    const crypto::secret_key &y,
-    const bool use_biased_hash_to_point,
-    fcmp_pp::FcmpPpSalProof &ki_proof_out,
-    crypto::key_image &key_image_out)
-{
-    // O = x G + y T
-    crypto::public_key onetime_address;
-    crypto::secret_key_to_public_key(x, onetime_address);
-    onetime_address = rct::rct2pk(rct::addKeys(rct::pk2rct(onetime_address),
-        rct::scalarmultKey(rct::pk2rct(crypto::get_T()), rct::sk2rct(y))));
-
-    // L = x Hp(O)
-    crypto::derive_key_image_generator(onetime_address, use_biased_hash_to_point, key_image_out);
-    key_image_out = rct::rct2ki(rct::scalarmultKey(rct::pt2rct(key_image_out), rct::sk2rct(x)));
-
-    std::tie(ki_proof_out, key_image_out) = fcmp_pp::prove_sal(ki2hash(key_image_out),
-        x, y, ota_to_ki_proof_rerand_out(onetime_address, use_biased_hash_to_point));
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -613,7 +545,7 @@ exported_transfer_details_variant export_cold_output(const wallet2_basic::transf
 //-------------------------------------------------------------------------------------------------------------------
 wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev)
+    const carrot::key_image_device *key_image_dev)
 {
     wallet2_basic::transfer_details td{};
 
@@ -671,17 +603,21 @@ wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre
         td.m_mask = rct::I;
     }
 
-    const carrot::LegacyOutputOpeningHintV1 opening_hint{
-        .onetime_address = etd.m_pubkey,
-        .ephemeral_tx_pubkey = etd.m_tx_pubkey,
-        .subaddr_index = {etd.m_subaddr_index_major, etd.m_subaddr_index_minor},
-        .amount = etd.m_amount,
-        .amount_blinding_factor = rct::rct2sk(td.m_mask),
-        .local_output_index = static_cast<std::size_t>(etd.m_internal_output_index)
-    };
-    td.m_key_image = key_image_dev.derive_key_image(opening_hint);
-    td.m_key_image_known = true;
-    td.m_key_image_request = true;
+    if (key_image_dev)
+    {
+        const carrot::LegacyOutputOpeningHintV1 opening_hint{
+            .onetime_address = etd.m_pubkey,
+            .ephemeral_tx_pubkey = etd.m_tx_pubkey,
+            .subaddr_index = {etd.m_subaddr_index_major, etd.m_subaddr_index_minor},
+            .amount = etd.m_amount,
+            .amount_blinding_factor = rct::rct2sk(td.m_mask),
+            .local_output_index = static_cast<std::size_t>(etd.m_internal_output_index)
+        };
+
+        td.m_key_image = key_image_dev->derive_key_image(opening_hint);
+        td.m_key_image_known = true;
+    }
+    td.m_key_image_request = !key_image_dev;
     td.m_key_image_partial = false;
 
     return td;
@@ -689,7 +625,7 @@ wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre
 //-------------------------------------------------------------------------------------------------------------------
 wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev)
+    const carrot::key_image_device *key_image_dev)
 {
     wallet2_basic::transfer_details td{};
 
@@ -800,9 +736,12 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
         };
     }
 
-    td.m_key_image = key_image_dev.derive_key_image(opening_hint);
-    td.m_key_image_known = true;
-    td.m_key_image_request = true;
+    if (key_image_dev)
+    {
+        td.m_key_image = key_image_dev->derive_key_image(opening_hint);
+        td.m_key_image_known = true;
+    }
+    td.m_key_image_request = !key_image_dev;
     td.m_key_image_partial = false;
 
     return td;
@@ -810,7 +749,7 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
 //-------------------------------------------------------------------------------------------------------------------
 wallet2_basic::transfer_details import_cold_output(const exported_transfer_details_variant &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev)
+    const carrot::key_image_device *key_image_dev)
 {
     struct import_cold_output_visitor
     {
@@ -825,7 +764,7 @@ wallet2_basic::transfer_details import_cold_output(const exported_transfer_detai
         }
 
         const carrot::cryptonote_hierarchy_address_device &addr_dev;
-        const carrot::key_image_device &key_image_dev;
+        const carrot::key_image_device *key_image_dev;
     };
 
     return std::visit(import_cold_output_visitor{addr_dev, key_image_dev}, etd);
@@ -903,8 +842,10 @@ void expand_carrot_transaction_proposals(const UnsignedCarrotTransactionSetV1 &u
     tx_proposals_out.clear();
     tx_proposals_out.reserve(unsigned_txs.tx_proposals.size());
 
+    const auto imported_tds = import_cold_outputs(unsigned_txs.new_transfers, addr_dev, nullptr);
+
     const auto supplemental_and_inset_input_proposals = extend_supplemental_input_proposals_fetcher(
-        supplemental_input_proposals, unsigned_txs, addr_dev);
+        supplemental_input_proposals, imported_tds);
 
     for (const HotColdCarrotTransactionProposalV1 &cold_tx_proposal : unsigned_txs.tx_proposals)
     {
@@ -1095,7 +1036,7 @@ UnsignedTransactionSetVariant generate_unsigned_tx_set_from_pending_txs(
     }
     else
     {
-        CARROT_CHECK_AND_THROW(false,
+        CARROT_THROW(
             carrot::component_out_of_order, "cannot make unsigned tx set with pending txs of unrecognized type");
     }
 
@@ -1283,12 +1224,15 @@ void sign_carrot_tx_set_v1(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
         signed_txs_out.tx_proposals.clear();
 
     signed_txs_out.signed_inputs.clear();
+    signed_txs_out.other_key_images.clear();
 
     ephemeral_tx_privkeys_out.clear();
 
+    const auto imported_tds = import_cold_outputs(unsigned_txs.new_transfers, addr_dev, &spend_dev);
+
     // fetcher of input proposals / opening hints which tries provided in-set first
     const auto supplemental_and_inset_input_proposals = extend_supplemental_input_proposals_fetcher(
-        supplemental_opening_hints, unsigned_txs, addr_dev);
+        supplemental_opening_hints, imported_tds);
 
     // for each hot/cold tx proposal...
     for (const HotColdCarrotTransactionProposalV1 &tx_proposal : unsigned_txs.tx_proposals)
@@ -1357,6 +1301,24 @@ void sign_carrot_tx_set_v1(const UnsignedCarrotTransactionSetV1 &unsigned_txs,
             input_key_images.at(0),
             ephemeral_tx_privkeys_out[signable_tx_hash],
             enote_order);
+    }
+
+    // for each new transfer that wasn't used to sign a transation, export the key image + proof
+    const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(imported_tds);
+    for (const auto &p : best_transfer_by_ota)
+    {
+        const wallet2_basic::transfer_details &td = imported_tds.at(p.second);
+        CARROT_CHECK_AND_THROW(td.m_key_image_known,
+            carrot::unexpected_scan_failure, "Key image not present in imported transfer details");
+        const bool is_in_signed_set = signed_txs_out.signed_inputs.count(td.m_key_image);
+        if (is_in_signed_set)
+            continue;
+
+        auto &ki = signed_txs_out.other_key_images[p.first];
+        const carrot::OutputOpeningHintVariant opening_hint = make_sal_opening_hint_from_transfer_details(td);
+        const bool got_ki = spend_dev.try_make_key_image_association_proof(opening_hint, ki.first, ki.second);
+        CARROT_CHECK_AND_THROW(got_ki, carrot::carrot_runtime_error,
+            "Device refused to make a key image association proof");
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -1431,19 +1393,11 @@ void finalize_proofs_for_signed_carrot_tx_set_v1(const SignedCarrotTransactionSe
     rerandomized_outputs.reserve(n_txs);
     input_pairs.reserve(n_txs);
     expanded_tx_proposals_out.reserve(n_txs);
-    const auto input_proposals_by_ota = [&signed_txs, &supplemental_opening_hints](const crypto::public_key &ota)
-        -> carrot::InputProposalV1
-    {
-        const auto signed_txs_it = signed_txs.tx_input_proposals.find(ota);
-        if (signed_txs_it != signed_txs.tx_input_proposals.cend())
-            return signed_txs_it->second;
-        return supplemental_opening_hints(ota);
-    };
     for (const HotColdCarrotTransactionProposalV1 &cold_tx_proposal : cold_tx_proposals)
     {
         carrot::CarrotTransactionProposalV1 &expanded_tx_proposal = expanded_tx_proposals_out.emplace_back();
         expand_carrot_transaction_proposal_and_rerandomized_outputs(cold_tx_proposal,
-            input_proposals_by_ota,
+            supplemental_opening_hints,
             addr_dev,
             key_image_dev,
             expanded_tx_proposal,
@@ -1536,156 +1490,12 @@ SignedFullTransactionSet finalize_signed_carrot_tx_set_v1_into_full_set(
         ptx.additional_tx_keys.clear();
     }
 
-    full_signed_txs.tx_key_images = signed_txs.other_key_images;
+    // collect other key images, stripping proofs ;(
+    full_signed_txs.tx_key_images.reserve(signed_txs.other_key_images.size());
+    for (const auto &p : signed_txs.other_key_images)
+        full_signed_txs.tx_key_images.emplace(p.first, p.second.first);
 
     return full_signed_txs;
-}
-//-------------------------------------------------------------------------------------------------------------------
-void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
-    const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const crypto::secret_key &k_spend,
-    KeyImageProofVariant &ki_proof_out,
-    crypto::key_image &key_image_out)
-{
-    // x = k_s
-    crypto::secret_key x = k_spend;
-
-    // x += k^j_subext
-    const carrot::subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
-    CARROT_CHECK_AND_THROW(subaddr_index.derive_type == carrot::AddressDeriveType::PreCarrot,
-        carrot::unexpected_scan_failure, "currently unsupported to make key image proofs with carrot keys derive type");
-    crypto::secret_key subaddr_extension_g;
-    crypto::secret_key dummy_subaddress_scalar;
-    addr_dev.get_address_openings({{subaddr_index.index.major, subaddr_index.index.minor}},
-        subaddr_extension_g, dummy_subaddress_scalar);
-    assert(dummy_subaddress_scalar == crypto::secret_key{{1}});
-    sc_add(to_bytes(x), to_bytes(subaddr_extension_g), to_bytes(x));
-
-    // K_s = k_s G
-    crypto::public_key main_address_spend_pubkey;
-    addr_dev.get_address_spend_pubkey({}, main_address_spend_pubkey);
-
-    const bool is_univariate = std::holds_alternative<carrot::LegacyOutputOpeningHintV1>(opening_hint);
-
-    // get k^g_o, k^t_o
-    crypto::secret_key sender_extension_g;
-    crypto::secret_key sender_extension_t;
-    const bool ki_scan_res = try_scan_opening_hint_sender_extensions(opening_hint,
-        addr_dev,
-        /*s_view_balance_dev=*/nullptr,
-        &addr_dev,
-        sender_extension_g,
-        sender_extension_t);
-    CARROT_CHECK_AND_THROW(ki_scan_res,
-        carrot::unexpected_scan_failure, "failed to scan legacy opening hint for key image proof");
-    CARROT_CHECK_AND_THROW(!is_univariate || sender_extension_t == crypto::null_skey,
-        carrot::unexpected_scan_failure, "sender extension over T is non-zero: cannot make univariate key image proof");
-
-    // x += k^g_o
-    sc_add(to_bytes(x), to_bytes(sender_extension_g), to_bytes(x));
-
-    const crypto::public_key onetime_address = onetime_address_ref(opening_hint);
-    bool use_biased_hash_to_point = false;
-    if (is_univariate)
-    {
-        // x G ?= O
-        crypto::public_key recomputed_onetime_address;
-        crypto::secret_key_to_public_key(x, recomputed_onetime_address);
-        CARROT_CHECK_AND_THROW(recomputed_onetime_address == onetime_address,
-            carrot::unexpected_scan_failure, "failed to correctly recompute OTA for legacy opening hint");
-
-        use_biased_hash_to_point = true;
-        crypto::signature ki_proof;
-        prove_ring_signature_key_image_proof(x, ki_proof, key_image_out);
-        ki_proof_out = ki_proof;
-    }
-    else
-    {
-        // x G + y T ?= O
-        crypto::public_key recomputed_onetime_address;
-        crypto::secret_key_to_public_key(x, recomputed_onetime_address);
-        recomputed_onetime_address = rct::rct2pk(rct::addKeys(rct::pk2rct(recomputed_onetime_address),
-            rct::scalarmultKey(rct::pk2rct(crypto::get_T()), rct::sk2rct(sender_extension_t))));
-        CARROT_CHECK_AND_THROW(recomputed_onetime_address == onetime_address,
-            carrot::unexpected_scan_failure, "failed to correctly recompute OTA for bi-variate opening hint");
-
-        use_biased_hash_to_point = carrot::use_biased_hash_to_point(opening_hint);
-        fcmp_pp::FcmpPpSalProof ki_proof;
-        prove_fcmp_sal_key_image_proof(x,
-            sender_extension_t,
-            use_biased_hash_to_point,
-            ki_proof,
-            key_image_out);
-        ki_proof_out = ki_proof;
-    }
-
-    THROW_WALLET_EXCEPTION_IF(!validate_key_image_proof(onetime_address, use_biased_hash_to_point, key_image_out, ki_proof_out),
-        error::signature_check_failed, std::string("key image proof immediately failed verification")
-            + ": one-time address " + epee::string_tools::pod_to_hex(onetime_address)
-            + ", key image " + epee::string_tools::pod_to_hex(key_image_out)
-            + ", signature " + key_image_proof_to_readable_string(ki_proof_out)
-            + ", univariate " + std::to_string(is_univariate)
-            + ", subaddress " + std::to_string(subaddr_index.index.is_subaddress()));
-
-    MDEBUG("Proved key image " << epee::string_tools::pod_to_hex(key_image_out) << " is associated to one-time address"
-        << epee::string_tools::pod_to_hex(onetime_address));
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_address,
-    const crypto::key_image &key_image,
-    const crypto::signature &ki_proof)
-{
-    MDEBUG("Validating key image " << epee::string_tools::pod_to_hex(key_image) << " association to one-time address "
-        << epee::string_tools::pod_to_hex(onetime_address) << " using bLSAG signature");
-
-    const bool ki_in_main_group = rct::scalarmultKey(rct::ki2rct(key_image), rct::curveOrder()) == rct::identity();
-    CHECK_AND_ASSERT_MES(ki_in_main_group, false,
-        "Key image out of validity domain: " << epee::string_tools::pod_to_hex(key_image));
-
-    return crypto::check_ring_signature(ki2hash(key_image),
-        key_image,
-        {&onetime_address},
-        &ki_proof);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
-    const bool use_biased_hash_to_point,
-    const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof)
-{
-    MDEBUG("Validating key image " << epee::string_tools::pod_to_hex(key_image) << " association to one-time address "
-        << epee::string_tools::pod_to_hex(onetime_address) << " using FCMP++ SA/L signature");
-
-    const bool ki_in_main_group = rct::scalarmultKey(rct::ki2rct(key_image), rct::curveOrder()) == rct::identity();
-    CHECK_AND_ASSERT_MES(ki_in_main_group, false,
-        "Key image out of validity domain: " << epee::string_tools::pod_to_hex(key_image));
-
-    return fcmp_pp::verify_sal(ki2hash(key_image),
-        ota_to_ki_proof_rerand_out(onetime_address, use_biased_hash_to_point).input,
-        key_image,
-        ki_proof);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool validate_key_image_proof(const crypto::public_key &onetime_address,
-    const bool use_biased_hash_to_point,
-    const crypto::key_image &key_image,
-    const KeyImageProofVariant &ki_proof)
-{
-    struct validate_key_image_proof_visitor
-    {
-        bool operator()(const crypto::signature &p) const
-        { return validate_ring_signature_key_image_proof(onetime_address, key_image, p);}
-        bool operator()(const fcmp_pp::FcmpPpSalProof &p) const
-        { return validate_fcmp_pp_sal_key_image_proof(onetime_address, use_biased_hash_to_point, key_image, p);}
-
-        const crypto::public_key &onetime_address;
-        const bool use_biased_hash_to_point;
-        const crypto::key_image &key_image;
-    };
-
-    return std::visit(
-        validate_key_image_proof_visitor{onetime_address, use_biased_hash_to_point, key_image},
-        ki_proof);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void encrypt_exported_outputs(const std::uint64_t transfers_offset,
@@ -1799,7 +1609,7 @@ void decrypt_exported_outputs(const std::string &payload,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void encrypt_key_image_proofs(const std::uint64_t offset,
-    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs,
+    const std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &key_image_proofs,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
@@ -1863,7 +1673,7 @@ void decrypt_key_image_proofs(const std::string &payload,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::uint64_t &offset_out,
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs_out)
+    std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &key_image_proofs_out)
 {
     offset_out = 0;
     key_image_proofs_out.clear();
@@ -2053,47 +1863,6 @@ void decrypt_signed_tx_set(const std::string payload,
     {
         THROW_WALLET_EXCEPTION(error::wallet_internal_error, "unrecognized unsigned tx set payload version");
     }
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::string key_image_proof_to_readable_string(const KeyImageProofVariant &ki_proof)
-{
-    struct key_image_proof_to_readable_string_visitor
-    {
-        std::string operator()(const crypto::signature &s) const
-        { return epee::string_tools::pod_to_hex(s); }
-        std::string operator()(const fcmp_pp::FcmpPpSalProof &s) const
-        { return epee::to_hex::string(epee::to_span(s) ); }
-    };
-    return std::visit(key_image_proof_to_readable_string_visitor{}, ki_proof);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_key_image_proof_from_readable_string(const std::string &str, KeyImageProofVariant &ki_proof_out)
-{
-    constexpr std::size_t max_byte_size = FCMP_PP_SAL_PROOF_SIZE_V1;
-
-    if (str.size() > max_byte_size * 2 || str.size() % 2 == 1)
-        return false;
-
-    // decode hex into bytes
-    std::vector<std::uint8_t> bytes;
-    bytes.resize(str.size() / 2);
-    if (!epee::from_hex::to_buffer(epee::to_mut_span(bytes), str))
-        return false;
-
-    // depending on size of bytes, set variant
-    switch (bytes.size())
-    {
-    case sizeof(crypto::signature):
-        memcpy(&ki_proof_out.emplace<crypto::signature>(), bytes.data(), sizeof(crypto::signature));
-        break;
-    case FCMP_PP_SAL_PROOF_SIZE_V1:
-        ki_proof_out = std::move(bytes);
-        break;
-    default:
-        return false;
-    }
-
-    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace cold

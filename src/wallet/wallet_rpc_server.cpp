@@ -41,6 +41,7 @@ using namespace epee;
 #include "wallet_rpc_server.h"
 #include "wallet/wallet_args.h"
 #include "carrot_impl/format_utils.h"
+#include "carrot_impl/knowledge_proof_utils.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
 #include "common/scoped_message_writer.h"
@@ -3158,13 +3159,13 @@ namespace tools
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
     try
     {
-      std::pair<uint64_t, std::vector<std::pair<crypto::key_image, tools::wallet::cold::KeyImageProofVariant>>> ski = m_wallet->export_key_images(req.all);
+      std::pair<uint64_t, std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>>> ski = m_wallet->export_key_images(req.all);
       res.offset = ski.first;
       res.signed_key_images.resize(ski.second.size());
       for (size_t n = 0; n < ski.second.size(); ++n)
       {
          res.signed_key_images[n].key_image = epee::string_tools::pod_to_hex(ski.second[n].first);
-         res.signed_key_images[n].signature = wallet::cold::key_image_proof_to_readable_string(ski.second[n].second);
+         res.signed_key_images[n].signature = carrot::key_image_proof_to_readable_string(ski.second[n].second);
       }
     }
 
@@ -3179,7 +3180,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_import_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    using tools::wallet::cold::KeyImageProofVariant;
+    using carrot::KeyImageProofVariant;
     if (m_restricted)
     {
       er.code = WALLET_RPC_ERROR_CODE_DENIED;
@@ -3207,7 +3208,7 @@ namespace tools
           return false;
         }
 
-        if (!wallet::cold::try_key_image_proof_from_readable_string(req.signed_key_images[n].signature, ski[n].second))
+        if (!carrot::try_key_image_proof_from_readable_string(req.signed_key_images[n].signature, ski[n].second))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
           er.message = "failed to parse signature";

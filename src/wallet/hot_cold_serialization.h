@@ -159,7 +159,7 @@ struct key_image_message_v4
     std::uint32_t offset;
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> key_image_proofs;
+    std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> key_image_proofs;
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(offset)
@@ -284,7 +284,6 @@ END_SERIALIZE()
 BEGIN_SERIALIZE_OBJECT_FN(SignedCarrotTransactionSetV1, uint32_t version = (uint32_t)-1)
     PASSTHROUGH_VERSION(1, 1)
     FIELD_F(tx_proposals)
-    FIELD_F(tx_input_proposals)
     FIELD_F(signed_inputs)
     FIELD_F(other_key_images)
 END_SERIALIZE()

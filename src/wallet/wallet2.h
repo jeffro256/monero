@@ -1197,8 +1197,8 @@ private:
     std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
     void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
     bool export_key_images(const std::string &filename, bool all = false) const;
-    std::pair<uint64_t, std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>>> export_key_images(bool all = false) const;
-    uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, wallet::cold::KeyImageProofVariant>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
+    std::pair<uint64_t, std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>>> export_key_images(bool all = false) const;
+    uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
     uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
     bool import_key_images(std::vector<crypto::key_image> key_images, size_t offset=0, boost::optional<std::unordered_set<size_t>> selected_transfers=boost::none);
     void import_key_images(std::unordered_map<crypto::public_key, crypto::key_image> key_image_by_ota);

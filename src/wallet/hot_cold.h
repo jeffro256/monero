@@ -256,11 +256,10 @@ struct SignedFullTransactionSet
 struct SignedCarrotTransactionSetV1
 {
     std::vector<HotColdCarrotTransactionProposalV1> tx_proposals;
-    std::unordered_map<crypto::public_key, carrot::InputProposalV1> tx_input_proposals;
 
     carrot::spend_device::signed_input_set_t signed_inputs;
 
-    std::unordered_map<crypto::public_key, crypto::key_image> other_key_images;
+    std::unordered_map<crypto::public_key, std::pair<crypto::key_image, carrot::KeyImageProofVariant>> other_key_images;
 };
 
 /**
@@ -269,15 +268,6 @@ struct SignedCarrotTransactionSetV1
 using SignedTransactionSetVariant = std::variant<
         SignedFullTransactionSet,
         SignedCarrotTransactionSetV1
-    >;
-
-/**
- * @brief Variation between any key image association proof
- */
-using KeyImageProofVariant = std::variant<
-        crypto::signature,       // prove L = x Hp(O), s.t. O = x G
-        fcmp_pp::FcmpPpSalProof  // prove L = x Hp(O), s.t. O = x G + y T
-        //! @TODO: variant which allows k_gi proving without knowledge of k_ps
     >;
 
 /**
@@ -304,32 +294,32 @@ exported_transfer_details_variant export_cold_output(const wallet2_basic::transf
  * @brief Convert compressed pre-Carrot exported output into expanded transfer details, and calculate key image
  * @param etd compressed pre-Carrot exported output
  * @param addr_dev address device
- * @param key_image_dev key image device
+ * @param key_image_dev key image device (optional)
  * @return expanded transfer details, with key image filled in
  */
 wallet2_basic::transfer_details import_cold_pre_carrot_output(const exported_pre_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev);
+    const carrot::key_image_device *key_image_dev);
 /**
  * @brief Convert compressed post-Carrot exported output into expanded transfer details, and calculate key image
  * @param etd compressed post-Carrot exported output
  * @param addr_dev address device
- * @param key_image_dev key image device
+ * @param key_image_dev key image device (optional)
  * @return expanded transfer details, with key image filled in
  */
 wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_transfer_details &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev);
+    const carrot::key_image_device *key_image_dev);
 /**
  * @brief Convert compressed any type exported output into expanded transfer details, and calculate key image
  * @param etd compressed exported output
  * @param addr_dev address device
- * @param key_image_dev key image device
+ * @param key_image_dev key image device (optional)
  * @return expanded transfer details, with key image filled in
  */
 wallet2_basic::transfer_details import_cold_output(const exported_transfer_details_variant &etd,
     const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const carrot::key_image_device &key_image_dev);
+    const carrot::key_image_device *key_image_dev);
 /**
  * @brief Convert Carrot transaction intent into compressed hot-cold form, losing random fields
  * @param tx_proposal
@@ -488,53 +478,6 @@ SignedFullTransactionSet finalize_signed_carrot_tx_set_v1_into_full_set(
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees);
 /**
- * @brief Prove one-time address <-> key image association on generic output for legacy account
- * @param opening_hint
- * @param addr_dev address device
- * @param k_spend private spend key
- * @param[out] ki_proof_out key image association proof
- * @param[out] key_image_out key image
- */
-void prove_key_image_proof(const carrot::OutputOpeningHintVariant &opening_hint,
-    const carrot::cryptonote_hierarchy_address_device &addr_dev,
-    const crypto::secret_key &k_spend,
-    KeyImageProofVariant &ki_proof_out,
-    crypto::key_image &key_image_out);
-/**
- * @brief Validate a one-time address <-> key image association proof for a pre-Carrot output
- * @param onetime_address
- * @param key_image
- * @param ki_proof key image association proof
- * @return true iff association proof passes validation
- */
-bool validate_ring_signature_key_image_proof(const crypto::public_key &onetime_address,
-    const crypto::key_image &key_image,
-    const crypto::signature &ki_proof);
-/**
- * @brief Validate a one-time address <-> key image association proof (SA/L variant) for a Carrot output
- * @param onetime_address
- * @param use_biased_hash_to_point
- * @param key_image
- * @param ki_proof key image association proof
- * @return true iff association proof passes validation
- */
-bool validate_fcmp_pp_sal_key_image_proof(const crypto::public_key &onetime_address,
-    const bool use_biased_hash_to_point,
-    const crypto::key_image &key_image,
-    const fcmp_pp::FcmpPpSalProof &ki_proof);
-/**
- * @brief Validate a one-time address <-> key image association proof for a generic output
- * @param onetime_address
- * @param use_biased_hash_to_point
- * @param key_image
- * @param ki_proof key image association proof
- * @return true iff association proof passes validation
- */
-bool validate_key_image_proof(const crypto::public_key &onetime_address,
-    const bool use_biased_hash_to_point,
-    const crypto::key_image &key_image,
-    const KeyImageProofVariant &ki_proof);
-/**
  * @brief Encode and encrypt (to k_v) exported output information
  * @param transfers_offset index into transfers list that export starts at
  * @param transfers_size size of local transfers list
@@ -580,7 +523,7 @@ void decrypt_exported_outputs(const std::string &payload,
  * @param[out] payload_out encrypted message containing `key_image_proofs`, and K_s
  */
 void encrypt_key_image_proofs(const std::uint64_t offset,
-    const std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs,
+    const std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &key_image_proofs,
     const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
@@ -601,7 +544,7 @@ void decrypt_key_image_proofs(const std::string &payload,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     std::uint64_t &offset_out,
-    std::vector<std::pair<crypto::key_image, KeyImageProofVariant>> &key_image_proofs_out);
+    std::vector<std::pair<crypto::key_image, carrot::KeyImageProofVariant>> &key_image_proofs_out);
 /**
  * @brief Encode and encrypt (to k_v) unsigned transaction set
  * @param unsigned_txs
@@ -650,19 +593,6 @@ void decrypt_signed_tx_set(const std::string payload,
     const crypto::secret_key &k_view,
     const std::uint64_t kdf_rounds,
     SignedTransactionSetVariant &signed_txs_out);
-/**
- * @brief Encode key image association proof into a hex string
- * @param ki_proof key key image association proof
- * @return hex string representing `ki_proof`
- */
-std::string key_image_proof_to_readable_string(const KeyImageProofVariant &ki_proof);
-/**
- * @brief Decode key image association proof from a hex string
- * @param str hex string
- * @param[out] ki_proof_out key key image association proof
- * @return true iff hex string successfully decodes as a key image association proof
- */
-bool try_key_image_proof_from_readable_string(const std::string &str, KeyImageProofVariant &ki_proof_out);
 
 } //namespace cold
 } //namespace wallet
