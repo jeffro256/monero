@@ -226,15 +226,14 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::string &extra_message)
 
 std::vector<uint64_t> UnsignedTransactionImpl::amount() const
 {
-    wallet2_basic::transfer_container transfers;
-    m_wallet.m_wallet->get_transfers(transfers);
+    const auto k_view_dev = this->m_wallet.m_wallet->get_view_incoming_key_device();
 
     std::vector<uint64_t> result;
     result.reserve(8 * m_tx_proposals.size()); // just a guess
     for (const tools::wallet::tx_reconstruct_variant_t &tx_proposal : m_tx_proposals) {
-        const auto selected_transfers = tools::wallet::collect_selected_transfer_indices(tx_proposal, transfers);
-        for (const std::size_t selected_transfer_idx : selected_transfers)
-            result.push_back(transfers.at(selected_transfer_idx).amount());
+        const auto dsts = tools::wallet::user_destinations(tx_proposal, *k_view_dev);
+        for (const cryptonote::tx_destination_entry &dst : dsts)
+            result.push_back(dst.amount);
     }
     return result;
 }

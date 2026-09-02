@@ -243,6 +243,25 @@ static carrot::InputCandidate make_input_candidate(const wallet2_basic::transfer
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+std::vector<cryptonote::tx_destination_entry> user_destinations(const tx_reconstruct_variant_t &v,
+    const carrot::view_incoming_key_device &k_view_dev)
+{
+    struct user_destinations_visitor
+    {
+        std::vector<cryptonote::tx_destination_entry> operator()(const PreCarrotTransactionProposal &p) const
+        {
+            return p.dests;
+        }
+        std::vector<cryptonote::tx_destination_entry> operator()(const carrot::CarrotTransactionProposalV1 &p) const
+        {
+            std::vector<crypto::key_image> fake_key_images(p.input_proposals.size());
+            return make_pending_carrot_tx(p, fake_key_images, k_view_dev).dests;
+        }
+        const carrot::view_incoming_key_device &k_view_dev;
+    };
+    return std::visit(user_destinations_visitor{k_view_dev}, v);
+}
+//-------------------------------------------------------------------------------------------------------------------
 std::vector<cryptonote::tx_destination_entry> finalized_destinations(const tx_reconstruct_variant_t &v,
     const carrot::view_incoming_key_device &k_view_dev)
 {

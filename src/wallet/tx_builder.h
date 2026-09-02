@@ -95,6 +95,9 @@ using tx_reconstruct_variant_t = std::variant<
         PreCarrotTransactionProposal,
         carrot::CarrotTransactionProposalV1
     >;
+/// original user-supplied destinations (AKA not split and no change) [requires view-incoming key]
+std::vector<cryptonote::tx_destination_entry> user_destinations(const tx_reconstruct_variant_t&,
+    const carrot::view_incoming_key_device &k_view_dev);
 /// destinations for finalized enote (AKA split and w/ change) [requires view-incoming key]
 std::vector<cryptonote::tx_destination_entry> finalized_destinations(const tx_reconstruct_variant_t&,
     const carrot::view_incoming_key_device &k_view_dev);
