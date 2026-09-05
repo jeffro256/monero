@@ -46,7 +46,6 @@
 #include "carrot_impl/tx_proposal.h"
 #include "common/apply_permutation.h"
 #include "crypto/crypto.h"
-#include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fcmp_pp/prove.h"
 #include "hot_cold_serialization.h"
@@ -1135,6 +1134,7 @@ void sign_pre_carrot_tx_set(const UnsignedPreCarrotTransactionSet &unsigned_txs,
         ptx.dust = 0;
         ptx.dust_added_to_fee = false;
         ptx.change_dts = sd.change_dts;
+        ptx.selected_transfers = sd.selected_transfers; // for backwards compatability
         ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
         ptx.dests = sd.dests;
         ptx.construction_data = sd;
@@ -1510,18 +1510,47 @@ void encrypt_exported_outputs(const std::uint64_t transfers_offset,
     crypto::public_key main_address_view_pubkey;
     crypto::secret_key_to_public_key(k_view, main_address_view_pubkey);
 
-    // serialize payload
-    outputs_message_v5 msg{
-        .main_address_spend_pubkey = account_spend_pubkey,
-        .main_address_view_pubkey = main_address_view_pubkey,
-        .transfers_offset = transfers_offset,
-        .transfers_size = transfers_size,
-        .outputs = outputs
-    };
+    // use v4 iff all outputs are pre-Carrot
+    bool use_v4 = true;
+    for (const exported_transfer_details_variant &etd : outputs)
+    {
+        if (!std::holds_alternative<exported_pre_carrot_transfer_details>(etd))
+        {
+            use_v4 = false;
+            break;
+        }
+    }
 
+    // serialize payload
     std::string plaintext_payload;
-    THROW_WALLET_EXCEPTION_IF(!::serialization::dump_binary(msg, plaintext_payload),
-        error::wallet_internal_error, "outputs payload v5 failed to serialize");
+    if (use_v4)
+    {
+        std::vector<exported_pre_carrot_transfer_details> outputs_v4;
+        outputs_v4.reserve(outputs.size());
+        for (const exported_transfer_details_variant &etd : outputs)
+            outputs_v4.push_back(std::get<exported_pre_carrot_transfer_details>(etd));
+        outputs_message_v4 msg{
+            .main_address_spend_pubkey = account_spend_pubkey,
+            .main_address_view_pubkey = main_address_view_pubkey,
+            .outputs = {transfers_offset, transfers_size, std::move(outputs_v4)}
+        };
+
+        THROW_WALLET_EXCEPTION_IF(!::serialization::dump_binary(msg, plaintext_payload),
+            error::wallet_internal_error, "outputs payload v4 failed to serialize");
+    }
+    else // use v5
+    {
+        outputs_message_v5 msg{
+            .main_address_spend_pubkey = account_spend_pubkey,
+            .main_address_view_pubkey = main_address_view_pubkey,
+            .transfers_offset = transfers_offset,
+            .transfers_size = transfers_size,
+            .outputs = outputs
+        };
+
+        THROW_WALLET_EXCEPTION_IF(!::serialization::dump_binary(msg, plaintext_payload),
+            error::wallet_internal_error, "outputs payload v5 failed to serialize");
+    }
 
     // encrypt
     payload_out = encrypt_with_ec_key(plaintext_payload.data(),
@@ -1532,7 +1561,7 @@ void encrypt_exported_outputs(const std::uint64_t transfers_offset,
     memwipe(&plaintext_payload[0], plaintext_payload.size());
 
     // add prefix
-    static constexpr char msg_version = 5;
+    const char msg_version = use_v4 ? 4 : 5;
     payload_out.insert(payload_out.begin(), msg_version);
     payload_out.insert(0, OUTPUT_EXPORT_FILE_MAGIC);
 }
@@ -1596,10 +1625,10 @@ void decrypt_exported_outputs(const std::string &payload,
             tools::error::wallet_internal_error, "outputs payload meant for another wallet");
         THROW_WALLET_EXCEPTION_IF(msg.main_address_view_pubkey != main_address_view_pubkey,
             tools::error::wallet_internal_error, "outputs payload meant for another wallet");
-        transfers_offset_out = msg.transfers_offset;
-        transfers_size_out = msg.transfers_size;
-        outputs_out.reserve(msg.outputs.size());
-        for (exported_pre_carrot_transfer_details &etd : msg.outputs)
+        transfers_offset_out = std::get<0>(msg.outputs);
+        transfers_size_out = std::get<1>(msg.outputs);
+        outputs_out.reserve(std::get<2>(msg.outputs).size());
+        for (exported_pre_carrot_transfer_details &etd : std::get<2>(msg.outputs))
             outputs_out.emplace_back(std::move(etd));
     }
     else

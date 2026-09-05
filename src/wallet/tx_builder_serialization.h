@@ -103,16 +103,26 @@ BEGIN_SERIALIZE_OBJECT_FN(pending_tx)
     FIELD_F(fee)
     FIELD_F(dust_added_to_fee)
     FIELD_F(change_dts)
-    {
-        // ignore `selected_transfers` field entirely
-        std::vector<std::size_t> selected_transfers;
-        FIELD(selected_transfers)
-    }
+    FIELD_F(selected_transfers)
     FIELD_F(key_images)
     FIELD_F(tx_key)
     FIELD_F(additional_tx_keys)
     FIELD_F(dests)
-    FIELD_F(construction_data)
+    const bool legacy_ctx_data = v.tx.version == 1
+        || (v.tx.version == 2 && v.tx.rct_signatures.type < rct::RCTTypeFcmpPlusPlus);
+    if (legacy_ctx_data)
+    {
+        PreCarrotTransactionProposal *pconstruction_data = typename Archive<W>::is_saving()
+            ? std::get_if<PreCarrotTransactionProposal>(&v.construction_data)
+            : &v.construction_data.emplace<PreCarrotTransactionProposal>();
+        if (nullptr == pconstruction_data)
+            return false;
+        FIELD_N("construction_data", *pconstruction_data)
+    }
+    else
+    {
+        FIELD_F(construction_data)
+    }
     FIELD_F(multisig_sigs)
     if (version < 1)
     {

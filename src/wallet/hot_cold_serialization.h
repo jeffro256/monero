@@ -106,15 +106,11 @@ struct outputs_message_v4
 {
     crypto::public_key main_address_spend_pubkey;
     crypto::public_key main_address_view_pubkey;
-    std::uint64_t transfers_offset; 
-    std::uint64_t transfers_size;
-    std::vector<exported_pre_carrot_transfer_details> outputs;
+    std::tuple<std::uint64_t, std::uint64_t, std::vector<exported_pre_carrot_transfer_details>> outputs;
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        FIELD(transfers_offset)
-        FIELD(transfers_size)
         FIELD(outputs)
     END_SERIALIZE()
 };
@@ -131,8 +127,8 @@ struct outputs_message_v5
     BEGIN_SERIALIZE_OBJECT()
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        FIELD(transfers_offset)
-        FIELD(transfers_size)
+        VARINT_FIELD(transfers_offset)
+        VARINT_FIELD(transfers_size)
         FIELD(outputs)
     END_SERIALIZE()
 };
@@ -149,7 +145,20 @@ struct key_image_message_v3
         FIELD(offset)
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        FIELD(univariate_key_image_proofs)
+        using elem_t = std::pair<crypto::key_image, crypto::signature>;
+        constexpr size_t elem_size = 3 * 32;
+        static_assert(std::has_unique_object_representations_v<elem_t>);
+        static_assert(sizeof(elem_t) == elem_size);
+        ar.tag("univariate_key_image_proofs");
+        if constexpr (!typename Archive<W>::is_saving())
+        {
+            const size_t n_bytes_remaining = ar.remaining_bytes();
+            if (n_bytes_remaining % elem_size)
+                return false;
+            const size_t n_kis = n_bytes_remaining / elem_size;
+            univariate_key_image_proofs.resize(n_kis);
+        }
+        ar.serialize_blob(univariate_key_image_proofs.data(), elem_size * univariate_key_image_proofs.size());
     END_SERIALIZE()
 };
 //-------------------------------------------------------------------------------------------------------------------
