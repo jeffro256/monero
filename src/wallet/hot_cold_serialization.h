@@ -145,10 +145,7 @@ struct key_image_message_v3
         FIELD(offset)
         FIELD(main_address_spend_pubkey)
         FIELD(main_address_view_pubkey)
-        using elem_t = std::pair<crypto::key_image, crypto::signature>;
-        constexpr size_t elem_size = 3 * 32;
-        static_assert(std::has_unique_object_representations_v<elem_t>);
-        static_assert(sizeof(elem_t) == elem_size);
+        constexpr size_t elem_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
         ar.tag("univariate_key_image_proofs");
         if constexpr (!typename Archive<W>::is_saving())
         {
@@ -158,7 +155,13 @@ struct key_image_message_v3
             const size_t n_kis = n_bytes_remaining / elem_size;
             univariate_key_image_proofs.resize(n_kis);
         }
-        ar.serialize_blob(univariate_key_image_proofs.data(), elem_size * univariate_key_image_proofs.size());
+        ar.begin_array();
+        for (auto &ki : univariate_key_image_proofs)
+        {
+            ar.serialize_blob(&ki.first, sizeof(crypto::key_image));
+            ar.serialize_blob(&ki.second, sizeof(crypto::signature));
+        }
+        ar.end_array();
     END_SERIALIZE()
 };
 //-------------------------------------------------------------------------------------------------------------------
