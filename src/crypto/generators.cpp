@@ -91,8 +91,6 @@ static ge_cached T_cached;
 static ge_cached U_cached;
 static ge_cached V_cached;
 
-// misc
-static std::once_flag init_gens_once_flag;
 
 //-------------------------------------------------------------------------------------------------------------------
 // hash-to-point: H_p(x) = unbiased_hash_to_ec(x)
@@ -195,8 +193,9 @@ static public_key reproduce_generator_V()
 //-------------------------------------------------------------------------------------------------------------------
 static void init_gens()
 {
+    static std::once_flag init_gens_once_flag;
     std::call_once(init_gens_once_flag,
-        [&](){
+        [](){
 
         // sanity check the generators
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
