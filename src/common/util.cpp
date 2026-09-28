@@ -916,13 +916,8 @@ std::string get_nix_version_display_string()
 
     if (parsed_ip.is_loopback())
     {
-      const boost::asio::ip::tcp::endpoint &ep = *i;
-      if (ep.address().is_loopback())
-      {
-        MDEBUG("Address '" << address << "' is local");
-        return true;
-      }
-      ++i;
+      MDEBUG("Address '" << address << "' is local");
+      return true;
     }
 
     MDEBUG("Address '" << address << "' is not local");

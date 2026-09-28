@@ -199,22 +199,11 @@ namespace nodetool
     boost::optional<peerlist_storage> out = open(src_file, true);
     if (!out)
     {
-      // if failed, try reading in unportable mode
-      boost::filesystem::copy_file(path, path + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
-      src_file.close();
-      src_file.open( path , std::ios_base::binary | std::ios_base::in);
-      if(src_file.fail())
-        return boost::none;
-
-      out = open(src_file, false);
-      if (!out)
-      {
         // This is different from the `return boost::none` cases above. Those
         // cases could fail due to bad file permissions, so a shutdown is
         // likely more appropriate.
         MWARNING("Failed to load p2p config file, falling back to default config");
         out.emplace();
-      }
     }
 
     return out;

@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <boost/numeric/conversion/bounds.hpp>
 #include <boost/regex.hpp>
 
 #include "misc_language.h"

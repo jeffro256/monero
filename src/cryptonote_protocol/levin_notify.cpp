@@ -877,7 +877,7 @@ namespace levin
             // this will change a local/forward tx to stem or fluff ...
             boost::asio::dispatch(
               zone_->strand,
-              dandelionpp_notify{zone_, core_, std::move(txs), source, tx_relay}
+              dandelionpp_notify{zone_, core_, std::move(txs), source}
             );
             break;
           }

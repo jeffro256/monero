@@ -28,6 +28,7 @@
 #define _FILE_IO_UTILS_H_
 
 #include <string>
+#include <cstdint>
 #include <ctime>
 
 namespace epee
